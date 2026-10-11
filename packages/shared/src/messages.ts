@@ -36,7 +36,11 @@ export const S2C = {
   Died: "died",
   /** Uma criatura morreu (para animação de morte; a remoção do estado vem em seguida). */
   CreatureDied: "creatureDied",
+  /** Você foi teletransportado (portal). x,y = novo tile. */
+  Teleported: "teleported",
 } as const;
+
+export interface TeleportedMsg { x: number; y: number }
 
 export type ChatRecvMsg = ChatMessage;
 export interface CombatMsg { events: CombatEvent[] }

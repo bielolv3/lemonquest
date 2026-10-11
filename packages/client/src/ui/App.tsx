@@ -4,6 +4,7 @@ import { Login } from "./Login.tsx";
 import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { Hud } from "./hud/Hud.tsx";
+import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { WorldMapOverlay, ZoneBanner } from "./minimap/Minimap.tsx";
 
 export function App() {
@@ -19,6 +20,7 @@ export function App() {
       <Chat />
       <WorldMapOverlay />
       <ZoneBanner />
+      <TeleportFade />
     </>
   );
 }
