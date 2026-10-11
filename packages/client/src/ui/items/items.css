@@ -70,12 +70,12 @@ body.item-dragging, body.item-dragging * { cursor: grabbing !important; user-sel
 
 /* Controles ao lado do cabeçalho */
 .hud-section-headrow { position: relative; }
-.hud-section-controls { position: absolute; right: 38px; top: 0; height: 26px; display: flex; align-items: center; }
+.hud-section-controls { position: absolute; right: 32px; top: 0; height: 26px; display: flex; align-items: center; }
 
 /* ---------- Modos de batalha ---------- */
 .fight-modes { display: flex; align-items: center; gap: 2px; padding: 1px; border-radius: 4px; background: rgba(0, 0, 0, 0.25); }
 .fm-btn {
-  width: 20px; height: 20px; padding: 0; display: grid; place-items: center; cursor: pointer;
+  width: 18px; height: 18px; padding: 0; display: grid; place-items: center; cursor: pointer;
   background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--hud-faint) !important;
   transition: background-color 120ms, color 120ms, border-color 120ms;
 }
