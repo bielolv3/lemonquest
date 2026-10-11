@@ -6,7 +6,8 @@ import { Tilesets, GameMap, mulberry32, noise2, fbm, blobTable, blobMask, bfs, r
 import { S } from './stamps.mjs';
 
 const SEED = 20260611;
-const W = 160, H = 120;
+// Overworld = rows 0..OW_H-1. Dungeons live far below (>= 26 tiles of solid void between them and any overworld tile).
+const W = 160, OW_H = 120, DY = 62, H = 182;
 const rng = mulberry32(SEED);
 const rnd = (a, b) => a + rng() * (b - a);
 const ri = (a, b) => Math.floor(rnd(a, b + 1));
@@ -20,8 +21,8 @@ const idx = (x, y) => y * W + x;
 const inb = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
 
 // ===================================================================== regions
-const CAVE = { x0: 0, x1: 56, y0: 84, y1: H - 1 };
-const CRYPT = { x0: 104, x1: W - 1, y0: 98, y1: H - 1 };
+const CAVE = { x0: 0, x1: 56, y0: 84 + DY, y1: H - 1 };
+const CRYPT = { x0: 104, x1: W - 1, y0: 98 + DY, y1: H - 1 };
 const TOWN = { x0: 60, x1: 100, y0: 77, y1: 113 };
 const inRect = (r, x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
 
@@ -29,6 +30,7 @@ function regionAt(x, y) {
   if (inRect(CAVE, x, y)) return 'cave';
   if (inRect(CRYPT, x, y)) return 'crypt';
   if (inRect(TOWN, x, y)) return 'town';
+  if (y >= OW_H) return 'void';
   const w = (fbm(x, y, 12, 5) - 0.5) * 10;
   if (y <= 37 + w && x >= 86 + w) return 'ruins';
   if (x >= 104 + w && y >= 39 + w && y <= 97) return 'swamp';
@@ -115,6 +117,7 @@ road([[42, 20], [38, 12]], 2);
 road([[20, 60], [19, 59]], 2);
 
 // ---------------------------------------------------------------- monster spawns (declared early to carve trails + clearings)
+const dy = (sp) => [...sp.slice(0, 5), sp[5] + DY]; // dungeon spawns are authored in the old (pre-offset) coordinates
 const spawns = [
   // forest 1-10
   ['rat', 4, 5, 1, 70, 62], ['rat', 3, 4, 2, 26, 72], ['slime', 4, 5, 3, 50, 64], ['slime', 3, 5, 4, 34, 60], ['slime', 4, 5, 5, 90, 60],
@@ -127,9 +130,9 @@ const spawns = [
   // bosses
   ['goblin_king', 1, 3, 40, 128, 19], ['swamp_lich', 1, 3, 25, 146, 88],
   // caves (Cavernas)
-  ['snake', 3, 4, 12, 28, 106], ['spider', 3, 4, 16, 30, 107], ['snake', 3, 4, 14, 14, 92], ['bat', 4, 5, 18, 30, 91], ['skeleton', 4, 5, 22, 47, 93], ['skeleton', 3, 5, 24, 46, 109], ['bat', 3, 4, 20, 10, 109],
+  ...[['snake', 3, 4, 12, 28, 106], ['spider', 3, 4, 16, 30, 107], ['snake', 3, 4, 14, 14, 92], ['bat', 4, 5, 18, 30, 91], ['skeleton', 4, 5, 22, 47, 93], ['skeleton', 3, 5, 24, 46, 109], ['bat', 3, 4, 20, 10, 109]].map(dy),
   // crypt (Cripta)
-  ['skeleton', 3, 4, 30, 112, 108], ['ghost', 3, 5, 35, 148, 108], ['ghost', 3, 4, 34, 128, 102], ['skeleton', 3, 4, 32, 130, 112],
+  ...[['skeleton', 3, 4, 30, 112, 108], ['ghost', 3, 5, 35, 148, 108], ['ghost', 3, 4, 34, 128, 102], ['skeleton', 3, 4, 32, 130, 112]].map(dy),
 ];
 // clearings + trails for overworld spawns
 for (const [m, , r, , x, y] of spawns) {
@@ -189,7 +192,7 @@ STYLE.town = STYLE.forest;
 const WATER_FILL_ALT = null;
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const r = reg(x, y);
-  if (r === 'cave' || r === 'crypt') continue;
+  if (r === 'cave' || r === 'crypt' || r === 'void') continue;
   const st = STYLE[r] ?? STYLE.forest;
   const [gc, gr] = rng() < 0.16 ? pick(st.tufts) : st.grass[0];
   map.put('ground', x, y, 'F', gc, gr);
@@ -415,6 +418,7 @@ scatterDecor();
 // ===================================================================== DUNGEONS (Cavernas + Cripta)
 const floorG = new Uint8Array(W * H);
 function carve(x0, y0, x1, y1, chamfer = 0) {
+  y0 += DY; y1 += DY;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if (chamfer) { const dx = Math.min(x - x0, x1 - x), dy = Math.min(y - y0, y1 - y); if (dx + dy < chamfer) continue; }
     floorG[idx(x, y)] = 1;
@@ -444,7 +448,7 @@ carve(137, 111, 141, 112);      // hall->J
 carve(142, 102, 155, 114, 2);   // J big
 carve(150, 99, 151, 101);       // J nub (north)
 
-for (const [px, py, pw, ph] of [[27, 102, 2, 2], [31, 111, 2, 2], [44, 90, 2, 2], [50, 96, 2, 2], [43, 107, 2, 2], [50, 110, 2, 2], [9, 91, 2, 2], [111, 106, 2, 2], [114, 111, 2, 2], [145, 105, 2, 2], [151, 111, 2, 2], [126, 113, 2, 1]]) for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) floorG[idx(px + i, py + j)] = 0;
+for (const [px, py, pw, ph] of [[27, 102, 2, 2], [31, 111, 2, 2], [44, 90, 2, 2], [50, 96, 2, 2], [43, 107, 2, 2], [50, 110, 2, 2], [9, 91, 2, 2], [111, 106, 2, 2], [114, 111, 2, 2], [145, 105, 2, 2], [151, 111, 2, 2], [126, 113, 2, 1]]) for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) floorG[idx(px + i, py + j + DY)] = 0;
 const dungeonRegionOf = (x, y) => (inRect(CAVE, x, y) ? 'cave' : inRect(CRYPT, x, y) ? 'crypt' : null);
 const isFloor = (x, y) => inb(x, y) && floorG[idx(x, y)] === 1;
 // wall set: non-floor cells near a floor cell
@@ -458,7 +462,8 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
 }
 const isWall = (x, y) => inb(x, y) && wall[idx(x, y)] === 1;
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  const dr = dungeonRegionOf(x, y); if (!dr) continue;
+  const dr = dungeonRegionOf(x, y);
+  if (!dr) { if (y >= OW_H) { map.put('ground', x, y, 'O', 1, 1); map.block(x, y); } continue; } // solid void between overworld and dungeons
   map.put('ground', x, y, 'O', 1, 1); // void
   if (isFloor(x, y)) {
     if (dr === 'cave') {
@@ -497,11 +502,11 @@ function dungeonDecor() {
   }
 }
 for (const s of spawns) if (!isLand(s[4], s[5])) map.reserve(s[4] - 2, s[5] - 2, 5, 5);
-map.reserve(9, 103, 5, 4); map.reserve(129, 105, 5, 7);
+map.reserve(9, 103 + DY, 5, 4); map.reserve(129, 105 + DY, 5, 7);
 dungeonDecor();
 // dungeon portals: exit doors in the wall north of the entry rooms
-map.put('deco', 11, 103, 'D', 1, 0); map.block(11, 103, false); // cave exit (hole door)
-map.put('deco', 131, 107, 'D', 2, 0); map.block(131, 107, false); // crypt exit (skull door)
+map.put('deco', 11, 103 + DY, 'D', 1, 0); map.block(11, 103 + DY, false); // cave exit (hole door)
+map.put('deco', 131, 107 + DY, 'D', 2, 0); map.block(131, 107 + DY, false); // crypt exit (skull door)
 // ensure the wall cells north of the exits are walls with proper rows (they already are); keep neighbours blocked
 
 // ===================================================================== OBJECTS
@@ -513,8 +518,8 @@ const npcs = [
 ];
 const portals = [
   // [x, y, toX, toY]
-  [128, 62, 11, 105], [11, 103, 128, 63],
-  [106, 16, 131, 109], [131, 107, 106, 17],
+  [128, 62, 11, 105 + DY], [11, 103 + DY, 128, 63],
+  [106, 16, 131, 109 + DY], [131, 107 + DY, 106, 17],
 ];
 const portalMap = new Map(portals.map(([x, y, tx, ty]) => [x + ',' + y, [tx, ty]]));
 // guard captain stands beside the north gate: make sure tile is free
@@ -530,8 +535,8 @@ const zones = [
   ['Vila de Pedra Clara', 58, 76, 46, 40, '36 - Village.ogg'],
   ['Ruínas de Kael', 86, 3, 71, 35, '30 - Ruins.ogg'],
   ['Pântano Turvo', 104, 38, 53, 59, '14 - Curse.ogg'],
-  ['Cavernas', 0, 84, 57, 36, '2 - The Cave.ogg'],
-  ['Cripta', 104, 98, 56, 22, '40 - Crypt.ogg'],
+  ['Cavernas', 0, 84 + DY, 57, 36, '2 - The Cave.ogg'],
+  ['Cripta', 104, 98 + DY, 56, 22, '40 - Crypt.ogg'],
 ];
 for (const [name, x, y, w, h, music] of zones) map.addObject({ type: 'zone', name, x: x * 16, y: y * 16, width: w * 16, height: h * 16, rect: true, props: { music } });
 
