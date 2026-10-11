@@ -1,7 +1,7 @@
 // Harness de desenvolvimento (?fxtest, só em modo dev): cria criaturas falsas e dispara eventos de combate
 // a cada segundo para validar visualmente barras de HP, números, projéteis, mortes e level-up sem servidor.
 import {
-  DIR_DELTA, MONSTERS, SPELLS, spellDef,
+  DIR_DELTA, ITEMS, MONSTERS, NPCS, RARITIES, SPELLS, spellDef, type ItemInstance, type Rarity,
   type CombatEvent, type ConditionId, type DamageKind, type MonsterView, type PlayerView, type SpellCastMsg, type SpellDef, type SpellFx,
 } from "@tibinha/shared";
 import type { WorldScene } from "../scenes/WorldScene.ts";
@@ -94,6 +94,8 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     () => { const m = pick(alive()); if (m) hurtMe(m, rnd(5, 25)); },
     () => { const m = pick(alive()); if (m) hitMonster(m, { miss: true }); },
     () => { const m = pick(alive()); if (m) hitMonster(m, { kind: pick(KINDS), amount: rnd(15, 60), ranged: Math.random() < 0.5 }); },
+    () => scene.onCombat([{ sourceId: ME, targetId: ME, amount: 35, kind: "mana" }]),
+    () => scene.onCombat([{ sourceId: "m0", targetId: ME, amount: 12, kind: "mana" }]),
     () => { me.hp = Math.min(me.maxHp, me.hp + 40); scene.onCombat([{ sourceId: ME, targetId: ME, amount: 40, kind: "heal" }]); scene.onPlayerChange(ME, me); publish(); },
     () => { const m = pick(alive()); if (m) hurtMe(m, rnd(45, 60), { crit: true, ranged: true, kind: "physical" }); },
     () => { const m = pick(alive()); if (m) hitMonster(m, { amount: rnd(5, 20) }); },
@@ -185,6 +187,38 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
   };
   (window as unknown as Record<string, unknown>).__fx = fxApi;
   scene.events.once("shutdown", () => { window.clearInterval(spellTimer); window.clearInterval(condTimer); window.clearInterval(manaTimer); });
+
+  // --- NPCs falsos, falas e loot ------------------------------------------------------------------
+  const free: { x: number; y: number }[] = [];
+  for (let r = 2; r <= 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) === r && walkable(spawn.x + dx, spawn.y + dy)) free.push({ x: spawn.x + dx, y: spawn.y + dy });
+  }
+  const fakeNpcIds = [...Object.keys(NPCS).slice(0, 3), "npc_sem_def"];
+  fakeNpcIds.forEach((id, i) => {
+    const t = free[(i * 7 + 3) % Math.max(1, free.length)];
+    if (t) scene.addNpc(`fx_${id}`, t.x, t.y);
+  });
+  // ids "fx_*" não existem no catálogo: usa o sheet genérico; os reais entram pelo mapa.
+  const sayLines = ["Bem-vindo, viajante! Dê uma olhada nas mercadorias.", "Cuidado com os goblins ao norte...", "Hmm.", "Tenho poções frescas, feitas hoje de manhã. Venha ver!"];
+  let sayIdx = 0;
+  const sayTimer = window.setInterval(() => {
+    const ids = [...fakeNpcIds.map((i) => `fx_${i}`), ...Object.keys(NPCS)];
+    scene.npcSay(ids[sayIdx % ids.length], sayLines[sayIdx % sayLines.length]);
+    sayIdx++;
+  }, 2500);
+  const itemIds = Object.keys(ITEMS).filter((id) => id !== "gold");
+  let uid = 0, lootIdx = 0;
+  const mkItem = (rarity: Rarity): ItemInstance => ({ uid: `fx${uid++}`, defId: itemIds[(Math.random() * itemIds.length) | 0] ?? "health_potion", count: 1, rarity, bonuses: [] });
+  const lootTimer = window.setInterval(() => {
+    if (params.has("fxhold")) return;
+    const t = free[(lootIdx * 5) % Math.max(1, free.length)] ?? { x: me.x + 2, y: me.y };
+    const r = RARITIES[lootIdx % RARITIES.length];
+    const items = lootIdx % 3 === 2 ? [mkItem(r), mkItem("common"), mkItem("uncommon")] : [mkItem(r)];
+    scene.onLoot({ x: t.x, y: t.y, monsterName: "Teste", items, gold: lootIdx % 2 === 0 ? rnd(5, 900) : 0 });
+    lootIdx++;
+  }, 4500);
+  scene.events.once("shutdown", () => { window.clearInterval(sayTimer); window.clearInterval(lootTimer); });
+  (fxApi as Record<string, unknown>).loot = (rarity: Rarity = "epic") => scene.onLoot({ x: me.x + 2, y: me.y, monsterName: "Teste", items: [mkItem(rarity)], gold: 120 });
 
   const timer = window.setInterval(() => {
     if (quiet) return;

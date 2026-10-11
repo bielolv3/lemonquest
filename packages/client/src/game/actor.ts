@@ -39,6 +39,8 @@ export interface ActorOpts {
   nameColor?: string;
   /** Faixa opaca do frame (px): apoia os pés no tile e posiciona nome/barra rente à cabeça. */
   trim?: { top: number; bottom: number };
+  /** Sem barra de HP (NPCs). */
+  noBar?: boolean;
 }
 
 const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
@@ -57,6 +59,8 @@ export class Actor {
   culled = false;
   /** Escondido por ter virado cadáver (animação de morte independente). */
   ghosted = false;
+  /** Sem barra de HP (NPCs). */
+  readonly noBar: boolean;
 
   readonly root: Phaser.GameObjects.Container;
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -98,6 +102,7 @@ export class Actor {
     this.rx = x * TILE_SIZE; this.ry = y * TILE_SIZE;
     this.facing = dirToFacing(dir);
     this.scale = opts.scale ?? 1;
+    this.noBar = !!opts.noBar;
     const fh = look.sheet.frameHeight;
     this.contentH = opts.trim ? opts.trim.bottom - opts.trim.top : fh;
     this.baseY = opts.trim ? (fh - opts.trim.bottom) * this.scale : 0;
@@ -183,9 +188,9 @@ export class Actor {
     const v = !this.culled && !this.ghosted;
     this.root.setVisible(v);
     this.label.setVisible(v);
-    this.barBg.setVisible(v);
-    this.barGhost.setVisible(v);
-    this.barFill.setVisible(v);
+    this.barBg.setVisible(v && !this.noBar);
+    this.barGhost.setVisible(v && !this.noBar);
+    this.barFill.setVisible(v && !this.noBar);
   }
 
   /**
@@ -193,6 +198,11 @@ export class Actor {
    */
   placeUi(sx: number, sy: number, zoom: number, dtMs: number) {
     if (this.culled || this.ghosted) return;
+    if (this.noBar) {
+      this.barBg.setVisible(false); this.barGhost.setVisible(false); this.barFill.setVisible(false);
+      this.label.setPosition(Math.round(sx), Math.round(sy) - 1);
+      return;
+    }
     // Barra: anima largura e fantasma de dano.
     const k = 1 - Math.exp(-16 * dtMs / 1000);
     this.hpShown += (this.hpTarget - this.hpShown) * k;
@@ -261,6 +271,12 @@ export class Actor {
     this.idleFor = IDLE_GRACE_MS;
     this.showIdle();
     this.syncDisplay();
+  }
+
+  /** Vira para um lado do sheet (NPCs). */
+  faceSide(f: Facing) {
+    this.facing = f;
+    if (!this.isMoving) this.showIdle();
   }
 
   face(dir: Dir) {
