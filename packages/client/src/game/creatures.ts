@@ -1,4 +1,5 @@
 // Visual das criaturas: converte MonsterDef.sprite (shared) em CharacterSheet/CharacterLook do cliente.
+import type Phaser from "phaser";
 import { MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@tibinha/shared";
 import { gridSheet, type CharacterLook, type CharacterSheet } from "./sprites.ts";
 
@@ -67,4 +68,39 @@ export function levelColor(monsterLevel: number, myLevel: number, boss: boolean)
   if (d <= 2) return "#ffffff";
   if (d <= 6) return "#ffe066";
   return "#ff6b5e";
+}
+
+export interface SheetTrim { top: number; bottom: number }
+const trims = new Map<string, SheetTrim>();
+
+/**
+ * Faixa vertical realmente opaca do sprite (em px do frame), para apoiar os PÉS no tile e colocar
+ * nome/barra rente à cabeça mesmo quando o frame tem muita folga transparente (chefes 50x50).
+ */
+export function sheetTrim(scene: Phaser.Scene, sheet: CharacterSheet): SheetTrim {
+  let t = trims.get(sheet.key);
+  if (t) return t;
+  t = { top: 0, bottom: sheet.frameHeight };
+  try {
+    const img = scene.textures.get(sheet.key).getSourceImage() as HTMLImageElement;
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext("2d", { willReadFrequently: true })!;
+    ctx.drawImage(img, 0, 0);
+    const frames = new Set<number>([...Object.values(sheet.idle), ...Object.values(sheet.walk).flat()]);
+    let top = sheet.frameHeight, bottom = 0;
+    const cols = Math.floor(img.width / sheet.frameWidth);
+    for (const f of frames) {
+      const fx = (f % cols) * sheet.frameWidth, fy = Math.floor(f / cols) * sheet.frameHeight;
+      const d = ctx.getImageData(fx, fy, sheet.frameWidth, sheet.frameHeight).data;
+      for (let y = 0; y < sheet.frameHeight; y++) {
+        for (let x = 0; x < sheet.frameWidth; x++) {
+          if (d[(y * sheet.frameWidth + x) * 4 + 3] > 24) { if (y < top) top = y; if (y + 1 > bottom) bottom = y + 1; break; }
+        }
+      }
+    }
+    if (bottom > top) t = { top, bottom };
+  } catch { /* sem trim: usa o frame inteiro */ }
+  trims.set(sheet.key, t);
+  return t;
 }

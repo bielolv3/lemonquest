@@ -5,6 +5,8 @@ import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
+import { CombatOverlays } from "./combat/CombatOverlays.tsx";
+import { FXTEST } from "../game/fxtest.ts";
 import { WorldMapOverlay, ZoneBanner } from "./minimap/Minimap.tsx";
 
 export function App() {
@@ -12,7 +14,7 @@ export function App() {
 
   useEffect(() => session.onRoom(() => setConnected(true)), []);
 
-  if (!connected) return <Login />;
+  if (!connected && !FXTEST) return <Login />;
   return (
     <>
       <Hud />
@@ -21,6 +23,7 @@ export function App() {
       <WorldMapOverlay />
       <ZoneBanner />
       <TeleportFade />
+      <CombatOverlays />
     </>
   );
 }

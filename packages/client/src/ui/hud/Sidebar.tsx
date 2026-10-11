@@ -5,6 +5,7 @@ import { Backpack } from "./Backpack.tsx";
 import { BattleList } from "./BattleList.tsx";
 import { EquipmentPanel } from "./EquipmentPanel.tsx";
 import { HelpPopover } from "./HelpPopover.tsx";
+import { mutedStore } from "../../game/sfx.ts";
 import { PixelIcon } from "./icons.tsx";
 import { setHudInsets } from "./layout.ts";
 import { StatBar } from "./StatBar.tsx";
@@ -17,6 +18,7 @@ export function Sidebar() {
   const open = useStore(sidebarOpen);
   const skills = useStore(skillsOpen);
   const help = useStore(helpOpen);
+  const muted = useStore(mutedStore);
 
   useEffect(() => {
     setHudInsets({ right: open ? SIDEBAR_W + SIDEBAR_GAP : 0 });
@@ -54,6 +56,9 @@ export function Sidebar() {
         </button>
         <button class={`rail-btn${help ? " active" : ""}`} onClick={() => toggle(helpOpen)} data-tip="Atalhos" data-tip-sub="Tecla ?">
           <span class="rail-q">?</span>
+        </button>
+        <button class={`rail-btn${muted ? "" : " active"}`} onClick={() => mutedStore.set((m) => !m)} data-tip={muted ? "Som desligado" : "Som ligado"} data-tip-sub="Clique para alternar">
+          <span class="rail-q">{muted ? "×" : "♪"}</span>
         </button>
         {help && <HelpPopover />}
       </nav>

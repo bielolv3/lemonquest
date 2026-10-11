@@ -37,6 +37,8 @@ export interface ActorOpts {
   fontSize?: number;
   /** Cor do nome (padrão branco / amarelo para o próprio jogador). */
   nameColor?: string;
+  /** Faixa opaca do frame (px): apoia os pés no tile e posiciona nome/barra rente à cabeça. */
+  trim?: { top: number; bottom: number };
 }
 
 const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
@@ -66,6 +68,8 @@ export class Actor {
   private queue: Segment[] = [];
   private idleFor = 0;
   private stepMs = BASE_STEP_MS;
+  private baseY = 0;
+  private contentH: number;
 
   // HP
   private hpTarget = 1;
@@ -94,6 +98,9 @@ export class Actor {
     this.rx = x * TILE_SIZE; this.ry = y * TILE_SIZE;
     this.facing = dirToFacing(dir);
     this.scale = opts.scale ?? 1;
+    const fh = look.sheet.frameHeight;
+    this.contentH = opts.trim ? opts.trim.bottom - opts.trim.top : fh;
+    this.baseY = opts.trim ? (fh - opts.trim.bottom) * this.scale : 0;
     this.colors = isMe ? BAR_COLORS_SELF : BAR_COLORS;
 
     this.shadow = scene.add.image(0, 0, TEX.shadow).setOrigin(0.5, 0.5).setAlpha(0.35).setScale(this.scale);
@@ -157,7 +164,7 @@ export class Actor {
 
   /** Estado visual para criar um "cadáver" independente do estado do servidor. */
   get frameInfo() {
-    return { key: this.look.sheet.key, frame: this.sprite.frame.name, tint: this.look.tint, flipX: this.sprite.flipX };
+    return { key: this.look.sheet.key, frame: this.sprite.frame.name, tint: this.look.tint, dy: this.baseY };
   }
 
   /** Esconde tudo (virou cadáver). */
@@ -317,15 +324,15 @@ export class Actor {
     const py = snap(this.ry) + TILE_SIZE;
     this.root.setPosition(px, py);
     this.root.setDepth(10 + this.ry + TILE_SIZE);
-    this.sprite.setPosition(Math.round(this.kbx), Math.round(this.kby));
+    this.sprite.setPosition(Math.round(this.kbx), Math.round(this.kby) + this.baseY);
   }
 
   /** Ponto (mundo) acima da cabeça, para o nome. */
   get headX() { return this.deps.snap(this.rx) + TILE_SIZE / 2; }
-  get headY() { return this.deps.snap(this.ry) + TILE_SIZE - this.look.sheet.frameHeight * this.scale - 1; }
+  get headY() { return this.deps.snap(this.ry) + TILE_SIZE - this.contentH * this.scale - 1; }
   /** Centro do corpo (px de mundo) — origem/destino de projéteis e efeitos. */
   get bodyX() { return this.rx + TILE_SIZE / 2; }
-  get bodyY() { return this.ry + TILE_SIZE / 2 - (this.scale - 1) * 6; }
+  get bodyY() { return this.ry + TILE_SIZE - (this.contentH * this.scale) / 2; }
 
   private facingOf(s: Segment): Facing {
     const dx = Math.sign(s.tx - s.fx), dy = Math.sign(s.ty - s.fy);
