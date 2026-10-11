@@ -2,15 +2,18 @@
 import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  C2S, S2C, TILE_SIZE,
+  C2S, S2C, TILE_SIZE, NPC_RANGE,
   spellDef, spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
-  type MonsterView, type MoveMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
+  type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@tibinha/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
 import { allCreatureSheets, creatureVisual, levelColor, sheetTrim } from "../game/creatures.ts";
+import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
+import { LootFx } from "../game/lootFx.ts";
+import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { KeyboardInput } from "../game/input.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
@@ -19,6 +22,7 @@ import { SpellEffects } from "../game/spellFx.ts";
 import { ALL_SHEETS, lookFor } from "../game/sprites.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
+import { openNpc } from "../ui/npc/npc.ts";
 import { showDeath, showLevelBanner } from "../ui/combat/combatUi.ts";
 import { setConditions } from "../ui/hud/conditions.ts";
 import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
@@ -67,6 +71,11 @@ export class WorldScene extends Phaser.Scene {
 
   private fx!: CombatFx;
   private spells!: SpellEffects;
+  private npcs!: NpcManager;
+  private loot!: LootFx;
+  private butterflies!: Butterflies;
+  /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
+  private pendingNpc: { id: string; until: number } | null = null;
   private myVocation = "";
   private unlockedUpTo = 0;
   private hover!: Phaser.GameObjects.Image;
@@ -85,16 +94,18 @@ export class WorldScene extends Phaser.Scene {
 
   preload() {
     preloadWorldMap(this);
-    for (const s of [...ALL_SHEETS, ...allCreatureSheets()]) {
+    for (const s of [...ALL_SHEETS, ...allCreatureSheets(), ...allNpcSheets()]) {
       this.load.spritesheet(s.key, `${import.meta.env.BASE_URL}${s.url}`, { frameWidth: s.frameWidth, frameHeight: s.frameHeight });
     }
     CombatFx.preload(this);
+    LootFx.preload(this);
   }
 
   create() {
     createFxTextures(this);
-    createCharacterAnims(this, [...ALL_SHEETS, ...allCreatureSheets()]);
+    createCharacterAnims(this, [...ALL_SHEETS, ...allCreatureSheets(), ...allNpcSheets().filter((s) => this.textures.exists(s.key))]);
     CombatFx.createAnims(this);
+    LootFx.createAnims(this);
     // Fonte pixel dos números flutuantes (a CSS é carregada pelo styles.css; garante antes do 1º uso).
     void document.fonts?.load('600 16px "Pixelify Sans"');
     this.input.mouse?.disableContextMenu();
@@ -133,6 +144,14 @@ export class WorldScene extends Phaser.Scene {
       onDir: (d) => this.onInputDir(d),
       onTurn: (d) => this.onInputTurn(d),
     });
+    this.npcs = new NpcManager(this, () => this.actorDeps(), this.uiLayer);
+    this.npcs.addFromMap(this.world.tiled);
+    this.loot = new LootFx(this, this.worldLayer, this.uiLayer, this.fx, () => {
+      const me = this.actors.get(this.myId);
+      return me ? { x: me.bodyX, y: me.bodyY, headY: me.headY } : null;
+    });
+    const homes = [this.world.spawn, ...["herbalist", "shop"].map((id) => this.npcs.tileOf(id)).filter((t): t is { x: number; y: number } => !!t)];
+    this.butterflies = new Butterflies(this, this.worldLayer, homes);
     this.setupPointer();
     this.disposers.push(subscribeTarget((t) => this.onStoreTarget(t)));
 
@@ -181,6 +200,9 @@ export class WorldScene extends Phaser.Scene {
     msg<SpellCastMsg>(S2C.SpellCast, (m) => this.onSpellCast(m));
     msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
     msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
+    msg<NpcSayMsg>(S2C.NpcSay, (m) => this.npcs.say(m.npcId, m.text));
+    msg<NpcOpenMsg>(S2C.NpcOpen, (m) => this.npcs.say(m.npcId, m.greeting));
+    msg<LootMsg>(S2C.Loot, (m) => this.onLoot(m));
     msg<DiedMsg>(S2C.Died, (m) => this.onDied(m.killerName, m.lostXp));
     msg<CreatureDiedMsg>(S2C.CreatureDied, (m) => this.onCreatureDied(m));
     room.onLeave(() => { if (this.room === room) this.unbindRoom(); });
@@ -333,7 +355,7 @@ export class WorldScene extends Phaser.Scene {
     for (const [id, k] of this.known) if (id !== this.myId && k.x === x && k.y === y) return true;
     // Monstros bloqueiam o movimento (posição autoritativa).
     for (const k of this.creatureKnown.values()) if (k.x === x && k.y === y) return true;
-    return false;
+    return this.npcs.isNpcTile(x, y);
   }
 
   // --- alvo -----------------------------------------------------------------
@@ -376,6 +398,7 @@ export class WorldScene extends Phaser.Scene {
 
   private onInputDir(d: Dir | null) {
     if (!this.room) return;
+    if (d !== null) this.pendingNpc = null;
     // Mesma ordem do servidor: primeiro recupera um passo que já era devido com a intenção antiga.
     this.stepLocal();
     if (d === null) this.predictor.release();
@@ -402,7 +425,10 @@ export class WorldScene extends Phaser.Scene {
       // Clique (esquerdo ou direito) numa criatura = atacar / soltar o alvo.
       const cid = this.creatureAtPointer(ptr);
       if (cid) { toggleTarget({ id: cid, kind: "monster" }); return; }
+      const nid = this.npcAtPointer(ptr);
+      if (nid) { this.clickNpc(nid); return; }
       if (!left || !this.room) return;
+      this.pendingNpc = null;
       const t = this.pointerTile(ptr);
       if (!t) return;
       this.room.send(C2S.WalkTo, { x: t.x, y: t.y } satisfies WalkToMsg);
@@ -412,6 +438,45 @@ export class WorldScene extends Phaser.Scene {
       this.showMarker(t.x, t.y);
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
+  }
+
+  private npcAtPointer(ptr: Phaser.Input.Pointer): string | null {
+    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    return this.npcs.atPoint(wp.x, wp.y);
+  }
+
+  /** Clique num NPC: perto = abre; longe = anda até o tile vizinho mais próximo e abre ao chegar. Nunca ataca. */
+  private clickNpc(id: string) {
+    const me = this.actors.get(this.myId);
+    const t = this.npcs.tileOf(id);
+    if (!t) return;
+    if (!me) { openNpc(id); return; }
+    if (chebyshev(me.tileX, me.tileY, t.x, t.y) <= NPC_RANGE) { this.pendingNpc = null; openNpc(id); return; }
+    if (!this.room) return;
+    let best: { x: number; y: number } | null = null, bestD = Infinity;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = t.x + dx, y = t.y + dy;
+      if (!this.world.grid.isWalkable(x, y) || this.isOccupiedByOther(x, y)) continue;
+      const d = Math.hypot(x - me.tileX, y - me.tileY) + (dx && dy ? 0.5 : 0);
+      if (d < bestD) { bestD = d; best = { x, y }; }
+    }
+    if (!best) return;
+    this.room.send(C2S.WalkTo, { x: best.x, y: best.y } satisfies WalkToMsg);
+    this.predictor.clearIntent();
+    this.input_.forgetIntent();
+    this.showMarker(best.x, best.y);
+    this.pendingNpc = { id, until: performance.now() + 20_000 };
+  }
+
+  /** Abre o NPC pendente ao chegar perto (ou desiste por tempo). */
+  private checkPendingNpc() {
+    const p = this.pendingNpc;
+    if (!p) return;
+    const me = this.actors.get(this.myId);
+    const t = this.npcs.tileOf(p.id);
+    if (!me || !t || performance.now() > p.until) { this.pendingNpc = null; return; }
+    if (!me.isMoving && chebyshev(me.tileX, me.tileY, t.x, t.y) <= NPC_RANGE) { this.pendingNpc = null; openNpc(p.id); }
   }
 
   private pointerTile(ptr: Phaser.Input.Pointer): { x: number; y: number } | null {
@@ -445,6 +510,11 @@ export class WorldScene extends Phaser.Scene {
     for (const a of this.actors.values()) a.placeUi(this.pcam.toScreenX(a.headX), this.pcam.toScreenY(a.headY), zoom, dt);
     for (const a of this.creatures.values()) a.placeUi(this.pcam.toScreenX(a.headX), this.pcam.toScreenY(a.headY), zoom, dt);
 
+    this.npcs.update(dt, me);
+    this.npcs.placeUi(zoom, dt, (wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
+    this.checkPendingNpc();
+    this.butterflies.update(time, me ? me.rx : this.world.spawn.x * TILE_SIZE, me ? me.ry : this.world.spawn.y * TILE_SIZE);
+    this.loot.update(dt);
     this.fx.update(dt);
     this.spells.update(dt, time);
     this.updateHover();
@@ -535,6 +605,13 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (ev.kind === "mana") {
+      if (ev.sourceId === ev.targetId) {
+        // Poção de mana (auto-alvo): recuperou mana (número azul positivo).
+        this.fx.floatText(wx, textY, `+${ev.amount}`, KIND_COLOR.mana, { size: ev.crit ? 20 : 15 });
+        this.fx.hit("mana", wx, wy, false, 0);
+        if (toMe) sfx.play("heal", { volume: 0.7, rate: 1.25 });
+        return;
+      }
       // Escudo de Mana: o dano saiu da mana (número azul negativo).
       this.fx.floatText(wx, textY, `-${ev.amount}`, KIND_COLOR.mana, { size: 14 });
       return;
@@ -684,10 +761,15 @@ export class WorldScene extends Phaser.Scene {
     const cid = this.creatureAtPointer(ptr);
     const c = cid ? this.creatures.get(cid) : undefined;
     if (c) {
+      this.game.canvas.style.cursor = "";
       // Sobre uma criatura: quadrado branco no tile dela.
       this.hover.setPosition(this.pcam.snap(c.rx), this.pcam.snap(c.ry)).setAlpha(0.7).setVisible(true);
       return;
     }
+    const nid = this.npcAtPointer(ptr);
+    const nt = nid ? this.npcs.tileOf(nid) : null;
+    this.game.canvas.style.cursor = nt ? "pointer" : "";
+    if (nt) { this.hover.setPosition(nt.x * TILE_SIZE, nt.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const t = this.pointerTile(ptr);
     if (!t) { this.hover.setVisible(false); return; }
     this.hover.setPosition(t.x * TILE_SIZE, t.y * TILE_SIZE).setAlpha(0.18).setVisible(true);
@@ -714,6 +796,10 @@ export class WorldScene extends Phaser.Scene {
     if (me) this.pcam.jumpTo(me.rx + TILE_SIZE / 2, me.ry + TILE_SIZE / 2);
   }
 
+  onLoot(m: LootMsg) { this.loot.drop(m); }
+  addNpc(id: string, x: number, y: number) { this.npcs.add(id, x, y); }
+  npcSay(id: string, text: string) { this.npcs.say(id, text); }
+
   /** Para o harness ?fxtest: define quem é o jogador local. */
   setLocalId(id: string) { this.myId = id; session.myId = id; }
 
@@ -723,6 +809,9 @@ export class WorldScene extends Phaser.Scene {
     this.input_?.destroy();
     this.fx?.destroy();
     this.spells?.destroy();
+    this.npcs?.destroy();
+    this.loot?.destroy();
+    this.butterflies?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();
   }
