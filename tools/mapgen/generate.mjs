@@ -49,6 +49,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
 
 // ===================================================================== masks
 const dirt = new Uint8Array(W * H), water = new Uint8Array(W * H), pave = new Uint8Array(W * H);
+const mud = new Uint8Array(W * H); // swamp mud patches (slow, decorative); other swamp dirt = trails (dark dirt, faster than the soil)
 const roadPts = []; // all road centre points, for trails
 
 function disc(cx, cy, r, fn) {
@@ -169,7 +170,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
 for (let i = 0; i < 40; i++) {
   const x = ri(104, 156), y = ri(41, 96);
   if (reg(x, y) !== 'swamp') continue;
-  disc(x, y, rnd(1.5, 3.5), (a, b) => { if (reg(a, b) === 'swamp' && !band[idx(a, b)] && !water[idx(a, b)]) dirt[idx(a, b)] = 1; });
+  disc(x, y, rnd(1.5, 3.5), (a, b) => { if (reg(a, b) === 'swamp' && !band[idx(a, b)] && !water[idx(a, b)]) { if (!dirt[idx(a, b)]) mud[idx(a, b)] = 1; dirt[idx(a, b)] = 1; } });
 }
 // goblin king arena: dark dirt floor
 const ARENA = { x0: 116, y0: 10, x1: 140, y1: 28 };
@@ -179,7 +180,7 @@ for (let y = ARENA.y0; y <= ARENA.y1; y++) for (let x = ARENA.x0; x <= ARENA.x1;
   dirt[idx(x, y)] = 1; water[idx(x, y)] = 0; map.reserve(x, y);
 }
 // lich shrine island: mud
-disc(146, 88, 6, (x, y) => { if (!water[idx(x, y)]) dirt[idx(x, y)] = 1; });
+disc(146, 88, 6, (x, y) => { if (!water[idx(x, y)]) { dirt[idx(x, y)] = 1; mud[idx(x, y)] = 1; } });
 map.reserve(139, 81, 15, 13);
 
 // ===================================================================== ground resolve
@@ -209,8 +210,10 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const row = top ? 12 : bot ? 15 : 13;
     map.put('ground', x, y, 'I', col, row);
   } else if (dirt[idx(x, y)]) {
-    const [t, dc, dr] = st.dirt;
-    const mask = blobMask((a, b) => !inb(a, b) ? false : dirt[idx(a, b)] === 1 || pave[idx(a, b)] === 1, x, y);
+    let [t, dc, dr] = st.dirt;
+    const isMud = r === 'swamp' && mud[idx(x, y)] === 1, isTrail = r === 'swamp' && !isMud;
+    if (isTrail) [t, dc, dr] = ['F', 11, 0]; // swamp trails: dark dirt (speed 95) instead of mud (150)
+    const mask = blobMask((a, b) => !inb(a, b) ? false : r === 'swamp' ? (dirt[idx(a, b)] === 1 && (mud[idx(a, b)] === 1) === isMud) : dirt[idx(a, b)] === 1 || pave[idx(a, b)] === 1, x, y);
     let [c, rr] = blob[mask];
     if (mask === '11111111' && rng() < 0.05) [c, rr] = [pick([0, 1]), 11];
     map.put('ground', x, y, t, c + dc, rr + dr);
