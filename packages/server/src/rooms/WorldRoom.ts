@@ -1,5 +1,5 @@
 import { Room, Client } from "colyseus";
-import { C2S, S2C, TICK_MS, baseStats, type AttackMsg, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
+import { C2S, S2C, TICK_MS, baseStats, type AttackMsg, type CastMsg, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
@@ -9,6 +9,10 @@ import { MonsterManager, parseSafeZones, parseSpawns } from "../systems/monsters
 import { CombatSystem } from "../systems/combat.ts";
 import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState } from "../systems/chat.ts";
+import { ConditionSystem } from "../systems/conditions.ts";
+import { SkillSystem } from "../systems/skills.ts";
+import { SummonSystem } from "../systems/summons.ts";
+import { SpellSystem } from "../systems/spells.ts";
 import { consumeToken, setOnline } from "../persistence/auth.ts";
 import { saveCharacter } from "../persistence/db.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
@@ -30,6 +34,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private monsters!: MonsterManager;
   private combat!: CombatSystem;
   private regen!: RegenSystem;
+  private conditions!: ConditionSystem;
+  private skills!: SkillSystem;
+  private summons!: SummonSystem;
+  private spells!: SpellSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
 
@@ -64,6 +72,30 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       inCombat: (id, now) => this.combat.inCombat(id, now),
       inPz: (x, y) => this.monsters.inPz(x, y),
     });
+    const send = (id: string, type: string, msg: unknown) => this.clients.getById(id)?.send(type, msg);
+    this.skills = new SkillSystem(send);
+    this.conditions = new ConditionSystem({
+      monsters: this.monsters, combat: this.combat, send,
+      getPlayer: (id) => this.state.players.get(id), players: () => this.state.players.values(),
+    });
+    this.summons = new SummonSystem({ monsters: this.monsters, combat: this.combat, getPlayer: (id) => this.state.players.get(id) });
+    this.spells = new SpellSystem({
+      grid: this.map.grid, monsters: this.monsters, combat: this.combat, conditions: this.conditions,
+      summons: this.summons, skills: this.skills,
+      players: () => this.state.players.values(), getPlayer: (id) => this.state.players.get(id),
+      teleport: (p, x, y) => this.movement.teleport(p, x, y),
+      send, broadcast: (type, msg) => this.broadcast(type, msg),
+    });
+    this.combat.hooks = {
+      damageTakenPct: (id) => this.conditions.damageTakenPct(id),
+      manaShield: (id) => this.conditions.manaShield(id),
+      onAutoAttack: (p) => {
+        if (p.vocation === "knight") this.skills.addTries(p, "melee", 1);
+        else if (p.vocation === "paladin") this.skills.addTries(p, "distance", 1);
+      },
+      onMeleeHit: (p) => { if (p.vocation === "knight" || p.vocation === "paladin") this.skills.addTries(p, "shield", 1); },
+      onPlayerDied: (p) => { this.conditions.clear(p.id); this.summons.despawnOwner(p.id); },
+    };
     this.monsters.spawnAll();
     console.log(`[tibinha] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns`);
 
@@ -71,7 +103,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.onMessage(C2S.WalkTo, (c, m: WalkToMsg) => this.withPlayer(c, (p) => this.movement.onWalkTo(p, m)));
     this.onMessage(C2S.Turn, (c, m: TurnMsg) => this.withPlayer(c, (p) => this.movement.onTurn(p, m)));
     this.onMessage(C2S.Attack, (c, m: AttackMsg) => this.withPlayer(c, (p) => this.combat.onAttack(p, m)));
-    this.onMessage(C2S.Chat, (c, m: ChatSendMsg) => this.withPlayer(c, (p) => handleChat(this, c, p, m)));
+    this.onMessage(C2S.Chat, (c, m: ChatSendMsg) => this.withPlayer(c, (p) =>
+      handleChat(this, c, p, m, { castWords: (pl, text) => this.spells.castWords(pl, text) })));
+    this.onMessage(C2S.Cast, (c, m: CastMsg) => this.withPlayer(c, (p) => this.spells.onCast(p, m)));
 
     this.setSimulationInterval(() => this.tick(), TICK_MS);
     this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
@@ -85,7 +119,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const p of this.state.players.values()) this.exploration.onPosition(p.id, p.x, p.y);
     this.monsters.tick(now);
     this.combat.tick(now);
+    this.conditions.tick(now);
     this.regen.tick(now, this.state.players.values());
+    this.conditions.sync(now);
     this.combat.flush();
     if (DEV) this.trackPerf(performance.now() - t0, now);
   }
@@ -120,6 +156,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.x = start.x;
     p.y = start.y;
     p.dir = rec.dir;
+    this.skills.load(p, rec.data.skills);
     this.records.set(client.sessionId, rec);
     this.state.players.set(client.sessionId, p);
     this.movement.addPlayer(p);
@@ -132,7 +169,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(client.sessionId);
     if (rec) setOnline(rec.name, false);
     this.movement.removePlayer(client.sessionId);
+    this.summons.despawnOwner(client.sessionId);
     this.combat.removePlayer(client.sessionId);
+    this.conditions.removePlayer(client.sessionId);
+    this.spells.removePlayer(client.sessionId);
+    this.skills.removePlayer(client.sessionId);
     this.regen.removePlayer(client.sessionId);
     this.exploration.removePlayer(client.sessionId);
     clearChatState(client.sessionId);
@@ -160,6 +201,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.x = p.x;
     rec.y = p.y;
     rec.dir = p.dir;
+    rec.data.skills = this.skills.serialize(sessionId) ?? rec.data.skills;
     rec.data.explored = this.exploration.serialize(sessionId) ?? rec.data.explored;
     saveCharacter(rec);
   }

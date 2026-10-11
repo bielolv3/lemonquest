@@ -170,9 +170,12 @@ export class MovementSystem {
 
     p.dir = dir;
     if (result !== "ok") return result;
+    const speedPct = p.speedPct ?? 100;
+    if (speedPct <= 0) return "wall"; // enraizado: só vira
 
     // Como no Tibia: a duração depende do chão do tile de ORIGEM (onde o passo começa).
-    const dur = stepDuration(p.level, dir, this.groundSpeed?.speedAt(p.x, p.y));
+    // speedPct (haste/slow) também entra na predição do cliente: stepDuration(level, dir, chão, p.speedPct).
+    const dur = stepDuration(p.level, dir, this.groundSpeed?.speedAt(p.x, p.y), speedPct);
     // Cadência exata: se o passo anterior terminou há no máximo um tick, encadeia a partir do fim dele
     // (senão a quantização do tick de 50ms deixaria o andar contínuo mais lento que no cliente).
     // Passo "do zero" começa agora — nunca antes do input chegar, para o servidor não passar à frente
