@@ -1,0 +1,577 @@
+// Tibinha overworld generator. Deterministic (seeded). Run: node tools/mapgen/generate.mjs
+// Outputs assets/maps/world.json, preview.png (16px/tile), preview-small.png (4px/tile). Fails loudly if BFS reachability checks fail.
+import fs from 'node:fs';
+import path from 'node:path';
+import { Tilesets, GameMap, mulberry32, noise2, fbm, blobTable, blobMask, bfs, renderPreview, MAPS_DIR, here } from './lib.mjs';
+import { S } from './stamps.mjs';
+
+const SEED = 20260611;
+const W = 160, H = 120;
+const rng = mulberry32(SEED);
+const rnd = (a, b) => a + rng() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+const pickW = (pairs) => { let t = pairs.reduce((s, p) => s + p[1], 0), r = rng() * t; for (const [v, w] of pairs) { if ((r -= w) <= 0) return v; } return pairs[0][0]; };
+
+const ts = new Tilesets();
+const map = new GameMap(W, H, ts);
+const blob = blobTable();
+const idx = (x, y) => y * W + x;
+const inb = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
+
+// ===================================================================== regions
+const CAVE = { x0: 0, x1: 56, y0: 84, y1: H - 1 };
+const CRYPT = { x0: 104, x1: W - 1, y0: 98, y1: H - 1 };
+const TOWN = { x0: 60, x1: 100, y0: 77, y1: 113 };
+const inRect = (r, x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+
+function regionAt(x, y) {
+  if (inRect(CAVE, x, y)) return 'cave';
+  if (inRect(CRYPT, x, y)) return 'crypt';
+  if (inRect(TOWN, x, y)) return 'town';
+  const w = (fbm(x, y, 12, 5) - 0.5) * 10;
+  if (y <= 37 + w && x >= 86 + w) return 'ruins';
+  if (x >= 104 + w && y >= 39 + w && y <= 97) return 'swamp';
+  return 'forest';
+}
+const region = new Array(W * H);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) region[idx(x, y)] = regionAt(x, y);
+const reg = (x, y) => (inb(x, y) ? region[idx(x, y)] : 'void');
+const isLand = (x, y) => { const r = reg(x, y); return r !== 'void' && r !== 'cave' && r !== 'crypt'; };
+// border band: land cells within 3 tiles of non-land
+const band = new Uint8Array(W * H);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  if (!isLand(x, y)) continue;
+  outer: for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (!isLand(x + i, y + j)) { band[idx(x, y)] = 1; break outer; }
+}
+
+// ===================================================================== masks
+const dirt = new Uint8Array(W * H), water = new Uint8Array(W * H), pave = new Uint8Array(W * H);
+const roadPts = []; // all road centre points, for trails
+
+function disc(cx, cy, r, fn) {
+  for (let y = Math.floor(cy - r - 1); y <= Math.ceil(cy + r + 1); y++) for (let x = Math.floor(cx - r - 1); x <= Math.ceil(cx + r + 1); x++) {
+    if (!inb(x, y)) continue;
+    if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) fn(x, y);
+  }
+}
+/** paint a winding dirt path through waypoints. width in tiles. */
+function road(points, width = 3, { wobble = 2.2, record = true, seed = 3 } = {}) {
+  for (let s = 0; s < points.length - 1; s++) {
+    const [ax, ay] = points[s], [bx, by] = points[s + 1];
+    const len = Math.hypot(bx - ax, by - ay);
+    const nx = -(by - ay) / (len || 1), ny = (bx - ax) / (len || 1);
+    const steps = Math.ceil(len * 1.5);
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps;
+      const env = Math.sin(Math.PI * t) ** 0.5; // no wobble at waypoints
+      const off = (noise2(ax + t * (bx - ax) + 100, ay + t * (by - ay) + 100, 7, seed) - 0.5) * 2 * wobble * (0.4 + env);
+      const px = ax + (bx - ax) * t + nx * off, py = ay + (by - ay) * t + ny * off;
+      disc(px, py, width / 2, (x, y) => { if (isLand(x, y) && !band[idx(x, y)]) { dirt[idx(x, y)] = 1; } });
+      disc(px, py, width / 2 + 1.2, (x, y) => map.reserve(x, y));
+      if (record && k % 3 === 0) roadPts.push([Math.round(px), Math.round(py)]);
+    }
+  }
+}
+function lake(cx, cy, rx, ry, seed) {
+  for (let y = Math.floor(cy - ry - 3); y <= cy + ry + 3; y++) for (let x = Math.floor(cx - rx - 3); x <= cx + rx + 3; x++) {
+    if (!inb(x, y) || !isLand(x, y) || band[idx(x, y)] || reg(x, y) !== reg(Math.round(cx), Math.round(cy))) continue;
+    const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+    const n = (noise2(x, y, 4, seed) - 0.5) * 0.7;
+    if (d + n < 1 && map.occ[idx(x, y)] === 0) water[idx(x, y)] = 1;
+  }
+}
+
+// ---------------------------------------------------------------- town layout (pavement union, nine-sliced)
+const plazaRects = [[70, 91, 90, 101], [78, 86, 80, 91]];
+for (const [x0, y0, x1, y1] of plazaRects) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) pave[idx(x, y)] = 1;
+
+// ---------------------------------------------------------------- roads
+const TOWN_N = [72, 77], TOWN_W = [60, 97], TOWN_E = [100, 97];
+// town streets
+road([[72, 90], [72, 77]], 2, { wobble: 0, record: false });
+road([[60, 97], [70, 97]], 2, { wobble: 0 });
+road([[90, 97], [100, 97]], 2, { wobble: 0 });
+road([[63, 85], [63, 96]], 2, { wobble: 0, record: false });
+road([[92, 85], [92, 96]], 2, { wobble: 0, record: false });
+road([[65, 106], [72, 106], [72, 102]], 2, { wobble: 0, record: false });
+road([[95, 106], [88, 106], [88, 102]], 2, { wobble: 0, record: false });
+road([[79, 107], [79, 108], [72, 108], [72, 106]], 2, { wobble: 0, record: false });
+road([[65, 96], [65, 97]], 2, { wobble: 0, record: false });
+road([[95, 96], [95, 97]], 2, { wobble: 0, record: false });
+// main roads
+road([[72, 77], [72, 68], [66, 58], [62, 46], [56, 36], [48, 28], [42, 20]], 3);
+road([[62, 46], [72, 40], [84, 36], [96, 30], [108, 24], [120, 20]], 3);
+road([[60, 97], [50, 92], [44, 84], [36, 76], [26, 68], [20, 60], [14, 50], [12, 38], [12, 26]], 3);
+road([[100, 97], [106, 92], [110, 84], [114, 76], [118, 68], [122, 62], [128, 64]], 3);
+road([[114, 74], [106, 62], [98, 58], [97, 56]], 2);
+road([[122, 62], [130, 52], [138, 46], [146, 50]], 3);
+road([[126, 64], [134, 72], [140, 80], [146, 88]], 3);
+road([[138, 46], [134, 40], [130, 34], [128, 30]], 3);
+road([[128, 30], [140, 34], [150, 28], [150, 14]], 3);
+road([[120, 20], [116, 19], [106, 19]], 2);
+road([[108, 24], [108, 18]], 2);
+road([[42, 20], [38, 12]], 2);
+road([[20, 60], [19, 59]], 2);
+
+// ---------------------------------------------------------------- monster spawns (declared early to carve trails + clearings)
+const spawns = [
+  // forest 1-10
+  ['rat', 4, 5, 1, 70, 62], ['rat', 3, 4, 2, 26, 72], ['slime', 4, 5, 3, 50, 64], ['slime', 3, 5, 4, 34, 60], ['slime', 4, 5, 5, 90, 60],
+  ['bee', 4, 5, 5, 44, 24], ['bee', 3, 4, 6, 66, 30], ['wolf', 3, 6, 7, 22, 24], ['wolf', 3, 6, 8, 54, 12], ['wolf', 4, 5, 9, 14, 42], ['wolf', 3, 5, 10, 76, 18],
+  // swamp 10-25
+  ['snake', 4, 5, 10, 116, 52], ['spider', 4, 5, 14, 132, 58], ['snake', 4, 5, 16, 142, 72], ['spider', 4, 5, 18, 118, 84], ['skeleton', 3, 5, 20, 148, 62], ['bat', 4, 5, 22, 126, 76],
+  // ruins 25-40
+  ['goblin', 4, 5, 25, 96, 24], ['goblin', 4, 5, 27, 110, 32], ['ghost', 3, 5, 30, 100, 10], ['ghost', 3, 5, 31, 124, 34], ['lizardman', 4, 5, 33, 148, 24], ['flame_spirit', 3, 5, 38, 148, 10],
+  ['lizardman', 3, 5, 35, 140, 38],
+  // bosses
+  ['goblin_king', 1, 3, 40, 128, 19], ['swamp_lich', 1, 3, 25, 146, 88],
+  // caves (Cavernas)
+  ['snake', 3, 4, 12, 28, 106], ['spider', 3, 4, 16, 30, 107], ['snake', 3, 4, 14, 14, 92], ['bat', 4, 5, 18, 30, 91], ['skeleton', 4, 5, 22, 47, 93], ['skeleton', 3, 5, 24, 46, 109], ['bat', 3, 4, 20, 10, 109],
+  // crypt (Cripta)
+  ['skeleton', 3, 4, 30, 112, 108], ['ghost', 3, 5, 35, 148, 108], ['ghost', 3, 4, 34, 128, 102], ['skeleton', 3, 4, 32, 130, 112],
+];
+// clearings + trails for overworld spawns
+for (const [m, , r, , x, y] of spawns) {
+  if (!isLand(x, y)) continue;
+  const rr = Math.max(2, r - 2); map.reserve(x - rr, y - rr, rr * 2 + 1, rr * 2 + 1);
+}
+function nearestRoad(x, y) { let best = null, bd = 1e9; for (const p of roadPts) { const d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = p; } } return best; }
+for (const [m, , r, , x, y] of spawns) {
+  if (!isLand(x, y)) continue;
+  const rp = nearestRoad(x, y);
+  if (rp && (rp[0] - x) ** 2 + (rp[1] - y) ** 2 > 36) road([[x, y], rp], 2, { record: false, wobble: 3 });
+}
+
+// ---------------------------------------------------------------- lakes & pools
+lake(32, 38, 9, 6, 11);
+lake(82, 50, 5, 4, 12);
+lake(20, 14, 4, 3, 13);
+// swamp pools (murky) + mud
+for (let i = 0; i < 70; i++) {
+  const x = ri(104, 156), y = ri(41, 96);
+  if (reg(x, y) !== 'swamp') continue;
+  lake(x, y, rnd(2, 5), rnd(1.5, 3.5), 100 + i);
+}
+// keep the lich's island clear
+for (let y = 80; y <= 94; y++) for (let x = 138; x <= 154; x++) { water[idx(x, y)] = 0; }
+for (let pass = 0; pass < 2; pass++) { const rm = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!water[idx(x, y)]) continue; const g = (a, b) => inb(a, b) && water[idx(a, b)]; if (!((g(x - 1, y) && g(x + 1, y)) && (g(x, y - 1) && g(x, y + 1)))) rm.push(idx(x, y)); } if (pass === 0) for (const i of rm) { const x = i % W, y = (i / W) | 0; const g = (a, b) => inb(a, b) && water[idx(a, b)]; if (!((g(x - 1, y) || g(x + 1, y)) && (g(x, y - 1) || g(x, y + 1)))) water[i] = 0; } }
+// remove dirt near water (keeps shores clean) and under town plaza
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  if (!dirt[idx(x, y)]) continue;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (inb(x + i, y + j) && water[idx(x + i, y + j)]) dirt[idx(x, y)] = 0;
+  if (pave[idx(x, y)]) dirt[idx(x, y)] = 0;
+}
+// swamp mud patches (decorative dirt blobs, avoid roads' halo is irrelevant: mud may merge with roads)
+for (let i = 0; i < 40; i++) {
+  const x = ri(104, 156), y = ri(41, 96);
+  if (reg(x, y) !== 'swamp') continue;
+  disc(x, y, rnd(1.5, 3.5), (a, b) => { if (reg(a, b) === 'swamp' && !band[idx(a, b)] && !water[idx(a, b)]) dirt[idx(a, b)] = 1; });
+}
+// goblin king arena: dark dirt floor
+const ARENA = { x0: 116, y0: 10, x1: 140, y1: 28 };
+for (let y = ARENA.y0; y <= ARENA.y1; y++) for (let x = ARENA.x0; x <= ARENA.x1; x++) {
+  const dx = Math.min(x - ARENA.x0, ARENA.x1 - x), dy = Math.min(y - ARENA.y0, ARENA.y1 - y);
+  if (dx + dy < 2) continue; // chamfer
+  dirt[idx(x, y)] = 1; water[idx(x, y)] = 0; map.reserve(x, y);
+}
+// lich shrine island: mud
+disc(146, 88, 6, (x, y) => { if (!water[idx(x, y)]) dirt[idx(x, y)] = 1; });
+map.reserve(139, 81, 15, 13);
+
+// ===================================================================== ground resolve
+const STYLE = {
+  forest: { tint: 'L', grass: [[0, 12]], tufts: [[1, 12], [2, 12], [3, 12], [4, 12]], dirt: ['F', 0, 0], water: ['W', 0, -1] },
+  town: null, ruins: { tint: 'D', grass: [[11, 12]], tufts: [[12, 12], [13, 12], [14, 12], [15, 12]], dirt: ['F', 11, 0], water: ['W', 0, -1] },
+  swamp: { tint: 'S', grass: [[11, 19]], tufts: [[12, 19], [13, 19], [14, 19], [15, 19]], dirt: ['F', 11, 7], water: ['W', 13, -1] },
+};
+STYLE.town = STYLE.forest;
+const WATER_FILL_ALT = null;
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const r = reg(x, y);
+  if (r === 'cave' || r === 'crypt') continue;
+  const st = STYLE[r] ?? STYLE.forest;
+  const [gc, gr] = rng() < 0.16 ? pick(st.tufts) : st.grass[0];
+  map.put('ground', x, y, 'F', gc, gr);
+  if (water[idx(x, y)]) {
+    const [t, dc, dr] = st.water;
+    const mask = blobMask((a, b) => !inb(a, b) ? true : water[idx(a, b)] === 1, x, y);
+    const [c, rr] = blob[mask];
+    map.put('ground', x, y, t, c + dc, rr + dr);
+    map.block(x, y);
+  } else if (pave[idx(x, y)]) {
+    const inP = (a, b) => inb(a, b) && pave[idx(a, b)] === 1;
+    const top = !inP(x, y - 1), bot = !inP(x, y + 1), lef = !inP(x - 1, y), rig = !inP(x + 1, y);
+    const col = lef ? 0 : rig ? 2 : 1;
+    const row = top ? 12 : bot ? 15 : 13;
+    map.put('ground', x, y, 'I', col, row);
+  } else if (dirt[idx(x, y)]) {
+    const [t, dc, dr] = st.dirt;
+    const mask = blobMask((a, b) => !inb(a, b) ? false : dirt[idx(a, b)] === 1 || pave[idx(a, b)] === 1, x, y);
+    let [c, rr] = blob[mask];
+    if (mask === '11111111' && rng() < 0.05) [c, rr] = [pick([0, 1]), 11];
+    map.put('ground', x, y, t, c + dc, rr + dr);
+  }
+}
+
+// ===================================================================== helpers for placement
+const walkableGround = (x, y) => inb(x, y) && isLand(x, y) && !band[idx(x, y)] && !dirt[idx(x, y)] && !water[idx(x, y)] && !pave[idx(x, y)];
+/** place a named stamp at top-left (x,y); returns false if footprint is not free (when check) */
+function place(name, x, y, { check = true, extra = {} } = {}) {
+  const [t, c, r, w, h, o = {}] = S[name];
+  if (check) {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      if (!walkableGround(x + i, y + j) || map.occ[idx(x + i, y + j)]) return false;
+    }
+  }
+  map.stamp(t, c, r, w, h, x, y, { ...o, ...extra });
+  return true;
+}
+const put1 = (x, y, t, c, r, { block = false, layer = 'deco' } = {}) => { map.put(layer, x, y, t, c, r); if (block) map.block(x, y); };
+
+// ===================================================================== TOWN
+// fences (palisade) around the village, with gates at the roads
+function fenceH(y, x0, x1, gaps) { for (let x = x0; x <= x1; x++) { if (gaps.some(([a, b]) => x >= a && x <= b)) continue; put1(x, y, 'F', 0, 0, {}); map.layers.deco[idx(x, y)] = ts.gid('H', x % 2 ? 11 : 12, 5); map.block(x, y); map.reserve(x, y); } }
+function fenceV(x, y0, y1, gaps) { for (let y = y0; y <= y1; y++) { if (gaps.some(([a, b]) => y >= a && y <= b)) continue; map.layers.deco[idx(x, y)] = ts.gid('H', 11, 6); map.block(x, y); map.reserve(x, y); } }
+fenceH(78, 61, 99, [[71, 73]]);
+fenceH(112, 61, 99, [[78, 80]]);
+fenceV(60, 78, 112, [[95, 98]]);
+fenceV(100, 78, 112, [[95, 98]]);
+
+// buildings
+const bx = (name, x, y) => { if (!place(name, x, y, { check: false })) throw new Error('place ' + name); };
+bx('houseBeige', 78, 83); // temple, door (79,85)
+bx('statueB', 75, 84); bx('statue', 83, 84);
+bx('torii', 78, 87);
+bx('shopBlue', 64, 93); // door (65,95)
+bx('inn', 94, 93); // depot, door (96,95)
+bx('houseOrange', 62, 82); // door (63,84)
+bx('houseRed', 91, 82); // door (92,84)
+bx('peach', 64, 103); // door (65,105)
+bx('yurt', 94, 103); // door (95,105)
+bx('houseOrange2', 78, 104); // door (79,106)
+// plaza props
+bx('well', 80, 96);
+for (const [lx, ly] of [[71, 92], [89, 92], [71, 99], [89, 99], [79, 87 - 0]]) { if (!(lx === 79)) place('lamp', lx, ly, { check: false }); }
+place('lamp', 77, 90, { check: false }); place('lamp', 81, 90, { check: false });
+bx('board', 75, 92);
+// flowerbeds / trees inside the town
+function flowerAt(x, y) { const k = pickW([[[0, 11], 3], [[1, 11], 3], [[2, 11], 2], [[3, 11], 2], [[6, 11], 3]]); put1(x, y, 'N', k[0], k[1]); }
+for (let y = 79; y < 112; y++) for (let x = 61; x < 100; x++) {
+  if (map.occ[idx(x, y)] || dirt[idx(x, y)] || pave[idx(x, y)] || map.layers.deco[idx(x, y)]) continue;
+  const n = noise2(x, y, 5, 77);
+  if (rng() < (n > 0.55 ? 0.14 : 0.03)) flowerAt(x, y);
+}
+for (const [x, y] of [[62, 90], [66, 88], [88, 88], [96, 89], [68, 110], [84, 109], [96, 110], [76, 100 + 6], [61, 100], [98, 100]]) place('treeOlive2', x, y, { check: true });
+// flowers framing the temple
+for (const [x, y] of [[77, 86], [81, 86], [77, 89], [81, 89], [76, 90], [82, 90]]) if (!map.occ[idx(x, y)] && !pave[idx(x, y)]) flowerAt(x, y);
+
+// ===================================================================== wilderness huts / POIs
+bx('yurt', 18, 56); // old hunter hut, door (19,58)
+bx('yurt', 96, 52); // herbalist hut, door (97,54)
+// mausoleum (Cripta door) in the ruins: wall blocks + skull door
+const MAUS = { x: 104, y: 14, w: 5, h: 3 };
+for (let j = 0; j < 3; j++) for (let i = 0; i < MAUS.w; i++) {
+  const col = i === 0 ? 4 : i === MAUS.w - 1 ? 6 : 5;
+  map.put('deco', MAUS.x + i, MAUS.y + j, 'R', col, j);
+  map.block(MAUS.x + i, MAUS.y + j);
+}
+map.put('deco', 106, 16, 'D', 2, 0); map.block(106, 16, false); // skull door
+map.reserve(MAUS.x - 4, MAUS.y - 2, MAUS.w + 8, MAUS.h + 6);
+place('statue', 101, 15, { check: false }); place('statueB', 109, 15, { check: false }); place('graveCross', 103, 18, { check: false }); place('graveA', 109, 18, { check: false });
+// cave mouth in the swamp
+bx('caveMouthGray', 127, 60);
+map.reserve(125, 58, 8, 7);
+// swamp lich shrine: gravestones around the island
+for (let k = 0; k < 14; k++) { const a = rnd(0, Math.PI * 2), d = rnd(3.5, 6); const x = Math.round(146 + Math.cos(a) * d), y = Math.round(88 + Math.sin(a) * d); const g = pick(['graveA', 'graveB', 'graveCross']); if (!map.occ[idx(x, y)] || true) { if (!map.blocked(x, y) && !water[idx(x, y)]) place(g, x, y, { check: false }); } }
+
+// ---------------------------------------------------------------- goblin king arena rim: rocks + pillars
+function arenaRim() {
+  const gates = [[ARENA.x0, ARENA.y0 + 6, ARENA.x0 + 3, ARENA.y0 + 12], [ARENA.x0 + 9, ARENA.y1 - 2, ARENA.x0 + 15, ARENA.y1 + 2]];
+  const inGate = (x, y) => gates.some(([a, b, c, d]) => x >= a - 1 && x <= c + 1 && y >= b - 1 && y <= d + 1);
+  for (let x = ARENA.x0 - 2; x <= ARENA.x1 - 1; x += 4) { for (const y of [ARENA.y0 - 3, ARENA.y1 - 0]) { if (!inGate(x, y) && !inGate(x + 3, y)) place(Math.floor(x / 4) % 2 ? 'rockGray4' : 'treePine4', x, y, { check: false }); } }
+  for (let y = ARENA.y0; y <= ARENA.y1 - 2; y += 3) { for (const x of [ARENA.x0 - 2, ARENA.x1]) { if (!inGate(x, y) && !inGate(x, y + 2)) place(y % 2 ? 'rockGrayA' : 'boulderGray', x, y, { check: false }); } }
+  for (const [x, y] of [[ARENA.x0 + 4, ARENA.y0 + 3], [ARENA.x1 - 4, ARENA.y0 + 3], [ARENA.x0 + 4, ARENA.y1 - 3], [ARENA.x1 - 4, ARENA.y1 - 3]]) place('pillar', x, y, { check: false });
+  // bones in the arena
+  for (let k = 0; k < 14; k++) { const x = ri(ARENA.x0 + 3, ARENA.x1 - 3), y = ri(ARENA.y0 + 3, ARENA.y1 - 3); if (!map.blocked(x, y)) put1(x, y, 'FD', pick([14, 15, 5, 6]), 0); }
+}
+arenaRim();
+map.reserve(ARENA.x0 - 3, ARENA.y0 - 4, ARENA.x1 - ARENA.x0 + 7, ARENA.y1 - ARENA.y0 + 9);
+// clear any blocked-by-rim connection: handled by BFS check
+
+// ===================================================================== trees & scatter
+const TREESETS = {
+  forest: { dense: [['treeOlive4', 3], ['treePine4', 2], ['treeOliveB4', 2]], mid: [['treeOlive2', 3], ['treePine2', 2], ['treeOliveB2', 2], ['treeRound2', 1], ['treeRoot2', 1]], small: [['treeOlive2', 1]] },
+  swamp: { dense: [['treeSwamp4', 1], ['treeDead4', 4]], mid: [['treeSwamp2', 1], ['treeDead2', 6]], small: [['treeDead2', 1]] },
+  ruins: { dense: [['treePine4', 3], ['rockGray4', 1]], mid: [['treePine2', 3], ['treeDead2', 1]], small: [['treePine2', 1]] },
+  town: { dense: [], mid: [['treeOlive2', 1]], small: [] },
+};
+function scatterTrees(pass2 = false) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const r = reg(x, y);
+    if (r === 'cave' || r === 'crypt' || r === 'void' || band[idx(x, y)]) continue;
+    if (r === 'town') continue;
+    const set = TREESETS[r]; if (!set) continue;
+    const n = fbm(x, y, 15, r === 'swamp' ? 37 : r === 'ruins' ? 43 : 37);
+    let p, pool;
+    if (pass2) { if (n < (r === 'swamp' ? 0.44 : 0.49)) continue; if (rng() > (r === 'swamp' ? 0.22 : 0.3)) continue; place(pickW(set.mid), x, y); continue; }
+    if (n > (r === 'swamp' ? 0.45 : r === 'ruins' ? 0.47 : 0.51)) { p = 0.5; pool = set.dense.concat(set.mid.map(([a, b]) => [a, b * 0.4])); }
+    else if (n > (r === 'swamp' ? 0.36 : r === 'ruins' ? 0.38 : 0.41)) { p = 0.12; pool = set.mid; }
+    else { p = r === 'ruins' ? 0.004 : r === 'swamp' ? 0.03 : 0.012; pool = set.small; }
+
+    if (rng() > p) continue;
+    place(pickW(pool), x, y);
+  }
+}
+ruinsDecor();
+scatterTrees(); scatterTrees(true);
+
+// rocks & boulders
+function scatterRocks() {
+  const sets = { forest: ['rockBrownA', 'rockBrownB', 'boulderBrown', 'rockSmallBrown', 'rockSmallBrown'], swamp: ['boulderTeal', 'rockSmallGray', 'rockGrayA'], ruins: ['rockGrayA', 'rockGrayB', 'boulderGray', 'rockSmallGray', 'rockGrayWide'] };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const r = reg(x, y); const set = sets[r]; if (!set || band[idx(x, y)]) continue;
+    if (rng() < (r === 'ruins' ? 0.008 : 0.004)) place(pick(set), x, y);
+  }
+}
+scatterRocks();
+
+// ruined walls / houses / statues in the ruins
+function ruinsDecor() {
+  for (let i = 0; i < 110; i++) {
+    const x = ri(88, 154), y = ri(4, 36);
+    if (reg(x, y) !== 'ruins') continue;
+    const k = pickW([['ruinHouse', 1], ['ruinHouse2', 1], ['ruinStatue', 1], ['pillar', 3], ['ruinWall', 1]]);
+    place(k, x, y);
+  }
+  // wall segments from relief wall blocks
+  for (let i = 0; i < 200; i++) {
+    const x = ri(90, 150), y = ri(5, 34), len = ri(3, 7);
+    let ok = true;
+    for (let j = 0; j < 2 && ok; j++) for (let k = 0; k < len; k++) if (!walkableGround(x + k, y + j) || map.occ[idx(x + k, y + j)] || reg(x + k, y + j) !== 'ruins') ok = false;
+    if (!ok) continue;
+    for (let k = 0; k < len; k++) {
+      const col = k === 0 ? 4 : k === len - 1 ? 6 : 5;
+      const broken = k > 0 && k < len - 1 && rng() < 0.18;
+      for (let j = broken ? 1 : 0; j < 2; j++) { map.put('deco', x + k, y + j, 'R', col, j === 0 ? 0 : 2); map.block(x + k, y + j); }
+    }
+    map.reserve(x, y, len, 2);
+  }
+}
+
+// graves + bones in the swamp / ruins
+for (let i = 0; i < 40; i++) {
+  const x = ri(104, 156), y = ri(41, 96);
+  if (reg(x, y) !== 'swamp') continue;
+  place(pick(['graveA', 'graveB', 'graveCross']), x, y);
+}
+
+// ---------------------------------------------------------------- border band: dense trees/rocks (all cells blocked)
+const BAND = { forest: ['treePine4', 'treeOlive4', 'treeOliveB4'], town: ['treePine4'], swamp: ['treeSwamp4', 'treeDead4'], ruins: ['treePine4', 'rockGray4'] };
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (band[idx(x, y)]) map.block(x, y);
+// first pass: big stamps tiled over band cells
+const BAND2 = { forest: ['treePine2', 'treeOlive2', 'treeOliveB2', 'treeRoot2'], town: ['treePine2'], swamp: ['treeSwamp2', 'treeDead2'], ruins: ['treePine2', 'treeDead2'] };
+for (const pass of [BAND, BAND2]) for (let y = 0; y < H; y++) for (let x = 0; x < W; x += 1) {
+  if (!band[idx(x, y)] || map.layers.deco[idx(x, y)] || map.layers.above[idx(x, y)]) continue;
+  const r = reg(x, y); const names = pass[r] ?? pass.forest;
+  const name = pick(names);
+  const [t, c, rr, w, h] = S[name];
+  // footprint must overlap only land cells that are not occupied
+  let ok = true;
+  for (let j = 0; j < h && ok; j++) for (let i = 0; i < w; i++) { const a = x + i, b = y + j; if (!inb(a, b) || !isLand(a, b) || map.occ[idx(a, b)] || dirt[idx(a, b)] || water[idx(a, b)] || map.layers.deco[idx(a, b)]) { ok = false; break; } }
+  if (!ok) continue;
+  map.stamp(t, c, rr, w, h, x, y, { baseRows: 1 });
+}
+// fillers on remaining unoccupied band cells
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  if (!band[idx(x, y)] || map.layers.deco[idx(x, y)] || map.layers.above[idx(x, y)] || water[idx(x, y)]) continue;
+  if (dirt[idx(x, y)]) continue;
+  const r = reg(x, y);
+  const k = r === 'swamp' ? [pick([6, 7, 8]), 12] : r === 'ruins' ? [pick([6, 7, 8]), 12] : [pick([0, 1, 2, 3, 5, 8]), 10];
+  put1(x, y, 'N', k[0], k[1], { block: true });
+}
+
+// ---------------------------------------------------------------- ground decor (flowers, bushes, plants) on free grass
+function scatterDecor() {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!walkableGround(x, y) || map.occ[idx(x, y)] || map.layers.deco[idx(x, y)] || map.layers.above[idx(x, y)]) continue;
+    const r = reg(x, y); if (r === 'town') continue;
+    const n = noise2(x, y, 6, r === 'forest' ? 71 : 72);
+    if (r === 'forest') {
+      if (n > 0.62 && rng() < 0.16) flowerAt(x, y);
+      else if (rng() < 0.02) put1(x, y, 'N', pick([0, 1, 2, 3, 4, 5, 6, 8]), 10);
+      else if (rng() < 0.005) put1(x, y, 'FD', pick([0, 1, 2, 3]), 2);
+    } else if (r === 'swamp') {
+      if (rng() < 0.05) put1(x, y, 'FD', pick([0, 1, 2, 3, 4, 6]), 2);
+      else if (rng() < 0.01) put1(x, y, 'FD', pick([14, 15, 5, 6, 7]), 0);
+    } else if (r === 'ruins') {
+      if (rng() < 0.03) put1(x, y, 'FD', pick([0, 1, 2, 3, 4]), 2);
+      else if (rng() < 0.012) put1(x, y, 'FD', pick([14, 15, 5, 6, 7]), 0);
+    }
+  }
+}
+scatterDecor();
+
+// ===================================================================== DUNGEONS (Cavernas + Cripta)
+const floorG = new Uint8Array(W * H);
+function carve(x0, y0, x1, y1, chamfer = 0) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (chamfer) { const dx = Math.min(x - x0, x1 - x), dy = Math.min(y - y0, y1 - y); if (dx + dy < chamfer) continue; }
+    floorG[idx(x, y)] = 1;
+  }
+}
+// Cavernas rooms/corridors
+carve(6, 104, 16, 112, 2);      // A entry
+carve(17, 108, 22, 109);        // A->B
+carve(23, 100, 35, 113, 2);     // B
+carve(29, 94, 30, 99);          // B->C
+carve(24, 88, 36, 93, 2);       // C
+carve(37, 90, 41, 90);          // C->D narrow
+carve(42, 88, 52, 98, 2);       // D
+carve(47, 99, 47, 103);         // D->E narrow
+carve(40, 104, 52, 113, 2);     // E
+carve(10, 96, 11, 103);         // A->F
+carve(4, 89, 16, 95, 2);        // F
+carve(17, 91, 23, 91);          // F->C narrow
+carve(36, 108, 39, 109);        // B->E
+// Cripta rooms
+carve(108, 103, 118, 114, 2);   // H west crypt
+carve(119, 111, 123, 112);      // H->hall
+carve(124, 108, 136, 115, 2);   // hall (entry)
+carve(127, 105, 128, 107);      // hall->K
+carve(122, 100, 133, 104, 2);   // K
+carve(137, 111, 141, 112);      // hall->J
+carve(142, 102, 155, 114, 2);   // J big
+carve(150, 99, 151, 101);       // J nub (north)
+
+for (const [px, py, pw, ph] of [[27, 102, 2, 2], [31, 111, 2, 2], [44, 90, 2, 2], [50, 96, 2, 2], [43, 107, 2, 2], [50, 110, 2, 2], [9, 91, 2, 2], [111, 106, 2, 2], [114, 111, 2, 2], [145, 105, 2, 2], [151, 111, 2, 2], [126, 113, 2, 1]]) for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) floorG[idx(px + i, py + j)] = 0;
+const dungeonRegionOf = (x, y) => (inRect(CAVE, x, y) ? 'cave' : inRect(CRYPT, x, y) ? 'crypt' : null);
+const isFloor = (x, y) => inb(x, y) && floorG[idx(x, y)] === 1;
+// wall set: non-floor cells near a floor cell
+const wall = new Uint8Array(W * H);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const dr = dungeonRegionOf(x, y); if (!dr || isFloor(x, y)) continue;
+  let w = false;
+  for (let j = -1; j <= 1 && !w; j++) for (let i = -1; i <= 1; i++) if (isFloor(x + i, y + j) && dungeonRegionOf(x + i, y + j) === dr) { w = true; break; }
+  if (!w && (isFloor(x, y + 2) && dungeonRegionOf(x, y + 2) === dr)) w = true;
+  if (w) wall[idx(x, y)] = 1;
+}
+const isWall = (x, y) => inb(x, y) && wall[idx(x, y)] === 1;
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const dr = dungeonRegionOf(x, y); if (!dr) continue;
+  map.put('ground', x, y, 'O', 1, 1); // void
+  if (isFloor(x, y)) {
+    if (dr === 'cave') {
+      let [c, r] = [12, 15];
+      if (rng() < 0.05) [c, r] = pick([[11, 18], [12, 18]]);
+      map.put('ground', x, y, 'F', c, r);
+    } else {
+      const [c, r] = pick([[20, 14], [21, 14], [20, 15], [21, 15]]);
+      map.put('ground', x, y, 'I', c, r);
+    }
+  } else if (isWall(x, y)) {
+    const above = isWall(x, y - 1), below = isWall(x, y + 1), left = isWall(x - 1, y), right = isWall(x + 1, y);
+    const row = isFloor(x, y + 1) ? 2 : !above ? 0 : !below ? 2 : 1;
+    const col = !left ? 4 : !right ? 6 : 5;
+    map.put('deco', x, y, 'R', col, row);
+    map.block(x, y);
+  } else map.block(x, y);
+}
+// dungeon decor
+function dungeonDecor() {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!isFloor(x, y) || map.layers.deco[idx(x, y)] || map.occ[idx(x, y)]) continue;
+    const dr = dungeonRegionOf(x, y);
+    // keep corridors/doorways open: only decorate cells whose 8 neighbours are all floor
+    let open = true; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!isFloor(x + i, y + j)) open = false;
+    if (!open) continue;
+    if (dr === 'cave') {
+      if (rng() < 0.05) { const k = pick(['crystalBigA', 'crystalBigB', 'crystalBigC', 'crystalBigD']); place(k, x, y, { check: false }); }
+      else if (rng() < 0.03) put1(x, y, 'N', pick([6, 7, 8]), 12, { block: true });
+      else if (rng() < 0.03) put1(x, y, 'FD', pick([5, 6, 7, 14, 15]), 0);
+    } else {
+      if (rng() < 0.035) place(pick(['graveA', 'graveB', 'graveCross']), x, y, { check: false });
+      else if (rng() < 0.03) put1(x, y, 'FD', pick([14, 15]), 0);
+      else if (rng() < 0.01) place('chest', x, y, { check: false });
+    }
+  }
+}
+for (const s of spawns) if (!isLand(s[4], s[5])) map.reserve(s[4] - 2, s[5] - 2, 5, 5);
+map.reserve(9, 103, 5, 4); map.reserve(129, 105, 5, 7);
+dungeonDecor();
+// dungeon portals: exit doors in the wall north of the entry rooms
+map.put('deco', 11, 103, 'D', 1, 0); map.block(11, 103, false); // cave exit (hole door)
+map.put('deco', 131, 107, 'D', 2, 0); map.block(131, 107, false); // crypt exit (skull door)
+// ensure the wall cells north of the exits are walls with proper rows (they already are); keep neighbours blocked
+
+// ===================================================================== OBJECTS
+const SPAWN = [79, 92];
+map.tileObj('spawn_player', SPAWN[0], SPAWN[1], undefined, 'spawn');
+const npcs = [
+  ['priest', 79, 85], ['shop', 65, 95], ['depot', 96, 95], ['guard_captain', 74, 80], ['bounty_board', 75, 92],
+  ['old_hunter', 19, 58], ['herbalist', 97, 54],
+];
+const portals = [
+  // [x, y, toX, toY]
+  [128, 62, 11, 105], [11, 103, 128, 63],
+  [106, 16, 131, 109], [131, 107, 106, 17],
+];
+const portalMap = new Map(portals.map(([x, y, tx, ty]) => [x + ',' + y, [tx, ty]]));
+// guard captain stands beside the north gate: make sure tile is free
+for (const [id, x, y] of npcs) map.tileObj('npc', x, y, { npcId: id }, id);
+for (const [x, y, tx, ty] of portals) map.tileObj('portal', x, y, { toX: tx, toY: ty }, 'portal');
+for (const [m, count, radius, level, x, y] of spawns) map.tileObj('monster_spawn', x, y, { monster: m, count, radius, level }, m);
+
+// zones (rectangles)
+const MUS = (f) => f;
+const zones = [
+  ['Floresta Sussurrante', 3, 3, 83, 35, '11 - Clearing.ogg'],
+  ['Floresta Sussurrante', 3, 38, 101, 46, '11 - Clearing.ogg'],
+  ['Vila de Pedra Clara', 58, 76, 46, 40, '36 - Village.ogg'],
+  ['Ruínas de Kael', 86, 3, 71, 35, '30 - Ruins.ogg'],
+  ['Pântano Turvo', 104, 38, 53, 59, '14 - Curse.ogg'],
+  ['Cavernas', 0, 84, 57, 36, '2 - The Cave.ogg'],
+  ['Cripta', 104, 98, 56, 22, '40 - Crypt.ogg'],
+];
+for (const [name, x, y, w, h, music] of zones) map.addObject({ type: 'zone', name, x: x * 16, y: y * 16, width: w * 16, height: h * 16, rect: true, props: { music } });
+
+// ===================================================================== VALIDATION
+function fail(msg) { try { renderPreview(map, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true }); } catch {} console.error('\nMAP VALIDATION FAILED: ' + msg); process.exit(1); }
+if (map.blocked(SPAWN[0], SPAWN[1])) fail('spawn blocked');
+// NPC tiles must be walkable before we turn them into obstacles
+for (const [id, x, y] of npcs) if (map.blocked(x, y) && id !== 'bounty_board') fail(`npc ${id} at ${x},${y} stands on a blocked tile`);
+const reach = bfs(map, SPAWN[0], SPAWN[1], portalMap);
+const R = (x, y) => reach[idx(x, y)] === 1;
+for (const [id, x, y] of npcs) {
+  if (id === 'bounty_board') { const ok = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => R(x + a, y + b)); if (!ok) fail('bounty board unreachable'); continue; }
+  if (!R(x, y)) fail(`npc ${id} at ${x},${y} unreachable`);
+}
+for (const [m, , , , x, y] of spawns) { if (map.blocked(x, y)) fail(`monster_spawn ${m} at ${x},${y} is on a blocked tile`); if (!R(x, y)) fail(`monster_spawn ${m} at ${x},${y} unreachable`); }
+for (const [x, y, tx, ty] of portals) {
+  if (map.blocked(x, y)) fail(`portal ${x},${y} is blocked`);
+  if (map.blocked(tx, ty)) fail(`portal target ${tx},${ty} is blocked`);
+  if (portalMap.has(tx + ',' + ty)) fail(`portal target ${tx},${ty} is itself a portal`);
+  if (!R(x, y)) fail(`portal ${x},${y} unreachable`);
+  if (!R(tx, ty)) fail(`portal target ${tx},${ty} unreachable`);
+}
+// safe town: no monster spawn within 12 tiles of the town rect
+for (const [m, , r, , x, y] of spawns) {
+  if (!isLand(x, y)) continue;
+  const dx = Math.max(TOWN.x0 - x, 0, x - TOWN.x1), dy = Math.max(TOWN.y0 - y, 0, y - TOWN.y1);
+  if (Math.hypot(dx, dy) < 14) fail(`monster_spawn ${m} at ${x},${y} too close to town`);
+}
+// NPCs become obstacles
+for (const [id, x, y] of npcs) map.block(x, y);
+let walk = 0, reached = 0;
+for (let i = 0; i < W * H; i++) { if (map.layers.collision[i] === 0 || reach[i]) { if (map.layers.collision[i] === 0) walk++; } if (reach[i]) reached++; }
+console.log(`BFS ok: ${reached} reachable tiles of ${walk} walkable (${((reached / walk) * 100).toFixed(1)}%)`);
+
+// ===================================================================== OUTPUT
+fs.mkdirSync(MAPS_DIR, { recursive: true });
+fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(map.toTiled()));
+const a = renderPreview(map, path.join(MAPS_DIR, 'preview.png'));
+const b = renderPreview(map, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
+if (process.argv.includes('--debug')) {
+  renderPreview(map, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true });
+}
+console.log(`world.json ${W}x${H}; preview ${a.W}x${a.H}; small ${b.W}x${b.H}; objects ${map.objects.length}`);
