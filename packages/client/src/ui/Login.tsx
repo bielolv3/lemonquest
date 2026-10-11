@@ -9,9 +9,13 @@ const VOCS: { id: Vocation; name: string; desc: string; color: string }[] = [
   { id: "druid", name: "Druida", desc: "Cura aliados e domina a natureza.", color: "#4f9d5d" },
 ];
 
+const MIN_NEW_PASSWORD = 6;
+
 const ERRORS: Record<string, string> = {
-  invalid_name: "Nome inválido: use de 3 a 16 letras (espaços entre palavras).",
-  wrong_password: "Senha incorreta (mínimo de 3 caracteres).",
+  invalid_name: "Nome inválido: use de 3 a 16 letras (somente letras, com espaços entre palavras).",
+  wrong_password: "Senha incorreta.",
+  weak_password: "A senha precisa ter pelo menos 6 caracteres.",
+  too_many_attempts: "Muitas tentativas. Aguarde alguns minutos.",
   already_online: "Este personagem já está online.",
   invalid_request: "Requisição inválida. Tente novamente.",
 };
@@ -36,10 +40,15 @@ export function Login() {
         return;
       }
       if (res.error === "need_vocation") {
-        setStep("vocation");
+        if (password.length < MIN_NEW_PASSWORD) {
+          setStep("creds");
+          setError(ERRORS.weak_password);
+        } else {
+          setStep("vocation");
+        }
       } else {
         setStep("creds");
-        setError(ERRORS[res.error] ?? "Erro desconhecido.");
+        setError(ERRORS[res.error] ?? "Não foi possível entrar. Tente novamente.");
       }
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -83,7 +92,7 @@ export function Login() {
             <button class="btn" disabled={busy} onClick={() => submit()}>
               {busy ? "Entrando..." : "Entrar"}
             </button>
-            <p class="hint">Nome novo? Basta entrar para criar o personagem.</p>
+            <p class="hint">Nome novo? Basta entrar para criar o personagem (senha de no mínimo {MIN_NEW_PASSWORD} caracteres).</p>
           </>
         ) : (
           <>
@@ -109,6 +118,7 @@ export function Login() {
           </>
         )}
         {error && <div class="error">{error}</div>}
+        <p class="login-notice">Rede do escritório sem criptografia: não use a mesma senha do trabalho.</p>
       </div>
     </div>
   );

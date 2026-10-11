@@ -100,3 +100,19 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; col
   80% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ---------- Conexão ---------- */
+.conn-banner {
+  position: fixed; top: 44px; left: 50%; transform: translateX(-50%); z-index: 900;
+  padding: 6px 16px; font-size: 14px; color: #f0cf8b; border-color: #d9a441; pointer-events: none;
+  animation: conn-pulse 1.2s ease-in-out infinite;
+}
+@keyframes conn-pulse { 50% { opacity: 0.6; } }
+.conn-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 12, 18, 0.8);
+}
+.conn-card { width: min(380px, 92vw); padding: 24px; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.conn-card h2 { margin: 0; font-size: 22px; color: #d9a441; }
+.conn-card p { margin: 0; font-size: 15px; color: #c9ccd8; }
+.login-notice { margin: 0; font-size: 12px; color: #7f8496; text-align: center; border-top: 1px solid #2c3242; padding-top: 10px; }
