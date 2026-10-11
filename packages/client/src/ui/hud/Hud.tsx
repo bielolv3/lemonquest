@@ -10,12 +10,20 @@ import { Sidebar } from "./Sidebar.tsx";
 import { SkillsWindow } from "./SkillsWindow.tsx";
 import { clearTarget, getTarget } from "./target.ts";
 import { Tooltip } from "./Tooltip.tsx";
+import "../items/bind.ts";
+import { DragLayer } from "../items/DragLayer.tsx";
+import { closeTopOverlay, useItemKeys } from "../items/keys.ts";
+import { ItemTooltip } from "../items/ItemTooltip.tsx";
+import { LootToasts } from "../items/LootToasts.tsx";
+import { QuickPotions } from "../items/QuickPotions.tsx";
+import { NpcWindow } from "../npc/NpcWindow.tsx";
 import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
 import "./world.ts";
 import "./hud.css";
 
 export function Hud() {
   useHudKeys();
+  useItemKeys();
   useEffect(() => startCastBar(), []);
   useNoButtonFocus();
   return (
@@ -23,9 +31,14 @@ export function Hud() {
       <LowHpVignette />
       <ConditionsStrip />
       <ActionBar />
+      <QuickPotions />
+      <NpcWindow />
+      <LootToasts />
       <SkillsWindow />
       <Sidebar />
       <Tooltip />
+      <ItemTooltip />
+      <DragLayer />
     </>
   );
 }
@@ -48,6 +61,7 @@ function useHudKeys() {
       if (e.code === "KeyK") { e.preventDefault(); toggle(skillsOpen); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); toggle(helpOpen); return; }
       if (e.key === "Escape") {
+        if (closeTopOverlay()) return;
         // Fecha o que estiver aberto, um por vez; por último limpa o alvo.
         if (helpOpen.get()) helpOpen.set(false);
         else if (skillsOpen.get()) skillsOpen.set(false);

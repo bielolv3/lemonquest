@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from "preact/hooks";
 import { session } from "../../session.ts";
 import { battleSourcesStore, buildBattleList, BATTLE_RANGE, type BattleEntry } from "./battle.ts";
+import { FightModeControls } from "./FightMode.tsx";
 import { Section } from "./Section.tsx";
 import { useStore } from "./store.ts";
 import { clearTarget, targetStore, toggleTarget } from "./target.ts";
@@ -66,7 +67,7 @@ export function BattleList() {
   }, [players, target]);
 
   return (
-    <Section id="battle" title="Batalha" aside={<span class="count-chip">{entries.length}</span>} class="battle-section">
+    <Section id="battle" title="Batalha" aside={<span class="count-chip">{entries.length}</span>} class="battle-section" controls={<FightModeControls />}>
       <BattleRows entries={entries} />
     </Section>
   );

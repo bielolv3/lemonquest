@@ -1,0 +1,159 @@
+// Arrastar e soltar com pointer events entre mochila, equipamento e depot.
+// Os slots declaram `data-loc="bp:3" | "eq:helmet" | "dp:12"`. O alvo é achado com elementFromPoint ao soltar.
+import {
+  BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, type EquipSlot, type ItemDef, type ItemInstance, type ItemLocation,
+} from "@tibinha/shared";
+import { createStore } from "../hud/store.ts";
+import { playersStore, selectMe } from "../hud/world.ts";
+import { npcStore } from "../npc/npc.ts";
+import { closeDialog, openDialog } from "./dialogs.ts";
+import { defOf, discardBackpackItem, inventoryStore, moveItem } from "./inventory.ts";
+import { canEquip } from "./itemInfo.ts";
+import { itemTipStore } from "./tipStore.ts";
+
+export interface DragState {
+  from: ItemLocation;
+  inst: ItemInstance;
+  def: ItemDef | undefined;
+  /** Chaves de slot onde soltar é válido. */
+  valid: Set<string>;
+  /** Motivo de invalidade por slot (feedback ao passar o mouse). */
+  reasons: Map<string, string>;
+}
+export const dragStore = createStore<DragState | null>(null);
+
+export const locKey = (l: ItemLocation): string =>
+  l.where === "backpack" ? `bp:${l.index}` : l.where === "depot" ? `dp:${l.index}` : `eq:${l.slot}`;
+
+export function parseLoc(key: string | undefined): ItemLocation | null {
+  if (!key) return null;
+  const [k, v] = key.split(":");
+  if (k === "bp" || k === "dp") {
+    const index = Number(v);
+    return Number.isInteger(index) ? { where: k === "bp" ? "backpack" : "depot", index } : null;
+  }
+  if (k === "eq" && (EQUIP_SLOTS as string[]).includes(v)) return { where: "equip", slot: v as EquipSlot };
+  return null;
+}
+
+const REASON_TEXT = { slot: "Slot incompatível", level: "Level insuficiente", vocation: "Vocação não pode usar", twohanded: "Arma de duas mãos equipada" } as const;
+
+function computeValid(from: ItemLocation, inst: ItemInstance): Pick<DragState, "valid" | "reasons"> {
+  const valid = new Set<string>();
+  const reasons = new Map<string, string>();
+  const inv = inventoryStore.get();
+  const def = defOf(inst);
+  const me = selectMe(playersStore.get());
+  const meReq = me ? { level: me.level, vocation: me.vocation } : null;
+  const fromKey = locKey(from);
+  for (let i = 0; i < BACKPACK_SIZE; i++) if (`bp:${i}` !== fromKey) valid.add(`bp:${i}`);
+  for (const slot of EQUIP_SLOTS) {
+    const key = `eq:${slot}`;
+    if (from.where === "equip") { reasons.set(key, "Escolha um slot da mochila"); continue; }
+    if (from.where === "depot") { reasons.set(key, "Pegue o item da mochila primeiro"); continue; }
+    const c = canEquip(def, slot, meReq, inv?.equipment ?? {}, (id) => defOf({ defId: id } as ItemInstance));
+    if (c.ok) valid.add(key);
+    else reasons.set(key, REASON_TEXT[c.reason]);
+  }
+  const npc = npcStore.get();
+  if (npc?.msg.depot) {
+    for (let i = 0; i < DEPOT_SIZE; i++) {
+      if (from.where === "equip") { reasons.set(`dp:${i}`, "Desequipe primeiro"); continue; }
+      if (`dp:${i}` !== fromKey) valid.add(`dp:${i}`);
+    }
+  }
+  return { valid, reasons };
+}
+
+const START_PX = 4;
+let ghostMove: ((x: number, y: number, reason: string) => void) | null = null;
+export function bindGhost(fn: typeof ghostMove): void { ghostMove = fn; }
+
+let cleanup: (() => void) | null = null;
+let hoverEl: Element | null = null;
+
+function setHover(el: Element | null) {
+  if (el === hoverEl) return;
+  hoverEl?.classList.remove("drop-hover");
+  hoverEl = el;
+  hoverEl?.classList.add("drop-hover");
+}
+
+export function cancelDrag(): boolean {
+  const had = dragStore.get() != null;
+  cleanup?.();
+  return had;
+}
+
+/** Chamado no pointerdown de um slot preenchido. Vira arrasto depois de mover alguns pixels. */
+export function beginPress(e: PointerEvent, from: ItemLocation, inst: ItemInstance): void {
+  if (e.button !== 0) return;
+  cancelDrag();
+  const sx = e.clientX, sy = e.clientY;
+  let shift = e.shiftKey;
+  let dragging = false;
+
+  const move = (ev: PointerEvent) => {
+    shift = shift || ev.shiftKey;
+    if (!dragging) {
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < START_PX) return;
+      dragging = true;
+      itemTipStore.set(null);
+      dragStore.set({ from, inst, def: defOf(inst), ...computeValid(from, inst) });
+    }
+    const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("[data-loc]") ?? null;
+    setHover(el);
+    const d = dragStore.get();
+    const key = (el as HTMLElement | null)?.dataset.loc;
+    const reason = d && key && !d.valid.has(key) ? d.reasons.get(key) ?? "" : "";
+    ghostMove?.(ev.clientX, ev.clientY, reason);
+  };
+  const up = (ev: PointerEvent) => {
+    const was = dragging;
+    const d = dragStore.get();
+    shift = shift || ev.shiftKey;
+    cleanup?.();
+    if (was && d) drop(d, ev.clientX, ev.clientY, shift);
+  };
+
+  const off = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", off);
+    setHover(null);
+    dragStore.set(null);
+    if (cleanup === off) cleanup = null;
+  };
+  cleanup = off;
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", off);
+}
+
+const PANEL_SEL = ".hud-panel, .hud-rail, .npc-window, .hud-window, .action-bar, .quick-slots, .chat, .item-dialog, .compact-vitals";
+
+function drop(d: DragState, x: number, y: number, shift: boolean) {
+  const target = document.elementFromPoint(x, y);
+  const slot = target?.closest("[data-loc]") as HTMLElement | null;
+  if (slot) {
+    const to = parseLoc(slot.dataset.loc);
+    if (!to || locKey(to) === locKey(d.from)) return;
+    if (!d.valid.has(locKey(to))) return;
+    if (shift && d.inst.count > 1 && d.from.where !== "equip") {
+      openDialog({
+        kind: "count", title: `Mover ${d.def?.name ?? "item"}`, max: d.inst.count, initial: Math.max(1, Math.floor(d.inst.count / 2)),
+        onConfirm: (n) => { closeDialog(); moveItem(d.from, to, n); },
+      });
+    } else moveItem(d.from, to);
+    return;
+  }
+  if (target?.closest(PANEL_SEL)) return;
+  // Soltou fora de qualquer painel: jogar fora (só mochila).
+  if (d.from.where === "backpack") {
+    const index = d.from.index;
+    openDialog({
+      kind: "discard", name: d.def?.name ?? "item", count: d.inst.count,
+      onConfirm: () => { closeDialog(); discardBackpackItem(index); },
+    });
+  }
+}

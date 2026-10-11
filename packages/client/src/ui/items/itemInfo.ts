@@ -1,0 +1,134 @@
+// Formatação de itens: atributos, requisitos e comparação com o equipado. Sem dependência de UI (testável).
+import {
+  RARITY_COLOR, RARITY_LABEL,
+  type DamageKind, type EquipSlot, type ItemDef, type ItemInstance, type ItemKind, type Rarity, type StatId, type Stats, type Vocation,
+  type WeaponType,
+} from "@tibinha/shared";
+
+export const STAT_LABEL: Record<StatId, string> = {
+  attack: "Ataque", armor: "Armadura", hpMax: "Vida máx.", manaMax: "Mana máx.",
+  magic: "Magic Level", melee: "Corpo a corpo", distance: "Distância", shield: "Escudo",
+  speed: "Velocidade", crit: "Crítico", hpRegen: "Regen. de vida", manaRegen: "Regen. de mana",
+};
+const PERCENT_STATS = new Set<StatId>(["speed", "crit"]);
+/** Ordem de exibição. */
+export const STAT_ORDER: StatId[] = [
+  "attack", "armor", "hpMax", "manaMax", "magic", "melee", "distance", "shield", "speed", "crit", "hpRegen", "manaRegen",
+];
+
+export const SLOT_LABEL: Record<EquipSlot, string> = {
+  helmet: "Elmo", amulet: "Amuleto", armor: "Armadura", weapon: "Arma", shield: "Escudo", legs: "Calças", ring: "Anel", boots: "Botas",
+};
+export const KIND_LABEL: Record<ItemKind, string> = {
+  weapon: "Arma", shield: "Escudo", helmet: "Elmo", armor: "Armadura", legs: "Calças", boots: "Botas", ring: "Anel", amulet: "Amuleto",
+  potion: "Poção", material: "Material", key: "Chave", quest: "Item de missão", food: "Comida",
+};
+export const WEAPON_LABEL: Record<WeaponType, string> = {
+  sword: "Espada", axe: "Machado", club: "Clava", bow: "Arco", wand: "Varinha", rod: "Cajado",
+};
+export const DAMAGE_LABEL: Record<DamageKind, string> = {
+  physical: "físico", fire: "fogo", ice: "gelo", energy: "energia", earth: "terra", holy: "sagrado", death: "morte", heal: "cura", mana: "mana",
+};
+export const VOCATION_LABEL: Record<Vocation, string> = {
+  knight: "Cavaleiro", paladin: "Paladino", sorcerer: "Feiticeiro", druid: "Druida",
+};
+
+export const rarityColor = (r: Rarity | undefined): string => RARITY_COLOR[r ?? "common"];
+export const rarityLabel = (r: Rarity | undefined): string => RARITY_LABEL[r ?? "common"];
+
+export const fmtNum = (n: number): string => n.toLocaleString("pt-BR");
+
+export function fmtStat(stat: StatId, v: number): string {
+  const sign = v > 0 ? "+" : v < 0 ? "−" : "";
+  return `${sign}${Math.abs(v)}${PERCENT_STATS.has(stat) ? "%" : ""}`;
+}
+
+/** Soma stats da definição + bônus aleatórios da instância. */
+export function totalStats(def: ItemDef | undefined, inst: ItemInstance | undefined): Stats {
+  const out: Stats = {};
+  for (const [k, v] of Object.entries(def?.stats ?? {})) out[k as StatId] = (out[k as StatId] ?? 0) + (v as number);
+  for (const b of inst?.bonuses ?? []) out[b.stat] = (out[b.stat] ?? 0) + b.value;
+  return out;
+}
+
+export interface StatLine { stat: StatId; label: string; total: number; base: number; bonus: number }
+
+export function statLines(def: ItemDef | undefined, inst: ItemInstance | undefined): StatLine[] {
+  const total = totalStats(def, inst);
+  const lines: StatLine[] = [];
+  for (const stat of STAT_ORDER) {
+    const t = total[stat];
+    if (!t) continue;
+    const base = def?.stats?.[stat] ?? 0;
+    lines.push({ stat, label: STAT_LABEL[stat], total: t, base, bonus: t - base });
+  }
+  return lines;
+}
+
+export interface StatDelta { stat: StatId; label: string; delta: number }
+
+/** Diferença (novo − equipado) por atributo; só atributos que mudam. */
+export function compareStats(def: ItemDef | undefined, inst: ItemInstance | undefined, eqDef: ItemDef | undefined, eqInst: ItemInstance | undefined): StatDelta[] {
+  const a = totalStats(def, inst), b = totalStats(eqDef, eqInst);
+  const out: StatDelta[] = [];
+  for (const stat of STAT_ORDER) {
+    const d = (a[stat] ?? 0) - (b[stat] ?? 0);
+    if (d !== 0) out.push({ stat, label: STAT_LABEL[stat], delta: d });
+  }
+  return out;
+}
+
+export interface Requirement { text: string; ok: boolean }
+export interface PlayerReq { level: number; vocation: string }
+
+export function requirements(def: ItemDef | undefined, me: PlayerReq | null): Requirement[] {
+  const out: Requirement[] = [];
+  if (!def) return out;
+  if (def.level) out.push({ text: `Level ${def.level}`, ok: !me || me.level >= def.level });
+  if (def.vocations?.length) {
+    out.push({
+      text: def.vocations.map((v) => VOCATION_LABEL[v] ?? v).join(", "),
+      ok: !me || def.vocations.includes(me.vocation as Vocation),
+    });
+  }
+  return out;
+}
+
+export type EquipCheck = { ok: true } | { ok: false; reason: "slot" | "level" | "vocation" | "twohanded" };
+
+/** O item pode ir para este slot de equipamento? (o servidor é a autoridade; isto só dá o feedback.) */
+export function canEquip(
+  def: ItemDef | undefined, slot: EquipSlot, me: PlayerReq | null, equipment: Partial<Record<EquipSlot, ItemInstance>>,
+  defOf: (id: string) => ItemDef | undefined,
+): EquipCheck {
+  if (!def || def.slot !== slot) return { ok: false, reason: "slot" };
+  if (me && def.level && me.level < def.level) return { ok: false, reason: "level" };
+  if (me && def.vocations?.length && !def.vocations.includes(me.vocation as Vocation)) return { ok: false, reason: "vocation" };
+  if (slot === "shield") {
+    const w = equipment.weapon && defOf(equipment.weapon.defId);
+    if (w?.twoHanded) return { ok: false, reason: "twohanded" };
+  }
+  return { ok: true };
+}
+
+export function kindText(def: ItemDef): string {
+  if (def.slot) {
+    const w = def.weaponType ? `${WEAPON_LABEL[def.weaponType]} · ` : "";
+    return `${w}${SLOT_LABEL[def.slot]}${def.twoHanded ? " · duas mãos" : ""}`;
+  }
+  return KIND_LABEL[def.kind];
+}
+
+/** Efeito de uso (poções). */
+export function useText(def: ItemDef): string | null {
+  if (!def.use) return null;
+  const p: string[] = [];
+  if (def.use.heal) p.push(`+${def.use.heal} de vida`);
+  if (def.use.mana) p.push(`+${def.use.mana} de mana`);
+  return p.length ? `${p.join(" e ")} · recarga ${(def.use.cooldownMs / 1000).toLocaleString("pt-BR")} s` : null;
+}
+
+/** Valor de venda ao NPC (arredondado para baixo, mínimo 1 se o item tem valor). */
+export function sellPrice(def: ItemDef, ratio: number): number {
+  return def.value > 0 ? Math.max(1, Math.floor(def.value * ratio)) : 0;
+}

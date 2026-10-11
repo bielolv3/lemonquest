@@ -3,14 +3,19 @@ import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg } from "@tib
 import { session } from "../session.ts";
 import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";
+import { FEED_COLOR, onFeed, type FeedEntry } from "./items/loot.ts";
+import { rarityColor } from "./items/itemInfo.ts";
 
 const MAX_LINES = 80;
+
+/** Linha do chat: mensagem normal ou notícia do servidor (S2C.Feed). */
+type Line = ChatMessage & { feed?: FeedEntry };
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 const collapsedStore = persistedBool("chatCollapsed", false);
 
 export function Chat() {
-  const [lines, setLines] = useState<ChatMessage[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
   const collapsed = useStore(collapsedStore);
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState("");
@@ -25,6 +30,11 @@ export function Chat() {
       setLines((l) => [...l, m].slice(-MAX_LINES));
       if (collapsedRef.current) setUnread((n) => n + 1);
     });
+  }), []);
+
+  useEffect(() => onFeed((f) => {
+    setLines((l) => [...l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f } as Line].slice(-MAX_LINES));
+    if (collapsedRef.current) setUnread((n) => n + 1);
   }), []);
 
   useEffect(() => { if (!collapsed) setUnread(0); }, [collapsed]);
@@ -106,7 +116,11 @@ export function Chat() {
         {lines.map((m, i) => (
           <div key={i} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}`}>
             <span class="chat-time">{hhmm(m.ts)}</span>
-            {m.channel === "system" ? (
+            {m.feed ? (
+              <span class="chat-text chat-feed" style={{ color: m.feed.rarity ? rarityColor(m.feed.rarity) : FEED_COLOR[m.feed.kind] }}>
+                <b class="chat-from">[Servidor]</b> {m.text}
+              </span>
+            ) : m.channel === "system" ? (
               <span class="chat-text">{m.text}</span>
             ) : (
               <span class="chat-text"><b class="chat-from">{m.from}</b> {m.text}</span>
