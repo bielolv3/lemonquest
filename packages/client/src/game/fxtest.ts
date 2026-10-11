@@ -21,7 +21,7 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
   const me: PlayerView = {
     id: ME, name: "QA Combate", vocation: (new URLSearchParams(location.search).get("voc") ?? "sorcerer") as PlayerView["vocation"], level: 8, x: spawn.x, y: spawn.y, dir: 4, stepMs: 280, seq: 0,
     hp: 160, maxHp: 200, mana: 80, maxMana: 100, xp: 400, targetId: "",
-    magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100,
+    magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100, stance: "balanced", chase: false,
   };
   (window as unknown as Record<string, unknown>).__scene = scene;
   scene.setLocalId(ME);

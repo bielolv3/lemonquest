@@ -6,4 +6,6 @@ export * from "./formulas.ts";
 export * from "./explore.ts";
 export * from "./data/monsters.ts";
 export * from "./data/spells.ts";
+export * from "./data/items.ts";
+export * from "./data/npcs.ts";
 export * from "./skills.ts";

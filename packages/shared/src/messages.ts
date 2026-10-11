@@ -1,6 +1,7 @@
-import type { ChatChannel, ChatMessage, CombatEvent, Dir, Vocation } from "./types.ts";
+import type { ChatChannel, ChatMessage, CombatEvent, Dir, FightStance, Vocation } from "./types.ts";
 import type { ConditionId } from "./data/spells.ts";
 import type { SkillId } from "./skills.ts";
+import type { EquipSlot, ItemInstance, Rarity, Stats } from "./data/items.ts";
 
 /** Cliente → servidor */
 export const C2S = {
@@ -15,7 +16,36 @@ export const C2S = {
   Attack: "attack",
   /** Conjurar magia (hotkey 1–6 ou palavras no chat). */
   Cast: "cast",
+  /** Mover item entre mochila/equipamento/depot (arrastar e soltar). */
+  MoveItem: "moveItem",
+  /** Usar item da mochila (poção). */
+  UseItem: "useItem",
+  /** Usar a primeira poção de vida/mana da mochila (atalhos Q/E). */
+  QuickPotion: "quickPotion",
+  /** Jogar fora (destrói) um item da mochila. */
+  DiscardItem: "discardItem",
+  /** Falar com NPC (abre diálogo/loja/depot). */
+  NpcInteract: "npcInteract",
+  /** Comprar/vender com NPC aberto. */
+  NpcTrade: "npcTrade",
+  /** Modo de batalha: postura (ofensivo/equilibrado/defensivo) e seguir o alvo. */
+  FightMode: "fightMode",
 } as const;
+
+export interface FightModeMsg { stance: FightStance; chase: boolean }
+
+export type ItemLocation =
+  | { where: "backpack"; index: number }
+  | { where: "equip"; slot: EquipSlot }
+  | { where: "depot"; index: number };
+export interface MoveItemMsg { from: ItemLocation; to: ItemLocation; count?: number }
+export interface UseItemMsg { index: number }
+export interface QuickPotionMsg { kind: "hp" | "mana" }
+export interface DiscardItemMsg { index: number }
+export interface NpcInteractMsg { npcId: string }
+export type NpcTradeMsg =
+  | { npcId: string; action: "buy"; itemId: string; count: number }
+  | { npcId: string; action: "sell"; index: number; count: number };
 
 export interface CastMsg { spellId: string; targetId?: string | null }
 
@@ -50,6 +80,18 @@ export const S2C = {
   Conditions: "conditions",
   /** Uma skill subiu de nível. */
   SkillUp: "skillUp",
+  /** Estado completo do inventário do jogador (só para ele), enviado ao entrar e a cada mudança. */
+  Inventory: "inventory",
+  /** Depot aberto (conteúdo), enviado ao interagir com o NPC do depot e a cada mudança enquanto aberto. */
+  Depot: "depot",
+  /** Diálogo/loja de NPC aberto. */
+  NpcOpen: "npcOpen",
+  /** Loot que você recebeu de um abate (para animação de drop). */
+  Loot: "loot",
+  /** Feed global (drops raros, conquistas, bosses). */
+  Feed: "feed",
+  /** Fala ambiente de NPC (balão sobre a cabeça). */
+  NpcSay: "npcSay",
   /** Você foi teletransportado (portal). x,y = novo tile. */
   Teleported: "teleported",
 } as const;
@@ -80,6 +122,25 @@ export interface SpellCastMsg {
 }
 export interface ConditionsMsg { list: { id: ConditionId; remainingMs?: number; value?: number }[] }
 export interface SkillUpMsg { skill: SkillId; level: number }
+export interface InventoryMsg {
+  equipment: Partial<Record<EquipSlot, ItemInstance>>;
+  backpack: (ItemInstance | null)[];   // tamanho BACKPACK_SIZE
+  gold: number;
+  /** Totais efetivos (equipamento + bônus) para o HUD. */
+  stats: Stats;
+  cap: { used: number; max: number };
+}
+export interface DepotMsg { items: (ItemInstance | null)[] }  // tamanho DEPOT_SIZE
+export interface NpcOpenMsg {
+  npcId: string;
+  name: string;
+  greeting: string;
+  shop?: { sells: { itemId: string; price: number }[]; buys?: string[]; sellRatio: number };
+  depot?: boolean;
+}
+export interface LootMsg { x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number; lostFull?: number }
+export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
+export interface NpcSayMsg { npcId: string; text: string }
 export interface CombatMsg { events: CombatEvent[] }
 export interface XpGainMsg { amount: number; x: number; y: number }
 export interface LevelUpMsg { level: number; maxHp: number; maxMana: number }

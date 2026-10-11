@@ -20,6 +20,9 @@ export type Facing = "down" | "up" | "left" | "right";
 export type Vocation = "knight" | "paladin" | "sorcerer" | "druid";
 export const VOCATIONS: Vocation[] = ["knight", "paladin", "sorcerer", "druid"];
 
+/** Postura de combate (estilo Tibia). */
+export type FightStance = "offensive" | "balanced" | "defensive";
+
 export type ChatChannel = "global" | "party" | "system";
 
 export interface ChatMessage {
@@ -60,6 +63,9 @@ export interface PlayerView {
   shieldPct: number;
   /** Velocidade efetiva em % (100 = normal; haste > 100). Informativo para o HUD. */
   speedPct: number;
+  stance: FightStance;
+  /** true = persegue o alvo automaticamente; false = fica parado. */
+  chase: boolean;
 }
 
 /** Espelho de MonsterState (packages/server/src/state.ts). */

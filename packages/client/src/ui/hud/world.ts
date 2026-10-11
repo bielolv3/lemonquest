@@ -14,7 +14,7 @@ const snap = (p: PlayerView): PlayerSnap => ({
   id: p.id, name: p.name, vocation: p.vocation, level: p.level, x: p.x, y: p.y, dir: p.dir,
   hp: p.hp, maxHp: p.maxHp, mana: p.mana, maxMana: p.maxMana, xp: p.xp, targetId: p.targetId ?? "",
   magicLevel: p.magicLevel ?? 0, skillMelee: p.skillMelee ?? 10, skillDistance: p.skillDistance ?? 10, skillShield: p.skillShield ?? 10,
-  magicPct: p.magicPct ?? 0, meleePct: p.meleePct ?? 0, distancePct: p.distancePct ?? 0, shieldPct: p.shieldPct ?? 0, speedPct: p.speedPct ?? 100,
+  magicPct: p.magicPct ?? 0, meleePct: p.meleePct ?? 0, distancePct: p.distancePct ?? 0, shieldPct: p.shieldPct ?? 0, speedPct: p.speedPct ?? 100, stance: p.stance ?? "balanced", chase: !!p.chase,
 });
 
 let live = new Map<string, PlayerSnap>();

@@ -1,5 +1,5 @@
 import { Schema, MapSchema, type } from "@colyseus/schema";
-import type { MonsterView, PlayerView, Vocation } from "@tibinha/shared";
+import type { FightStance, MonsterView, PlayerView, Vocation } from "@tibinha/shared";
 
 /** Deve espelhar PlayerView (packages/shared/src/types.ts). */
 export class PlayerState extends Schema implements PlayerView {
@@ -27,6 +27,8 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint8") distancePct = 0;
   @type("uint8") shieldPct = 0;
   @type("uint16") speedPct = 100;
+  @type("string") stance: FightStance = "balanced";
+  @type("boolean") chase = false;
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */

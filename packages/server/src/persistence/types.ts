@@ -7,6 +7,14 @@ export interface CharacterData {
   hp?: number;
   mana?: number;
   /** Skills: nível e tentativas acumuladas no nível atual. */
+  /** Modo de batalha salvo. */
+  stance?: "offensive" | "balanced" | "defensive";
+  chase?: boolean;
+  /** Inventário (M4). */
+  equipment?: Partial<Record<string, unknown>>;
+  backpack?: unknown[];
+  depot?: unknown[];
+  gold?: number;
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
 }
 

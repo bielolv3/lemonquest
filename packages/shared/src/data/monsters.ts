@@ -1,4 +1,5 @@
 import type { DamageKind } from "../types.ts";
+import type { LootEntry } from "./items.ts";
 
 /**
  * VERIFICACAO DE LAYOUT (sheets abertos e ampliados 4x): Mouse, Slime, Snake, SpiderRed, BlueBat, Skull,
@@ -51,6 +52,10 @@ export interface MonsterDef {
   /** Respawn após morrer (ms). */
   respawnMs: number;
   boss?: boolean;
+  /** Ouro por abate [min, max] (0 = nenhum). */
+  gold?: [number, number];
+  /** Tabela de loot (ids de ITEMS). */
+  loot?: LootEntry[];
   sprite: CreatureSprite;
 }
 
