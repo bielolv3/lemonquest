@@ -1,0 +1,89 @@
+import { Room, Client } from "colyseus";
+import { C2S, TICK_MS, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
+import { PlayerState, WorldState } from "../state.ts";
+import { loadMap, type LoadedMap } from "../world/map.ts";
+import { MovementSystem } from "../systems/movement.ts";
+import { handleChat } from "../systems/chat.ts";
+import { consumeToken, setOnline } from "../persistence/auth.ts";
+import { saveCharacter } from "../persistence/db.ts";
+import type { CharacterRecord } from "../persistence/types.ts";
+
+const AUTOSAVE_MS = 30_000;
+
+export class WorldRoom extends Room<{ state: WorldState }> {
+  maxClients = 32;
+  autoDispose = false;
+  state = new WorldState();
+
+  private map!: LoadedMap;
+  private movement!: MovementSystem;
+  private records = new Map<string, CharacterRecord>(); // sessionId -> registro
+
+  onCreate() {
+    this.map = loadMap("world");
+    this.movement = new MovementSystem(this.map.grid);
+
+    this.onMessage(C2S.Move, (c, m: MoveMsg) => this.withPlayer(c, (p) => this.movement.onMove(p, m)));
+    this.onMessage(C2S.WalkTo, (c, m: WalkToMsg) => this.withPlayer(c, (p) => this.movement.onWalkTo(p, m)));
+    this.onMessage(C2S.Turn, (c, m: TurnMsg) => this.withPlayer(c, (p) => this.movement.onTurn(p, m)));
+    this.onMessage(C2S.Chat, (c, m: ChatSendMsg) => this.withPlayer(c, (p) => handleChat(this, c, p, m)));
+
+    this.setSimulationInterval(() => this.movement.tick(Date.now(), this.state.players.values()), TICK_MS);
+    this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
+  }
+
+  onAuth(_client: Client, options: JoinOptions) {
+    return consumeToken(String(options?.token ?? ""));
+  }
+
+  onJoin(client: Client, _options: JoinOptions, rec: CharacterRecord) {
+    const p = new PlayerState();
+    p.id = client.sessionId;
+    p.name = rec.name;
+    p.vocation = rec.vocation;
+    p.level = rec.level;
+    const start = rec.x != null && rec.y != null && this.map.grid.isWalkable(rec.x, rec.y)
+      ? { x: rec.x, y: rec.y }
+      : this.map.spawn;
+    p.x = start.x;
+    p.y = start.y;
+    p.dir = rec.dir;
+    this.records.set(client.sessionId, rec);
+    this.state.players.set(client.sessionId, p);
+    this.movement.addPlayer(p);
+    setOnline(rec.name, true);
+  }
+
+  onLeave(client: Client) {
+    this.save(client.sessionId);
+    const rec = this.records.get(client.sessionId);
+    if (rec) setOnline(rec.name, false);
+    this.movement.removePlayer(client.sessionId);
+    this.state.players.delete(client.sessionId);
+    this.records.delete(client.sessionId);
+  }
+
+  onDispose() {
+    this.saveAll();
+  }
+
+  private withPlayer(client: Client, fn: (p: PlayerState) => void) {
+    const p = this.state.players.get(client.sessionId);
+    if (p) fn(p);
+  }
+
+  private save(sessionId: string) {
+    const p = this.state.players.get(sessionId);
+    const rec = this.records.get(sessionId);
+    if (!p || !rec) return;
+    rec.level = p.level;
+    rec.x = p.x;
+    rec.y = p.y;
+    rec.dir = p.dir;
+    saveCharacter(rec);
+  }
+
+  private saveAll() {
+    for (const id of this.records.keys()) this.save(id);
+  }
+}

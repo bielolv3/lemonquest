@@ -1,0 +1,25 @@
+{
+  "name": "tibinha",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev -w @tibinha/server\" \"npm:dev -w @tibinha/client\"",
+    "build": "npm run build -w @tibinha/client",
+    "start": "npm run start -w @tibinha/server",
+    "typecheck": "tsc -p packages/shared && tsc -p packages/server && tsc -p packages/client",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

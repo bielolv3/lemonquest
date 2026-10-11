@@ -1,0 +1,4 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; color: #e8e6d9; font-family: monospace; }
+#game { position: fixed; inset: 0; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: auto; }
