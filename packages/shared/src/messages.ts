@@ -1,4 +1,4 @@
-import type { ChatChannel, ChatMessage, Dir, Vocation } from "./types.ts";
+import type { ChatChannel, ChatMessage, CombatEvent, Dir, Vocation } from "./types.ts";
 
 /** Cliente → servidor */
 export const C2S = {
@@ -9,8 +9,11 @@ export const C2S = {
   /** Virar sem andar (Ctrl+seta). */
   Turn: "turn",
   Chat: "chat",
+  /** Selecionar/limpar alvo de ataque automático (estilo Tibia). */
+  Attack: "attack",
 } as const;
 
+export interface AttackMsg { targetId: string | null }
 export interface MoveMsg { dir: Dir | null; seq: number }
 export interface WalkToMsg { x: number; y: number }
 export interface TurnMsg { dir: Dir }
@@ -23,9 +26,24 @@ export const S2C = {
   Notice: "notice",
   /** Máscara de exploração completa (enviada ao entrar). O cliente revela localmente ao andar. */
   Explored: "explored",
+  /** Lote de eventos de combate do tick (enviado a todos na sala). */
+  Combat: "combat",
+  /** Você ganhou XP (para o texto flutuante "+25 XP"). */
+  XpGain: "xpGain",
+  /** Você subiu de level. */
+  LevelUp: "levelUp",
+  /** Você morreu (o servidor já te levou ao templo). */
+  Died: "died",
+  /** Uma criatura morreu (para animação de morte; a remoção do estado vem em seguida). */
+  CreatureDied: "creatureDied",
 } as const;
 
 export type ChatRecvMsg = ChatMessage;
+export interface CombatMsg { events: CombatEvent[] }
+export interface XpGainMsg { amount: number; x: number; y: number }
+export interface LevelUpMsg { level: number; maxHp: number; maxMana: number }
+export interface DiedMsg { lostXp: number; killerName: string }
+export interface CreatureDiedMsg { id: string; x: number; y: number; defId: string }
 export interface ExploredMsg { width: number; height: number; bits: string /* base64 */ }
 export interface NoticeMsg { text: string; kind?: "info" | "warn" | "good" }
 

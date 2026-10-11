@@ -48,6 +48,36 @@ export interface PlayerView {
   mana: number;
   maxMana: number;
   xp: number;          // XP total acumulada
+  targetId: string;    // alvo de ataque atual ("" = nenhum); id de monstro ou sessionId de jogador
+}
+
+/** Espelho de MonsterState (packages/server/src/state.ts). */
+export interface MonsterView {
+  id: string;          // único por instância (ex.: "m17")
+  defId: string;       // chave em MONSTERS (shared/src/data/monsters.ts)
+  x: number;
+  y: number;
+  dir: Dir;
+  stepMs: number;
+  hp: number;
+  maxHp: number;
+  targetId: string;    // sessionId do jogador que está atacando ("" = nenhum)
+}
+
+export type DamageKind = "physical" | "fire" | "ice" | "energy" | "earth" | "holy" | "death" | "heal" | "mana";
+
+/** Um acontecimento de combate para o cliente animar (número flutuante, flash, projétil...). */
+export interface CombatEvent {
+  /** Quem causou ("" = ambiente). */
+  sourceId: string;
+  targetId: string;
+  /** Valor positivo. 0 com miss=true = errou/bloqueou. */
+  amount: number;
+  kind: DamageKind;
+  crit?: boolean;
+  miss?: boolean;
+  /** Ataque à distância: o cliente desenha um projétil de source → target. */
+  ranged?: boolean;
 }
 
 export interface WorldView {

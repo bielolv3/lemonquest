@@ -12,7 +12,7 @@ export const playersStore = createStore<ReadonlyMap<string, PlayerSnap>>(new Map
 
 const snap = (p: PlayerView): PlayerSnap => ({
   id: p.id, name: p.name, vocation: p.vocation, level: p.level, x: p.x, y: p.y, dir: p.dir,
-  hp: p.hp, maxHp: p.maxHp, mana: p.mana, maxMana: p.maxMana, xp: p.xp,
+  hp: p.hp, maxHp: p.maxHp, mana: p.mana, maxMana: p.maxMana, xp: p.xp, targetId: p.targetId ?? "",
 });
 
 let live = new Map<string, PlayerSnap>();

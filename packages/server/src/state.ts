@@ -1,5 +1,5 @@
 import { Schema, MapSchema, type } from "@colyseus/schema";
-import type { PlayerView, Vocation } from "@tibinha/shared";
+import type { MonsterView, PlayerView, Vocation } from "@tibinha/shared";
 
 /** Deve espelhar PlayerView (packages/shared/src/types.ts). */
 export class PlayerState extends Schema implements PlayerView {
@@ -17,8 +17,23 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint32") mana = 50;
   @type("uint32") maxMana = 50;
   @type("uint32") xp = 0;
+  @type("string") targetId = "";
+}
+
+/** Deve espelhar MonsterView (packages/shared/src/types.ts). */
+export class MonsterState extends Schema implements MonsterView {
+  @type("string") id = "";
+  @type("string") defId = "";
+  @type("uint16") x = 0;
+  @type("uint16") y = 0;
+  @type("uint8") dir = 4;
+  @type("uint16") stepMs = 0;
+  @type("uint32") hp = 1;
+  @type("uint32") maxHp = 1;
+  @type("string") targetId = "";
 }
 
 export class WorldState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
+  @type({ map: MonsterState }) monsters = new MapSchema<MonsterState>();
 }
