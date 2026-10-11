@@ -31,6 +31,11 @@ const SOUNDS = {
   sp_taunt: [S + "Hit & Impact/Impact5.wav"],
   sp_charge: [S + "Whoosh & Slash/Whoosh2.wav"],
   skillup: [S + "Bonus/PowerUp2.wav"],
+  loot: [S + "Bonus/Bonus.wav", S + "Bonus/Bonus2.wav"],
+  coin: [S + "Bonus/Coin.wav", S + "Bonus/Coin2.wav", S + "Bonus/Coin3.wav", S + "Bonus/Gold1.wav"],
+  lootRare: [S + "Bonus/PowerUp1.wav"],
+  lootEpic: ["Jingles/Secret2.wav"],
+  lootLegend: ["Jingles/Success3.wav"],
   fail: [S + "Menu/Cancel.wav"],
 } as const;
 
