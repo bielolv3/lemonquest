@@ -6,3 +6,5 @@ dist/
 *.db-shm
 assets/_download/
 .DS_Store
+.claude/
+data/
