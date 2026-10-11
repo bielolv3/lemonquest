@@ -32,6 +32,8 @@ export class Predictor {
   y = 0;
   dir: Dir = 4;
   level = 1;
+  /** Velocidade efetiva (PlayerView.speedPct): haste > 100, slow < 100, 0 = enraizado (só vira). */
+  speedPct = 100;
   stepEndsAt = 0;
   held: Dir | null = null;
   pending: Dir | null = null;
@@ -66,13 +68,13 @@ export class Predictor {
     const tx = this.x + dx, ty = this.y + dy;
     const blocked = !canStepTerrain(this.world.grid, this.x, this.y, dx, dy)
       || (!isNearSpawn(this.world.spawn, tx, ty) && this.world.isOccupied(tx, ty));
-    if (blocked) {
+    if (blocked || this.speedPct <= 0) {
       if (this.dir === d) return null;
       this.dir = d;
       return { kind: "turn", dir: d };
     }
     // Chão do tile de ORIGEM, igual ao MovementSystem do servidor.
-    const ms = stepDuration(this.level, d, this.world.groundSpeed?.speedAt(this.x, this.y));
+    const ms = stepDuration(this.level, d, this.world.groundSpeed?.speedAt(this.x, this.y), this.speedPct);
     // Mesmo encadeamento do servidor: passos contínuos mantêm cadência exata.
     const startAt = now - this.stepEndsAt <= TICK_MS ? this.stepEndsAt : now;
     this.stepEndsAt = startAt + ms;

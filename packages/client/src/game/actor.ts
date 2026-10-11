@@ -235,6 +235,15 @@ export class Actor {
     });
   }
 
+  /** Deslize rápido até um tile distante (investida): sem snap, com animação de caminhada. */
+  dashTo(x: number, y: number, ms: number, dir: Dir) {
+    this.tileX = x; this.tileY = y;
+    this.queue = [{
+      fx: this.rx, fy: this.ry, tx: x * TILE_SIZE, ty: y * TILE_SIZE,
+      dur: Math.max(1, ms), t: 0, walk: true, started: false, facing: dirToFacing(dir),
+    }];
+  }
+
   /** Correção curta (reconciliação): descarta a fila e desliza até o tile. */
   correctTo(x: number, y: number, ms = 100) {
     this.tileX = x; this.tileY = y;

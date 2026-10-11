@@ -71,4 +71,18 @@ describe("Predictor", () => {
     expect(p.checkStale(0, 0, 1000)).toBe(true);
     expect([p.x, p.y]).toEqual([0, 0]);
   });
+
+  it("haste shortens the step; rooted (speedPct 0) only turns", () => {
+    const p = make();
+    p.speedPct = 150;
+    p.press(Dir.E);
+    const ev = p.update(0);
+    expect(ev).toMatchObject({ kind: "step", ms: stepDuration(1, Dir.E, 100, 150) });
+    expect(stepDuration(1, Dir.E, 100, 150)).toBeLessThan(STEP);
+    const r = make();
+    r.speedPct = 0;
+    r.press(Dir.E);
+    expect(r.update(0)).toMatchObject({ kind: "turn", dir: Dir.E });
+    expect(r.x).toBe(0);
+  });
 });

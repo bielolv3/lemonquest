@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, S2C, TILE_SIZE,
-  spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  spellDef, spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type MonsterView, type MoveMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@tibinha/shared";
 import { session } from "../session.ts";
@@ -214,6 +214,7 @@ export class WorldScene extends Phaser.Scene {
     this.known.set(id, { x: p.x, y: p.y, dir: p.dir, stepMs: p.stepMs });
     if (isMe) {
       this.predictor.level = p.level;
+      this.predictor.speedPct = p.speedPct ?? 100;
       this.predictor.reset(p.x, p.y, p.dir);
       this.pcam.jumpTo((p.x + 0.5) * TILE_SIZE, (p.y + 0.5) * TILE_SIZE);
       this.setMyStats(p.level, p.maxHp);
@@ -240,17 +241,33 @@ export class WorldScene extends Phaser.Scene {
 
     if (id === this.myId) {
       this.predictor.level = p.level;
+      this.predictor.speedPct = p.speedPct ?? 100;
       this.setMyStats(p.level, p.maxHp);
       this.onServerTarget(p.targetId ?? "");
       if (!moved) return; // direção local é a da predição
       const r = this.predictor.onServerPos(p.x, p.y, p.stepMs, performance.now());
-      if (r.kind === "external") actor.stepTo(p.x, p.y, r.ms, p.dir);
+      if (r.kind === "external") this.moveVisual(id, actor, p.x, p.y, r.ms, p.dir);
       else if (r.kind === "diverged") actor.correctTo(p.x, p.y);
       return;
     }
 
-    if (moved) actor.stepTo(p.x, p.y, p.stepMs, p.dir);
+    if (moved) this.moveVisual(id, actor, p.x, p.y, p.stepMs, p.dir);
     else if (turned) actor.face(p.dir);
+  }
+
+  /** Último SpellCast "charge" por conjurador (para transformar o salto do servidor em deslize). */
+  private chargeAt = new Map<string, number>();
+  private recentCharge(id: string) { return performance.now() - (this.chargeAt.get(id) ?? -1e9) < 500; }
+
+  /** Movimento visual: saltos de 2+ tiles junto de uma investida viram um deslize de ~120 ms. */
+  private moveVisual(id: string, actor: Actor, x: number, y: number, ms: number, dir: Dir) {
+    const far = Math.max(Math.abs(x - actor.tileX), Math.abs(y - actor.tileY)) >= 2;
+    if (!far) { actor.stepTo(x, y, ms, dir); return; }
+    const apply = () => {
+      if (this.recentCharge(id)) actor.dashTo(x, y, 120, dir);
+      else actor.stepTo(x, y, ms, dir);
+    };
+    if (this.recentCharge(id)) apply(); else setTimeout(apply, 40);
   }
 
   private setMyStats(level: number, maxHp: number) {
@@ -565,6 +582,7 @@ export class WorldScene extends Phaser.Scene {
   // --- magias, condições e skills ----------------------------------------------
 
   onSpellCast(m: SpellCastMsg, override?: SpellDef) {
+    if ((override ?? spellDef(m.spellId))?.fx === "charge") this.chargeAt.set(m.casterId, performance.now());
     this.spells.cast(m, override);
   }
 

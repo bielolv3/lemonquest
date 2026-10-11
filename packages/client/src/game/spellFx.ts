@@ -351,7 +351,7 @@ export class SpellEffects {
           this.sparks.energy.explode(3, x, dy); break;
         case "earth":
         case "root":
-          this.play("fx:sp_spike", { x, y: dy + 7, oy: 0.92, scale: 0.55 * scale, tint: k === "root" ? 0xb8ff9a : undefined, depth });
+          if (k === "root" || Math.random() < 0.7) this.play("fx:sp_spike", { x: x + rnd(-2, 2), y: dy + 7, oy: 0.92, scale: rnd(0.34, 0.48) * scale, tint: k === "root" ? 0xb8ff9a : 0xd8e6a8, depth });
           this.debris.explode(3, x, dy); break;
         case "holy": {
           const b = this.acquire();
@@ -392,7 +392,7 @@ export class SpellEffects {
     const radius = def.radius ?? 2;
     this.ring(center.x, center.y + 2, pal.main, 6, (radius + 0.6) * TS, 160 + radius * 110, { flat: true, alpha: 1 });
     this.ring(center.x, center.y + 2, pal.light, 4, (radius + 0.3) * TS, 120 + radius * 90, { flat: true, alpha: 0.7, delay: 40 });
-    this.glow(center.x, center.y, pal.main, (radius + 1) * TS * 1.2, 420, 0.7);
+    this.glow(center.x, center.y, pal.main, (radius + 1) * TS * 1.2, 420, 0.4);
     const list = a.tiles.length ? a.tiles : [msg.x, msg.y];
     for (let i = 0; i + 1 < list.length; i += 2) {
       const t = tc(list[i], list[i + 1]);
@@ -551,7 +551,7 @@ export class SpellEffects {
     // Rastro: cópias do sprite do conjurador seguindo seu caminho real.
     let n = 0;
     this.scene.time.addEvent({
-      delay: 28, repeat: 12,
+      delay: 26, repeat: 9,
       callback: () => {
         const f = caster.frameInfo;
         const g = this.acquire();
@@ -566,13 +566,13 @@ export class SpellEffects {
     // Linha de velocidade do início ao destino.
     const ang = Math.atan2(end.y - start.y, end.x - start.x);
     const len = Math.hypot(end.x - start.x, end.y - start.y);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (len > 14 ? 3 : 0); i++) {
       const l = this.acquire();
       l.setTexture(TEX.px).setPosition((start.x + end.x) / 2 + rnd(-2, 2), (start.y + end.y) / 2 + rnd(-5, 5)).setRotation(ang)
         .setDisplaySize(len + 8, 1).setTint(pal.light).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8).setDepth(FX_DEPTH - 4);
       this.scene.tweens.add({ targets: l, alpha: 0, scaleY: 0, duration: 260, onComplete: () => this.release(l) });
     }
-    this.later(240, () => {
+    this.later(150, () => {
       this.ring(end.x, end.y + 2, pal.main, 4, 24, 340, { flat: true });
       this.play("fx:fx_cut", { x: end.x, y: end.y, scale: 0.9, rot: ang, depth: FX_DEPTH - 3 });
       this.glow(end.x, end.y, pal.light, 30, 260, 0.6);
