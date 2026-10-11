@@ -83,6 +83,11 @@ export class Predictor {
 
   /** Nova posição autoritativa do próprio jogador. */
   onServerPos(sx: number, sy: number, stepMs: number, now: number): Reconcile {
+    // Salto longo (portal/respawn): sem deslize — descarta previsões e deixa o ator dar snap.
+    if (Math.max(Math.abs(sx - this.x), Math.abs(sy - this.y)) > 2) {
+      this.queue = []; this.pending = null; this.x = sx; this.y = sy; this.stepEndsAt = now;
+      return { kind: "external", ms: stepMs };
+    }
     const i = this.queue.findIndex((p) => p.x === sx && p.y === sy);
     if (i >= 0) {
       this.queue.splice(0, i + 1);

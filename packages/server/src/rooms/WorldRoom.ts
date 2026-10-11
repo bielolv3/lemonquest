@@ -4,6 +4,7 @@ import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
 import { ExplorationSystem } from "../systems/exploration.ts";
+import { PortalSystem } from "../systems/portals.ts";
 import { handleChat, clearChatState } from "../systems/chat.ts";
 import { consumeToken, setOnline } from "../persistence/auth.ts";
 import { saveCharacter } from "../persistence/db.ts";
@@ -19,12 +20,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private map!: LoadedMap;
   private movement!: MovementSystem;
   private exploration!: ExplorationSystem;
+  private portals!: PortalSystem;
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
 
   onCreate() {
     this.map = loadMap("world");
     this.exploration = new ExplorationSystem(this.map.tiled.width, this.map.tiled.height);
     this.movement = new MovementSystem(this.map.grid, { spawn: this.map.spawn, groundSpeed: this.map.groundSpeed });
+    this.portals = new PortalSystem(this.map.tiled, this.movement, (id, msg) => this.clients.getById(id)?.send(S2C.Teleported, msg));
 
     this.onMessage(C2S.Move, (c, m: MoveMsg) => this.withPlayer(c, (p) => this.movement.onMove(p, m)));
     this.onMessage(C2S.WalkTo, (c, m: WalkToMsg) => this.withPlayer(c, (p) => this.movement.onWalkTo(p, m)));
@@ -33,6 +36,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     this.setSimulationInterval(() => {
       this.movement.tick(Date.now(), this.state.players.values());
+      for (const p of this.state.players.values()) this.portals.check(p);
       for (const p of this.state.players.values()) this.exploration.onPosition(p.id, p.x, p.y);
     }, TICK_MS);
     this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
