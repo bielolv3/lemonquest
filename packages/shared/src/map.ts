@@ -23,7 +23,16 @@ export interface TiledObject {
   y: number;
   width: number;
   height: number;
-  properties?: { name: string; type: string; value: unknown }[];
+  properties?: TiledProperty[];
+}
+
+export interface TiledProperty { name: string; type: string; value: unknown }
+
+/** Tileset embutido. `tiles` = propriedades por tile (formato padrão do Tiled), ex. `speed` (int) e `terrain` (string). */
+export interface TiledTileset {
+  firstgid: number; source?: string; name?: string; image?: string;
+  tilewidth?: number; tileheight?: number; columns?: number; tilecount?: number; imagewidth?: number; imageheight?: number;
+  tiles?: { id: number; properties?: TiledProperty[] }[];
 }
 
 export interface TiledMap {
@@ -32,7 +41,7 @@ export interface TiledMap {
   tilewidth: number;
   tileheight: number;
   layers: TiledLayer[];
-  tilesets: { firstgid: number; source?: string; name?: string; image?: string; tilewidth?: number; tileheight?: number; columns?: number; tilecount?: number; imagewidth?: number; imageheight?: number }[];
+  tilesets: TiledTileset[];
 }
 
 /** Grade de colisão compartilhada por servidor (autoridade) e cliente (predição). */
@@ -49,6 +58,104 @@ export class CollisionGrid {
   isWalkable(x: number, y: number): boolean {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return false;
     return this.blocked[y * this.width + x] === 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Velocidade do chão (estilo Tibia). Servidor e cliente constroem a MESMA grade a partir do mapa.
+// ---------------------------------------------------------------------------
+
+/** Velocidade padrão do chão (%): tiles sem a propriedade `speed`. */
+export const DEFAULT_GROUND_SPEED = 100;
+/** Bits 29..31 do gid são flags de espelhamento/rotação do Tiled. */
+export const TILED_GID_MASK = 0x1fffffff;
+const MIN_GROUND_SPEED = 10, MAX_GROUND_SPEED = 1000;
+
+interface TileProps { speed?: number; terrain?: string }
+
+/** Resolve gid → propriedades do tile, achando o tileset pelo intervalo de firstgid. */
+class TilePropIndex {
+  private readonly sets: { firstgid: number; tiles: Map<number, TileProps> }[];
+  private readonly cache = new Map<number, TileProps | null>();
+
+  constructor(tilesets: TiledTileset[]) {
+    this.sets = [...tilesets].sort((a, b) => a.firstgid - b.firstgid).map((ts) => {
+      const tiles = new Map<number, TileProps>();
+      for (const t of ts.tiles ?? []) {
+        const props: TileProps = {};
+        for (const p of t.properties ?? []) {
+          if (p.name === "speed" && typeof p.value === "number" && Number.isFinite(p.value)) {
+            props.speed = Math.max(MIN_GROUND_SPEED, Math.min(MAX_GROUND_SPEED, Math.round(p.value)));
+          } else if (p.name === "terrain" && typeof p.value === "string" && p.value) {
+            props.terrain = p.value;
+          }
+        }
+        if (props.speed !== undefined || props.terrain !== undefined) tiles.set(t.id, props);
+      }
+      return { firstgid: ts.firstgid, tiles };
+    });
+  }
+
+  get(rawGid: number): TileProps | null {
+    const gid = rawGid & TILED_GID_MASK;
+    if (!gid) return null;
+    let hit = this.cache.get(gid);
+    if (hit !== undefined) return hit;
+    hit = null;
+    for (let i = this.sets.length - 1; i >= 0; i--) {
+      if (gid >= this.sets[i].firstgid) { hit = this.sets[i].tiles.get(gid - this.sets[i].firstgid) ?? null; break; }
+    }
+    this.cache.set(gid, hit);
+    return hit;
+  }
+}
+
+/**
+ * Velocidade do chão por tile, a partir das propriedades `speed`/`terrain` dos tilesets.
+ * Tile = propriedade do gid da camada "ground", sobrescrita pela da camada "deco" se o gid dela tiver
+ * a propriedade (ex.: arbusto sobre grama). Sem propriedade → 100 / null.
+ */
+export class GroundSpeedGrid {
+  constructor(
+    readonly width: number,
+    readonly height: number,
+    private readonly speeds: Uint16Array,
+    private readonly terrainIds: Uint8Array = new Uint8Array(width * height),
+    /** terrainIds[i] - 1 indexa esta tabela; 0 = sem terreno. */
+    private readonly terrainNames: string[] = [],
+  ) {}
+
+  static fromTiled(map: TiledMap): GroundSpeedGrid {
+    const n = map.width * map.height;
+    const index = new TilePropIndex(map.tilesets ?? []);
+    const layer = (name: string) => map.layers.find((l) => l.type === "tilelayer" && l.name === name)?.data;
+    const ground = layer("ground"), deco = layer("deco");
+    const speeds = new Uint16Array(n).fill(DEFAULT_GROUND_SPEED);
+    const terrainIds = new Uint8Array(n);
+    const names: string[] = [];
+    const nameId = (t: string) => { let i = names.indexOf(t); if (i < 0) { names.push(t); i = names.length - 1; } return i + 1; };
+    for (let i = 0; i < n; i++) {
+      const g = ground?.[i] ? index.get(ground[i]) : null;
+      const d = deco?.[i] ? index.get(deco[i]) : null;
+      const speed = d?.speed ?? g?.speed;
+      const terrain = d?.terrain ?? g?.terrain;
+      if (speed !== undefined) speeds[i] = speed;
+      if (terrain !== undefined) terrainIds[i] = nameId(terrain);
+    }
+    return new GroundSpeedGrid(map.width, map.height, speeds, terrainIds, names);
+  }
+
+  /** Velocidade (%) do chão em (x,y); fora do mapa → 100. */
+  speedAt(x: number, y: number): number {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return DEFAULT_GROUND_SPEED;
+    return this.speeds[y * this.width + x];
+  }
+
+  /** Tipo de terreno (propriedade `terrain`, ex. "mud", "road") em (x,y), ou null. Só para efeitos visuais. */
+  terrainAt(x: number, y: number): string | null {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
+    const id = this.terrainIds[y * this.width + x];
+    return id ? this.terrainNames[id - 1] : null;
   }
 }
 

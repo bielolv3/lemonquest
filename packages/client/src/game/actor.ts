@@ -26,7 +26,8 @@ export interface ActorDeps {
   uiLayer: Phaser.GameObjects.Layer;
   /** Arredonda uma coordenada de mundo para o pixel de tela (1/zoom). */
   snap: (v: number) => number;
-  onStepStart?: (px: number, py: number) => void;
+  /** Início de um passo andando, com o canto do tile de origem (px) e a duração do passo. */
+  onStepStart?: (px: number, py: number, ms: number) => void;
 }
 
 export class Actor {
@@ -86,7 +87,6 @@ export class Actor {
     this.tileX = x; this.tileY = y;
     if (far) return this.snapTo(x, y, dir);
     const from = this.endPx;
-    this.stepMs = ms || BASE_STEP_MS;
     this.queue.push({
       fx: from.x, fy: from.y, tx: x * TILE_SIZE, ty: y * TILE_SIZE,
       dur: Math.max(1, ms), t: 0, walk: true, started: false, facing: dirToFacing(dir),
@@ -125,8 +125,12 @@ export class Actor {
       const s = this.queue[0];
       if (!s.started) {
         s.started = true;
-        if (s.walk) this.facing = s.facing ?? this.facingOf(s);
-        this.deps.onStepStart?.(s.fx, s.fy);
+        if (s.walk) {
+          this.facing = s.facing ?? this.facingOf(s);
+          // Ritmo das pernas segue a duração DESTE passo (lama = passos lentos, estrada = rápidos).
+          this.stepMs = s.dur;
+          this.deps.onStepStart?.(s.fx, s.fy, s.dur);
+        }
       }
       const need = s.dur - s.t;
       if (budget >= need) {

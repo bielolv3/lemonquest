@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
+import { tileProps } from './speeds.mjs';
 
 export const here = path.dirname(fileURLToPath(import.meta.url));
 export const repo = path.resolve(here, '../..');
@@ -52,6 +53,9 @@ export const TILESET_FILES = [
   ['TilesetDungeon', 'TilesetDungeon.png'],
   ['TilesetElement', 'TilesetElement.png'],
   ['TilesetInteriorFloor', 'Interior/TilesetInteriorFloor.png'],
+  // Same image as TilesetFloor: the cave floor reuses the swamp-mud art but must be normal speed, and
+  // Tiled tile properties are per gid, so it gets its own tileset (appended: existing gids stay stable).
+  ['TilesetCaveFloor', 'TilesetFloor.png'],
 ];
 
 export class Tilesets {
@@ -68,7 +72,7 @@ export class Tilesets {
       this.byName[name] = ts;
       gid += tilecount;
     }
-    this.short = { F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor' };
+    this.short = { F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor', C: 'TilesetCaveFloor' };
   }
   gid(ts, col, row) {
     const t = this.byName[this.short[ts] ?? ts];
@@ -94,11 +98,16 @@ export class Tilesets {
     return null;
   }
   json() {
-    return this.list.map((t) => ({
-      firstgid: t.firstgid, name: t.name, image: '../ninja/Backgrounds/Tilesets/' + t.file,
-      imagewidth: t.imagewidth, imageheight: t.imageheight, tilewidth: 16, tileheight: 16,
-      columns: t.columns, tilecount: t.tilecount, margin: 0, spacing: 0,
-    }));
+    return this.list.map((t) => {
+      const ts = {
+        firstgid: t.firstgid, name: t.name, image: '../ninja/Backgrounds/Tilesets/' + t.file,
+        imagewidth: t.imagewidth, imageheight: t.imageheight, tilewidth: 16, tileheight: 16,
+        columns: t.columns, tilecount: t.tilecount, margin: 0, spacing: 0,
+      };
+      const tiles = tileProps(t.name, t.columns, t.tilecount); // ground speed + terrain (speeds.mjs)
+      if (tiles.length) ts.tiles = tiles;
+      return ts;
+    });
   }
 }
 

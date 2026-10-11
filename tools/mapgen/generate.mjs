@@ -464,7 +464,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (dr === 'cave') {
       let [c, r] = [12, 15];
       if (rng() < 0.05) [c, r] = pick([[11, 18], [12, 18]]);
-      map.put('ground', x, y, 'F', c, r);
+      map.put('ground', x, y, 'C', c, r); // TilesetFloor art via the cave alias (normal speed, not mud)
     } else {
       const [c, r] = pick([[20, 14], [21, 14], [20, 15], [21, 15]]);
       map.put('ground', x, y, 'I', c, r);

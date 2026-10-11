@@ -24,7 +24,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onCreate() {
     this.map = loadMap("world");
     this.exploration = new ExplorationSystem(this.map.tiled.width, this.map.tiled.height);
-    this.movement = new MovementSystem(this.map.grid, { spawn: this.map.spawn });
+    this.movement = new MovementSystem(this.map.grid, { spawn: this.map.spawn, groundSpeed: this.map.groundSpeed });
 
     this.onMessage(C2S.Move, (c, m: MoveMsg) => this.withPlayer(c, (p) => this.movement.onMove(p, m)));
     this.onMessage(C2S.WalkTo, (c, m: WalkToMsg) => this.withPlayer(c, (p) => this.movement.onWalkTo(p, m)));
