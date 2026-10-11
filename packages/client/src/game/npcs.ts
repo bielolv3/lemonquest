@@ -121,11 +121,11 @@ export class NpcManager {
     return n ? { x: n.tx, y: n.ty } : null;
   }
 
-  /** NPC sob um ponto do mundo (px): o tile dele + um pouco da cabeça. */
+  /** NPC sob um ponto do mundo (px): o tile dele + a cabeça e o nome acima (clicar no nome também vale). */
   atPoint(wx: number, wy: number): string | null {
     for (const n of this.npcs.values()) {
       const x = n.tx * TILE_SIZE, y = n.ty * TILE_SIZE;
-      if (wx >= x && wx < x + TILE_SIZE && wy >= y - 5 && wy < y + TILE_SIZE) return n.id;
+      if (wx >= x - 2 && wx < x + TILE_SIZE + 2 && wy >= y - 14 && wy < y + TILE_SIZE) return n.id;
     }
     return null;
   }

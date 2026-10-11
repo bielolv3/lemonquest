@@ -89,7 +89,7 @@ export const NPCS: Record<string, NpcDef> = {
     ],
   },
   herbalist: {
-    id: "herbalist", name: "Dona Marta, Ervanária", sprite: C + "OldWoman/SpriteSheet.png",
+    id: "herbalist", name: "Dona Marta, Ervanária", sprite: C + "Princess/SpriteSheet.png",
     greeting: "Ervas, poções e mantos para quem estuda a magia. O que procura, meu bem?",
     shop: {
       sells: sells(

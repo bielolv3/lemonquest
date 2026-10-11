@@ -29,6 +29,8 @@ describe("NPCS", () => {
     for (const [k, n] of Object.entries(NPCS)) {
       expect(n.id).toBe(k);
       expect(existsSync(root + "assets/" + n.sprite), n.id).toBe(true);
+      const png = readFileSync(root + "assets/" + n.sprite);
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], `${n.id}: sheet 64x112`).toEqual([64, 112]);
       expect(n.name.length).toBeGreaterThan(0);
       expect(n.greeting.length).toBeGreaterThan(0);
       expect(n.idleLines?.length ?? 0, n.id).toBeGreaterThanOrEqual(2);
