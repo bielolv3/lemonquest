@@ -1,21 +1,65 @@
 // Combate estilo Tibia: alvo + ataque automático a cada PLAYER_ATTACK_MS; dano de monstros; XP, level e morte.
 import {
-  PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, deathPenalty, levelForXp, mitigate,
-  playerAttackDamage, rollInt, splitXp,
-  type AttackMsg, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
+  PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
+  playerDamageRange, rollAttack, rollInt, splitXp, weaponDamageRange,
+  type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type NoticeMsg, type XpGainMsg,
 } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
 import { cheb, isMonsterState, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
+import { weaponSkill } from "./inventory.ts";
 
 /** Alvo mais longe que isso (fora da tela) é descartado. */
 export const TARGET_MAX_DIST = 12;
 /** Level a partir do qual o level up é anunciado para todos. */
 export const LEVEL_NOTICE_MIN = 5;
 
-/** Armadura do jogador. M4 (equipamentos) pluga aqui. */
+/** Armadura do jogador sem equipamento (o M4 soma a dos itens via CombatHooks.armor). */
 export function playerArmor(_p: PlayerState): number {
   return 0;
+}
+
+/** Ataque automático efetivo do jogador (arma ou desarmado). */
+export interface AttackProfile {
+  range: number;
+  kind: DamageKind;
+  ranged: boolean;
+  damage: [number, number];
+  /** Chance de crítico 0–1. */
+  critPct: number;
+}
+
+const SKILL_FIELD = { melee: "skillMelee", distance: "skillDistance", magic: "magicLevel", shield: "skillShield" } as const;
+
+/** Valor treinado de uma skill no PlayerState (undefined em jogadores de teste sem skills). */
+export function skillValue(p: PlayerState, s: SkillId): number | undefined {
+  const v = (p as unknown as Record<string, number | undefined>)[SKILL_FIELD[s]];
+  return Number.isFinite(v) ? v : undefined;
+}
+
+export type BonusLookup = (s: "melee" | "distance" | "magic" | "shield" | "crit" | "attack") => number;
+
+/**
+ * Perfil do ataque automático. Sem arma: fórmula da vocação (playerDamageRange). Com arma:
+ * weaponDamageRange(attack total, skill efetiva, level); range/damageKind da arma sobrepõem os da vocação.
+ * `bonus(stat)` = soma dos atributos do equipamento (skills, crit, attack).
+ */
+export function attackProfile(p: PlayerState, weapon?: ItemDef, bonus: BonusLookup = () => 0): AttackProfile {
+  const va = VOCATION_ATTACK[p.vocation] ?? VOCATION_ATTACK.knight;
+  const critPct = critChance(p.vocation, bonus("crit"));
+  if (!weapon) {
+    const s = attackSkillValue(p);
+    const eff = s === undefined || !Number.isFinite(s) ? undefined : s + bonus(weaponSkill(undefined, p.vocation));
+    return { range: va.range, kind: va.kind, ranged: va.ranged, damage: playerDamageRange(p.vocation, p.level, eff), critPct };
+  }
+  const sk = weaponSkill(weapon, p.vocation);
+  const trained = skillValue(p, sk) ?? (sk === "magic" ? 0 : 10);
+  const range = Math.max(1, weapon.range ?? va.range);
+  return {
+    range, kind: weapon.damageKind ?? va.kind, ranged: range > 1,
+    damage: weaponDamageRange(bonus("attack"), trained + bonus(sk), p.level, sk === "magic"),
+    critPct,
+  };
 }
 
 /** Valor da skill que conta no ataque básico (undefined = multiplicador 1, ex.: jogadores de teste sem skills). */
@@ -34,7 +78,19 @@ export interface CombatHooks {
   /** Jogador atingido por ataque corpo a corpo de monstro (skill de escudo). */
   onMeleeHit?: (p: PlayerState) => void;
   /** Jogador morreu (já foi levado ao templo). */
-  onPlayerDied?: (p: PlayerState) => void;
+  onPlayerDied?: (p: PlayerState, killerName: string) => void;
+  /** Armadura total (equipamento). Ausente = playerArmor(p). */
+  armor?: (p: PlayerState) => number;
+  /** Perfil do ataque automático (arma). Ausente = attackProfile(p). */
+  attack?: (p: PlayerState) => AttackProfile;
+  /** Multiplicador do dano causado (postura). */
+  dealtMult?: (p: PlayerState) => number;
+  /** Multiplicador do dano recebido (postura). */
+  takenMult?: (p: PlayerState) => number;
+  /** Subiu de level (maxHp/maxMana/hp/mana já na base; o hook pode somar o equipamento). */
+  onLevelUp?: (p: PlayerState) => void;
+  /** Monstro selvagem morto (antes de sair da lista; damageBy intacto) — loot. */
+  onMonsterKilled?: (m: Monster) => void;
 }
 
 export interface CombatOptions {
@@ -79,6 +135,21 @@ export class CombatSystem {
     p.targetId = id;
   }
 
+  /** Perfil do ataque automático atual do jogador (alcance, tipo, dano). */
+  attackOf(p: PlayerState): AttackProfile {
+    return this.hooks.attack?.(p) ?? attackProfile(p);
+  }
+
+  /** Armadura efetiva do jogador. */
+  armorOf(p: PlayerState): number {
+    return this.hooks.armor?.(p) ?? playerArmor(p);
+  }
+
+  /** Agenda algo para depois do lote de combate do tick (mensagens de loot etc.). */
+  later(fn: () => void): void {
+    this.after.push(fn);
+  }
+
   /** Fora de combate = sem dar/receber dano há OUT_OF_COMBAT_MS. */
   inCombat(playerId: string, now: number): boolean {
     const t = this.lastCombatAt.get(playerId);
@@ -104,13 +175,14 @@ export class CombatSystem {
       if (!m || this.o.monsters.inPz(p.x, p.y)) { p.targetId = ""; continue; }
       const d = cheb(p.x, p.y, m.s.x, m.s.y);
       if (d > TARGET_MAX_DIST) { p.targetId = ""; continue; }
-      const va = VOCATION_ATTACK[p.vocation] ?? VOCATION_ATTACK.knight;
+      const va = this.attackOf(p);
       if (d < 1 || d > va.range || now < (this.nextAttackAt.get(p.id) ?? 0)) continue;
       this.nextAttackAt.set(p.id, now + PLAYER_ATTACK_MS);
       this.lastCombatAt.set(p.id, now);
       this.hooks.onAutoAttack?.(p);
-      const roll = playerAttackDamage(p.vocation, p.level, this.rng, attackSkillValue(p));
-      const amount = roll.miss ? 0 : mitigate(roll.amount, m.def.armor);
+      const roll = rollAttack(va.damage, va.critPct, this.rng);
+      const raw = Math.round(roll.amount * (this.hooks.dealtMult?.(p) ?? 1));
+      const amount = roll.miss ? 0 : mitigate(raw, m.def.armor);
       this.damageMonster(m, p.id, amount, va.kind, now, { crit: roll.crit, ranged: va.ranged });
     }
   }
@@ -147,7 +219,7 @@ export class CombatSystem {
     o: { ranged?: boolean; killerName?: string } = {}): number {
     if (p.hp <= 0) return 0;
     this.lastCombatAt.set(p.id, now);
-    let left = Math.max(0, Math.round(amount));
+    let left = Math.max(0, Math.round(amount * (this.hooks.takenMult?.(p) ?? 1)));
     const red = this.hooks.damageTakenPct?.(p.id) ?? 0;
     if (red > 0 && left > 0) left = Math.max(0, Math.round(left * (1 - Math.min(100, red) / 100)));
     let shielded = false;
@@ -181,6 +253,15 @@ export class CombatSystem {
     return healed;
   }
 
+  /** Restaura mana (poção): evento kind "mana" com sourceId === targetId. Retorna o quanto recuperou. */
+  restoreMana(p: PlayerState, amount: number): number {
+    if (p.hp <= 0) return 0;
+    const got = Math.max(0, Math.min(p.maxMana - p.mana, Math.round(amount)));
+    p.mana += got;
+    this.push({ sourceId: p.id, targetId: p.id, amount: got, kind: "mana" });
+    return got;
+  }
+
   /** Um monstro ataca um jogador ou uma invocação (chamado pela IA). */
   monsterAttack(m: Monster, target: CreatureState, now: number): void {
     const ranged = m.def.attackRange > 1;
@@ -196,7 +277,7 @@ export class CombatSystem {
     if (p.hp <= 0 || this.o.monsters.inPz(p.x, p.y)) return;
     const raw = rollInt(m.def.damage[0], m.def.damage[1], this.rng);
     if (!ranged) this.hooks.onMeleeHit?.(p);
-    this.damagePlayer(p, m.s.id, mitigate(raw, playerArmor(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
+    this.damagePlayer(p, m.s.id, mitigate(raw, this.armorOf(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
   }
 
   /** Envia o lote de eventos do tick (se houver) e depois as mensagens pendentes. */
@@ -222,6 +303,7 @@ export class CombatSystem {
     const { id, x, y, defId } = m.s;
     const online = m.s.ownerId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
     const shares = splitXp(m.def.xp, online);
+    if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
     this.o.monsters.kill(m, now);
     for (const p of this.o.players()) if (p.targetId === id) p.targetId = "";
     this.after.push(() => this.o.broadcast(S2C.CreatureDied, { id, x, y, defId } satisfies CreatureDiedMsg));
@@ -244,9 +326,10 @@ export class CombatSystem {
     p.maxMana = stats.maxMana;
     p.hp = stats.maxHp;
     p.mana = stats.maxMana;
-    const name = p.name;
+    this.hooks.onLevelUp?.(p);
+    const name = p.name, maxHp = p.maxHp, maxMana = p.maxMana;
     this.after.push(() => {
-      this.o.send(id, S2C.LevelUp, { level, maxHp: stats.maxHp, maxMana: stats.maxMana } satisfies LevelUpMsg);
+      this.o.send(id, S2C.LevelUp, { level, maxHp, maxMana } satisfies LevelUpMsg);
       if (level >= LEVEL_NOTICE_MIN) this.o.broadcast(S2C.Notice, { text: `${name} chegou ao level ${level}!`, kind: "good" } satisfies NoticeMsg);
     });
   }
@@ -261,7 +344,7 @@ export class CombatSystem {
     this.o.teleport(p, this.o.spawn.x, this.o.spawn.y);
     p.hp = p.maxHp;
     p.mana = p.maxMana;
-    this.hooks.onPlayerDied?.(p);
+    this.hooks.onPlayerDied?.(p, killerName);
     const id = p.id, name = p.name;
     this.after.push(() => {
       this.o.send(id, S2C.Died, { lostXp, killerName } satisfies DiedMsg);

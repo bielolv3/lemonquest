@@ -29,7 +29,7 @@ export interface MovementOptions {
   groundSpeed?: GroundSpeedGrid;
 }
 
-type StepResult = "ok" | "wall" | "player";
+export type StepResult = "ok" | "wall" | "player";
 
 export class MovementSystem {
   private readonly players = new Map<string, PlayerState>();
@@ -120,6 +120,30 @@ export class MovementSystem {
       const m = this.movers.get(p.id);
       if (m) this.advance(p, m, now);
     }
+  }
+
+  // --- movimento dirigido pelo servidor (perseguição do modo de batalha) ------------
+
+  /** Livre para um passo dirigido pelo servidor: sem passo em curso, sem tecla, buffer ou caminho de clique. */
+  isIdle(p: PlayerState, now: number): boolean {
+    const m = this.movers.get(p.id);
+    return !!m && now >= m.stepEndsAt && m.intent === null && m.pending === null && m.path === null;
+  }
+
+  /** A* de `p` até `goal` com os mesmos bloqueios do clique (o destino pode estar ocupado). */
+  pathFor(p: PlayerState, goal: Point): Point[] | null {
+    if (!this.movers.has(p.id)) return null;
+    return findPath(this.grid, p, goal, (bx, by) => this.isOccupied(bx, by, p.id));
+  }
+
+  /**
+   * Um passo dirigido pelo servidor (seguir alvo), com as mesmas regras/tempo/chão de um passo normal.
+   * Só anda se o jogador estiver ocioso (isIdle). Retorna o resultado ("busy" = não estava livre).
+   */
+  follow(p: PlayerState, dir: Dir, now: number): StepResult | "busy" {
+    const m = this.movers.get(p.id);
+    if (!m || !this.isIdle(p, now)) return "busy";
+    return this.tryStep(p, m, dir, now);
   }
 
   // --- internos -------------------------------------------------------------

@@ -93,6 +93,10 @@ export interface SpellSystemOptions {
   now?: () => number;
   rng?: () => number;
   spells?: (id: string) => SpellDef | undefined;
+  /** Bônus de magic level do equipamento (soma à skill treinada nas fórmulas). */
+  magicBonus?: (p: PlayerState) => number;
+  /** Multiplicador do dano causado (postura). */
+  dealtMult?: (p: PlayerState) => number;
 }
 
 type Resolved =
@@ -242,10 +246,12 @@ export class SpellSystem {
       }
     }
 
-    const ml = p.magicLevel ?? 0;
+    const ml = (p.magicLevel ?? 0) + (this.o.magicBonus?.(p) ?? 0);
+    const dealt = this.o.dealtMult?.(p) ?? 1;
     if (s.damage) {
       for (const m of hitMonsters) {
-        const raw = evalSpellFormula(s.damage, p.level, ml, this.rng);
+        const base = evalSpellFormula(s.damage, p.level, ml, this.rng);
+        const raw = dealt === 1 ? base : Math.round(base * dealt);
         const amount = mitigateSpell(raw, m.def.armor, s.damage.kind);
         this.o.combat.damageMonster(m, p.id, amount, s.damage.kind, now,
           { ranged: false }); // projétil da magia vem do SpellCast

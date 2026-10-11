@@ -58,6 +58,14 @@ export class SkillSystem {
     this.write(p, skill);
   }
 
+  /** Define o nível (comandos de dev). Zera as tentativas. */
+  setLevel(p: PlayerState, skill: SkillId, level: number): void {
+    const d = this.data.get(p.id);
+    if (!d || !Number.isFinite(level)) return;
+    d[skill] = { level: Math.max(SKILL_START[skill], Math.min(MAX_SKILL, Math.floor(level))), tries: 0 };
+    this.write(p, skill);
+  }
+
   private write(p: PlayerState, skill: SkillId) {
     const s = this.data.get(p.id)![skill];
     const need = skillTriesFor(skill, s.level, p.vocation);

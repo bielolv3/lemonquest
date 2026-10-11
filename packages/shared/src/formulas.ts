@@ -40,7 +40,8 @@ export function dirFromDelta(dx: number, dy: number): Dir | null {
 /** Valida uma direção vinda da rede (inteiro 0..7). */
 export const isValidDir = (d: unknown): d is Dir => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 7;
 
-import type { Vocation } from "./types.ts";
+import type { FightStance, Vocation } from "./types.ts";
+import type { Rarity } from "./data/items.ts";
 
 /** XP total necessária para ATINGIR o level (level 1 = 0). Curva rápida no início, como no plano. */
 export function xpForLevel(level: number): number {
@@ -206,4 +207,49 @@ export const MAGIC_ARMOR_FACTOR = 0.5;
 /** Dano de magia após a armadura: elementos usam 50% da armadura; "physical" usa 100%. */
 export function mitigateSpell(raw: number, armor: number, kind: string): number {
   return mitigate(raw, kind === "physical" ? armor : armor * MAGIC_ARMOR_FACTOR);
+}
+
+// ---------------------------------------------------------------------------
+// Itens, loja e modos de batalha (M4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Faixa [min,max] do ataque automático COM arma: attack × multSkill × (0.85..1.15) + level×0.3.
+ * multSkill = 1 + (skill−10)×0.04 (mín. 0.5); armas mágicas (`magic`, varinha/cajado) usam 1 + magicLevel×0.04.
+ */
+export function weaponDamageRange(attack: number, skill: number, level: number, magic = false): [number, number] {
+  const mult = magic ? 1 + Math.max(0, skill) * 0.04 : Math.max(0.5, 1 + (skill - 10) * 0.04);
+  const base = Math.max(0, attack) * mult;
+  const lv = Math.max(1, level) * 0.3;
+  return [Math.max(1, Math.floor(base * 0.85 + lv)), Math.max(1, Math.ceil(base * 1.15 + lv))];
+}
+
+/** Chance de crítico do ataque básico: 7% para knight/paladin (VOCATION_ATTACK.canCrit) + bônus de itens (`crit`, em %). */
+export function critChance(vocation: Vocation, bonusPct = 0): number {
+  const base = (VOCATION_ATTACK[vocation] ?? VOCATION_ATTACK.knight).canCrit ? CRIT_CHANCE : 0;
+  return Math.max(0, Math.min(1, base + Math.max(0, bonusPct) / 100));
+}
+
+/** Rola um ataque básico numa faixa [min,max] com chance de crítico explícita (5% de errar; crítico ×1.5). */
+export function rollAttack(range: [number, number], critPct: number, rng: () => number): AttackRoll {
+  if (rng() < MISS_CHANCE) return { amount: 0, crit: false, miss: true };
+  let amount = rollInt(range[0], range[1], rng);
+  const crit = critPct > 0 && rng() < critPct;
+  if (crit) amount = Math.round(amount * CRIT_MULT);
+  return { amount, crit, miss: false };
+}
+
+/** Multiplicadores da postura: dano causado (ataques e magias) e dano recebido. */
+export const STANCE_DEALT: Record<FightStance, number> = { offensive: 1.2, balanced: 1, defensive: 0.8 };
+export const STANCE_TAKEN: Record<FightStance, number> = { offensive: 1.15, balanced: 1, defensive: 0.75 };
+
+/** Fração do valor que um NPC paga ao comprar um item do jogador. */
+export const NPC_BUY_RATIO = 0.3;
+/** Multiplicador de preço por raridade (venda ao NPC). */
+export const RARITY_PRICE_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.5, rare: 2.5, epic: 5, legendary: 10 };
+
+/** Quanto o NPC paga por UMA unidade do item: floor(0.3 × value × multRaridade), mínimo 1 se value > 0. */
+export function npcBuyPrice(value: number, rarity: Rarity = "common"): number {
+  if (!(value > 0)) return 0;
+  return Math.max(1, Math.floor(NPC_BUY_RATIO * value * (RARITY_PRICE_MULT[rarity] ?? 1)));
 }

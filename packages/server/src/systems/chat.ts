@@ -25,6 +25,8 @@ export function clearChatState(sessionId: string): void {
 export interface ChatHooks {
   /** Palavras mágicas: retorna true se o texto é uma magia (já tratada; não vai para o chat). */
   castWords?: (p: PlayerState, text: string) => boolean;
+  /** Comandos (dev): retorna true se o texto era um comando (já tratado; nunca vai para o chat). */
+  command?: (p: PlayerState, text: string) => boolean;
 }
 
 export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg, hooks: ChatHooks = {}): void {
@@ -32,6 +34,7 @@ export function handleChat(room: Room, client: Client, from: PlayerState, msg: C
   if (msg.channel !== "global") return; // party virá depois
   const text = msg.text.trim().slice(0, MAX_CHAT_LEN).trim();
   if (!text) return;
+  if (text.startsWith("/") && hooks.command?.(from, text)) return;
   // Magia: as palavras aparecem sobre o conjurador via S2C.SpellCast (cliente), nunca no log do chat.
   if (hooks.castWords?.(from, text)) return;
 

@@ -1,0 +1,160 @@
+// Loot (M4): ao matar um monstro rola a tabela (chances independentes), o ouro e a raridade/bônus dos
+// equipáveis; entrega ao jogador online que mais causou dano. S2C.Loot para ele; S2C.Feed para drops épicos/lendários e chefes.
+import {
+  RARITIES, RARITY_LABEL, S2C, isEquipable, rollInt,
+  type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
+} from "@tibinha/shared";
+import type { PlayerState } from "../state.ts";
+import { GOLD_ID, makeItem, type InventorySystem, type ItemDefs } from "./inventory.ts";
+import type { Monster } from "./monsters.ts";
+
+/** Chances de raridade para equipáveis (soma 1). */
+export const RARITY_WEIGHTS: Record<Rarity, number> = { common: 0.7, uncommon: 0.2, rare: 0.075, epic: 0.022, legendary: 0.003 };
+/** Quantidade de bônus por raridade. */
+export const RARITY_BONUS_COUNT: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 3 };
+/** Lendário: bônus mais fortes. */
+export const LEGENDARY_BONUS_MULT = 1.5;
+
+/** Rola a raridade. Chefes: um nível acima (mínimo incomum). */
+export function rollRarity(rng: () => number, boss = false): Rarity {
+  const r = rng();
+  let acc = 0;
+  let idx = RARITIES.length - 1;
+  for (let i = 0; i < RARITIES.length; i++) {
+    acc += RARITY_WEIGHTS[RARITIES[i]!];
+    if (r < acc) { idx = i; break; }
+  }
+  if (boss) idx = Math.min(RARITIES.length - 1, idx + 1);
+  return RARITIES[idx]!;
+}
+
+/** Atributos que um bônus pode dar, conforme o tipo do item. */
+export function bonusPool(d: ItemDef): StatId[] {
+  switch (d.kind) {
+    case "weapon": {
+      const t = d.weaponType;
+      const skill: StatId = t === "bow" ? "distance" : t === "wand" || t === "rod" ? "magic" : "melee";
+      return ["attack", "crit", skill];
+    }
+    case "shield": return ["armor", "hpMax", "manaMax", "hpRegen", "manaRegen", "shield"];
+    case "helmet": case "armor": case "legs": return ["armor", "hpMax", "manaMax", "hpRegen", "manaRegen"];
+    case "boots": return ["armor", "hpMax", "manaMax", "hpRegen", "manaRegen", "speed"];
+    case "ring": case "amulet": return ["hpMax", "manaMax", "magic", "melee", "distance", "shield", "speed", "crit", "hpRegen", "manaRegen"];
+    default: return [];
+  }
+}
+
+/** Valor base de um bônus para um item de level `lv` (antes da variação ±25%). */
+export function bonusBase(stat: StatId, lv: number): number {
+  const L = Math.max(1, lv);
+  switch (stat) {
+    case "attack": return 1 + Math.floor(L / 8);
+    case "armor": return 1 + Math.floor(L / 12);
+    case "hpMax": case "manaMax": return 10 + L * 2;
+    case "speed": return 2 + Math.floor(L / 15);
+    case "crit": return 1 + Math.floor(L / 20);
+    default: return 1 + Math.floor(L / 15); // skills e regen
+  }
+}
+
+/** Rola os bônus (atributos distintos) de um equipável de raridade `rarity`. */
+export function rollBonuses(d: ItemDef, rarity: Rarity, rng: () => number): ItemInstance["bonuses"] {
+  const pool = [...bonusPool(d)];
+  const n = Math.min(pool.length, RARITY_BONUS_COUNT[rarity] ?? 0);
+  const out: ItemInstance["bonuses"] = [];
+  for (let i = 0; i < n; i++) {
+    const stat = pool.splice(Math.floor(rng() * pool.length), 1)[0]!;
+    const mult = (0.75 + rng() * 0.5) * (rarity === "legendary" ? LEGENDARY_BONUS_MULT : 1);
+    out.push({ stat, value: Math.max(1, Math.round(bonusBase(stat, d.level ?? 1) * mult)) });
+  }
+  return out;
+}
+
+/** Cria a instância de um item (equipáveis rolam raridade/bônus; `rarity` força a raridade). */
+export function createItem(d: ItemDef, count: number, rng: () => number, o: { boss?: boolean; rarity?: Rarity } = {}): ItemInstance {
+  if (!isEquipable(d)) return makeItem(d.id, count);
+  const rarity = o.rarity ?? rollRarity(rng, o.boss);
+  return makeItem(d.id, 1, rarity, rollBonuses(d, rarity, rng));
+}
+
+export interface LootRoll { items: ItemInstance[]; gold: number }
+
+/** Rola o loot de um abate. Moedas de ouro da tabela vão para o ouro. */
+export function rollLoot(def: MonsterDef, rng: () => number, defs: ItemDefs): LootRoll {
+  let gold = def.gold ? rollInt(def.gold[0], def.gold[1], rng) : 0;
+  const items: ItemInstance[] = [];
+  for (const e of def.loot ?? []) {
+    if (!(rng() < e.chance)) continue;
+    const count = rollInt(e.min ?? 1, e.max ?? e.min ?? 1, rng);
+    if (count <= 0) continue;
+    if (e.itemId === GOLD_ID) { gold += count; continue; }
+    const d = defs(e.itemId);
+    if (!d) continue;
+    if (isEquipable(d)) for (let i = 0; i < count; i++) items.push(createItem(d, 1, rng, { boss: !!def.boss }));
+    else items.push(makeItem(d.id, count));
+  }
+  return { items, gold: Math.max(0, gold) };
+}
+
+export interface LootOptions {
+  inventory: InventorySystem;
+  getPlayer: (id: string) => PlayerState | undefined;
+  send: (sessionId: string, type: string, msg: unknown) => void;
+  broadcast: (type: string, msg: unknown) => void;
+  rng?: () => number;
+}
+
+export const FEED_RARITIES: Rarity[] = ["epic", "legendary"];
+
+export class LootSystem {
+  private readonly rng: () => number;
+
+  constructor(private readonly o: LootOptions) {
+    this.rng = o.rng ?? Math.random;
+  }
+
+  /** Jogador online que mais causou dano. */
+  topDamager(m: Monster): PlayerState | undefined {
+    let best: PlayerState | undefined, bestDmg = 0;
+    for (const [id, dmg] of m.damageBy) {
+      const p = this.o.getPlayer(id);
+      if (p && dmg > bestDmg) { best = p; bestDmg = dmg; }
+    }
+    return best;
+  }
+
+  /** Chamado na morte de um monstro selvagem (antes de removê-lo). */
+  onKill(m: Monster): void {
+    if (m.s.ownerId) return;
+    const p = this.topDamager(m);
+    if (!p) return;
+    const { x, y } = m.s;
+    const def = m.def;
+    if (def.boss) this.feed(`☠️ ${p.name} derrotou ${def.name}!`, "boss");
+    const roll = rollLoot(def, this.rng, this.o.inventory.defs);
+    if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
+    const got: ItemInstance[] = [];
+    let lost = 0;
+    for (const it of roll.items) {
+      const n = it.count;
+      const left = this.o.inventory.addItem(p, it);
+      if (left < n) got.push({ ...it, count: n - left });
+      if (left > 0) lost++;
+      const d = this.o.inventory.defs(it.defId);
+      if (d && FEED_RARITIES.includes(it.rarity) && left < n) {
+        this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
+      }
+    }
+    if (lost > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${lost} item(ns) perdido(s)`, kind: "warn" } satisfies NoticeMsg);
+    if (got.length || roll.gold > 0 || lost > 0) {
+      const msg: LootMsg = { x, y, monsterName: def.name, items: got, gold: roll.gold };
+      if (lost > 0) msg.lostFull = lost;
+      this.o.send(p.id, S2C.Loot, msg);
+    }
+  }
+
+  feed(text: string, kind: FeedMsg["kind"], rarity?: Rarity): void {
+    const msg: FeedMsg = rarity ? { text, kind, rarity } : { text, kind };
+    this.o.broadcast(S2C.Feed, msg);
+  }
+}
