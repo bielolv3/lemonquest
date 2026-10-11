@@ -1,16 +1,22 @@
 import { Room, Client } from "colyseus";
-import { C2S, S2C, TICK_MS, baseStats, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
+import { C2S, S2C, TICK_MS, baseStats, type AttackMsg, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
 import { ExplorationSystem } from "../systems/exploration.ts";
 import { PortalSystem } from "../systems/portals.ts";
+import { MonsterManager, parseSafeZones, parseSpawns } from "../systems/monsters.ts";
+import { CombatSystem } from "../systems/combat.ts";
+import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState } from "../systems/chat.ts";
 import { consumeToken, setOnline } from "../persistence/auth.ts";
 import { saveCharacter } from "../persistence/db.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 
 const AUTOSAVE_MS = 30_000;
+/** Log de desempenho do tick (só em dev). */
+const PERF_LOG_MS = 60_000;
+const DEV = process.env.NODE_ENV !== "production";
 
 export class WorldRoom extends Room<{ state: WorldState }> {
   maxClients = 32;
@@ -21,6 +27,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private movement!: MovementSystem;
   private exploration!: ExplorationSystem;
   private portals!: PortalSystem;
+  private monsters!: MonsterManager;
+  private combat!: CombatSystem;
+  private regen!: RegenSystem;
+  private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
 
   onCreate() {
@@ -29,17 +39,63 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.movement = new MovementSystem(this.map.grid, { spawn: this.map.spawn, groundSpeed: this.map.groundSpeed });
     this.portals = new PortalSystem(this.map.tiled, this.movement, (id, msg) => this.clients.getById(id)?.send(S2C.Teleported, msg));
 
+    this.monsters = new MonsterManager({
+      grid: this.map.grid,
+      groundSpeed: this.map.groundSpeed,
+      spawns: parseSpawns(this.map.tiled),
+      safeZones: parseSafeZones(this.map.tiled),
+      isPortalTile: (x, y) => this.portals.isPortalTile(x, y),
+      collection: this.state.monsters,
+      players: () => this.state.players.values(),
+      getPlayer: (id) => this.state.players.get(id),
+      notice: (text, kind) => this.broadcast(S2C.Notice, { text, kind }),
+    });
+    this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y));
+    this.combat = new CombatSystem({
+      monsters: this.monsters,
+      players: () => this.state.players.values(),
+      getPlayer: (id) => this.state.players.get(id),
+      teleport: (p, x, y) => this.movement.teleport(p, x, y),
+      spawn: this.map.spawn,
+      send: (id, type, msg) => this.clients.getById(id)?.send(type, msg),
+      broadcast: (type, msg) => this.broadcast(type, msg),
+    });
+    this.regen = new RegenSystem({
+      inCombat: (id, now) => this.combat.inCombat(id, now),
+      inPz: (x, y) => this.monsters.inPz(x, y),
+    });
+    this.monsters.spawnAll();
+    console.log(`[tibinha] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns`);
+
     this.onMessage(C2S.Move, (c, m: MoveMsg) => this.withPlayer(c, (p) => this.movement.onMove(p, m)));
     this.onMessage(C2S.WalkTo, (c, m: WalkToMsg) => this.withPlayer(c, (p) => this.movement.onWalkTo(p, m)));
     this.onMessage(C2S.Turn, (c, m: TurnMsg) => this.withPlayer(c, (p) => this.movement.onTurn(p, m)));
+    this.onMessage(C2S.Attack, (c, m: AttackMsg) => this.withPlayer(c, (p) => this.combat.onAttack(p, m)));
     this.onMessage(C2S.Chat, (c, m: ChatSendMsg) => this.withPlayer(c, (p) => handleChat(this, c, p, m)));
 
-    this.setSimulationInterval(() => {
-      this.movement.tick(Date.now(), this.state.players.values());
-      for (const p of this.state.players.values()) this.portals.check(p);
-      for (const p of this.state.players.values()) this.exploration.onPosition(p.id, p.x, p.y);
-    }, TICK_MS);
+    this.setSimulationInterval(() => this.tick(), TICK_MS);
     this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
+  }
+
+  private tick() {
+    const t0 = performance.now();
+    const now = Date.now();
+    this.movement.tick(now, this.state.players.values());
+    for (const p of this.state.players.values()) this.portals.check(p);
+    for (const p of this.state.players.values()) this.exploration.onPosition(p.id, p.x, p.y);
+    this.monsters.tick(now);
+    this.combat.tick(now);
+    this.regen.tick(now, this.state.players.values());
+    this.combat.flush();
+    if (DEV) this.trackPerf(performance.now() - t0, now);
+  }
+
+  private trackPerf(ms: number, now: number) {
+    const s = this.perf;
+    s.n++; s.sum += ms; if (ms > s.max) s.max = ms;
+    if (now - s.since < PERF_LOG_MS) return;
+    console.log(`[tick] ${s.n} ticks: média ${(s.sum / s.n).toFixed(3)} ms, máx ${s.max.toFixed(2)} ms — ${this.monsters.size} monstros, ${this.state.players.size} jogadores`);
+    this.perf = { n: 0, sum: 0, max: 0, since: now };
   }
 
   onAuth(_client: Client, options: JoinOptions) {
@@ -76,6 +132,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(client.sessionId);
     if (rec) setOnline(rec.name, false);
     this.movement.removePlayer(client.sessionId);
+    this.combat.removePlayer(client.sessionId);
+    this.regen.removePlayer(client.sessionId);
     this.exploration.removePlayer(client.sessionId);
     clearChatState(client.sessionId);
     this.state.players.delete(client.sessionId);

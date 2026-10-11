@@ -1,0 +1,214 @@
+// IA de monstros: idle → chase (ataca) → flee → return. Roda a cada tick, mas só "pensa"
+// (varredura de aggro, A*) a cada THINK_MS por monstro, com offsets escalonados.
+import { DIR_DELTA, Dir, dirFromDelta } from "@tibinha/shared";
+import type { PlayerState } from "../state.ts";
+import { findPath, type Point } from "./pathfinding.ts";
+import { SLEEP_DIST, cheb, type Monster, type MonsterManager } from "./monsters.ts";
+
+export const THINK_MS = 250;
+/** Mais longe que isso do spawn → desiste e volta. */
+export const LEASH_DIST = 14;
+/** Sem alvo válido por este tempo → volta ao spawn. */
+export const LOST_TARGET_MS = 5000;
+/** Passeio ocioso fica a até radius + isto do spawn. */
+export const WANDER_SLACK = 3;
+export const PATH_RECOMPUTE_MS = 400;
+export const AI_PATH_MAX_NODES = 600;
+export const AI_PATH_MAX_DIST = 30;
+/** Voltando há mais que isso sem chegar → teleporta para o spawn. */
+export const RETURN_STUCK_MS = 15_000;
+
+const ALL_DIRS: Dir[] = [Dir.N, Dir.NE, Dir.E, Dir.SE, Dir.S, Dir.SW, Dir.W, Dir.NW];
+
+export function updateMonster(m: Monster, w: MonsterManager, now: number): void {
+  if (now >= m.nextThinkAt) {
+    m.nextThinkAt = now + THINK_MS;
+    if (m.mode === "idle") {
+      m.sleeping = w.nearestPlayerDist(m.s.x, m.s.y) > SLEEP_DIST;
+      if (!m.sleeping) thinkIdle(m, w, now);
+    } else {
+      think(m, w, now);
+    }
+  }
+  if (m.mode === "idle") {
+    if (!m.sleeping) wander(m, w, now);
+    return;
+  }
+  act(m, w, now);
+}
+
+// --- pensar -------------------------------------------------------------------
+
+function nearestAggroTarget(m: Monster, w: MonsterManager): PlayerState | undefined {
+  const range = m.def.aggroRange;
+  if (range <= 0) return undefined;
+  let best: PlayerState | undefined, bestD = Infinity;
+  for (const p of w.playerList) {
+    if (p.hp <= 0 || w.inPz(p.x, p.y)) continue;
+    const d = cheb(m.s.x, m.s.y, p.x, p.y);
+    if (d <= range && d < bestD) { best = p; bestD = d; }
+  }
+  return best;
+}
+
+function engage(m: Monster, p: PlayerState) {
+  m.mode = "chase";
+  m.s.targetId = p.id;
+  m.lostSince = 0;
+  m.path = null;
+}
+
+function thinkIdle(m: Monster, w: MonsterManager, _now: number) {
+  const t = nearestAggroTarget(m, w) ?? w.validTarget(m.lastAttackerId);
+  if (t) engage(m, t);
+}
+
+export function startReturn(m: Monster, now: number) {
+  m.mode = "return";
+  m.s.targetId = "";
+  m.path = null;
+  m.lostSince = 0;
+  m.returnSince = now;
+}
+
+function arrive(m: Monster, now: number) {
+  m.mode = "idle";
+  m.s.hp = m.s.maxHp;
+  m.s.targetId = "";
+  m.damageBy.clear();
+  m.lastAttackerId = "";
+  m.path = null;
+  m.nextWanderAt = now + 2000;
+}
+
+function think(m: Monster, w: MonsterManager, now: number) {
+  const s = m.s;
+  if (m.mode === "return") {
+    if (cheb(s.x, s.y, m.spawn.x, m.spawn.y) <= m.spawn.radius) { arrive(m, now); return; }
+    if (now - m.returnSince > RETURN_STUCK_MS) {
+      const t = w.findSpawnTile(m.spawn, false);
+      if (t) { w.place(m, t.x, t.y); arrive(m, now); }
+      return;
+    }
+    if (!m.path || m.path.length === 0) computePath(m, w, m.spawn, now, false);
+    return;
+  }
+
+  // chase / flee
+  if (cheb(s.x, s.y, m.spawn.x, m.spawn.y) > LEASH_DIST) { startReturn(m, now); return; }
+  let target = w.validTarget(s.targetId);
+  if (!target) {
+    target = nearestAggroTarget(m, w) ?? w.validTarget(m.lastAttackerId);
+    if (target) engage(m, target);
+    else {
+      s.targetId = "";
+      m.path = null;
+      if (!m.lostSince) m.lostSince = now;
+      else if (now - m.lostSince >= LOST_TARGET_MS) startReturn(m, now);
+      return;
+    }
+  }
+  m.lostSince = 0;
+  m.mode = m.def.fleeAtHpPct > 0 && s.hp < m.def.fleeAtHpPct * s.maxHp ? "flee" : "chase";
+  if (m.mode === "flee") { m.path = null; return; }
+
+  const d = cheb(s.x, s.y, target.x, target.y);
+  const needMove = d > Math.max(1, m.def.attackRange);
+  if (!needMove) { m.path = null; return; }
+  const moved = cheb(target.x, target.y, m.pathGoal.x, m.pathGoal.y);
+  if (!m.path || m.path.length === 0 || moved >= 2 || (moved >= 1 && now - m.pathAt >= PATH_RECOMPUTE_MS)) {
+    computePath(m, w, target, now, m.def.attackRange <= 1);
+  }
+}
+
+function computePath(m: Monster, w: MonsterManager, goal: Point, now: number, dropLast: boolean) {
+  m.pathAt = now;
+  m.pathGoal = { x: goal.x, y: goal.y };
+  const path = findPath(w.grid, m.s, goal, (x, y) => w.blockedForMonster(x, y),
+    { maxNodes: AI_PATH_MAX_NODES, maxDist: AI_PATH_MAX_DIST });
+  if (path && dropLast && path.length) path.pop();
+  m.path = path && path.length ? path : null;
+}
+
+// --- agir (todo tick) -------------------------------------------------------------
+
+function act(m: Monster, w: MonsterManager, now: number) {
+  const s = m.s;
+  if (m.mode === "return") {
+    if (now >= m.stepEndsAt && !followPath(m, w, now)) greedyStep(m, w, m.spawn, now, true);
+    return;
+  }
+  const target = w.validTarget(s.targetId);
+  if (!target) return;
+  const d = cheb(s.x, s.y, target.x, target.y);
+  const range = Math.max(1, m.def.attackRange);
+  const ranged = range > 1;
+
+  // Ataque (fugindo, só os de distância continuam atirando).
+  if ((m.mode === "chase" || ranged) && d >= 1 && d <= range && now >= m.nextAttackAt && !w.inPz(s.x, s.y)) {
+    const face = dirFromDelta(Math.sign(target.x - s.x), Math.sign(target.y - s.y));
+    if (face !== null && now >= m.stepEndsAt) s.dir = face;
+    m.nextAttackAt = now + m.def.attackMs;
+    w.attackHook(m, target, now);
+    if (!w.get(s.id)) return; // (morte/remoção durante o hook)
+  }
+
+  if (now < m.stepEndsAt) return;
+  if (m.mode === "flee") { stepAway(m, w, target, now, false); return; }
+  if (ranged) {
+    const keep = Math.max(1, range - 1);
+    if (d < keep) { stepAway(m, w, target, now, true); return; }
+    if (d <= range) return;
+  } else if (d <= 1) return;
+  if (!followPath(m, w, now, target)) greedyStep(m, w, target, now, false);
+}
+
+/** Segue o caminho; false se não há caminho ou o passo falhou (o caminho é descartado). */
+function followPath(m: Monster, w: MonsterManager, now: number, target?: Point): boolean {
+  const path = m.path;
+  if (!path || path.length === 0) return false;
+  const next = path[0];
+  if (target && next.x === target.x && next.y === target.y) { m.path = null; return false; }
+  const dir = dirFromDelta(next.x - m.s.x, next.y - m.s.y);
+  if (dir === null || !w.tryStep(m, dir, now)) { m.path = null; return false; }
+  path.shift();
+  if (path.length === 0) m.path = null;
+  return true;
+}
+
+/** Passo guloso em direção a `goal` (só passos que diminuem a distância). */
+function greedyStep(m: Monster, w: MonsterManager, goal: Point, now: number, allowEqual: boolean): boolean {
+  const s = m.s;
+  const cur = cheb(s.x, s.y, goal.x, goal.y);
+  const options = ALL_DIRS.map((dir) => {
+    const { dx, dy } = DIR_DELTA[dir];
+    const nx = s.x + dx, ny = s.y + dy;
+    return { dir, d: cheb(nx, ny, goal.x, goal.y), e: (nx - goal.x) ** 2 + (ny - goal.y) ** 2, nx, ny };
+  }).filter((o) => (o.d < cur || (allowEqual && o.d === cur)) && !(o.nx === goal.x && o.ny === goal.y))
+    .sort((a, b) => a.d - b.d || a.e - b.e);
+  for (const o of options) if (w.tryStep(m, o.dir, now)) return true;
+  return false;
+}
+
+/** Afasta-se de `from` (fuga ou kiting). `strict` = só passos que aumentam a distância. */
+function stepAway(m: Monster, w: MonsterManager, from: Point, now: number, strict: boolean): boolean {
+  const s = m.s;
+  const cur = cheb(s.x, s.y, from.x, from.y);
+  const options = ALL_DIRS.map((dir) => {
+    const { dx, dy } = DIR_DELTA[dir];
+    const nx = s.x + dx, ny = s.y + dy;
+    return { dir, d: cheb(nx, ny, from.x, from.y), e: (nx - from.x) ** 2 + (ny - from.y) ** 2, nx, ny };
+  }).filter((o) => (strict ? o.d > cur : o.d >= cur) && cheb(o.nx, o.ny, m.spawn.x, m.spawn.y) <= LEASH_DIST)
+    .sort((a, b) => b.d - a.d || b.e - a.e);
+  for (const o of options) if (w.tryStep(m, o.dir, now)) return true;
+  return false;
+}
+
+function wander(m: Monster, w: MonsterManager, now: number) {
+  if (now < m.nextWanderAt || now < m.stepEndsAt) return;
+  m.nextWanderAt = now + 2000 + w.rng() * 3000;
+  const dir = ALL_DIRS[Math.floor(w.rng() * 8)];
+  const { dx, dy } = DIR_DELTA[dir];
+  if (cheb(m.s.x + dx, m.s.y + dy, m.spawn.x, m.spawn.y) > m.spawn.radius + WANDER_SLACK) return;
+  w.tryStep(m, dir, now);
+}
