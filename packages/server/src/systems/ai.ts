@@ -3,7 +3,7 @@
 import { DIR_DELTA, Dir, dirFromDelta } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, type Point } from "./pathfinding.ts";
-import { SLEEP_DIST, cheb, type Monster, type MonsterManager } from "./monsters.ts";
+import { SLEEP_DIST, cheb, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
 
 export const THINK_MS = 250;
 /** Mais longe que isso do spawn → desiste e volta. */
@@ -21,6 +21,11 @@ export const RETURN_STUCK_MS = 15_000;
 const ALL_DIRS: Dir[] = [Dir.N, Dir.NE, Dir.E, Dir.SE, Dir.S, Dir.SW, Dir.W, Dir.NW];
 
 export function updateMonster(m: Monster, w: MonsterManager, now: number): void {
+  // Provocação (taunt): enquanto durar, o alvo é forçado a ser quem provocou.
+  if (m.tauntBy && now < (m.tauntUntil ?? 0)) {
+    const t = w.validTarget(m.tauntBy);
+    if (t && (m.s.targetId !== t.id || m.mode !== "chase")) { engage(m, t); m.sleeping = false; m.nextThinkAt = now; }
+  }
   if (now >= m.nextThinkAt) {
     m.nextThinkAt = now + THINK_MS;
     if (m.mode === "idle") {
@@ -51,7 +56,7 @@ function nearestAggroTarget(m: Monster, w: MonsterManager): PlayerState | undefi
   return best;
 }
 
-function engage(m: Monster, p: PlayerState) {
+function engage(m: Monster, p: CreatureState) {
   m.mode = "chase";
   m.s.targetId = p.id;
   m.lostSince = 0;
@@ -121,7 +126,7 @@ function think(m: Monster, w: MonsterManager, now: number) {
   }
 }
 
-function computePath(m: Monster, w: MonsterManager, goal: Point, now: number, dropLast: boolean) {
+export function computePath(m: Monster, w: MonsterManager, goal: Point, now: number, dropLast: boolean) {
   m.pathAt = now;
   m.pathGoal = { x: goal.x, y: goal.y };
   const path = findPath(w.grid, m.s, goal, (x, y) => w.blockedForMonster(x, y),
@@ -164,7 +169,7 @@ function act(m: Monster, w: MonsterManager, now: number) {
 }
 
 /** Segue o caminho; false se não há caminho ou o passo falhou (o caminho é descartado). */
-function followPath(m: Monster, w: MonsterManager, now: number, target?: Point): boolean {
+export function followPath(m: Monster, w: MonsterManager, now: number, target?: Point): boolean {
   const path = m.path;
   if (!path || path.length === 0) return false;
   const next = path[0];
@@ -177,7 +182,7 @@ function followPath(m: Monster, w: MonsterManager, now: number, target?: Point):
 }
 
 /** Passo guloso em direção a `goal` (só passos que diminuem a distância). */
-function greedyStep(m: Monster, w: MonsterManager, goal: Point, now: number, allowEqual: boolean): boolean {
+export function greedyStep(m: Monster, w: MonsterManager, goal: Point, now: number, allowEqual: boolean): boolean {
   const s = m.s;
   const cur = cheb(s.x, s.y, goal.x, goal.y);
   const options = ALL_DIRS.map((dir) => {

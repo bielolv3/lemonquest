@@ -7,11 +7,21 @@ import { Dir, isDiagonal } from "./types.ts";
  * porcentagem, 100 = normal, maior = mais lento (lama 150), menor = mais rápido (estrada 85).
  * Servidor e predição do cliente DEVEM chamar com os mesmos argumentos (ver GroundSpeedGrid).
  */
-export function stepDuration(level: number, dir: Dir, groundSpeed = 100): number {
+export function stepDuration(level: number, dir: Dir, groundSpeed = 100, speedPct = 100): number {
   const speedup = 1 + Math.min(level - 1, 39) * 0.004;
   const base = BASE_STEP_MS / speedup;
   const ms = Math.round(isDiagonal(dir) ? base * DIAGONAL_COST : base);
-  return groundSpeed === 100 ? ms : Math.round((ms * groundSpeed) / 100);
+  const g = groundSpeed === 100 ? ms : Math.round((ms * groundSpeed) / 100);
+  return applySpeedPct(g, speedPct);
+}
+
+/**
+ * Aplica a velocidade da criatura (PlayerView.speedPct: 100 = normal, haste > 100, slow < 100) a uma duração de passo.
+ * Cliente e servidor DEVEM usar o mesmo valor (o cliente lê `speedPct` do estado sincronizado).
+ */
+export function applySpeedPct(ms: number, speedPct = 100): number {
+  if (!(speedPct > 0) || speedPct === 100) return ms;
+  return Math.max(1, Math.round((ms * 100) / speedPct));
 }
 
 /** Direção de um passo unitário (dx,dy em {-1,0,1}); null se (dx,dy) não for vizinho. */
@@ -91,10 +101,25 @@ const VOC_DAMAGE: Record<Vocation, { base: number; perLevel: number }> = {
   druid: { base: 4, perLevel: 1.1 },
 };
 
-/** Faixa [min,max] do ataque básico do jogador (média ±25%). */
-export function playerDamageRange(vocation: Vocation, level: number): [number, number] {
+/**
+ * Multiplicador de dano do ataque básico pela skill da arma (M3):
+ * knight → skillMelee, paladin → skillDistance: 1 + (skill-10)*0.03 (skill 10 = ×1, como no M2);
+ * magos (varinha) → magicLevel, de leve: 1 + magicLevel*0.02.
+ */
+export function attackSkillMult(vocation: Vocation, skill: number): number {
+  if (vocation === "sorcerer" || vocation === "druid") return 1 + Math.max(0, skill) * 0.02;
+  return Math.max(0.5, 1 + (skill - 10) * 0.03);
+}
+
+/** Skill que conta no ataque básico da vocação ("magic" para magos). */
+export function attackSkillOf(vocation: Vocation): "melee" | "distance" | "magic" {
+  return vocation === "knight" ? "melee" : vocation === "paladin" ? "distance" : "magic";
+}
+
+/** Faixa [min,max] do ataque básico do jogador (média ±25%). `skill` ausente = multiplicador 1 (M2). */
+export function playerDamageRange(vocation: Vocation, level: number, skill?: number): [number, number] {
   const d = VOC_DAMAGE[vocation] ?? VOC_DAMAGE.knight;
-  const avg = d.base + Math.max(1, level) * d.perLevel;
+  const avg = (d.base + Math.max(1, level) * d.perLevel) * (skill === undefined ? 1 : attackSkillMult(vocation, skill));
   return [Math.max(1, Math.floor(avg * 0.75)), Math.max(1, Math.ceil(avg * 1.25))];
 }
 
@@ -107,9 +132,9 @@ export function rollInt(min: number, max: number, rng: () => number): number {
 export interface AttackRoll { amount: number; crit: boolean; miss: boolean }
 
 /** Rola um ataque básico do jogador (antes da armadura do alvo): 5% de errar; 7% de crítico ×1.5 (knight/paladin). */
-export function playerAttackDamage(vocation: Vocation, level: number, rng: () => number): AttackRoll {
+export function playerAttackDamage(vocation: Vocation, level: number, rng: () => number, skill?: number): AttackRoll {
   if (rng() < MISS_CHANCE) return { amount: 0, crit: false, miss: true };
-  const [min, max] = playerDamageRange(vocation, level);
+  const [min, max] = playerDamageRange(vocation, level, skill);
   let amount = rollInt(min, max, rng);
   const crit = (VOCATION_ATTACK[vocation] ?? VOCATION_ATTACK.knight).canCrit && rng() < CRIT_CHANCE;
   if (crit) amount = Math.round(amount * CRIT_MULT);
@@ -149,4 +174,36 @@ export function splitXp(total: number, damage: Iterable<[string, number]>): Map<
 export function regenAmount(max: number, level: number, inPz: boolean): number {
   const base = Math.max(1, Math.round(max * 0.01 + level * 0.25));
   return inPz ? base * 3 : base;
+}
+
+/**
+ * Mana recuperada por tique (REGEN_INTERVAL_MS). Escala com a mana máxima, então magos (muita mana) regeneram mais.
+ * Fora de combate: max(2, round(maxMana*0.02 + level*0.5)), ×3 na PZ. Em combate: metade (mín. 1).
+ */
+export function manaRegenAmount(maxMana: number, level: number, inCombat: boolean, inPz: boolean): number {
+  const base = Math.max(2, Math.round(maxMana * 0.02 + level * 0.5));
+  if (inCombat) return Math.max(1, Math.round(base / 2));
+  return inPz ? base * 3 : base;
+}
+
+// ---------------------------------------------------------------------------
+// Magias (M3)
+// ---------------------------------------------------------------------------
+
+/** Fórmula de magia: (base + level*perLevel + magicLevel*perMagic) × (1 ± variance). Inteiro ≥ 0. */
+export function evalSpellFormula(
+  f: { base: number; perLevel: number; perMagic: number; variance: number },
+  level: number, magicLevel: number, rng: () => number,
+): number {
+  const avg = f.base + level * f.perLevel + magicLevel * f.perMagic;
+  const v = Math.max(0, f.variance || 0);
+  return Math.max(0, Math.round(avg * (1 + v * (2 * rng() - 1))));
+}
+
+/** Fração da armadura do alvo que vale contra dano mágico (magia ignora metade). Físico usa a armadura cheia. */
+export const MAGIC_ARMOR_FACTOR = 0.5;
+
+/** Dano de magia após a armadura: elementos usam 50% da armadura; "physical" usa 100%. */
+export function mitigateSpell(raw: number, armor: number, kind: string): number {
+  return mitigate(raw, kind === "physical" ? armor : armor * MAGIC_ARMOR_FACTOR);
 }

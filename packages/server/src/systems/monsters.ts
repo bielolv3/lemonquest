@@ -1,7 +1,7 @@
 // Monstros: spawns (com respawn estilo Tibia), índice de ocupação O(1), passos e zonas proibidas.
 // A IA (decisões) fica em ai.ts; o dano/morte em combat.ts (via `attackHook`).
 import {
-  DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, canStepTerrain, findObjects, isDiagonal, monsterDef, objectTile,
+  DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, applySpeedPct, canStepTerrain, findObjects, isDiagonal, monsterDef, objectTile,
   type CollisionGrid, type GroundSpeedGrid, type MonsterDef, type TiledMap,
 } from "@tibinha/shared";
 import { MonsterState, type PlayerState } from "../state.ts";
@@ -52,7 +52,16 @@ export interface Monster {
   lastAttackerId: string;
   /** Dano total por jogador (divisão de XP). */
   damageBy: Map<string, number>;
+  /** Velocidade em % (condições haste/slow; 0 = enraizado). Ausente = 100. */
+  speedPct?: number;
+  /** Provocação (taunt): forçado a atacar `tauntBy` até `tauntUntil`. */
+  tauntBy?: string;
+  tauntUntil?: number;
 }
+
+/** Criatura que pode ser alvo de monstro: jogador ou invocação de jogador. */
+export type CreatureState = PlayerState | MonsterState;
+export const isMonsterState = (c: CreatureState): c is MonsterState => "defId" in c;
 
 /** O que precisamos do MapSchema (um Map comum serve nos testes). */
 export interface MonsterCollection {
@@ -125,7 +134,11 @@ export class MonsterManager {
   readonly rng: () => number;
   readonly now: () => number;
   /** Chamado pela IA quando um monstro ataca (combat.ts instala). */
-  attackHook: (m: Monster, target: PlayerState, now: number) => void = () => {};
+  attackHook: (m: Monster, target: CreatureState, now: number) => void = () => {};
+  /** IA das invocações (summons.ts instala). Sem hook, invocações ficam paradas. */
+  summonAi: ((m: Monster, w: MonsterManager, now: number) => void) | null = null;
+  /** Invocação morreu/sumiu (summons.ts limpa o registro do dono). */
+  onSummonRemoved: ((m: Monster) => void) | null = null;
 
   private readonly W: number;
   private readonly mask: Uint8Array;
@@ -184,10 +197,42 @@ export class MonsterManager {
     return best;
   }
 
-  /** Alvo atacável: online, vivo e fora da PZ. */
-  validTarget(id: string): PlayerState | undefined {
+  /** Alvo atacável por um monstro selvagem: jogador online, vivo e fora da PZ, ou invocação de jogador viva. */
+  validTarget(id: string): CreatureState | undefined {
+    if (!id) return undefined;
     const p = this.getPlayer(id);
-    return p && p.hp > 0 && !this.inPz(p.x, p.y) ? p : undefined;
+    if (p) return p.hp > 0 && !this.inPz(p.x, p.y) ? p : undefined;
+    const m = this.list.get(id);
+    return m && m.s.ownerId && m.s.hp > 0 ? m.s : undefined;
+  }
+
+  /** Monstro selvagem (não invocado) vivo com esse id. */
+  wild(id: string): Monster | undefined {
+    const m = id ? this.list.get(id) : undefined;
+    return m && !m.s.ownerId && m.s.hp > 0 ? m : undefined;
+  }
+
+  /** Cria uma invocação (sem respawn) em (x,y). O tile deve estar livre. */
+  spawnSummon(def: MonsterDef, x: number, y: number, ownerId: string, now = this.now()): Monster {
+    const s = new MonsterState();
+    s.id = `m${this.nextId++}`;
+    s.defId = def.id;
+    s.x = x;
+    s.y = y;
+    s.dir = Dir.S;
+    s.hp = def.hp;
+    s.maxHp = def.hp;
+    s.ownerId = ownerId;
+    const sp: SpawnPoint = { defId: def.id, x, y, count: 1, radius: 0 };
+    const m: Monster = {
+      s, def, spawn: sp, mode: "idle", sleeping: false,
+      stepEndsAt: 0, nextThinkAt: now, nextWanderAt: now, nextAttackAt: now, path: null, pathAt: 0,
+      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", damageBy: new Map(),
+    };
+    this.list.set(s.id, m);
+    this.occ.set(y * this.W + x, m);
+    this.o.collection.set(s.id, s);
+    return m;
   }
 
   /** Cria todos os monstros dos spawns (chamar no onCreate). */
@@ -255,6 +300,12 @@ export class MonsterManager {
     const key = m.s.y * this.W + m.s.x;
     if (this.occ.get(key) === m) this.occ.delete(key);
     this.o.collection.delete(m.s.id);
+    if (m.s.ownerId) {
+      // Invocação: sem respawn; ninguém mais a persegue.
+      this.clearTargetsOf(m.s.id);
+      this.onSummonRemoved?.(m);
+      return;
+    }
     this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs });
   }
 
@@ -273,9 +324,11 @@ export class MonsterManager {
     const s = m.s;
     const { dx, dy } = DIR_DELTA[dir];
     const tx = s.x + dx, ty = s.y + dy;
+    const pct = m.speedPct ?? 100;
+    if (pct <= 0) return false; // enraizado
     if (!canStepTerrain(this.grid, s.x, s.y, dx, dy) || this.blockedForMonster(tx, ty)) return false;
     const speed = this.o.groundSpeed?.speedAt(s.x, s.y) ?? 100;
-    const dur = Math.round(((isDiagonal(dir) ? m.def.stepMs * DIAGONAL_COST : m.def.stepMs) * speed) / 100);
+    const dur = applySpeedPct(Math.round(((isDiagonal(dir) ? m.def.stepMs * DIAGONAL_COST : m.def.stepMs) * speed) / 100), pct);
     const startAt = now - m.stepEndsAt <= TICK_MS ? m.stepEndsAt : now;
     m.stepEndsAt = startAt + dur;
     this.occ.delete(s.y * this.W + s.x);
@@ -287,9 +340,12 @@ export class MonsterManager {
     return true;
   }
 
-  /** Um jogador feriu o monstro: registra dano e faz revidar (inclusive passivos e quem estava voltando). */
-  onDamaged(m: Monster, attackerId: string, amount: number, now: number): void {
-    if (amount > 0) m.damageBy.set(attackerId, (m.damageBy.get(attackerId) ?? 0) + amount);
+  /**
+   * Um jogador (ou invocação) feriu o monstro: registra dano e faz revidar (inclusive passivos e quem estava voltando).
+   * `creditId` = quem recebe o crédito de XP (o dono, no caso de invocação; "" = ninguém).
+   */
+  onDamaged(m: Monster, attackerId: string, amount: number, now: number, creditId = attackerId): void {
+    if (amount > 0 && creditId) m.damageBy.set(creditId, (m.damageBy.get(creditId) ?? 0) + amount);
     m.lastAttackerId = attackerId;
     m.sleeping = false;
     if (m.mode === "idle" || m.mode === "return" || ((m.mode === "chase" || m.mode === "flee") && !this.validTarget(m.s.targetId))) {
@@ -314,7 +370,10 @@ export class MonsterManager {
   tick(now: number): void {
     this.playerList = [...this.o.players()];
     this.processRespawns(now);
-    for (const m of this.list.values()) updateMonster(m, this, now);
+    for (const m of this.list.values()) {
+      if (m.s.ownerId) this.summonAi?.(m, this, now);
+      else updateMonster(m, this, now);
+    }
   }
 
   private processRespawns(now: number) {
