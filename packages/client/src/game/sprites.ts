@@ -27,14 +27,19 @@ export interface CharacterLook {
  * Coluna = lado (0 baixo, 1 cima, 2 esquerda, 3 direita); linhas 0..3 = ciclo de caminhada; linha 0 = parado.
  */
 function ninjaAdventure(key: string, url: string): CharacterSheet {
+  return gridSheet(key, url, 16, 16);
+}
+
+/** Layout "grid4": colunas = lados (baixo, cima, esquerda, direita), linhas = frames de caminhada. */
+export function gridSheet(key: string, url: string, frameWidth: number, frameHeight: number, rows = 4): CharacterSheet {
   const col: Record<Facing, number> = { down: 0, up: 1, left: 2, right: 3 };
   const walk = {} as Record<Facing, number[]>;
   const idle = {} as Record<Facing, number>;
   for (const f of Object.keys(col) as Facing[]) {
-    walk[f] = [0, 1, 2, 3].map((row) => row * 4 + col[f]);
+    walk[f] = Array.from({ length: rows }, (_, row) => row * 4 + col[f]);
     idle[f] = col[f];
   }
-  return { key, url, frameWidth: 16, frameHeight: 16, walk, idle, stepsPerCycle: 2 };
+  return { key, url, frameWidth, frameHeight, walk, idle, stepsPerCycle: 2 };
 }
 
 const SHEETS = {

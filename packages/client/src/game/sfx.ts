@@ -1,0 +1,108 @@
+// Efeitos sonoros (Web Audio). Carregamento preguiçoso; o contexto só destrava na primeira interação.
+import { persistedBool } from "../ui/hud/store.ts";
+
+const BASE = `${import.meta.env.BASE_URL}ninja/Audio/`;
+const S = "Sounds/";
+
+/** Nome lógico → arquivos (sorteia entre variações). */
+const SOUNDS = {
+  hit: [S + "Hit & Impact/Hit1.wav", S + "Hit & Impact/Hit2.wav", S + "Hit & Impact/Hit3.wav", S + "Hit & Impact/Hit5.wav"],
+  hurt: [S + "Hit & Impact/Hit6.wav", S + "Hit & Impact/Hit7.wav"],
+  crit: [S + "Hit & Impact/Impact2.wav", S + "Hit & Impact/Impact3.wav"],
+  miss: [S + "Whoosh & Slash/Whoosh.wav", S + "Whoosh & Slash/Whoosh2.wav"],
+  shoot: [S + "Whoosh & Slash/Launch.wav"],
+  slash: [S + "Whoosh & Slash/Slash.wav", S + "Whoosh & Slash/Slash2.wav"],
+  death: [S + "Magic & Skill/Spirit.wav"],
+  xp: [S + "Bonus/Coin.wav", S + "Bonus/Coin2.wav"],
+  heal: [S + "Magic & Skill/Heal.wav"],
+  levelup: ["Jingles/LevelUp1.wav"],
+  died: ["Jingles/GameOver3.wav"],
+  fire: [S + "Elemental/Fireball.wav"],
+} as const;
+
+export type SfxName = keyof typeof SOUNDS;
+
+/** Mudo (persistido). */
+export const mutedStore = persistedBool("muted", false);
+
+const VOLUME = 0.4;
+const MIN_GAP_MS = 45;
+
+class Sfx {
+  private ctx: AudioContext | null = null;
+  private gain: GainNode | null = null;
+  private buffers = new Map<string, AudioBuffer>();
+  private loading = new Set<string>();
+  private lastAt = new Map<SfxName, number>();
+  private unlocked = false;
+
+  constructor() {
+    const unlock = () => {
+      if (this.unlocked) return;
+      this.unlocked = true;
+      this.ensure();
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      // Pré-carrega em segundo plano, sem competir com o início do jogo.
+      setTimeout(() => { for (const n of ["hit", "crit", "miss", "xp", "death"] as SfxName[]) this.preload(n); }, 1500);
+    };
+    window.addEventListener("pointerdown", unlock, true);
+    window.addEventListener("keydown", unlock, true);
+    mutedStore.subscribe((m) => { if (this.gain) this.gain.gain.value = m ? 0 : VOLUME; });
+  }
+
+  private ensure(): AudioContext | null {
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") void this.ctx.resume();
+      return this.ctx;
+    }
+    try {
+      this.ctx = new AudioContext();
+      this.gain = this.ctx.createGain();
+      this.gain.gain.value = mutedStore.get() ? 0 : VOLUME;
+      this.gain.connect(this.ctx.destination);
+    } catch { this.ctx = null; }
+    return this.ctx;
+  }
+
+  private load(path: string) {
+    if (this.buffers.has(path) || this.loading.has(path) || !this.ctx) return;
+    this.loading.add(path);
+    fetch(encodeURI(BASE + path))
+      .then((r) => r.arrayBuffer())
+      .then((b) => this.ctx!.decodeAudioData(b))
+      .then((buf) => { this.buffers.set(path, buf); })
+      .catch(() => { /* som opcional */ })
+      .finally(() => this.loading.delete(path));
+  }
+
+  preload(name: SfxName) {
+    if (!this.ctx) return;
+    for (const p of SOUNDS[name]) this.load(p);
+  }
+
+  /** Toca um som; se ainda não carregou, dispara o carregamento e fica em silêncio desta vez. */
+  play(name: SfxName, opts: { volume?: number; rate?: number } = {}) {
+    if (!this.unlocked || mutedStore.get()) return;
+    const ctx = this.ensure();
+    if (!ctx || !this.gain) return;
+    const now = performance.now();
+    if (now - (this.lastAt.get(name) ?? -1e9) < MIN_GAP_MS) return;
+    this.lastAt.set(name, now);
+    const list = SOUNDS[name];
+    const path = list[(Math.random() * list.length) | 0];
+    const buf = this.buffers.get(path);
+    if (!buf) { this.load(path); return; }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = (opts.rate ?? 1) * (0.94 + Math.random() * 0.12);
+    if (opts.volume !== undefined && opts.volume !== 1) {
+      const g = ctx.createGain();
+      g.gain.value = opts.volume;
+      src.connect(g).connect(this.gain);
+    } else src.connect(this.gain);
+    src.start();
+  }
+}
+
+export const sfx = new Sfx();

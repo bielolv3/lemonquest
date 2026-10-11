@@ -6,7 +6,27 @@ export const TEX = {
   shadow: "fx_shadow",
   marker: "fx_marker",
   hover: "fx_hover",
+  beam: "fx_beam",
 } as const;
+
+/** Gradiente vertical (opaco embaixo → transparente em cima) para a coluna de luz do level-up. */
+export function createBeamTexture(scene: Phaser.Scene) {
+  if (scene.textures.exists(TEX.beam)) return;
+  const tex = scene.textures.createCanvas(TEX.beam, 8, 64)!;
+  const ctx = tex.getContext();
+  const g = ctx.createLinearGradient(0, 64, 0, 0);
+  g.addColorStop(0, "rgba(255,255,255,0.95)");
+  g.addColorStop(0.6, "rgba(255,255,255,0.35)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 8, 64);
+  ctx.globalCompositeOperation = "destination-in";
+  const h = ctx.createLinearGradient(0, 0, 8, 0);
+  h.addColorStop(0, "rgba(0,0,0,0.25)"); h.addColorStop(0.5, "rgba(0,0,0,1)"); h.addColorStop(1, "rgba(0,0,0,0.25)");
+  ctx.fillStyle = h;
+  ctx.fillRect(0, 0, 8, 64);
+  tex.refresh();
+}
 
 function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, draw: (put: (x: number, y: number, a?: number) => void) => void, rgb = "255,255,255") {
   if (scene.textures.exists(key)) return;
@@ -21,6 +41,7 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
 
 export function createFxTextures(scene: Phaser.Scene) {
   canvasTexture(scene, TEX.px, 1, 1, (put) => put(0, 0));
+  createBeamTexture(scene);
 
   // Sombra elíptica 12x4 (preta; alpha aplicado no objeto).
   canvasTexture(scene, TEX.shadow, 12, 4, (put) => {

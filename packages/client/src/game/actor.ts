@@ -30,6 +30,18 @@ export interface ActorDeps {
   onStepStart?: (px: number, py: number, ms: number) => void;
 }
 
+export interface ActorOpts {
+  /** Escala visual do sprite (chefes). */
+  scale?: number;
+  /** Tamanho da fonte do nome em px (padrão 11). */
+  fontSize?: number;
+  /** Cor do nome (padrão branco / amarelo para o próprio jogador). */
+  nameColor?: string;
+}
+
+const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
+const BAR_COLORS_SELF = { hi: 0x5be06a, mid: 0xffd447, low: 0xff5a52 };
+
 export class Actor {
   /** Tile autoritativo/alvo final da fila. */
   tileX: number;
@@ -38,23 +50,54 @@ export class Actor {
   rx: number;
   ry: number;
   facing: Facing;
+  readonly scale: number;
+  /** Escondido por estar longe da câmera. */
+  culled = false;
+  /** Escondido por ter virado cadáver (animação de morte independente). */
+  ghosted = false;
 
   readonly root: Phaser.GameObjects.Container;
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly label: Phaser.GameObjects.Text;
   private readonly shadow: Phaser.GameObjects.Image;
+  private readonly barBg: Phaser.GameObjects.Image;
+  private readonly barGhost: Phaser.GameObjects.Image;
+  private readonly barFill: Phaser.GameObjects.Image;
   private queue: Segment[] = [];
   private idleFor = 0;
   private stepMs = BASE_STEP_MS;
 
-  constructor(private readonly deps: ActorDeps, private readonly look: CharacterLook, name: string, isMe: boolean, x: number, y: number, dir: Dir) {
+  // HP
+  private hpTarget = 1;
+  private hpShown = 1;
+  private hpGhost = 1;
+  private ghostDelay = 0;
+  private lastBarColor = -1;
+  private readonly colors: typeof BAR_COLORS;
+
+  // Feedback de combate
+  private flashLeft = 0;
+  private freezeLeft = 0;
+  private kbx = 0;
+  private kby = 0;
+
+  constructor(
+    private readonly deps: ActorDeps,
+    private readonly look: CharacterLook,
+    name: string,
+    readonly isMe: boolean,
+    x: number, y: number, dir: Dir,
+    opts: ActorOpts = {},
+  ) {
     const { scene } = deps;
     this.tileX = x; this.tileY = y;
     this.rx = x * TILE_SIZE; this.ry = y * TILE_SIZE;
     this.facing = dirToFacing(dir);
+    this.scale = opts.scale ?? 1;
+    this.colors = isMe ? BAR_COLORS_SELF : BAR_COLORS;
 
-    this.shadow = scene.add.image(0, 0, TEX.shadow).setOrigin(0.5, 0.5).setAlpha(0.35);
-    this.sprite = scene.add.sprite(0, 0, look.sheet.key, look.sheet.idle[this.facing]).setOrigin(0.5, 1);
+    this.shadow = scene.add.image(0, 0, TEX.shadow).setOrigin(0.5, 0.5).setAlpha(0.35).setScale(this.scale);
+    this.sprite = scene.add.sprite(0, 0, look.sheet.key, look.sheet.idle[this.facing]).setOrigin(0.5, 1).setScale(this.scale);
     if (look.tint !== 0xffffff) this.sprite.setTint(look.tint);
     this.root = scene.add.container(0, 0, [this.shadow, this.sprite]);
     this.shadow.setPosition(0, -1);
@@ -62,15 +105,107 @@ export class Actor {
 
     this.label = scene.add.text(0, 0, name, {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif",
-      fontSize: "11px",
+      fontSize: `${opts.fontSize ?? 11}px`,
       fontStyle: "bold",
-      color: isMe ? "#ffe066" : "#ffffff",
+      color: opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff"),
       stroke: "#101018",
-      strokeThickness: 3,
+      strokeThickness: opts.fontSize && opts.fontSize < 11 ? 2 : 3,
       resolution: Math.max(1, Math.ceil(window.devicePixelRatio || 1)),
     }).setOrigin(0.5, 1);
     deps.uiLayer.add(this.label);
+
+    this.barBg = scene.add.image(0, 0, TEX.px).setOrigin(0, 0).setTint(0x08090d).setAlpha(0.92);
+    this.barGhost = scene.add.image(0, 0, TEX.px).setOrigin(0, 0).setTint(0xf2efe0).setAlpha(0.85);
+    this.barFill = scene.add.image(0, 0, TEX.px).setOrigin(0, 0);
+    deps.uiLayer.add([this.barBg, this.barGhost, this.barFill]);
     this.syncDisplay();
+  }
+
+  setName(name: string, color?: string) {
+    if (this.label.text !== name) this.label.setText(name);
+    if (color && this.label.style.color !== color) this.label.setColor(color);
+  }
+
+  /** HP atual (a barra anima até lá). `instant` pula a animação (spawn). */
+  setHp(hp: number, maxHp: number, instant = false) {
+    const p = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
+    if (p < this.hpTarget - 0.0001) this.ghostDelay = 260;
+    this.hpTarget = p;
+    if (instant) { this.hpShown = this.hpGhost = p; }
+    else if (p > this.hpGhost) this.hpGhost = p;
+  }
+
+  /** Flash branco curto no sprite. */
+  flash(ms = 80) {
+    this.flashLeft = ms;
+    this.sprite.setTintFill(0xffffff);
+  }
+
+  /** Empurrão de `px` pixels na direção (dx,dy) (normalizada aqui), que volta suavemente. */
+  nudge(dx: number, dy: number, px = 2) {
+    const l = Math.hypot(dx, dy);
+    if (l < 0.001) return;
+    this.kbx = (dx / l) * px;
+    this.kby = (dy / l) * px;
+  }
+
+  /** Congela a animação de caminhada por `ms` (hit-stop em críticos). */
+  hitStop(ms: number) {
+    this.freezeLeft = ms;
+    if (this.sprite.anims.isPlaying) this.sprite.anims.pause();
+  }
+
+  /** Estado visual para criar um "cadáver" independente do estado do servidor. */
+  get frameInfo() {
+    return { key: this.look.sheet.key, frame: this.sprite.frame.name, tint: this.look.tint, flipX: this.sprite.flipX };
+  }
+
+  /** Esconde tudo (virou cadáver). */
+  ghost() {
+    this.ghosted = true;
+    this.applyVisible();
+  }
+
+  setCulled(c: boolean) {
+    if (this.culled === c) return;
+    this.culled = c;
+    this.applyVisible();
+  }
+
+  private applyVisible() {
+    const v = !this.culled && !this.ghosted;
+    this.root.setVisible(v);
+    this.label.setVisible(v);
+    this.barBg.setVisible(v);
+    this.barGhost.setVisible(v);
+    this.barFill.setVisible(v);
+  }
+
+  /**
+   * Posiciona nome + barra na câmera de UI. (sx, sy) = ponto da cabeça em px de tela; zoom = zoom do mundo.
+   */
+  placeUi(sx: number, sy: number, zoom: number, dtMs: number) {
+    if (this.culled || this.ghosted) return;
+    // Barra: anima largura e fantasma de dano.
+    const k = 1 - Math.exp(-16 * dtMs / 1000);
+    this.hpShown += (this.hpTarget - this.hpShown) * k;
+    if (Math.abs(this.hpTarget - this.hpShown) < 0.002) this.hpShown = this.hpTarget;
+    if (this.ghostDelay > 0) this.ghostDelay -= dtMs;
+    else if (this.hpGhost > this.hpShown) {
+      this.hpGhost += (this.hpShown - this.hpGhost) * (1 - Math.exp(-9 * dtMs / 1000));
+      if (this.hpGhost - this.hpShown < 0.002) this.hpGhost = this.hpShown;
+    }
+    const inner = zoom >= 3 ? 3 : 2;
+    const w = Math.max(10, Math.round(TILE_SIZE * 0.75 * zoom * Math.min(this.scale, 1.6)));
+    const x0 = Math.round(sx - w / 2) - 1;
+    const y0 = Math.round(sy) - (inner + 2);
+    this.barBg.setPosition(x0, y0).setScale(w + 2, inner + 2);
+    const fw = Math.round(w * this.hpShown), gw = Math.round(w * Math.max(this.hpGhost, this.hpShown));
+    this.barGhost.setPosition(x0 + 1, y0 + 1).setScale(gw, inner).setVisible(gw > fw);
+    this.barFill.setPosition(x0 + 1, y0 + 1).setScale(fw, inner).setVisible(fw > 0);
+    const col = this.hpTarget > 0.6 ? this.colors.hi : this.hpTarget > 0.3 ? this.colors.mid : this.colors.low;
+    if (col !== this.lastBarColor) { this.lastBarColor = col; this.barFill.setTint(col); }
+    this.label.setPosition(Math.round(sx), y0 - 1);
   }
 
   /** Último tile da fila (para onde o ator está indo). */
@@ -145,8 +280,27 @@ export class Actor {
       }
     }
 
+    // Feedback de combate (sem alocações): flash, hit-stop e retorno do empurrão.
+    if (this.flashLeft > 0) {
+      this.flashLeft -= dtMs;
+      if (this.flashLeft <= 0) {
+        if (this.look.tint !== 0xffffff) this.sprite.setTint(this.look.tint); else this.sprite.clearTint();
+      }
+    }
+    if (this.freezeLeft > 0) {
+      this.freezeLeft -= dtMs;
+      if (this.freezeLeft <= 0 && this.sprite.anims.isPaused) this.sprite.anims.resume();
+    }
+    if (this.kbx !== 0 || this.kby !== 0) {
+      const d = Math.exp(-dtMs / 45);
+      this.kbx *= d; this.kby *= d;
+      if (Math.abs(this.kbx) < 0.05 && Math.abs(this.kby) < 0.05) { this.kbx = 0; this.kby = 0; }
+    }
+
     const head = this.queue[0];
-    if (head?.walk) {
+    if (this.freezeLeft > 0) {
+      // animação congelada (hit-stop)
+    } else if (head?.walk) {
       this.idleFor = 0;
       this.playWalk();
     } else if (!head) {
@@ -163,11 +317,15 @@ export class Actor {
     const py = snap(this.ry) + TILE_SIZE;
     this.root.setPosition(px, py);
     this.root.setDepth(10 + this.ry + TILE_SIZE);
+    this.sprite.setPosition(Math.round(this.kbx), Math.round(this.kby));
   }
 
   /** Ponto (mundo) acima da cabeça, para o nome. */
   get headX() { return this.deps.snap(this.rx) + TILE_SIZE / 2; }
-  get headY() { return this.deps.snap(this.ry) - 1; }
+  get headY() { return this.deps.snap(this.ry) + TILE_SIZE - this.look.sheet.frameHeight * this.scale - 1; }
+  /** Centro do corpo (px de mundo) — origem/destino de projéteis e efeitos. */
+  get bodyX() { return this.rx + TILE_SIZE / 2; }
+  get bodyY() { return this.ry + TILE_SIZE / 2 - (this.scale - 1) * 6; }
 
   private facingOf(s: Segment): Facing {
     const dx = Math.sign(s.tx - s.fx), dy = Math.sign(s.ty - s.fy);
@@ -193,6 +351,9 @@ export class Actor {
   destroy() {
     this.root.destroy();
     this.label.destroy();
+    this.barBg.destroy();
+    this.barGhost.destroy();
+    this.barFill.destroy();
   }
 }
 
