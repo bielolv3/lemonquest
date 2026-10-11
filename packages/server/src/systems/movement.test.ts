@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CollisionGrid, Dir, TICK_MS, stepDuration } from "@tibinha/shared";
+import { CollisionGrid, Dir, GroundSpeedGrid, TICK_MS, stepDuration } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
 import { MovementSystem } from "./movement.ts";
 
@@ -258,5 +258,72 @@ describe("MovementSystem — walkTo", () => {
     sys.onWalkTo(p, { x: 55, y: 0 });
     run(STEP * 2);
     expect(p).toMatchObject({ x: 0, y: 0 });
+  });
+});
+
+/** R = estrada (85), . = grama (100), M = lama (150). */
+function speeds(rows: string[]): GroundSpeedGrid {
+  const h = rows.length, w = rows[0].length;
+  const v = new Uint16Array(w * h);
+  const S: Record<string, number> = { R: 85, ".": 100, M: 150 };
+  rows.forEach((r, y) => [...r].forEach((c, x) => { v[y * w + x] = S[c]; }));
+  return new GroundSpeedGrid(w, h, v);
+}
+
+describe("MovementSystem — ground speed", () => {
+  const TERRAIN = speeds([
+    "RRR...MMM...",
+    "RRR...MMM...",
+    "............",
+  ]);
+  const G3 = grid(["............", "............", "............"]);
+
+  it("step duration uses the ORIGIN tile's ground speed (road fast, mud slow)", () => {
+    const { sys, add, run } = setup(G3, { groundSpeed: TERRAIN });
+    const p = add(player("a", 0, 0));
+    const seen: { x: number; ms: number }[] = [];
+    sys.onMove(p, { dir: Dir.E, seq: 1 });
+    seen.push({ x: p.x, ms: p.stepMs });
+    for (let i = 0; i < 200 && p.x < 10; i++) {
+      const before = p.x;
+      run(TICK_MS);
+      if (p.x !== before) seen.push({ x: p.x, ms: p.stepMs });
+    }
+    // passo que SAI do tile x usa o chão de x: 0,1,2 estrada; 3,4,5 grama; 6,7,8 lama; 9 grama
+    const road = stepDuration(1, Dir.E, 85), norm = stepDuration(1, Dir.E), mud = stepDuration(1, Dir.E, 150);
+    expect(seen.map((s) => s.ms)).toEqual([road, road, road, norm, norm, norm, mud, mud, mud, norm]);
+    expect(road).toBeLessThan(norm);
+    expect(mud).toBeGreaterThan(norm);
+  });
+
+  it("slow tiles take longer in wall-clock time (exact cadence)", () => {
+    const { sys, add, run, now } = setup(G3, { groundSpeed: TERRAIN });
+    const p = add(player("a", 0, 0));
+    const t0 = now();
+    sys.onMove(p, { dir: Dir.E, seq: 1 });
+    // starts[k] = instante (observado no tick) em que começa o passo que SAI do tile k; o 1º foi no onMove.
+    const starts: number[] = [0];
+    while (p.x < 9 && now() - t0 < 10_000) { const b = p.x; run(TICK_MS); if (p.x !== b) starts.push(now() - t0); }
+    const took = (k: number) => starts[k + 1] - starts[k];
+    const road = stepDuration(1, Dir.E, 85), mud = stepDuration(1, Dir.E, 150);
+    // tiles 0..2 estrada, 6..8 lama (±1 tick de quantização na observação)
+    for (const k of [0, 1]) expect(Math.abs(took(k) - road)).toBeLessThanOrEqual(TICK_MS);
+    for (const k of [6, 7]) expect(Math.abs(took(k) - mud)).toBeLessThanOrEqual(TICK_MS);  });
+
+  it("without a grid every tile is 100 (backwards compatible)", () => {
+    const { sys, add, run } = setup(G3);
+    const p = add(player("a", 6, 0));
+    sys.onMove(p, { dir: Dir.E, seq: 1 });
+    run(TICK_MS);
+    expect(p.stepMs).toBe(STEP);
+  });
+
+  it("diagonals scale too", () => {
+    const { sys, add, run } = setup(G3, { groundSpeed: TERRAIN });
+    const p = add(player("a", 6, 0));
+    sys.onMove(p, { dir: Dir.SE, seq: 1 });
+    run(TICK_MS);
+    expect(p).toMatchObject({ x: 7, y: 1, stepMs: stepDuration(1, Dir.SE, 150) });
+    expect(p.stepMs).toBe(Math.round((DIAG * 150) / 100));
   });
 });

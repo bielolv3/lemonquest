@@ -1,7 +1,7 @@
 // DONO: agente "movimento". Contrato público usado por WorldRoom — não mudar as assinaturas.
 import {
   DIR_DELTA, TICK_MS, Dir, canStepTerrain, dirFromDelta, isNearSpawn, isValidDir, stepDuration,
-  type CollisionGrid, type MoveMsg, type TurnMsg, type WalkToMsg,
+  type CollisionGrid, type GroundSpeedGrid, type MoveMsg, type TurnMsg, type WalkToMsg,
 } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, PATH_MAX_DIST, type Point } from "./pathfinding.ts";
@@ -25,6 +25,8 @@ export interface MovementOptions {
   spawn?: { x: number; y: number };
   /** Relógio (ms) usado ao processar mensagens (o tick recebe `now`). Padrão Date.now — injetável em testes. */
   now?: () => number;
+  /** Velocidade do chão por tile (estilo Tibia). Ausente → todo chão é 100%. */
+  groundSpeed?: GroundSpeedGrid;
 }
 
 type StepResult = "ok" | "wall" | "player";
@@ -34,10 +36,12 @@ export class MovementSystem {
   private readonly movers = new Map<string, Mover>();
   private readonly spawn: { x: number; y: number } | undefined;
   private readonly now: () => number;
+  private readonly groundSpeed: GroundSpeedGrid | undefined;
 
   constructor(private readonly grid: CollisionGrid, opts: MovementOptions = {}) {
     this.spawn = opts.spawn;
     this.now = opts.now ?? Date.now;
+    this.groundSpeed = opts.groundSpeed;
   }
 
   addPlayer(p: PlayerState): void {
@@ -152,7 +156,8 @@ export class MovementSystem {
     p.dir = dir;
     if (result !== "ok") return result;
 
-    const dur = stepDuration(p.level, dir);
+    // Como no Tibia: a duração depende do chão do tile de ORIGEM (onde o passo começa).
+    const dur = stepDuration(p.level, dir, this.groundSpeed?.speedAt(p.x, p.y));
     // Cadência exata: se o passo anterior terminou há no máximo um tick, encadeia a partir do fim dele
     // (senão a quantização do tick de 50ms deixaria o andar contínuo mais lento que no cliente).
     // Passo "do zero" começa agora — nunca antes do input chegar, para o servidor não passar à frente

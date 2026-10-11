@@ -1,6 +1,6 @@
 // Carrega e monta o mapa Tiled (tilesets embutidos; imagem relativa ao arquivo do mapa).
 import Phaser from "phaser";
-import { CollisionGrid, DEFAULT_SPAWN, mapSpawn, type TiledMap } from "@tibinha/shared";
+import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, mapSpawn, type TiledMap } from "@tibinha/shared";
 
 export const MAP_KEY = "world";
 export const MAP_URL = `${import.meta.env.BASE_URL}maps/world.json`;
@@ -31,6 +31,8 @@ export interface WorldMap {
   tiled: TiledMap;
   tilemap: Phaser.Tilemaps.Tilemap;
   grid: CollisionGrid;
+  /** Velocidade do chão por tile — mesma construção do servidor (predição sem correções). */
+  groundSpeed: GroundSpeedGrid;
   spawn: { x: number; y: number };
   widthPx: number;
   heightPx: number;
@@ -58,6 +60,7 @@ export function buildWorldMap(scene: Phaser.Scene): WorldMap {
     tiled,
     tilemap,
     grid: CollisionGrid.fromTiled(tiled),
+    groundSpeed: GroundSpeedGrid.fromTiled(tiled),
     spawn: mapSpawn(tiled, DEFAULT_SPAWN),
     widthPx: tilemap.widthInPixels,
     heightPx: tilemap.heightInPixels,

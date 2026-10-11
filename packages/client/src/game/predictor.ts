@@ -1,9 +1,11 @@
 // Predição do próprio jogador. Lógica pura (sem Phaser) — espelha as regras do MovementSystem do servidor.
-import { DIR_DELTA, TICK_MS, canStepTerrain, isNearSpawn, stepDuration, type CollisionGrid, type Dir } from "@tibinha/shared";
+import { DIR_DELTA, TICK_MS, canStepTerrain, isNearSpawn, stepDuration, type CollisionGrid, type Dir, type GroundSpeedGrid } from "@tibinha/shared";
 
 export interface PredictWorld {
   grid: CollisionGrid;
   spawn: { x: number; y: number } | null;
+  /** Velocidade do chão — a MESMA grade (mesmo mapa) que o servidor usa, para cadência idêntica. */
+  groundSpeed?: GroundSpeedGrid;
   /** Há outro jogador (posição autoritativa conhecida) neste tile? */
   isOccupied(x: number, y: number): boolean;
 }
@@ -69,7 +71,8 @@ export class Predictor {
       this.dir = d;
       return { kind: "turn", dir: d };
     }
-    const ms = stepDuration(this.level, d);
+    // Chão do tile de ORIGEM, igual ao MovementSystem do servidor.
+    const ms = stepDuration(this.level, d, this.world.groundSpeed?.speedAt(this.x, this.y));
     // Mesmo encadeamento do servidor: passos contínuos mantêm cadência exata.
     const startAt = now - this.stepEndsAt <= TICK_MS ? this.stepEndsAt : now;
     this.stepEndsAt = startAt + ms;

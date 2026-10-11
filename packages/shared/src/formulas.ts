@@ -1,11 +1,17 @@
 import { BASE_STEP_MS, DIAGONAL_COST } from "./constants.ts";
 import { Dir, isDiagonal } from "./types.ts";
 
-/** Duração de um passo. Fica ~15% mais rápido até o level 40. */
-export function stepDuration(level: number, dir: Dir): number {
+/**
+ * Duração de um passo. Fica ~15% mais rápido até o level 40.
+ * `groundSpeed` = velocidade do chão do tile de ORIGEM (onde o passo começa), como no Tibia:
+ * porcentagem, 100 = normal, maior = mais lento (lama 150), menor = mais rápido (estrada 85).
+ * Servidor e predição do cliente DEVEM chamar com os mesmos argumentos (ver GroundSpeedGrid).
+ */
+export function stepDuration(level: number, dir: Dir, groundSpeed = 100): number {
   const speedup = 1 + Math.min(level - 1, 39) * 0.004;
   const base = BASE_STEP_MS / speedup;
-  return Math.round(isDiagonal(dir) ? base * DIAGONAL_COST : base);
+  const ms = Math.round(isDiagonal(dir) ? base * DIAGONAL_COST : base);
+  return groundSpeed === 100 ? ms : Math.round((ms * groundSpeed) / 100);
 }
 
 /** Direção de um passo unitário (dx,dy em {-1,0,1}); null se (dx,dy) não for vizinho. */

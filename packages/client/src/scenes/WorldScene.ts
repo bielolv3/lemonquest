@@ -17,6 +17,10 @@ interface Known { x: number; y: number; dir: number; stepMs: number }
 const DEPTH_ABOVE = 1_000_000;
 const DEPTH_FX_TOP = 2_000_000;
 
+/** Terrenos (propriedade `terrain` do tileset) que soltam poeira / respingos ao pisar. Grama/pedra: nada. */
+const DUSTY = new Set(["road", "dirt", "sand"]);
+const SPLASHY = new Set(["mud", "swamp"]);
+
 export class WorldScene extends Phaser.Scene {
   private world!: WorldMap;
   private worldLayer!: Phaser.GameObjects.Layer;
@@ -34,6 +38,7 @@ export class WorldScene extends Phaser.Scene {
 
   private hover!: Phaser.GameObjects.Image;
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private splash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private disposers: (() => void)[] = [];
 
   constructor() { super("world"); }
@@ -69,6 +74,7 @@ export class WorldScene extends Phaser.Scene {
     this.predictor = new Predictor({
       grid: this.world.grid,
       spawn: this.world.spawn,
+      groundSpeed: this.world.groundSpeed,
       isOccupied: (x, y) => this.isOccupiedByOther(x, y),
     });
     this.input_ = new KeyboardInput({
@@ -112,7 +118,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.actors.has(id)) return;
     const isMe = id === this.myId;
     const actor = new Actor(
-      { scene: this, worldLayer: this.worldLayer, uiLayer: this.uiLayer, snap: this.pcam.snap, onStepStart: (x, y) => this.puff(x, y) },
+      { scene: this, worldLayer: this.worldLayer, uiLayer: this.uiLayer, snap: this.pcam.snap, onStepStart: (x, y) => this.footstep(x, y) },
       lookFor(p.vocation), p.name, isMe, p.x, p.y, p.dir,
     );
     this.actors.set(id, actor);
@@ -252,10 +258,28 @@ export class WorldScene extends Phaser.Scene {
       quantity: 1,
     });
     this.worldLayer.add(this.dust.setDepth(DEPTH_ABOVE - 1));
+
+    // Respingo escuro de lama: gotas sobem e caem rápido, bem perto do pé.
+    this.splash = this.add.particles(0, 0, TEX.px, {
+      emitting: false,
+      lifespan: { min: 180, max: 300 },
+      speedX: { min: -14, max: 14 },
+      speedY: { min: -22, max: -10 },
+      alpha: { start: 0.8, end: 0 },
+      tint: [0x3b2f22, 0x4a3b2a, 0x2f3a28],
+      gravityY: 90,
+      quantity: 1,
+    });
+    this.worldLayer.add(this.splash.setDepth(DEPTH_ABOVE - 1));
   }
 
-  private puff(px: number, py: number) {
-    this.dust.explode(3, px + TILE_SIZE / 2, py + TILE_SIZE - 1);
+  /** Partícula de passo conforme o terreno do tile de origem (px = canto do tile). */
+  private footstep(px: number, py: number) {
+    const terrain = this.world.groundSpeed.terrainAt(Math.round(px / TILE_SIZE), Math.round(py / TILE_SIZE));
+    if (!terrain) return;
+    const x = px + TILE_SIZE / 2, y = py + TILE_SIZE - 1;
+    if (DUSTY.has(terrain)) this.dust.explode(3, x, y);
+    else if (SPLASHY.has(terrain)) this.splash.explode(terrain === "mud" ? 4 : 2, x, y);
   }
 
   private showMarker(x: number, y: number) {
