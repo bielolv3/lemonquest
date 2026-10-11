@@ -69,13 +69,13 @@ const B = "ninja/Actor/Boss/";
 /** Catálogo de monstros. Ids batem com `monster` dos spawns do mapa (world.json). */
 export const MONSTERS: Record<string, MonsterDef> = {
   rat: {
-    id: "rat", name: "Rato", level: 1, hp: 25, xp: 6, damage: [1, 6], damageKind: "physical", armor: 0,
-    attackMs: 2000, attackRange: 1, stepMs: 320, aggroRange: 5, fleeAtHpPct: 0.15, respawnMs: 20_000,
+    id: "rat", name: "Rato", level: 1, hp: 25, xp: 6, damage: [1, 4], damageKind: "physical", armor: 0,
+    attackMs: 2000, attackRange: 1, stepMs: 320, aggroRange: 4, fleeAtHpPct: 0.15, respawnMs: 20_000,
     sprite: grid4(M + "Mouse/SpriteSheet.png"),
   },
   slime: {
-    id: "slime", name: "Gosma", level: 2, hp: 40, xp: 10, damage: [2, 8], damageKind: "earth", armor: 1,
-    attackMs: 2000, attackRange: 1, stepMs: 420, aggroRange: 4, fleeAtHpPct: 0, respawnMs: 25_000,
+    id: "slime", name: "Gosma", level: 2, hp: 34, xp: 10, damage: [1, 5], damageKind: "earth", armor: 1,
+    attackMs: 2000, attackRange: 1, stepMs: 420, aggroRange: 3, fleeAtHpPct: 0, respawnMs: 25_000,
     sprite: grid4(M + "Slime/Slime.png"),
   },
   bee: {
