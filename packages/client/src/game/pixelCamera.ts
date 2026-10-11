@@ -1,11 +1,14 @@
 // Câmera pixel-perfect: zoom inteiro, seguimento suave (lerp independente de FPS), limitada ao mapa.
 import Phaser from "phaser";
 import { TILE_SIZE } from "@tibinha/shared";
+import { getHudInsets } from "../ui/hud/layout.ts";
 
 /** Tiles visíveis na vertical que buscamos (~15–19). */
 const TARGET_ROWS = 17;
 /** Constante de suavização do seguimento (1/s). Maior = mais grudado. */
 const FOLLOW_SHARPNESS = 12;
+/** Suavização do deslocamento quando o HUD abre/fecha (1/s). */
+const INSET_SHARPNESS = 9;
 
 export function zoomFor(viewHeight: number): number {
   return Math.max(1, Math.round(viewHeight / (TILE_SIZE * TARGET_ROWS)));
@@ -16,6 +19,9 @@ export class PixelCamera {
   /** Centro suavizado (mundo, px). */
   private cx = 0;
   private cy = 0;
+  /** Deslocamento suavizado (px de tela) para compensar o HUD. */
+  private ox = 0;
+  private oy = 0;
 
   constructor(private readonly cam: Phaser.Cameras.Scene2D.Camera, private mapW: number, private mapH: number) {
     this.fit();
@@ -32,6 +38,8 @@ export class PixelCamera {
 
   jumpTo(x: number, y: number) {
     this.cx = x; this.cy = y;
+    const ins = getHudInsets();
+    this.ox = ins.right / 2; this.oy = ins.bottom / 2;
     this.apply();
   }
 
@@ -41,6 +49,13 @@ export class PixelCamera {
     this.cy += (y - this.cy) * k;
     if (Math.abs(x - this.cx) < 0.01) this.cx = x;
     if (Math.abs(y - this.cy) < 0.01) this.cy = y;
+    // Deslocamento do HUD (barra lateral) também desliza suave ao abrir/fechar.
+    const ins = getHudInsets();
+    const kO = 1 - Math.exp(-INSET_SHARPNESS * dtMs / 1000);
+    this.ox += (ins.right / 2 - this.ox) * kO;
+    this.oy += (ins.bottom / 2 - this.oy) * kO;
+    if (Math.abs(ins.right / 2 - this.ox) < 0.5) this.ox = ins.right / 2;
+    if (Math.abs(ins.bottom / 2 - this.oy) < 0.5) this.oy = ins.bottom / 2;
     this.apply();
   }
 
@@ -52,8 +67,9 @@ export class PixelCamera {
     const halfW = this.cam.width / 2 / this.zoom, halfH = this.cam.height / 2 / this.zoom;
     const clamp = (c: number, half: number, size: number) =>
       size <= half * 2 ? size / 2 : Phaser.Math.Clamp(c, half, size - half);
-    const x = this.snap(clamp(this.cx, halfW, this.mapW));
-    const y = this.snap(clamp(this.cy, halfH, this.mapH));
+    // O alvo fica no centro da área NÃO coberta pelo HUD: desloca o centro da câmera por inset/2 (px de tela).
+    const x = this.snap(clamp(this.cx + this.ox / this.zoom, halfW, this.mapW));
+    const y = this.snap(clamp(this.cy + this.oy / this.zoom, halfH, this.mapH));
     this.cam.setScroll(x - this.cam.width / 2, y - this.cam.height / 2);
   }
 }

@@ -1,0 +1,65 @@
+// Retrato, nome, vocação, level, HP/mana e XP do jogador local.
+import { xpForLevel } from "@tibinha/shared";
+import { session } from "../../session.ts";
+import { Section } from "./Section.tsx";
+import { StatBar } from "./StatBar.tsx";
+import { useStore } from "./store.ts";
+import { vocationMeta } from "./vocations.ts";
+import { playersStore, selectMe, type PlayerSnap } from "./world.ts";
+
+export function xpProgress(level: number, xp: number) {
+  const from = xpForLevel(level), to = xpForLevel(level + 1);
+  const span = Math.max(1, to - from);
+  const into = Math.max(0, xp - from);
+  return { from, to, into, span, pct: Math.min(100, (into / span) * 100), left: Math.max(0, to - xp) };
+}
+
+export const fmt = (n: number) => n.toLocaleString("pt-BR");
+
+export function Portrait({ me, size = 44 }: { me: PlayerSnap; size?: number }) {
+  const v = vocationMeta(me.vocation);
+  return (
+    <div class="portrait" style={{ "--voc": v.color, width: `${size}px`, height: `${size}px` } as any}>
+      <img src={v.faceset} alt="" draggable={false} />
+    </div>
+  );
+}
+
+export function StatusPanel() {
+  const me = selectMe(useStore(playersStore));
+  return (
+    <Section id="status" title="Personagem" aside={me ? <span class="lvl-chip">Lv {me.level}</span> : null}>
+      {me ? <StatusBody me={me} /> : <div class="hud-empty">Carregando…</div>}
+    </Section>
+  );
+}
+
+function StatusBody({ me }: { me: PlayerSnap }) {
+  const v = vocationMeta(me.vocation);
+  const xp = xpProgress(me.level, me.xp);
+  const pctLabel = `${xp.pct.toFixed(1).replace(".", ",")}%`;
+  return (
+    <div class="status">
+      <div class="status-id">
+        <Portrait me={me} />
+        <div class="status-names">
+          <div class="status-name" title={me.name}>{me.name || session.myName}</div>
+          <div class="status-voc" style={{ color: v.color }}>{v.label}</div>
+        </div>
+      </div>
+      <StatBar kind="hp" label="HP" value={me.hp} max={me.maxHp} />
+      <StatBar kind="mana" label="MP" value={me.mana} max={me.maxMana} />
+      <div class="xp-row">
+        <StatBar
+          kind="xp"
+          thin
+          value={xp.into}
+          max={xp.span}
+          tip={`${pctLabel} para o level ${me.level + 1}`}
+          tipSub={`Faltam ${fmt(xp.left)} XP`}
+        />
+        <span class="xp-pct">{pctLabel}</span>
+      </div>
+    </div>
+  );
+}

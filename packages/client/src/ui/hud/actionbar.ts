@@ -1,0 +1,63 @@
+// Barra de ações (teclas 1–6). Magias chegam no M3: preenchem slots, recebem ativações e disparam cooldowns.
+// Slots são 0-based na API (tecla "1" = slot 0).
+import { createStore, type Unsubscribe } from "./store.ts";
+
+export const ACTION_SLOTS = 6;
+
+export interface SlotAction {
+  /** Nome exibido no tooltip. */
+  label: string;
+  /** URL do ícone (ex.: "/ninja/Ui/Skill Icon/Spell/Heal.png"). */
+  icon?: string;
+  /** Custo de mana exibido no canto. */
+  mana?: number;
+}
+
+export interface Cooldown { start: number; end: number }
+
+export const slotsStore = createStore<(SlotAction | null)[]>(Array(ACTION_SLOTS).fill(null));
+export const cooldownStore = createStore<(Cooldown | null)[]>(Array(ACTION_SLOTS).fill(null));
+/** Contador por slot que incrementa a cada "flash" (tecla ou clique). */
+export const flashStore = createStore<number[]>(Array(ACTION_SLOTS).fill(0));
+
+function patch<T>(arr: T[], i: number, v: T): T[] {
+  const n = arr.slice(); n[i] = v; return n;
+}
+const valid = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < ACTION_SLOTS;
+
+/** Define (ou limpa com null) a ação de um slot. */
+export function setSlotAction(slot: number, action: SlotAction | null): void {
+  if (valid(slot)) slotsStore.set((a) => patch(a, slot, action));
+}
+
+/** Inicia um cooldown de `ms` no slot (overlay radial). ms <= 0 limpa. */
+export function setCooldown(slot: number, ms: number): void {
+  if (!valid(slot)) return;
+  const now = performance.now();
+  cooldownStore.set((a) => patch(a, slot, ms > 0 ? { start: now, end: now + ms } : null));
+}
+
+export function isOnCooldown(slot: number): boolean {
+  const c = cooldownStore.get()[slot];
+  return !!c && c.end > performance.now();
+}
+
+export function flashSlot(slot: number): void {
+  if (valid(slot)) flashStore.set((a) => patch(a, slot, a[slot] + 1));
+}
+
+type ActivateHandler = (slot: number) => void;
+const handlers = new Set<ActivateHandler>();
+
+/** Assina ativações (tecla 1–6 ou clique no slot). */
+export function onSlotActivate(fn: ActivateHandler): Unsubscribe {
+  handlers.add(fn);
+  return () => { handlers.delete(fn); };
+}
+
+/** Chamado pela UI quando o jogador ativa um slot. */
+export function activateSlot(slot: number): void {
+  if (!valid(slot)) return;
+  flashSlot(slot);
+  for (const h of [...handlers]) h(slot);
+}

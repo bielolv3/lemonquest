@@ -3,6 +3,7 @@ import { session } from "../session.ts";
 import { Login } from "./Login.tsx";
 import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
+import { Hud } from "./hud/Hud.tsx";
 import { WorldMapOverlay, ZoneBanner } from "./minimap/Minimap.tsx";
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
   if (!connected) return <Login />;
   return (
     <>
+      <Hud />
       <Toasts />
       <Chat />
       <WorldMapOverlay />

@@ -1,45 +1,64 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { C2S, S2C, type ChatMessage, type ChatSendMsg } from "@tibinha/shared";
+import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg } from "@tibinha/shared";
 import { session } from "../session.ts";
+import { isTyping } from "./focus.ts";
+import { persistedBool, useStore } from "./hud/store.ts";
 
-const MAX_LINES = 50;
+const MAX_LINES = 80;
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+const collapsedStore = persistedBool("chatCollapsed", false);
 
 export function Chat() {
   const [lines, setLines] = useState<ChatMessage[]>([]);
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useStore(collapsedStore);
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState("");
+  const [unread, setUnread] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const log = useRef<HTMLDivElement>(null);
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
 
   useEffect(() => session.onRoom((room) => {
-    room.onMessage(S2C.Chat, (m: ChatMessage) => setLines((l) => [...l, m].slice(-MAX_LINES)));
+    room.onMessage(S2C.Chat, (m: ChatMessage) => {
+      setLines((l) => [...l, m].slice(-MAX_LINES));
+      if (collapsedRef.current) setUnread((n) => n + 1);
+    });
   }), []);
+
+  useEffect(() => { if (!collapsed) setUnread(0); }, [collapsed]);
 
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [lines, collapsed]);
 
-  // Enter (fora de campos de texto) abre o chat.
+  // Enter (fora de campos de texto) abre o chat. O input já existe no DOM (só fica recolhido), então o
+  // foco é síncrono: as teclas digitadas logo depois do Enter já caem no campo e nada se perde.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || typing) return;
-      if (document.activeElement instanceof HTMLInputElement) return;
+      if (e.key !== "Enter" || e.repeat || isTyping()) return;
       e.preventDefault();
-      setCollapsed(false);
-      setTyping(true);
+      collapsedStore.set(false);
+      input.current?.focus({ preventScroll: true });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [typing]);
+  }, []);
 
+  // Clicar fora do chat (ex.: no mapa) devolve o teclado ao jogo. O Phaser cancela o mousedown do
+  // canvas, então o navegador não tira o foco sozinho. O texto digitado é mantido.
   useEffect(() => {
-    if (typing) input.current?.focus();
-  }, [typing]);
+    const onDown = (e: MouseEvent) => {
+      if (document.activeElement !== input.current) return;
+      if ((e.target as HTMLElement | null)?.closest?.(".chat")) return;
+      input.current?.blur();
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, []);
 
   const close = () => {
-    setTyping(false);
     setText("");
     input.current?.blur();
   };
@@ -61,35 +80,55 @@ export function Chat() {
   };
 
   return (
-    <div class={`panel chat${collapsed ? " collapsed" : ""}`}>
-      <button class="chat-head" onClick={() => setCollapsed((c) => !c)}>
-        Chat {collapsed ? "+" : "-"}
-      </button>
-      {!collapsed && (
-        <>
-          <div class="chat-log" ref={log}>
-            {lines.map((m, i) => (
-              <div key={i} class={`chat-line${m.from === session.myName ? " mine" : ""}`}>
-                <span class="chat-time">[{hhmm(m.ts)}]</span> <b class="chat-from">{m.from}:</b> {m.text}
-              </div>
-            ))}
+    <div class={`panel chat${collapsed ? " collapsed" : ""}${typing ? " typing" : ""}`}>
+      <div class="chat-head">
+        <div class="chat-tabs" role="tablist">
+          <button class="chat-tab active" role="tab" aria-selected="true" onClick={() => collapsedStore.set(false)}>
+            Geral
+            {collapsed && unread > 0 && <span class="chat-unread">{unread > 9 ? "9+" : unread}</span>}
+          </button>
+          <button class="chat-tab" role="tab" aria-selected="false" aria-disabled="true" data-tip="Grupo" data-tip-sub="Em breve">
+            Grupo
+          </button>
+        </div>
+        <span class="chat-hint">{typing ? "Esc fecha" : "Enter para falar"}</span>
+        <button
+          class="chat-fold"
+          onClick={() => collapsedStore.set((c) => !c)}
+          data-tip={collapsed ? "Mostrar chat" : "Recolher chat"}
+          aria-expanded={!collapsed}
+        >
+          <span class={`chat-caret${collapsed ? " up" : ""}`} aria-hidden="true" />
+        </button>
+      </div>
+      <div class="chat-log" ref={log}>
+        {lines.length === 0 && <div class="chat-empty">Nenhuma mensagem ainda. Diga oi!</div>}
+        {lines.map((m, i) => (
+          <div key={i} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}`}>
+            <span class="chat-time">{hhmm(m.ts)}</span>
+            {m.channel === "system" ? (
+              <span class="chat-text">{m.text}</span>
+            ) : (
+              <span class="chat-text"><b class="chat-from">{m.from}</b> {m.text}</span>
+            )}
           </div>
-          {typing ? (
-            <input
-              ref={input}
-              class="chat-input"
-              value={text}
-              maxLength={200}
-              placeholder="Mensagem... (Enter envia, Esc fecha)"
-              onInput={(e) => setText((e.target as HTMLInputElement).value)}
-              onKeyDown={onKeyDown}
-              onBlur={() => setTyping(false)}
-            />
-          ) : (
-            <div class="chat-hint">Enter para falar</div>
-          )}
-        </>
-      )}
+        ))}
+      </div>
+      <div class="chat-input-wrap">
+        <input
+          ref={input}
+          class="chat-input"
+          value={text}
+          maxLength={MAX_CHAT_LEN}
+          tabIndex={-1}
+          placeholder="Mensagem para Geral…"
+          aria-label="Mensagem do chat"
+          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => { setTyping(true); collapsedStore.set(false); }}
+          onBlur={() => setTyping(false)}
+        />
+      </div>
     </div>
   );
 }
