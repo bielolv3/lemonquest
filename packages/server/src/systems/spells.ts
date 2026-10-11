@@ -248,7 +248,7 @@ export class SpellSystem {
         const raw = evalSpellFormula(s.damage, p.level, ml, this.rng);
         const amount = mitigateSpell(raw, m.def.armor, s.damage.kind);
         this.o.combat.damageMonster(m, p.id, amount, s.damage.kind, now,
-          { ranged: s.target === "target" && !s.dash && (s.range ?? 1) > 1 });
+          { ranged: false }); // projétil da magia vem do SpellCast
       }
     }
     if (s.heal) for (const a of allies) this.o.combat.healPlayer(a, p.id, evalSpellFormula(s.heal, p.level, ml, this.rng));

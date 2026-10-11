@@ -534,7 +534,12 @@ export class WorldScene extends Phaser.Scene {
       sfx.play("miss", { volume: 0.6 });
       return;
     }
-    if (ev.kind === "heal" || ev.kind === "mana") {
+    if (ev.kind === "mana") {
+      // Escudo de Mana: o dano saiu da mana (número azul negativo).
+      this.fx.floatText(wx, textY, `-${ev.amount}`, KIND_COLOR.mana, { size: 14 });
+      return;
+    }
+    if (ev.kind === "heal") {
       this.fx.floatText(wx, textY, `+${ev.amount}`, KIND_COLOR[ev.kind], { size: ev.crit ? 20 : 15 });
       this.fx.hit(ev.kind, wx, wy, false, 0);
       if (toMe || fromMe) sfx.play("heal", { volume: 0.8 });

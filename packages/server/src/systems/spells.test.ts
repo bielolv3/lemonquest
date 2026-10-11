@@ -117,7 +117,7 @@ describe("cast validation", () => {
     expect(r).toEqual({ spellId: "bolt", ok: true, cooldownMs: 3000, globalMs: GLOBAL_SPELL_COOLDOWN_MS });
     expect(p.mana).toBe(490);
     expect(w.sent.find((s) => s.type === S2C.SpellCast)).toMatchObject({ to: "*", msg: { spellId: "bolt", casterId: "p", targetId: w.ms[0].s.id, x: 10, y: 10 } });
-    expect(w.events()[0]).toMatchObject({ sourceId: "p", targetId: w.ms[0].s.id, amount: 20, kind: "ice", ranged: true });
+    expect(w.events()[0]).toMatchObject({ sourceId: "p", targetId: w.ms[0].s.id, amount: 20, kind: "ice" });
     // global bloqueia outra magia
     expect(w.spells.cast(p, "heal")).toMatchObject({ ok: false, reason: "cooldown", globalMs: GLOBAL_SPELL_COOLDOWN_MS });
     // global:false ignora o global
