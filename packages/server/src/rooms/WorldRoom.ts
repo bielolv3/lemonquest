@@ -1,8 +1,9 @@
 import { Room, Client } from "colyseus";
-import { C2S, TICK_MS, baseStats, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
+import { C2S, S2C, TICK_MS, baseStats, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
+import { ExplorationSystem } from "../systems/exploration.ts";
 import { handleChat, clearChatState } from "../systems/chat.ts";
 import { consumeToken, setOnline } from "../persistence/auth.ts";
 import { saveCharacter } from "../persistence/db.ts";
@@ -17,10 +18,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   private map!: LoadedMap;
   private movement!: MovementSystem;
+  private exploration!: ExplorationSystem;
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
 
   onCreate() {
     this.map = loadMap("world");
+    this.exploration = new ExplorationSystem(this.map.tiled.width, this.map.tiled.height);
     this.movement = new MovementSystem(this.map.grid, { spawn: this.map.spawn });
 
     this.onMessage(C2S.Move, (c, m: MoveMsg) => this.withPlayer(c, (p) => this.movement.onMove(p, m)));
@@ -28,7 +31,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.onMessage(C2S.Turn, (c, m: TurnMsg) => this.withPlayer(c, (p) => this.movement.onTurn(p, m)));
     this.onMessage(C2S.Chat, (c, m: ChatSendMsg) => this.withPlayer(c, (p) => handleChat(this, c, p, m)));
 
-    this.setSimulationInterval(() => this.movement.tick(Date.now(), this.state.players.values()), TICK_MS);
+    this.setSimulationInterval(() => {
+      this.movement.tick(Date.now(), this.state.players.values());
+      for (const p of this.state.players.values()) this.exploration.onPosition(p.id, p.x, p.y);
+    }, TICK_MS);
     this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
   }
 
@@ -57,6 +63,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.records.set(client.sessionId, rec);
     this.state.players.set(client.sessionId, p);
     this.movement.addPlayer(p);
+    client.send(S2C.Explored, this.exploration.addPlayer(client.sessionId, rec, p.x, p.y));
     setOnline(rec.name, true);
   }
 
@@ -65,6 +72,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(client.sessionId);
     if (rec) setOnline(rec.name, false);
     this.movement.removePlayer(client.sessionId);
+    this.exploration.removePlayer(client.sessionId);
     clearChatState(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.records.delete(client.sessionId);
@@ -90,6 +98,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.x = p.x;
     rec.y = p.y;
     rec.dir = p.dir;
+    rec.data.explored = this.exploration.serialize(sessionId) ?? rec.data.explored;
     saveCharacter(rec);
   }
 
