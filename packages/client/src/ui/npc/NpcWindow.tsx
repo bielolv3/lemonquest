@@ -120,7 +120,7 @@ function SellList({ m }: { m: NpcOpenMsg }) {
     const out: { index: number; price: number }[] = [];
     (inv?.backpack ?? []).forEach((it, index) => {
       const def = defOf(it);
-      if (it && def && npcBuys(def, m)) out.push({ index, price: sellPrice(def, m.shop?.sellRatio ?? 0.3) });
+      if (it && def && npcBuys(def, m)) out.push({ index, price: sellPrice(def, m.shop?.sellRatio ?? 0.3, it.rarity) });
     });
     return out;
   }, [inv, m]);

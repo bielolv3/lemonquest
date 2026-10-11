@@ -31,5 +31,6 @@ describe("itemInfo", () => {
   it("preço de venda", () => {
     expect(sellPrice(sword, 0.3)).toBe(30);
     expect(sellPrice({ ...sword, value: 1 }, 0.3)).toBe(1);
+    expect(sellPrice(sword, 0.3, "rare")).toBe(75);
   });
 });

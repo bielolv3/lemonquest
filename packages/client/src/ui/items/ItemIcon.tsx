@@ -86,7 +86,21 @@ export function ItemIcon({ def, inst, box = 32, count = true, framed = false, ra
             backgroundSize: `${lay.bgW}px ${lay.bgH}px`,
             backgroundPosition: `${lay.bgX}px ${lay.bgY}px`,
           }}
-        />
+        >
+          {icon.tint != null && (
+            // Tint multiplicativo (como no Phaser): camada da cor recortada pelo próprio ícone.
+            <span
+              class="item-tint"
+              style={{
+                backgroundColor: `#${icon.tint.toString(16).padStart(6, "0")}`,
+                maskImage: `url("${assetUrl(icon.url)}")`,
+                maskSize: `${lay.bgW}px ${lay.bgH}px`,
+                maskPosition: `${lay.bgX}px ${lay.bgY}px`,
+                maskRepeat: "no-repeat",
+              }}
+            />
+          )}
+        </span>
       ) : (
         !d || img === null ? <span class="item-unknown">?</span> : null
       )}

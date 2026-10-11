@@ -1,6 +1,6 @@
 // Formatação de itens: atributos, requisitos e comparação com o equipado. Sem dependência de UI (testável).
 import {
-  RARITY_COLOR, RARITY_LABEL,
+  RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT,
   type DamageKind, type EquipSlot, type ItemDef, type ItemInstance, type ItemKind, type Rarity, type StatId, type Stats, type Vocation,
   type WeaponType,
 } from "@tibinha/shared";
@@ -129,6 +129,7 @@ export function useText(def: ItemDef): string | null {
 }
 
 /** Valor de venda ao NPC (arredondado para baixo, mínimo 1 se o item tem valor). */
-export function sellPrice(def: ItemDef, ratio: number): number {
-  return def.value > 0 ? Math.max(1, Math.floor(def.value * ratio)) : 0;
+/** Mesmo cálculo do servidor (npcBuyPrice): valor × razão × multiplicador da raridade. */
+export function sellPrice(def: ItemDef, ratio: number, rarity: Rarity = "common"): number {
+  return def.value > 0 ? Math.max(1, Math.floor(def.value * ratio * (RARITY_PRICE_MULT[rarity] ?? 1))) : 0;
 }
