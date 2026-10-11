@@ -1,6 +1,7 @@
 // Fixtures de teste do M4 (itens/NPCs próprios, independentes do catálogo). Não é importado pelo servidor.
 import type { ItemDef, NpcDef } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
+import { FoodSystem } from "./food.ts";
 import { InventorySystem } from "./inventory.ts";
 import { player } from "./testkit.ts";
 
@@ -9,6 +10,8 @@ export const ITEMS_FX: Record<string, ItemDef> = {
   gold_coin: { id: "gold_coin", name: "Ouro", kind: "material", stackable: true, maxStack: 1_000_000, value: 1, icon },
   hp_pot: { id: "hp_pot", name: "Poção de Vida", kind: "potion", stackable: true, value: 40, use: { heal: 50, cooldownMs: 1000 }, icon },
   mana_pot: { id: "mana_pot", name: "Poção de Mana", kind: "potion", stackable: true, maxStack: 10, value: 40, use: { mana: 30, cooldownMs: 1000 }, icon },
+  bread: { id: "bread", name: "Pão", kind: "food", stackable: true, value: 5, use: { food: { hpPerTick: 1, manaPerTick: 1, durationMs: 600_000 }, cooldownMs: 1000 }, icon },
+  steak: { id: "steak", name: "Bife", kind: "food", stackable: true, value: 50, use: { food: { hpPerTick: 6, manaPerTick: 0, durationMs: 720_000 }, cooldownMs: 1000 }, icon },
   bone: { id: "bone", name: "Osso", kind: "material", stackable: true, value: 10, icon },
   sword: { id: "sword", name: "Espada", kind: "weapon", slot: "weapon", weaponType: "sword", stats: { attack: 20 }, value: 100, vocations: ["knight"], icon },
   axe2h: { id: "axe2h", name: "Machado Grande", kind: "weapon", slot: "weapon", weaponType: "axe", twoHanded: true, stats: { attack: 30 }, value: 200, icon, level: 1 },
@@ -35,7 +38,13 @@ export function invWorld(o: { depotOpen?: (id: string) => boolean } = {}) {
   let clock = 100_000;
   const sent: { to: string; type: string; msg: any }[] = [];
   const events: any[] = [];
+  const food = new FoodSystem({
+    heal: (p, n) => { const h = Math.min(p.maxHp - p.hp, n); p.hp += h; events.push({ kind: "heal", amount: h, food: true }); },
+    restoreMana: (p, n) => { const h = Math.min(p.maxMana - p.mana, n); p.mana += h; events.push({ kind: "mana", amount: h, sourceId: p.id, targetId: p.id, food: true }); },
+  });
+  const players = new Map<string, PlayerState>();
   const inv = new InventorySystem({
+    eat: (p, f, now) => food.eat(p, f, now),
     send: (to, type, msg) => sent.push({ to, type, msg: structuredClone(msg) }),
     defs: itemsFx, now: () => clock, depotOpen: o.depotOpen,
     heal: (p, n) => { const h = Math.min(p.maxHp - p.hp, n); p.hp += h; events.push({ kind: "heal", amount: h }); },
@@ -43,10 +52,11 @@ export function invWorld(o: { depotOpen?: (id: string) => boolean } = {}) {
   });
   const mk = (id = "p1", over: Partial<PlayerState> = {}) => {
     const p = player(id, 5, 5, over);
+    players.set(id, p);
     inv.load(p, {});
     inv.applyStats(p, true);
     return p;
   };
   const notices = () => sent.filter((s) => s.type === "notice").map((s) => s.msg.text);
-  return { inv, sent, events, mk, notices, advance: (ms: number) => { clock += ms; }, now: () => clock };
+  return { inv, food, tickFood: () => food.tick(clock, players.values()), sent, events, mk, notices, advance: (ms: number) => { clock += ms; }, now: () => clock };
 }

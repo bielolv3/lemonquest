@@ -78,6 +78,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 2000, attackRange: 1, stepMs: 320, aggroRange: 4, fleeAtHpPct: 0.15, respawnMs: 20_000,
     gold: [1, 4],
     loot: [
+      { itemId: "nuts", chance: 0.12 },
       { itemId: "cheese", chance: 0.45, min: 1, max: 2 },
       { itemId: "health_potion", chance: 0.05 },
       { itemId: "leather_helmet", chance: 0.02 },
@@ -119,6 +120,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 1600, attackRange: 1, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 40_000,
     gold: [8, 20],
     loot: [
+      { itemId: "meat", chance: 0.1 },
       { itemId: "wolf_pelt", chance: 0.5 },
       { itemId: "wolf_fang", chance: 0.3, min: 1, max: 2 },
       { itemId: "health_potion", chance: 0.08 },
@@ -142,6 +144,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 2000, attackRange: 1, stepMs: 380, aggroRange: 5, fleeAtHpPct: 0, respawnMs: 45_000,
     gold: [14, 32],
     loot: [
+      { itemId: "fish", chance: 0.08 },
       { itemId: "snake_skin", chance: 0.5 },
       { itemId: "herb", chance: 0.15, min: 1, max: 2 },
       { itemId: "health_potion", chance: 0.08 },
@@ -159,6 +162,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 2200, attackRange: 3, stepMs: 360, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 50_000,
     gold: [20, 45],
     loot: [
+      { itemId: "noodle", chance: 0.04 },
       { itemId: "spider_silk", chance: 0.5, min: 1, max: 2 },
       { itemId: "spider_eye", chance: 0.3 },
       { itemId: "health_potion_medium", chance: 0.06 },
@@ -208,6 +212,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 1800, attackRange: 1, stepMs: 340, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
     gold: [35, 80],
     loot: [
+      { itemId: "onigiri", chance: 0.06 },
       { itemId: "goblin_tooth", chance: 0.45 },
       { itemId: "iron_bar", chance: 0.08 },
       { itemId: "health_potion_medium", chance: 0.08 },
@@ -241,6 +246,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     attackMs: 1800, attackRange: 1, stepMs: 360, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 75_000,
     gold: [70, 140],
     loot: [
+      { itemId: "beaf", chance: 0.05 },
       { itemId: "lizard_scale", chance: 0.5 },
       { itemId: "health_potion_large", chance: 0.07 },
       { itemId: "mana_potion_large", chance: 0.04 },

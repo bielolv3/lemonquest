@@ -15,6 +15,8 @@ export interface CharacterData {
   backpack?: unknown[];
   depot?: unknown[];
   gold?: number;
+  /** Estado "alimentado" (comida): tempo restante (o tempo não passa offline) e regen por tique. */
+  fed?: { remainingMs: number; hpPerTick: number; manaPerTick: number };
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
 }
 

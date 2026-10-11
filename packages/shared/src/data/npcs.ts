@@ -31,7 +31,7 @@ export const NPCS: Record<string, NpcDef> = {
     greeting: "Bem-vindo! Dê uma olhada nas minhas mercadorias. Compro armas, armaduras e o que você tirar dos monstros.",
     shop: {
       sells: sells(
-        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "meat", "fish", "onigiri",
+        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "nuts", "meat", "fish", "onigiri", "beaf", "sushi",
         // tier 1 (lv 1): todas as vocações
         "short_sword", "wooden_club", "short_bow", "apprentice_wand", "twig_rod",
         "leather_helmet", "leather_armor", "leather_legs", "leather_boots", "leather_shield",
@@ -79,7 +79,7 @@ export const NPCS: Record<string, NpcDef> = {
     id: "old_hunter", name: "Velho Caçador Tomé", sprite: C + "Hunter/SpriteSheet.png",
     greeting: "Ah, um novato. Quer aprender a mirar de verdade? Tenho arcos e equipamento de patrulheiro. Compro peles e ossos também.",
     shop: {
-      sells: sells("short_bow", "hunting_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots", "health_potion", "meat"),
+      sells: sells("short_bow", "hunting_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
       buys: ["material", "food"],
     },
     idleLines: [
@@ -93,7 +93,7 @@ export const NPCS: Record<string, NpcDef> = {
     greeting: "Ervas, poções e mantos para quem estuda a magia. O que procura, meu bem?",
     shop: {
       sells: sells(
-        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "honey",
+        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "honey", "noodle", "calamari",
         "apprentice_wand", "oak_wand", "twig_rod", "thorn_rod",
         "apprentice_helmet", "apprentice_armor", "apprentice_legs", "apprentice_boots",
         "adept_helmet", "adept_armor", "adept_legs", "adept_boots",

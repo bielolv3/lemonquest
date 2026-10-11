@@ -4,7 +4,7 @@ import type { DamageKind, Vocation } from "../types.ts";
 export type ConditionId =
   | "combat" | "poison" | "burn" | "energy" | "bleed" | "freeze"
   | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz"
-  | "manashield" | "rooted" | "taunted";
+  | "manashield" | "rooted" | "taunted" | "fed";
 
 /** Fórmula de magia (estilo Tibia): valor = base + level*perLevel + magicLevel*perMagic, ±variance. */
 export interface SpellFormula {

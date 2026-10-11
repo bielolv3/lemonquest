@@ -120,7 +120,7 @@ export interface SpellCastMsg {
   /** Tiles afetados (pares x,y achatados) para áreas/ondas. */
   tiles?: number[];
 }
-export interface ConditionsMsg { list: { id: ConditionId; remainingMs?: number; value?: number }[] }
+export interface ConditionsMsg { list: { id: ConditionId; remainingMs?: number; value?: number; /** 'fed': value = vida/tique, value2 = mana/tique. */ value2?: number }[] }
 export interface SkillUpMsg { skill: SkillId; level: number }
 export interface InventoryMsg {
   equipment: Partial<Record<EquipSlot, ItemInstance>>;

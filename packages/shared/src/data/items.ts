@@ -62,8 +62,8 @@ export interface ItemDef {
   maxStack?: number;       // padrão 100 se stackable
   /** Preço base em ouro (a loja vende por ~este valor e compra por ~30%). */
   value: number;
-  /** Itens usáveis (poções). */
-  use?: { heal?: number; mana?: number; cooldownMs: number };
+  /** Itens usáveis: poções (cura/mana instantâneas) e comida (`food`: regeneração ao longo do tempo). */
+  use?: { heal?: number; mana?: number; food?: { hpPerTick: number; manaPerTick: number; durationMs: number }; cooldownMs: number };
   description?: string;    // PT-BR, curta
 }
 
@@ -133,12 +133,30 @@ potion("mana_potion", "Poção de Mana", img("Potion/WaterPot.png"), 45, 1, { ma
 potion("mana_potion_medium", "Poção de Mana Média", img("Potion/WaterPot.png", 0x9a9aff), 130, 15, { mana: 150 }, "Recupera 150 de mana.");
 potion("mana_potion_large", "Poção de Mana Grande", img("Potion/MilkPot.png", 0xb070ff), 320, 30, { mana: 400 }, "Recupera 400 de mana.");
 
-const food = (id: string, name: string, icon: ItemIcon, value: number, heal: number, mana: number | undefined, description: string): void =>
-  add({ id, name, kind: "food", stackable: true, value, use: { heal, ...(mana ? { mana } : {}), cooldownMs: 2500 }, icon, description });
-food("meat", "Carne Assada", img("Food/Meat.png"), 6, 20, undefined, "Um pedaço de carne. Cura um pouco.");
-food("fish", "Peixe Grelhado", img("Food/Fish.png"), 8, 25, undefined, "Peixe fresco do rio.");
-food("onigiri", "Bolinho de Arroz", img("Food/Onigiri.png"), 12, 35, undefined, "Leve e nutritivo.");
-food("honey", "Mel", img("Food/Honey.png"), 18, 30, 15, "Doce e revigorante. Recupera vida e um pouco de mana.");
+/** Comida: estado "alimentado" (regen a cada FOOD_TICK_MS). Sem cura instantânea; recarga própria de 1 s. */
+export const FOOD_TICK_MS = 2000;
+/** Máximo de tempo "alimentado" acumulado (comer estende, até este teto). */
+export const FOOD_MAX_MS = 20 * 60_000;
+
+const food = (id: string, name: string, icon: ItemIcon, value: number, level: number | undefined, hp: number, mana: number, minutes: number, description: string): void =>
+  add({
+    id, name, kind: "food", stackable: true, value, ...(level ? { level } : {}),
+    use: { food: { hpPerTick: hp, manaPerTick: mana, durationMs: minutes * 60_000 }, cooldownMs: 1000 }, icon, description,
+  });
+// iniciais (lv 1)
+food("nuts", "Nozes", img("Food/Nut.png"), 5, undefined, 1, 1, 3, "Petisco simples. Um pouco de vida e mana.");
+food("fish", "Peixe Grelhado", img("Food/Fish.png"), 8, undefined, 2, 0, 3, "Peixe fresco do rio.");
+food("meat", "Carne Assada", img("Food/Meat.png"), 12, undefined, 3, 0, 4, "Um pedaço de carne bem passado.");
+// foco em mana
+food("honey", "Mel", img("Food/Honey.png"), 35, 5, 1, 3, 4, "Doce e revigorante. Favorece a mana.");
+food("noodle", "Macarrão", img("Food/Noodle.png"), 60, 10, 2, 4, 6, "Uma tigela quente que acalma a mente.");
+food("calamari", "Lula Frita", img("Food/Calamari.png"), 80, 15, 3, 5, 6, "Crocante. Ótima para conjuradores.");
+// foco em vida / equilibrados
+food("onigiri", "Bolinho de Arroz", img("Food/Onigiri.png"), 45, 5, 4, 3, 5, "Leve e nutritivo. Equilibrado.");
+food("beaf", "Bife", img("Food/Beaf.png"), 75, 10, 6, 1, 6, "Bife suculento para guerreiros.");
+food("yakitori", "Yakitori", img("Food/Yakitori.png"), 120, 15, 7, 2, 8, "Espetinho defumado. Muita vida.");
+// premium (lv 20)
+food("sushi", "Banquete de Sushi", img("Food/Sushi.png"), 200, 20, 8, 8, 10, "Refeição de gala. Vida e mana em abundância.");
 
 // ---------------------------------------------------------------------------
 // Materiais de monstros (vendáveis) e gemas

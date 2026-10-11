@@ -4,6 +4,9 @@ import { CONDITION_DEFS, conditionsStore } from "./conditions.ts";
 import { PixelIcon } from "./icons.tsx";
 import { useStore } from "./store.ts";
 
+/** 45s / 12:05 */
+const fmtLeft = (s: number): string => (s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`);
+
 export function ConditionsStrip() {
   const list = useStore(conditionsStore);
   const timed = list.some((c) => c.until);
@@ -36,7 +39,7 @@ export function ConditionsStrip() {
             class="cond"
             style={{ "--cond": def.color } as any}
             data-tip={def.label}
-            data-tip-sub={[c.detail, left != null ? `${left}s` : null].filter(Boolean).join(" · ") || undefined}
+            data-tip-sub={[c.detail, left != null ? fmtLeft(left) : null].filter(Boolean).join(" · ") || undefined}
           >
             <PixelIcon name={def.glyph} size={14} />
             {left != null && left <= 99 && <span class="cond-time">{left}</span>}

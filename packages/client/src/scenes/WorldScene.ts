@@ -670,7 +670,11 @@ export class WorldScene extends Phaser.Scene {
 
   onConditions(m: ConditionsMsg) {
     const now = Date.now();
-    setConditions(m.list.map((c) => ({ id: c.id, until: c.remainingMs != null && c.remainingMs > 0 ? now + c.remainingMs : undefined })));
+    setConditions(m.list.map((c) => ({
+      id: c.id,
+      until: c.remainingMs != null && c.remainingMs > 0 ? now + c.remainingMs : undefined,
+      detail: c.id === "fed" ? `+${c.value ?? 0} vida/+${c.value2 ?? 0} mana a cada 2 s` : undefined,
+    })));
     this.spells.setSelfConditions(m.list.map((c) => c.id));
   }
 

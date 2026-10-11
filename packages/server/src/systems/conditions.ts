@@ -35,6 +35,8 @@ export interface ConditionOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   /** Bônus de velocidade (%) do equipamento do jogador, somado ao haste. */
   speedBonus?: (playerId: string) => number;
+  /** Condições extras do jogador mantidas fora daqui (ex.: "fed" da comida). */
+  extra?: (p: PlayerState, now: number) => ConditionsMsg["list"][number] | undefined;
 }
 
 /** Velocidade resultante (100 = normal; 0 = enraizado). */
@@ -141,6 +143,8 @@ export class ConditionSystem {
     for (const c of this.byId.get(p.id)?.values() ?? []) {
       list.push(c.value ? { id: c.id, remainingMs: Math.max(0, c.until - now), value: c.value } : { id: c.id, remainingMs: Math.max(0, c.until - now) });
     }
+    const extra = this.o.extra?.(p, now);
+    if (extra) list.push(extra);
     return list;
   }
 

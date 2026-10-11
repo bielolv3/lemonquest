@@ -35,6 +35,8 @@ export const MSG = {
   notUsable: "Esse item não pode ser usado.",
   noHp: "Você não tem poção de vida.",
   noMana: "Você não tem poção de mana.",
+  satisfied: "Você está satisfeito.",
+  foodCooldown: "Aguarde para comer de novo.",
 } as const;
 
 /** Id curto e aleatório de instância. */
@@ -107,6 +109,8 @@ export interface InventoryOptions {
   heal?: (p: PlayerState, amount: number) => void;
   /** Mana de poção (CombatSystem.restoreMana → evento "mana"). */
   restoreMana?: (p: PlayerState, amount: number) => void;
+  /** Comida: concede/estende "alimentado". Retorna false se não pôde comer (teto de tempo) → não consome. */
+  eat?: (p: PlayerState, food: NonNullable<NonNullable<ItemDef["use"]>["food"]>, now: number) => boolean;
   /** Equipamento mudou (velocidade etc.). */
   onStatsChanged?: (p: PlayerState) => void;
 }
@@ -117,6 +121,7 @@ export class InventorySystem {
   private readonly inv = new Map<string, Inventory>();
   private readonly statCache = new Map<string, Stats>();
   private readonly potionCdUntil = new Map<string, number>();
+  private readonly foodCdUntil = new Map<string, number>();
   private readonly dirty = new Set<string>();
   private readonly depotDirty = new Set<string>();
   private readonly players = new Map<string, PlayerState>();
@@ -163,6 +168,7 @@ export class InventorySystem {
     this.inv.delete(id);
     this.statCache.delete(id);
     this.potionCdUntil.delete(id);
+    this.foodCdUntil.delete(id);
     this.dirty.delete(id);
     this.depotDirty.delete(id);
     this.players.delete(id);
@@ -347,6 +353,10 @@ export class InventorySystem {
 
   // --- internos -----------------------------------------------------------------------
 
+  private info(p: PlayerState, text: string): void {
+    this.o.send(p.id, S2C.Notice, { text, kind: "info" } satisfies NoticeMsg);
+  }
+
   private warn(p: PlayerState, text: string): void {
     this.o.send(p.id, S2C.Notice, { text, kind: "warn" } satisfies NoticeMsg);
   }
@@ -460,6 +470,15 @@ export class InventorySystem {
     const use = this.defs(it.defId)?.use;
     if (!use) return this.warn(p, MSG.notUsable);
     const now = this.now();
+    if (use.food) {
+      if (now < (this.foodCdUntil.get(p.id) ?? 0)) return this.warn(p, MSG.foodCooldown);
+      if (!this.o.eat?.(p, use.food, now)) return this.info(p, MSG.satisfied);
+      this.foodCdUntil.set(p.id, now + Math.max(0, use.cooldownMs ?? 0));
+      it.count -= 1;
+      if (it.count <= 0) inv.backpack[index] = null;
+      this.dirty.add(p.id);
+      return;
+    }
     if (now < (this.potionCdUntil.get(p.id) ?? 0)) return this.warn(p, MSG.cooldown);
     this.potionCdUntil.set(p.id, now + Math.max(0, use.cooldownMs ?? 0));
     if ((use.heal ?? 0) > 0) this.o.heal?.(p, use.heal!);

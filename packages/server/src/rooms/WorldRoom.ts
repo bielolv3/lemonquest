@@ -14,6 +14,7 @@ import { MonsterManager, parseSafeZones, parseSpawns } from "../systems/monsters
 import { CombatSystem, attackProfile, playerArmor } from "../systems/combat.ts";
 import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState } from "../systems/chat.ts";
+import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
 import { SummonSystem } from "../systems/summons.ts";
@@ -47,6 +48,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private combat!: CombatSystem;
   private regen!: RegenSystem;
   private conditions!: ConditionSystem;
+  private food!: FoodSystem;
   private skills!: SkillSystem;
   private summons!: SummonSystem;
   private spells!: SpellSystem;
@@ -91,7 +93,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       depotOpen: (id) => this.npcs.depotOpen(id),
       heal: (p, n) => this.combat.healPlayer(p, p.id, n),
       restoreMana: (p, n) => this.combat.restoreMana(p, n),
+      eat: (p, f, now) => this.food.eat(p, f, now),
       onStatsChanged: (p) => this.conditions.refreshPlayer(p.id),
+    });
+    this.food = new FoodSystem({
+      heal: (p, n) => this.combat.healPlayer(p, p.id, n),
+      restoreMana: (p, n) => this.combat.restoreMana(p, n),
     });
     this.npcs = new NpcSystem({
       npcs: parseNpcs(this.map.tiled), inventory: this.inventory,
@@ -109,6 +116,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       monsters: this.monsters, combat: this.combat, send,
       getPlayer, players: () => this.state.players.values(),
       speedBonus: (id) => this.inventory.stat(id, "speed"),
+      extra: (p, now) => this.food.condition(p.id, now),
     });
     this.summons = new SummonSystem({ monsters: this.monsters, combat: this.combat, getPlayer });
     this.spells = new SpellSystem({
@@ -191,6 +199,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.combat.tick(now);
     this.conditions.tick(now);
     this.regen.tick(now, this.state.players.values());
+    this.food.tick(now, this.state.players.values());
     this.npcs.tick(now);
     this.conditions.sync(now);
     this.combat.flush();
@@ -233,6 +242,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.dir = rec.dir;
     this.skills.load(p, rec.data.skills);
     this.fight.load(p, rec.data.stance, rec.data.chase);
+    this.food.load(p.id, rec.data, Date.now());
     this.records.set(client.sessionId, rec);
     this.state.players.set(client.sessionId, p);
     this.conditions.refreshPlayer(p.id); // velocidade do equipamento
@@ -254,6 +264,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.spells.removePlayer(client.sessionId);
     this.skills.removePlayer(client.sessionId);
     this.regen.removePlayer(client.sessionId);
+    this.food.removePlayer(client.sessionId);
     this.exploration.removePlayer(client.sessionId);
     this.inventory.removePlayer(client.sessionId);
     this.npcs.removePlayer(client.sessionId);
@@ -286,6 +297,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.data.skills = this.skills.serialize(sessionId) ?? rec.data.skills;
     rec.data.explored = this.exploration.serialize(sessionId) ?? rec.data.explored;
     Object.assign(rec.data, this.inventory.serialize(sessionId) ?? {});
+    const fed = this.food.serialize(sessionId, Date.now());
+    if (fed) rec.data.fed = fed; else delete rec.data.fed;
     rec.data.stance = p.stance;
     rec.data.chase = p.chase;
     saveCharacter(rec);

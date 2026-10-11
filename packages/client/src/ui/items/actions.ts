@@ -26,6 +26,7 @@ export function activateItem(loc: ItemLocation, inst: ItemInstance): void {
   if (loc.where === "backpack") {
     const npc = npcStore.get();
     if (npc?.tab === "sell" && npcBuys(def, npc.msg)) { sellItem(npc.msg.npcId, loc.index, 1); return; }
+    if (def.use?.food) { useBackpackItem(loc.index); return; } // comida: recarga própria (servidor), não trava as poções
     if (def.use) {
       if (potionCooling()) return;
       useBackpackItem(loc.index);

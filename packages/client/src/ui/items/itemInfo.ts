@@ -1,6 +1,6 @@
 // Formatação de itens: atributos, requisitos e comparação com o equipado. Sem dependência de UI (testável).
 import {
-  RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT,
+  FOOD_TICK_MS, RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT,
   type DamageKind, type EquipSlot, type ItemDef, type ItemInstance, type ItemKind, type Rarity, type StatId, type Stats, type Vocation,
   type WeaponType,
 } from "@tibinha/shared";
@@ -122,6 +122,14 @@ export function kindText(def: ItemDef): string {
 /** Efeito de uso (poções). */
 export function useText(def: ItemDef): string | null {
   if (!def.use) return null;
+  const f = def.use.food;
+  if (f) {
+    const r: string[] = [];
+    if (f.hpPerTick) r.push(`+${f.hpPerTick} vida`);
+    if (f.manaPerTick) r.push(`+${f.manaPerTick} mana`);
+    const min = f.durationMs / 60_000;
+    return `Recupera ${r.join(" e ")} a cada ${FOOD_TICK_MS / 1000} s por ${Number.isInteger(min) ? min : min.toLocaleString("pt-BR")} min`;
+  }
   const p: string[] = [];
   if (def.use.heal) p.push(`+${def.use.heal} de vida`);
   if (def.use.mana) p.push(`+${def.use.mana} de mana`);

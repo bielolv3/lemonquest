@@ -4,9 +4,9 @@ import { createStore, type Unsubscribe } from "./store.ts";
 export type ConditionId =
   | "combat" | "poison" | "burn" | "energy" | "bleed" | "freeze"
   | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz"
-  | "manashield" | "rooted" | "taunted";
+  | "manashield" | "rooted" | "taunted" | "fed";
 
-export type ConditionGlyph = "swords" | "drop" | "flame" | "bolt" | "flake" | "shield" | "wing" | "snail" | "swirl" | "plus" | "home" | "bubble" | "vine" | "target";
+export type ConditionGlyph = "swords" | "drop" | "flame" | "bolt" | "flake" | "shield" | "wing" | "snail" | "swirl" | "plus" | "home" | "bubble" | "vine" | "target" | "drumstick";
 
 export interface ConditionDef { label: string; color: string; glyph: ConditionGlyph }
 
@@ -27,6 +27,7 @@ export const CONDITION_DEFS: Record<ConditionId, ConditionDef> = {
   manashield: { label: "Escudo de Mana", color: "#5aa0ff", glyph: "bubble" },
   rooted: { label: "Enraizado", color: "#7fb04a", glyph: "vine" },
   taunted: { label: "Provocado", color: "#ff5a4a", glyph: "target" },
+  fed: { label: "Alimentado", color: "#d9a05a", glyph: "drumstick" },
 };
 
 export interface Condition {
