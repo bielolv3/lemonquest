@@ -3,7 +3,7 @@ import { C2S, TICK_MS, type ChatSendMsg, type JoinOptions, type MoveMsg, type Tu
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
-import { handleChat } from "../systems/chat.ts";
+import { handleChat, clearChatState } from "../systems/chat.ts";
 import { consumeToken, setOnline } from "../persistence/auth.ts";
 import { saveCharacter } from "../persistence/db.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
@@ -59,6 +59,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(client.sessionId);
     if (rec) setOnline(rec.name, false);
     this.movement.removePlayer(client.sessionId);
+    clearChatState(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.records.delete(client.sessionId);
   }
