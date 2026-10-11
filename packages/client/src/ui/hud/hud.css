@@ -61,10 +61,58 @@
   display: flex; flex-direction: column; gap: 6px;
   overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
   scrollbar-width: none;
-  transition: transform 220ms var(--hud-ease), opacity 180ms ease;
+  transition: transform 220ms var(--hud-ease), opacity 180ms ease, right 220ms var(--hud-ease);
 }
 .hud-panel::-webkit-scrollbar { display: none; }
 .hud-side:not(.open) .hud-panel { transform: translateX(calc(100% + 16px)); opacity: 0; pointer-events: none; }
+
+/* Recolhida com painéis fixados: só os fixados ficam, empilhados à esquerda do trilho (abaixo do HP/MP compacto). */
+.hud-side:not(.open) .hud-panel.pinned-only {
+  transform: none; opacity: 1; pointer-events: none; right: 48px; bottom: auto; max-height: calc(100vh - 16px);
+}
+.hud-side:not(.open) .hud-panel.pinned-only.with-vitals { top: 66px; max-height: calc(100vh - 74px); }
+.hud-panel.pinned-only > .hud-card:not(.is-pinned) { display: none; }
+.hud-panel.pinned-only > .hud-card { pointer-events: auto; animation: hud-pop 160ms var(--hud-ease); }
+
+/* ---------- Reordenar / fixar painéis ---------- */
+.hud-section-headrow, .minimap-handle { touch-action: none; }
+.drag-grip {
+  position: absolute; left: 1px; top: 8px; width: 5px; height: 10px; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, var(--hud-muted) 0.9px, transparent 1.2px) 0 0 / 3px 3px; transition: opacity 120ms;
+}
+.hud-section-headrow:hover .drag-grip, .minimap-card:hover .drag-grip { opacity: 0.7; }
+.drag-grip.h { left: 50%; top: 5px; width: 18px; height: 5px; margin-left: -9px; }
+.hud-section .hud-section-head { padding-right: 26px; }
+.hud-section .hud-section-controls { right: 48px; }
+.hud-section .fight-modes .fm-btn { width: 16px; height: 16px; }
+.hud-section .fight-modes { gap: 1px; }
+.pin-btn {
+  position: absolute; right: 4px; top: 5px; width: 16px; height: 16px; padding: 0; display: grid; place-items: center; cursor: pointer;
+  background: transparent; border: 0; border-radius: 3px; color: var(--hud-faint) !important; opacity: 0;
+  transition: opacity 120ms, background-color 120ms, color 120ms;
+}
+.hud-section-headrow:hover .pin-btn, .minimap-card:hover .pin-btn, .pin-btn.on, .pin-btn:focus-visible { opacity: 1; }
+.pin-btn:hover { color: var(--hud-text) !important; background: rgba(255, 255, 255, 0.07); }
+.pin-btn.on { color: var(--hud-gold) !important; }
+.pin-btn.on .px-icon { filter: drop-shadow(0 0 3px rgba(217, 164, 65, 0.5)); }
+.pin-btn:not(.on) .px-icon { transform: rotate(35deg); }
+.minimap-handle { position: relative; height: 14px; cursor: grab; border-bottom: 1px solid transparent; transition: border-color 120ms, background-color 120ms; }
+.minimap-card:hover .minimap-handle { border-bottom-color: var(--hud-line-soft); background: rgba(255, 255, 255, 0.025); }
+.minimap-handle .pin-btn { right: 2px; top: 0; width: 14px; height: 14px; }
+
+.panel-ph {
+  display: none; position: absolute; left: 0; right: 0; z-index: -1; box-sizing: border-box; pointer-events: none;
+  border: 1px dashed var(--hud-line-hi); border-radius: var(--hud-radius); background: rgba(255, 255, 255, 0.03);
+}
+.hud-panel.reordering > [data-panel-id]:not(.dragging) { transition: transform 180ms var(--hud-ease); }
+.hud-panel.reordering > .dragging {
+  position: relative; z-index: 3; transition: none; cursor: grabbing;
+  border-color: var(--hud-line-hi); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.hud-panel.reordering > .dragging.settling { transition: transform 170ms var(--hud-ease); }
+.panel-dragging, .panel-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+.panel-dragging .hud-tooltip { display: none; }
+
 
 .minimap-card { flex: none; width: 100%; }
 .minimap-slot { width: 100%; }
@@ -283,7 +331,13 @@
 @keyframes slot-glow { from { opacity: 1; } to { opacity: 0; } }
 
 /* ---------- Condições ---------- */
-.conditions { position: fixed; top: 10px; left: 10px; z-index: 5; display: flex; gap: 4px; }
+/* Acima da barra de ações (mesmo centro da área visível); quebra em linhas e cresce para cima. */
+.conditions {
+  position: fixed; left: calc((100vw - var(--hud-right)) / 2); bottom: 70px; transform: translateX(-50%); z-index: 11;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; width: max-content;
+  max-width: min(289px, calc(100vw - var(--hud-right) - 24px));
+  transition: left 220ms var(--hud-ease);
+}
 .cond {
   position: relative; width: 24px; height: 24px; box-sizing: border-box; display: grid; place-items: center; pointer-events: auto;
   color: var(--cond); background: var(--hud-bg);
@@ -366,6 +420,6 @@ kbd {
 @keyframes hud-pop { from { opacity: 0; transform: translateY(3px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-panel, .hud-rail, .action-bar, .stat-fill, .stat-ghost { transition: none !important; }
+  .hud-panel, .conditions, .hud-panel.reordering > [data-panel-id], .hud-rail, .action-bar, .stat-fill, .stat-ghost { transition: none !important; }
   .vignette.low, .vignette.critical, .stat-bar.hp.low .stat-fill { animation: none !important; }
 }
