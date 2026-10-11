@@ -1,5 +1,5 @@
 import { Room, Client } from "colyseus";
-import { C2S, TICK_MS, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
+import { C2S, TICK_MS, baseStats, type ChatSendMsg, type JoinOptions, type MoveMsg, type TurnMsg, type WalkToMsg } from "@tibinha/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
@@ -42,6 +42,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.name = rec.name;
     p.vocation = rec.vocation;
     p.level = rec.level;
+    p.xp = rec.xp;
+    const stats = baseStats(rec.vocation, rec.level);
+    p.maxHp = stats.maxHp;
+    p.maxMana = stats.maxMana;
+    p.hp = Math.min(rec.data.hp ?? stats.maxHp, stats.maxHp);
+    p.mana = Math.min(rec.data.mana ?? stats.maxMana, stats.maxMana);
     const start = rec.x != null && rec.y != null && this.map.grid.isWalkable(rec.x, rec.y)
       ? { x: rec.x, y: rec.y }
       : this.map.spawn;
@@ -78,6 +84,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(sessionId);
     if (!p || !rec) return;
     rec.level = p.level;
+    rec.xp = p.xp;
+    rec.data.hp = p.hp;
+    rec.data.mana = p.mana;
     rec.x = p.x;
     rec.y = p.y;
     rec.dir = p.dir;

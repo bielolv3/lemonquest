@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import type { Vocation } from "@tibinha/shared";
-import type { CharacterRecord } from "./types.ts";
+import type { CharacterData, CharacterRecord } from "./types.ts";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -75,13 +75,17 @@ function getDb(): DatabaseSync {
 
 interface CharRow {
   id: number; name: string; vocation: string; level: number; xp: number;
-  x: number | null; y: number | null; dir: number;
+  x: number | null; y: number | null; dir: number; data: string | null;
 }
 
 const toRecord = (r: CharRow): CharacterRecord => ({
   id: r.id, name: r.name, vocation: r.vocation as Vocation, level: r.level, xp: r.xp,
-  x: r.x, y: r.y, dir: r.dir,
+  x: r.x, y: r.y, dir: r.dir, data: parseData(r.data),
 });
+
+function parseData(raw: string | null): CharacterData {
+  try { return raw ? (JSON.parse(raw) as CharacterData) : {}; } catch { return {}; }
+}
 
 export function findAccount(name: string): AccountRow | undefined {
   return getDb().prepare("SELECT * FROM accounts WHERE name = ?").get(name) as AccountRow | undefined;
@@ -100,7 +104,7 @@ export function createAccount(name: string, passHash: string, salt: string, voca
       "INSERT INTO characters (account_id, name, vocation, level, xp, x, y, dir, updated_at) VALUES (?, ?, ?, 1, 0, NULL, NULL, 4, ?)",
     ).run(accountId, name, vocation, now);
     d.exec("COMMIT");
-    return { id: Number(ch.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4 };
+    return { id: Number(ch.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data: {} };
   } catch (e) {
     d.exec("ROLLBACK");
     throw e;
@@ -114,6 +118,6 @@ export function getCharacterByName(name: string): CharacterRecord | undefined {
 
 export function saveCharacter(c: CharacterRecord): void {
   getDb().prepare(
-    "UPDATE characters SET vocation = ?, level = ?, xp = ?, x = ?, y = ?, dir = ?, updated_at = ? WHERE id = ?",
-  ).run(c.vocation, c.level, c.xp, c.x, c.y, c.dir, Date.now(), c.id);
+    "UPDATE characters SET vocation = ?, level = ?, xp = ?, x = ?, y = ?, dir = ?, data = ?, updated_at = ? WHERE id = ?",
+  ).run(c.vocation, c.level, c.xp, c.x, c.y, c.dir, JSON.stringify(c.data ?? {}), Date.now(), c.id);
 }

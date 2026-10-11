@@ -12,6 +12,11 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint8") dir = 4;
   @type("uint16") stepMs = 0;
   @type("uint32") seq = 0;
+  @type("uint32") hp = 150;
+  @type("uint32") maxHp = 150;
+  @type("uint32") mana = 50;
+  @type("uint32") maxMana = 50;
+  @type("uint32") xp = 0;
 }
 
 export class WorldState extends Schema {

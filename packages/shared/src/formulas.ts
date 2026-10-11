@@ -23,3 +23,25 @@ export function dirFromDelta(dx: number, dy: number): Dir | null {
 
 /** Valida uma direção vinda da rede (inteiro 0..7). */
 export const isValidDir = (d: unknown): d is Dir => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 7;
+
+import type { Vocation } from "./types.ts";
+
+/** XP total necessária para ATINGIR o level (level 1 = 0). Curva rápida no início, como no plano. */
+export function xpForLevel(level: number): number {
+  if (level <= 1) return 0;
+  const l = level - 1;
+  return Math.round(50 * l + 25 * l * l + 2 * l * l * l);
+}
+
+const VOC_GROWTH: Record<Vocation, { hp: number; mana: number }> = {
+  knight: { hp: 15, mana: 5 },
+  paladin: { hp: 10, mana: 15 },
+  sorcerer: { hp: 5, mana: 30 },
+  druid: { hp: 5, mana: 30 },
+};
+
+/** HP/mana máximos por vocação e level. Ajustável no balanceamento (M7). */
+export function baseStats(vocation: Vocation, level: number): { maxHp: number; maxMana: number } {
+  const g = VOC_GROWTH[vocation] ?? VOC_GROWTH.knight;
+  return { maxHp: 150 + g.hp * (level - 1), maxMana: 50 + g.mana * (level - 1) };
+}

@@ -43,6 +43,11 @@ export interface PlayerView {
   dir: Dir;            // última direção de movimento/olhar
   stepMs: number;      // duração do passo atual (para interpolar)
   seq: number;         // último input "move" processado (reconciliação)
+  hp: number;
+  maxHp: number;
+  mana: number;
+  maxMana: number;
+  xp: number;          // XP total acumulada
 }
 
 export interface WorldView {

@@ -21,9 +21,12 @@ export const S2C = {
   Chat: "chat",
   /** Texto curto exibido como toast. */
   Notice: "notice",
+  /** Máscara de exploração completa (enviada ao entrar). O cliente revela localmente ao andar. */
+  Explored: "explored",
 } as const;
 
 export type ChatRecvMsg = ChatMessage;
+export interface ExploredMsg { width: number; height: number; bits: string /* base64 */ }
 export interface NoticeMsg { text: string; kind?: "info" | "warn" | "good" }
 
 /** HTTP: POST /api/login — cria a conta no primeiro login (vocation obrigatório nesse caso). */
