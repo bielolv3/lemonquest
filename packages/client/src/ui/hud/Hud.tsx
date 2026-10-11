@@ -3,6 +3,7 @@ import { useEffect } from "preact/hooks";
 import { isTyping } from "../focus.ts";
 import { ActionBar } from "./ActionBar.tsx";
 import { activateSlot, ACTION_SLOTS } from "./actionbar.ts";
+import { startCastBar } from "./castbar.ts";
 import { ConditionsStrip } from "./ConditionsStrip.tsx";
 import { LowHpVignette } from "./LowHpVignette.tsx";
 import { Sidebar } from "./Sidebar.tsx";
@@ -15,6 +16,7 @@ import "./hud.css";
 
 export function Hud() {
   useHudKeys();
+  useEffect(() => startCastBar(), []);
   useNoButtonFocus();
   return (
     <>

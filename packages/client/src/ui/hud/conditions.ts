@@ -3,9 +3,10 @@ import { createStore, type Unsubscribe } from "./store.ts";
 
 export type ConditionId =
   | "combat" | "poison" | "burn" | "energy" | "bleed" | "freeze"
-  | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz";
+  | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz"
+  | "manashield" | "rooted" | "taunted";
 
-export type ConditionGlyph = "swords" | "drop" | "flame" | "bolt" | "flake" | "shield" | "wing" | "snail" | "swirl" | "plus" | "home";
+export type ConditionGlyph = "swords" | "drop" | "flame" | "bolt" | "flake" | "shield" | "wing" | "snail" | "swirl" | "plus" | "home" | "bubble" | "vine" | "target";
 
 export interface ConditionDef { label: string; color: string; glyph: ConditionGlyph }
 
@@ -23,6 +24,9 @@ export const CONDITION_DEFS: Record<ConditionId, ConditionDef> = {
   drunk: { label: "Tonto", color: "#c58ad9", glyph: "swirl" },
   regen: { label: "Regenerando", color: "#4f9d5d", glyph: "plus" },
   pz: { label: "Zona de proteção", color: "#5fb3a1", glyph: "home" },
+  manashield: { label: "Escudo de Mana", color: "#5aa0ff", glyph: "bubble" },
+  rooted: { label: "Enraizado", color: "#7fb04a", glyph: "vine" },
+  taunted: { label: "Provocado", color: "#ff5a4a", glyph: "target" },
 };
 
 export interface Condition {

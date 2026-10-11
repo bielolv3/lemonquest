@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, S2C, TILE_SIZE,
-  type AttackMsg, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type MonsterView, type MoveMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@tibinha/shared";
 import { session } from "../session.ts";
@@ -15,10 +15,14 @@ import { KeyboardInput } from "../game/input.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
 import { sfx } from "../game/sfx.ts";
+import { SpellEffects } from "../game/spellFx.ts";
 import { ALL_SHEETS, lookFor } from "../game/sprites.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
 import { showDeath, showLevelBanner } from "../ui/combat/combatUi.ts";
+import { setConditions } from "../ui/hud/conditions.ts";
+import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
+import { pushToast } from "../ui/toasts.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -62,6 +66,9 @@ export class WorldScene extends Phaser.Scene {
   private myMaxHp = 1;
 
   private fx!: CombatFx;
+  private spells!: SpellEffects;
+  private myVocation = "";
+  private unlockedUpTo = 0;
   private hover!: Phaser.GameObjects.Image;
   private targetMark!: Phaser.GameObjects.Image;
   private targetFill!: Phaser.GameObjects.Image;
@@ -111,6 +118,11 @@ export class WorldScene extends Phaser.Scene {
     this.createFx();
     this.fx = new CombatFx(this, this.worldLayer, this.uiLayer, this.pcam);
     this.fx.onImpact = (ev) => this.applyHit(ev as CombatEvent);
+    this.spells = new SpellEffects(this, this.worldLayer, this.fx, this.pcam, {
+      actor: (id) => this.findActor(id),
+      myId: () => this.myId,
+      shake: (ms, i) => this.cameras.main.shake(ms, i),
+    });
     this.predictor = new Predictor({
       grid: this.world.grid,
       spawn: this.world.spawn,
@@ -166,6 +178,9 @@ export class WorldScene extends Phaser.Scene {
     msg<CombatMsg>(S2C.Combat, (m) => this.onCombat(m.events));
     msg<XpGainMsg>(S2C.XpGain, (m) => this.onXpGain(m.amount));
     msg<LevelUpMsg>(S2C.LevelUp, (m) => this.onLevelUp(m.level));
+    msg<SpellCastMsg>(S2C.SpellCast, (m) => this.onSpellCast(m));
+    msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
+    msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
     msg<DiedMsg>(S2C.Died, (m) => this.onDied(m.killerName, m.lostXp));
     msg<CreatureDiedMsg>(S2C.CreatureDied, (m) => this.onCreatureDied(m));
     room.onLeave(() => { if (this.room === room) this.unbindRoom(); });
@@ -202,6 +217,8 @@ export class WorldScene extends Phaser.Scene {
       this.predictor.reset(p.x, p.y, p.dir);
       this.pcam.jumpTo((p.x + 0.5) * TILE_SIZE, (p.y + 0.5) * TILE_SIZE);
       this.setMyStats(p.level, p.maxHp);
+      this.myVocation = p.vocation;
+      this.unlockedUpTo = p.level;
       if (p.targetId) this.onServerTarget(p.targetId);
     }
   }
@@ -412,6 +429,7 @@ export class WorldScene extends Phaser.Scene {
     for (const a of this.creatures.values()) a.placeUi(this.pcam.toScreenX(a.headX), this.pcam.toScreenY(a.headY), zoom, dt);
 
     this.fx.update(dt);
+    this.spells.update(dt, time);
     this.updateHover();
     this.updateTargetMark(time);
 
@@ -535,8 +553,31 @@ export class WorldScene extends Phaser.Scene {
   onLevelUp(level: number) {
     const me = this.actors.get(this.myId);
     if (me) this.fx.levelUp(me.root, me.bodyX, me.ry + TILE_SIZE - 2);
-    showLevelBanner(level);
+    const from = this.unlockedUpTo;
+    this.unlockedUpTo = Math.max(from, level);
+    const fresh = this.myVocation
+      ? spellsFor(this.myVocation as never).filter((s) => s.level > from && s.level <= level).map((s) => s.name)
+      : [];
+    showLevelBanner(level, fresh);
     sfx.play("levelup", { volume: 1 });
+  }
+
+  // --- magias, condições e skills ----------------------------------------------
+
+  onSpellCast(m: SpellCastMsg, override?: SpellDef) {
+    this.spells.cast(m, override);
+  }
+
+  onConditions(m: ConditionsMsg) {
+    const now = Date.now();
+    setConditions(m.list.map((c) => ({ id: c.id, until: c.remainingMs != null && c.remainingMs > 0 ? now + c.remainingMs : undefined })));
+    this.spells.setSelfConditions(m.list.map((c) => c.id));
+  }
+
+  onSkillUp(m: SkillUpMsg) {
+    pushToast({ text: `Você avançou para ${SKILL_LABELS[m.skill] ?? m.skill} ${m.level}`, kind: "good" });
+    this.spells.sparkle(this.myId);
+    sfx.play("skillup", { volume: 0.8 });
   }
 
   onDied(killerName: string, lostXp: number) {
@@ -658,6 +699,7 @@ export class WorldScene extends Phaser.Scene {
     this.disposers = [];
     this.input_?.destroy();
     this.fx?.destroy();
+    this.spells?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();
   }

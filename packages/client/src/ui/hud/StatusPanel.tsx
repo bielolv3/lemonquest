@@ -3,6 +3,7 @@ import { xpForLevel } from "@tibinha/shared";
 import { session } from "../../session.ts";
 import { Section } from "./Section.tsx";
 import { StatBar } from "./StatBar.tsx";
+import { manaFlashStore } from "./castbar.ts";
 import { useStore } from "./store.ts";
 import { vocationMeta } from "./vocations.ts";
 import { playersStore, selectMe, type PlayerSnap } from "./world.ts";
@@ -35,6 +36,7 @@ export function StatusPanel() {
 }
 
 function StatusBody({ me }: { me: PlayerSnap }) {
+  const manaFlash = useStore(manaFlashStore);
   const v = vocationMeta(me.vocation);
   const xp = xpProgress(me.level, me.xp);
   const pctLabel = `${xp.pct.toFixed(1).replace(".", ",")}%`;
@@ -48,7 +50,7 @@ function StatusBody({ me }: { me: PlayerSnap }) {
         </div>
       </div>
       <StatBar kind="hp" label="HP" value={me.hp} max={me.maxHp} />
-      <StatBar kind="mana" label="MP" value={me.mana} max={me.maxMana} />
+      <StatBar kind="mana" label="MP" value={me.mana} max={me.maxMana} flash={manaFlash} />
       <div class="xp-row">
         <StatBar
           kind="xp"

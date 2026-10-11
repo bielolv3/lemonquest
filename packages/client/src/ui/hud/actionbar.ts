@@ -11,6 +11,15 @@ export interface SlotAction {
   icon?: string;
   /** Custo de mana exibido no canto. */
   mana?: number;
+  /** Magias: id, palavras mágicas, descrição, level mínimo, cooldown (ms) e chave visual. */
+  spellId?: string;
+  words?: string;
+  desc?: string;
+  level?: number;
+  cooldownMs?: number;
+  fx?: string;
+  /** Cor do elemento (CSS) para a borda do slot. */
+  color?: string;
 }
 
 export interface Cooldown { start: number; end: number }
@@ -19,6 +28,16 @@ export const slotsStore = createStore<(SlotAction | null)[]>(Array(ACTION_SLOTS)
 export const cooldownStore = createStore<(Cooldown | null)[]>(Array(ACTION_SLOTS).fill(null));
 /** Contador por slot que incrementa a cada "flash" (tecla ou clique). */
 export const flashStore = createStore<number[]>(Array(ACTION_SLOTS).fill(0));
+
+/** Contador por slot que incrementa a cada "tremida" (falha ao conjurar). */
+export const shakeStore = createStore<number[]>(Array(ACTION_SLOTS).fill(0));
+export function shakeSlot(slot: number): void {
+  if (valid(slot)) shakeStore.set((a) => patch(a, slot, a[slot] + 1));
+}
+/** Define o cooldown de um slot de forma absoluta (ou null para limpar). */
+export function setCooldownAt(slot: number, cd: Cooldown | null): void {
+  if (valid(slot)) cooldownStore.set((a) => patch(a, slot, cd));
+}
 
 function patch<T>(arr: T[], i: number, v: T): T[] {
   const n = arr.slice(); n[i] = v; return n;

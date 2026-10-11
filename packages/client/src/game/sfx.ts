@@ -18,6 +18,20 @@ const SOUNDS = {
   levelup: ["Jingles/LevelUp1.wav"],
   died: ["Jingles/GameOver3.wav"],
   fire: [S + "Elemental/Fireball.wav"],
+  sp_fire: [S + "Elemental/Fireball2.wav"],
+  sp_fire_hit: [S + "Elemental/Explosion3.wav", S + "Elemental/Explosion2.wav"],
+  sp_ice: [S + "Elemental/Water5.wav", S + "Elemental/Bubble2.wav"],
+  sp_energy: [S + "Magic & Skill/Magic2.wav", S + "Magic & Skill/Magic4.wav"],
+  sp_earth: [S + "Elemental/Grass2.wav", S + "Hit & Impact/Impact4.wav"],
+  sp_holy: [S + "Magic & Skill/Magic1.wav", S + "Magic & Skill/Heal2.wav"],
+  sp_death: [S + "Magic & Skill/Strange.wav"],
+  sp_physical: [S + "Whoosh & Slash/Slash3.wav", S + "Whoosh & Slash/Slash4.wav"],
+  sp_buff: [S + "Magic & Skill/Magic5.wav"],
+  sp_summon: [S + "Magic & Skill/Spirit.wav", S + "Magic & Skill/Strange.wav"],
+  sp_taunt: [S + "Hit & Impact/Impact5.wav"],
+  sp_charge: [S + "Whoosh & Slash/Whoosh2.wav"],
+  skillup: [S + "Bonus/PowerUp2.wav"],
+  fail: [S + "Menu/Cancel.wav"],
 } as const;
 
 export type SfxName = keyof typeof SOUNDS;

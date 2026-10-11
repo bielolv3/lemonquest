@@ -14,6 +14,15 @@
   background: radial-gradient(closest-side, rgba(255, 224, 120, 0.45), rgba(255, 224, 120, 0));
   animation: lvl-glow 2s ease-out forwards;
 }
+.level-banner.long { animation-name: lvl-life-long; animation-duration: 3.4s; }
+.level-banner-spell {
+  margin-top: 8px; padding: 3px 14px; font-size: 18px; color: #ffa83a; letter-spacing: 1px; text-shadow: 0 2px 0 #000;
+  background: rgba(17, 20, 28, 0.7); border: 1px solid rgba(255, 168, 58, 0.5); border-radius: 999px; font-style: italic;
+  opacity: 0; animation: lvl-spell 420ms cubic-bezier(0.2, 0.9, 0.2, 1.2) forwards;
+}
+.level-banner-spell b { color: #fff3c4; font-style: normal; font-weight: 600; }
+@keyframes lvl-spell { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
+@keyframes lvl-life-long { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes lvl-life { 0%, 78% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes lvl-pop {
   0% { transform: scale(0.4) translateY(14px); opacity: 0; }

@@ -22,15 +22,18 @@ function LevelBannerView() {
   useEffect(() => {
     if (!b) return;
     setShown(true);
-    const t = setTimeout(() => setShown(false), BANNER_MS);
+    const t = setTimeout(() => setShown(false), b.spells.length ? BANNER_MS + 1400 : BANNER_MS);
     return () => clearTimeout(t);
   }, [b]);
   if (!b || !shown) return null;
   return (
-    <div class="level-banner" key={b.n} aria-live="polite">
+    <div class={`level-banner${b.spells.length ? " long" : ""}`} key={b.n} aria-live="polite">
       <div class="level-banner-glow" />
       <div class="level-banner-text">Level {b.level}!</div>
       <div class="level-banner-sub">Você ficou mais forte</div>
+      {b.spells.map((s, i) => (
+        <div key={s} class="level-banner-spell" style={{ animationDelay: `${500 + i * 250}ms` }}>Nova magia: <b>{s}</b></div>
+      ))}
     </div>
   );
 }

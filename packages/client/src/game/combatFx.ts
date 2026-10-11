@@ -131,7 +131,7 @@ export class CombatFx {
   // --- números flutuantes ---------------------------------------------------
 
   /** Texto flutuante ancorado num ponto do mundo (px). */
-  floatText(wx: number, wy: number, text: string, color: number, opts: { size?: number; crit?: boolean; life?: number; rise?: number; dx?: number; stroke?: string } = {}) {
+  floatText(wx: number, wy: number, text: string, color: number, opts: { size?: number; crit?: boolean; life?: number; rise?: number; dx?: number; stroke?: string; italic?: boolean } = {}) {
     let it: FloatItem | undefined;
     for (const f of this.floats) if (!f.active) { it = f; break; }
     if (!it) {
@@ -145,7 +145,7 @@ export class CombatFx {
       }
     }
     const size = opts.size ?? (opts.crit ? 24 : 16);
-    it.t.setText(text).setFontSize(size).setColor(css(color)).setStroke(opts.stroke ?? "#0b0b12", size >= 20 ? 5 : 4).setVisible(true).setAlpha(1);
+    it.t.setText(text).setFontStyle(opts.italic ? "italic 600" : "600").setFontSize(size).setColor(css(color)).setStroke(opts.stroke ?? "#0b0b12", size >= 20 ? 5 : 4).setVisible(true).setAlpha(1);
     it.active = true;
     it.wx = wx; it.wy = wy;
     it.dx = opts.dx ?? (Math.random() - 0.5) * 12;

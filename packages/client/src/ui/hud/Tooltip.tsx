@@ -2,7 +2,7 @@
 // data-tip-sub="..." adiciona uma segunda linha discreta.
 import { useEffect, useRef, useState } from "preact/hooks";
 
-interface Tip { text: string; sub: string; x: number; y: number; below: boolean }
+interface Tip { text: string; sub: string; words: string; desc: string; x: number; y: number; below: boolean }
 
 const DELAY_MS = 220;
 
@@ -20,6 +20,8 @@ export function Tooltip() {
       setTip({
         text: t.dataset.tip ?? "",
         sub: t.dataset.tipSub ?? "",
+        words: t.dataset.tipWords ?? "",
+        desc: t.dataset.tipDesc ?? "",
         x: r.left + r.width / 2,
         y: below ? r.bottom + 8 : r.top - 8,
         below,
@@ -61,7 +63,9 @@ export function Tooltip() {
       style={pos ? { left: `${pos.left}px`, top: `${pos.top}px` } : { left: "-9999px", top: "0" }}
       role="tooltip"
     >
-      {tip?.text}
+      {tip?.words ? <b class="hud-tooltip-name">{tip.text}</b> : tip?.text}
+      {tip?.words && <span class="hud-tooltip-words">{tip.words}</span>}
+      {tip?.desc && <span class="hud-tooltip-desc">{tip.desc}</span>}
       {tip?.sub && <span class="hud-tooltip-sub">{tip.sub}</span>}
     </div>
   );

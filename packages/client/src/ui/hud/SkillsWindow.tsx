@@ -1,23 +1,27 @@
 // Janela de habilidades (tecla K): arrastável pela barra de título, posição lembrada.
-import { Dir, stepDuration } from "@tibinha/shared";
+import { Dir, stepDuration, type SkillId } from "@tibinha/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { StatBar } from "./StatBar.tsx";
 import { fmt, xpProgress } from "./StatusPanel.tsx";
 import { persistedJson, useStore } from "./store.ts";
 import { skillsOpen } from "./uiState.ts";
-import { playersStore, selectMe } from "./world.ts";
+import { playersStore, selectMe, type PlayerSnap } from "./world.ts";
 
 const W = 248;
 const posStore = persistedJson<{ x: number; y: number }>("skillsPos", { x: -1, y: -1 });
 
-/** Skills de combate: chegam com o combate (M2). Hoje todos começam em 10 / 0%. */
 export interface SkillValue { level: number; pct: number }
-const PLACEHOLDER_SKILLS: { id: string; label: string }[] = [
-  { id: "melee", label: "Corpo a corpo" },
-  { id: "distance", label: "Distância" },
-  { id: "magic", label: "Magic Level" },
-  { id: "shield", label: "Escudo" },
-];
+export const SKILL_LABELS: Record<SkillId, string> = { melee: "Corpo a corpo", distance: "Distância", magic: "Magic Level", shield: "Escudo" };
+const ORDER: SkillId[] = ["magic", "melee", "distance", "shield"];
+
+function skillValues(me: PlayerSnap): Record<SkillId, SkillValue> {
+  return {
+    magic: { level: me.magicLevel, pct: me.magicPct },
+    melee: { level: me.skillMelee, pct: me.meleePct },
+    distance: { level: me.skillDistance, pct: me.distancePct },
+    shield: { level: me.skillShield, pct: me.shieldPct },
+  };
+}
 
 function clampPos(x: number, y: number) {
   return {
@@ -26,7 +30,7 @@ function clampPos(x: number, y: number) {
   };
 }
 
-export function SkillsWindow({ skills = {} }: { skills?: Record<string, SkillValue> }) {
+export function SkillsWindow() {
   const open = useStore(skillsOpen);
   const me = selectMe(useStore(playersStore));
   const stored = useStore(posStore);
@@ -94,15 +98,16 @@ export function SkillsWindow({ skills = {} }: { skills?: Record<string, SkillVal
         </dl>
         <div class="kv-sep" />
         <ul class="skill-list">
-          {PLACEHOLDER_SKILLS.map((s) => {
-            const v = skills[s.id] ?? { level: 10, pct: 0 };
+          {ORDER.map((id) => {
+            const v = skillValues(me)[id];
+            const pct = Math.max(0, Math.min(100, v.pct));
             return (
-              <li key={s.id} class="skill-row" data-tip={s.label} data-tip-sub={`${v.pct}% para o ${v.level + 1}`}>
+              <li key={id} class="skill-row" data-tip={SKILL_LABELS[id]} data-tip-sub={`${pct.toFixed(0)}% para o ${v.level + 1}`}>
                 <div class="skill-top">
-                  <span>{s.label}</span>
+                  <span>{SKILL_LABELS[id]}</span>
                   <b>{v.level}</b>
                 </div>
-                <div class="skill-track"><span style={{ width: `${v.pct}%` }} /></div>
+                <div class="skill-track"><span style={{ width: `${pct}%` }} /></div>
               </li>
             );
           })}

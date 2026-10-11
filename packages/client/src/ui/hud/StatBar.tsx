@@ -19,9 +19,11 @@ interface Props {
   thin?: boolean;
   tip?: string;
   tipSub?: string;
+  /** Incrementa para piscar a barra em vermelho (ex.: sem mana). */
+  flash?: number;
 }
 
-export function StatBar({ kind, value, max, label, text, thin, tip, tipSub }: Props) {
+export function StatBar({ kind, value, max, label, text, thin, tip, tipSub, flash = 0 }: Props) {
   const pct = pctOf(value, max);
   const prev = useRef(pct);
   const [ghost, setGhost] = useState(pct);
@@ -49,6 +51,7 @@ export function StatBar({ kind, value, max, label, text, thin, tip, tipSub }: Pr
         <div class="stat-ghost" style={{ width: `${Math.max(ghost, pct)}%` }} />
         <div class="stat-fill" style={{ width: `${pct}%` }} />
         {hit > 0 && <div key={hit} class="stat-hit" />}
+        {flash > 0 && <div key={`f${flash}`} class="stat-flash" />}
       </div>
       {!thin && (
         <div class="stat-text">

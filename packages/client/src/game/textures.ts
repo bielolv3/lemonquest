@@ -7,6 +7,10 @@ export const TEX = {
   marker: "fx_marker",
   hover: "fx_hover",
   beam: "fx_beam",
+  glow: "fx_glow",
+  ring: "fx_ring",
+  plus: "fx_plus",
+  bubble: "fx_bubble",
 } as const;
 
 /** Gradiente vertical (opaco embaixo → transparente em cima) para a coluna de luz do level-up. */
@@ -39,9 +43,50 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
   tex.refresh();
 }
 
+/** Glow radial suave (64x64), usado como "luz" aditiva; anel de pixels; "+" 5x5; bolha de escudo 32x32. */
+function createSpellTextures(scene: Phaser.Scene) {
+  if (!scene.textures.exists(TEX.glow)) {
+    const tex = scene.textures.createCanvas(TEX.glow, 64, 64)!;
+    const ctx = tex.getContext();
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.25, "rgba(255,255,255,0.55)");
+    g.addColorStop(0.6, "rgba(255,255,255,0.14)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+    tex.refresh();
+  }
+  canvasTexture(scene, TEX.ring, 64, 64, (put) => {
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      const d = Math.hypot(x - 31.5, y - 31.5);
+      if (d >= 29 && d <= 31.2) put(x, y, 1);
+      else if (d >= 26.8 && d < 29) put(x, y, 0.3);
+    }
+  });
+  canvasTexture(scene, TEX.plus, 5, 5, (put) => {
+    for (let i = 0; i < 5; i++) { put(2, i); put(i, 2); }
+  });
+  if (!scene.textures.exists(TEX.bubble)) {
+    const tex = scene.textures.createCanvas(TEX.bubble, 32, 32)!;
+    const ctx = tex.getContext();
+    const g = ctx.createRadialGradient(16, 16, 8, 16, 16, 16);
+    g.addColorStop(0, "rgba(255,255,255,0.06)");
+    g.addColorStop(0.8, "rgba(255,255,255,0.28)");
+    g.addColorStop(0.92, "rgba(255,255,255,0.95)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 32, 32);
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    for (const [x, y] of [[8, 7], [9, 6], [10, 6], [7, 9], [7, 10]]) ctx.fillRect(x, y, 1, 1);
+    tex.refresh();
+  }
+}
+
 export function createFxTextures(scene: Phaser.Scene) {
   canvasTexture(scene, TEX.px, 1, 1, (put) => put(0, 0));
   createBeamTexture(scene);
+  createSpellTextures(scene);
 
   // Sombra elíptica 12x4 (preta; alpha aplicado no objeto).
   canvasTexture(scene, TEX.shadow, 12, 4, (put) => {

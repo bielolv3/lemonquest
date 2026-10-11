@@ -1,7 +1,11 @@
 // Harness de desenvolvimento (?fxtest, só em modo dev): cria criaturas falsas e dispara eventos de combate
 // a cada segundo para validar visualmente barras de HP, números, projéteis, mortes e level-up sem servidor.
-import { MONSTERS, type CombatEvent, type DamageKind, type MonsterView, type PlayerView } from "@tibinha/shared";
+import {
+  DIR_DELTA, MONSTERS, SPELLS, spellDef,
+  type CombatEvent, type ConditionId, type DamageKind, type MonsterView, type PlayerView, type SpellCastMsg, type SpellDef, type SpellFx,
+} from "@tibinha/shared";
 import type { WorldScene } from "../scenes/WorldScene.ts";
+import { handleCastResult, setCastTransport } from "../ui/hud/castbar.ts";
 import { playersStore } from "../ui/hud/world.ts";
 import { subscribeTarget } from "../ui/hud/target.ts";
 import { hideDeath } from "../ui/combat/combatUi.ts";
@@ -15,7 +19,7 @@ const rnd = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1)
 
 export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, walkable: (x: number, y: number) => boolean) {
   const me: PlayerView = {
-    id: ME, name: "QA Combate", vocation: "knight", level: 8, x: spawn.x, y: spawn.y, dir: 4, stepMs: 280, seq: 0,
+    id: ME, name: "QA Combate", vocation: (new URLSearchParams(location.search).get("voc") ?? "sorcerer") as PlayerView["vocation"], level: 8, x: spawn.x, y: spawn.y, dir: 4, stepMs: 280, seq: 0,
     hp: 160, maxHp: 200, mana: 80, maxMana: 100, xp: 400, targetId: "",
     magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100,
   };
@@ -95,7 +99,95 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     () => { const m = pick(alive()); if (m) hitMonster(m, { amount: rnd(5, 20) }); },
     () => { const m = pick(alive()); if (m) { m.hp = Math.min(m.hp, 1); scene.onMonsterChange(m.id, m); hitMonster(m, { amount: 5, crit: true }); } },
   ];
+  // --- magias: servidor falso + ciclo por todos os tipos de fx -----------------------------------
+  const params = new URLSearchParams(location.search);
+  const quiet = params.has("fxquiet");
+  const synth = (id: string, target: SpellDef["target"], fx: SpellFx, extra: Partial<SpellDef> = {}): SpellDef => ({
+    id, name: id, words: id.replace(/_/g, " "), vocation: "sorcerer", level: 1, mana: 10, cooldownMs: 2000, target, fx,
+    radius: 2, length: 5, width: 3, range: 7, description: "Magia de teste.", ...extra,
+  });
+  // Cobre todas as combinações (alvo, fx) que o catálogo real não cobre.
+  const extras: SpellDef[] = [
+    synth("t_fire_target", "target", "fire"), synth("t_ice_target", "target", "ice"), synth("t_energy_target", "target", "energy"),
+    synth("t_earth_target", "target", "earth"), synth("t_holy_target", "target", "holy"), synth("t_death_target", "target", "death"),
+    synth("t_fire_area", "area_self", "fire"), synth("t_ice_area", "area_target", "ice"), synth("t_energy_area", "area_self", "energy"),
+    synth("t_earth_area", "area_self", "earth"), synth("t_holy_area", "area_self", "holy"), synth("t_death_area", "area_self", "death"),
+    synth("t_ice_wave", "wave", "ice"), synth("t_fire_wave", "wave", "fire"), synth("t_energy_wave", "wave", "energy"), synth("t_death_wave", "wave", "death"),
+    synth("t_summon", "self", "summon"), synth("t_root", "target", "root"), synth("t_taunt", "area_self", "taunt"),
+    synth("t_party_heal", "party", "heal"), synth("t_buff", "self", "buff"), synth("t_charge", "target", "charge", { dash: true }),
+  ];
+  const allSpells = [...Object.values(SPELLS), ...extras];
+  const defOf = (id: string) => spellDef(id) ?? extras.find((e) => e.id === id);
+  const tilesAround = (cx: number, cy: number, r: number) => {
+    const out: number[] = [];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.hypot(dx, dy) <= r + 0.3 && walkable(cx + dx, cy + dy)) out.push(cx + dx, cy + dy);
+    return out;
+  };
+  const buildCast = (def: SpellDef): SpellCastMsg => {
+    const tm = me.targetId ? mons.get(me.targetId) : undefined;
+    const t = tm ?? alive()[0];
+    const tx = t?.x ?? me.x + 3, ty = t?.y ?? me.y;
+    const dir = me.dir;
+    const base: SpellCastMsg = { spellId: def.id, casterId: ME, x: me.x, y: me.y, dir };
+    switch (def.target) {
+      case "target": return { ...base, targetId: t?.id, x: tx, y: ty };
+      case "area_target": return { ...base, targetId: t?.id, x: tx, y: ty, tiles: tilesAround(tx, ty, def.radius ?? 2) };
+      case "area_self": return { ...base, tiles: tilesAround(me.x, me.y, def.radius ?? 2) };
+      case "party": return { ...base, tiles: [me.x, me.y] };
+      case "wave": {
+        const d = DIR_DELTA[dir as keyof typeof DIR_DELTA] ?? { dx: 1, dy: 0 };
+        const tiles: number[] = [];
+        const L = def.length ?? 5, W = def.width ?? 3;
+        for (let i = 1; i <= L; i++) {
+          const half = Math.floor((W * i) / L / 2 + 0.5);
+          for (let o = -half; o <= half; o++) {
+            const x = me.x + d.dx * i + (d.dx === 0 ? o : 0), y = me.y + d.dy * i + (d.dy === 0 ? o : 0);
+            if (walkable(x, y)) tiles.push(x, y);
+          }
+        }
+        return { ...base, tiles };
+      }
+      default: return base;
+    }
+  };
+  const fire = (def: SpellDef) => scene.onSpellCast(buildCast(def), def);
+  // Servidor falso do cast: valida mana, aplica custo e responde com CastResult.
+  setCastTransport((m) => {
+    const def = defOf(m.spellId);
+    if (!def) return;
+    setTimeout(() => {
+      if (me.mana < def.mana) { handleCastResult({ spellId: def.id, ok: false, reason: "mana" }); return; }
+      if (def.target === "target" && !m.targetId) { handleCastResult({ spellId: def.id, ok: false, reason: "target" }); return; }
+      me.mana -= def.mana; scene.onPlayerChange(ME, me); publish();
+      fire(def);
+      handleCastResult({ spellId: def.id, ok: true, cooldownMs: def.cooldownMs, globalMs: 1000 });
+    }, 60);
+  });
+  const manaTimer = window.setInterval(() => { if (me.mana < me.maxMana) { me.mana = Math.min(me.maxMana, me.mana + 3); publish(); } }, 1000);
+  const pinned = params.get("fxspell");
+  let spellIdx = 0;
+  const spellTimer = window.setInterval(() => {
+    if (params.has("fxhold")) return;
+    const def = pinned ? defOf(pinned) : allSpells[spellIdx++ % allSpells.length];
+    if (def) fire(def);
+  }, 2600);
+  const condSets: ConditionId[][] = [["haste"], ["manashield", "regen"], ["protect", "rooted"], ["taunted", "haste", "burn"], []];
+  let condIdx = 0;
+  const applyConds = (ids: ConditionId[]) => scene.onConditions({ list: ids.map((id) => ({ id, remainingMs: 9000 + Math.random() * 20000 })) });
+  const condTimer = window.setInterval(() => applyConds(condSets[condIdx++ % condSets.length]), 8000);
+  const fxApi = {
+    cast: (id: string) => { const d = defOf(id); if (d) fire(d); },
+    conds: applyConds,
+    skillUp: () => scene.onSkillUp({ skill: "magic", level: 3 }),
+    pause: (on: boolean) => { scene.time.timeScale = on ? 0.0001 : 1; scene.anims.globalTimeScale = on ? 0.0001 : 1; scene.tweens.timeScale = on ? 0.0001 : 1; },
+    scale: (k: number) => { scene.time.timeScale = k; scene.anims.globalTimeScale = k; scene.tweens.timeScale = k; },
+    ids: () => allSpells.map((s) => s.id),
+  };
+  (window as unknown as Record<string, unknown>).__fx = fxApi;
+  scene.events.once("shutdown", () => { window.clearInterval(spellTimer); window.clearInterval(condTimer); window.clearInterval(manaTimer); });
+
   const timer = window.setInterval(() => {
+    if (quiet) return;
     step++;
     actions[step % actions.length]();
     if (step % 18 === 0) {
