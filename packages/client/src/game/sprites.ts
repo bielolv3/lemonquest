@@ -38,17 +38,18 @@ function ninjaAdventure(key: string, url: string): CharacterSheet {
 }
 
 const SHEETS = {
-  samuraiBlue: ninjaAdventure("chr_samurai_blue", "ninja-adventure/content/character/samurai_blue/sprite.png"),
-  ninjaBlue: ninjaAdventure("chr_ninja_blue", "ninja-adventure/content/character/ninja_blue/sprite.png"),
-  samuraiGreen: ninjaAdventure("chr_samurai_green", "ninja-adventure/content/character/samurai_green/samurai_green.png"),
+  knight: ninjaAdventure("chr_knight", "ninja/Actor/Character/Knight/SpriteSheet.png"),
+  hunter: ninjaAdventure("chr_hunter", "ninja/Actor/Character/Hunter/SpriteSheet.png"),
+  sorcerer: ninjaAdventure("chr_sorcerer_black", "ninja/Actor/Character/SorcererBlack/SpriteSheet.png"),
+  shaman: ninjaAdventure("chr_shaman", "ninja/Actor/Character/Shaman/SpriteSheet.png"),
 } satisfies Record<string, CharacterSheet>;
 
-/** Vocação → visual. Só há 3 sheets hoje: o sorcerer reaproveita o ninja com tint roxo. */
+/** Vocação → visual. */
 export const VOCATION_LOOK: Record<Vocation, CharacterLook> = {
-  knight: { sheet: SHEETS.samuraiBlue, tint: 0xffffff },
-  paladin: { sheet: SHEETS.ninjaBlue, tint: 0xffffff },
-  sorcerer: { sheet: SHEETS.ninjaBlue, tint: 0xd2a8ff },
-  druid: { sheet: SHEETS.samuraiGreen, tint: 0xffffff },
+  knight: { sheet: SHEETS.knight, tint: 0xffffff },
+  paladin: { sheet: SHEETS.hunter, tint: 0xffffff },
+  sorcerer: { sheet: SHEETS.sorcerer, tint: 0xffffff },
+  druid: { sheet: SHEETS.shaman, tint: 0xffffff },
 };
 
 export const ALL_SHEETS: CharacterSheet[] = Object.values(SHEETS);
