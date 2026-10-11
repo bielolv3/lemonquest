@@ -33,6 +33,8 @@ export interface ConditionOptions {
   getPlayer: (id: string) => PlayerState | undefined;
   players: () => Iterable<PlayerState>;
   send: (sessionId: string, type: string, msg: unknown) => void;
+  /** Bônus de velocidade (%) do equipamento do jogador, somado ao haste. */
+  speedBonus?: (playerId: string) => number;
 }
 
 /** Velocidade resultante (100 = normal; 0 = enraizado). */
@@ -142,11 +144,17 @@ export class ConditionSystem {
     return list;
   }
 
+  /** Recalcula a velocidade do jogador (equipamento mudou). */
+  refreshPlayer(id: string): void {
+    this.refresh(id);
+  }
+
   /** Recalcula efeitos derivados (velocidade, provocação). */
   private refresh(tid: string): void {
     const map = this.byId.get(tid);
-    const speed = speedFrom(!!map?.has("rooted"), map?.get("haste")?.value ?? 0, map?.get("slow")?.value ?? 0);
     const p = this.o.getPlayer(tid);
+    const bonus = p ? this.o.speedBonus?.(tid) ?? 0 : 0;
+    const speed = speedFrom(!!map?.has("rooted"), (map?.get("haste")?.value ?? 0) + bonus, map?.get("slow")?.value ?? 0);
     if (p) { p.speedPct = speed; return; }
     const m = this.o.monsters.get(tid);
     if (!m) return;
