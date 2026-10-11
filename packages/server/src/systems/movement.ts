@@ -37,6 +37,7 @@ export class MovementSystem {
   private readonly spawn: { x: number; y: number } | undefined;
   private readonly now: () => number;
   private readonly groundSpeed: GroundSpeedGrid | undefined;
+  private extraBlocker: ((x: number, y: number) => boolean) | null = null;
 
   constructor(private readonly grid: CollisionGrid, opts: MovementOptions = {}) {
     this.spawn = opts.spawn;
@@ -52,6 +53,20 @@ export class MovementSystem {
   removePlayer(id: string): void {
     this.players.delete(id);
     this.movers.delete(id);
+  }
+
+  /** Bloqueio extra por tile (ex.: monstros vivos). Chamado em toda checagem de ocupação. */
+  setExtraBlocker(fn: ((x: number, y: number) => boolean) | null): void {
+    this.extraBlocker = fn;
+  }
+
+  /** Move o jogador instantaneamente (portal, morte/respawn). Cancela intenção, buffer e caminho. */
+  teleport(p: PlayerState, x: number, y: number): void {
+    const m = this.movers.get(p.id);
+    p.x = x;
+    p.y = y;
+    p.stepMs = 0;
+    if (m) { m.intent = null; m.pending = null; m.path = null; m.recomputed = false; m.stepEndsAt = 0; }
   }
 
   onMove(p: PlayerState, msg: MoveMsg): void {
@@ -171,6 +186,7 @@ export class MovementSystem {
   }
 
   private isOccupied(x: number, y: number, selfId: string): boolean {
+    if (this.extraBlocker?.(x, y)) return true;
     if (isNearSpawn(this.spawn, x, y)) return false;
     for (const o of this.players.values()) {
       if (o.id !== selfId && o.x === x && o.y === y) return true;
