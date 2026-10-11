@@ -1,0 +1,67 @@
+// Carrega e monta o mapa Tiled (tilesets embutidos; imagem relativa ao arquivo do mapa).
+import Phaser from "phaser";
+import { CollisionGrid, DEFAULT_SPAWN, mapSpawn, type TiledMap } from "@tibinha/shared";
+
+export const MAP_KEY = "world";
+export const MAP_URL = `${import.meta.env.BASE_URL}maps/world.json`;
+
+/** Camadas desenhadas acima dos personagens. */
+const ABOVE_LAYERS = new Set(["above"]);
+/** Camadas lógicas que não são desenhadas. */
+const HIDDEN_LAYERS = new Set(["collision"]);
+
+const tilesetTexKey = (name: string) => `tileset:${name}`;
+
+/** Agenda o JSON do mapa e, quando ele chegar, as imagens dos tilesets. */
+export function preloadWorldMap(scene: Phaser.Scene) {
+  const mapUrl = new URL(MAP_URL, location.href);
+  scene.load.once(`filecomplete-tilemapJSON-${MAP_KEY}`, (_key: string, _type: string, data: TiledMap) => {
+    for (const ts of data.tilesets ?? []) {
+      if (!ts.image || !ts.name) {
+        console.warn(`[map] tileset sem imagem embutida (firstgid ${ts.firstgid}); use tilesets embutidos no Tiled.`);
+        continue;
+      }
+      scene.load.image(tilesetTexKey(ts.name), new URL(ts.image, mapUrl).href);
+    }
+  });
+  scene.load.tilemapTiledJSON(MAP_KEY, MAP_URL);
+}
+
+export interface WorldMap {
+  tiled: TiledMap;
+  tilemap: Phaser.Tilemaps.Tilemap;
+  grid: CollisionGrid;
+  spawn: { x: number; y: number };
+  widthPx: number;
+  heightPx: number;
+  below: Phaser.Tilemaps.TilemapLayer[];
+  above: Phaser.Tilemaps.TilemapLayer[];
+}
+
+export function buildWorldMap(scene: Phaser.Scene): WorldMap {
+  const tiled = (scene.cache.tilemap.get(MAP_KEY) as { data: TiledMap }).data;
+  const tilemap = scene.make.tilemap({ key: MAP_KEY });
+  const tilesets = tilemap.tilesets
+    .map((ts) => tilemap.addTilesetImage(ts.name, tilesetTexKey(ts.name)))
+    .filter((t): t is Phaser.Tilemaps.Tileset => !!t);
+
+  const below: Phaser.Tilemaps.TilemapLayer[] = [];
+  const above: Phaser.Tilemaps.TilemapLayer[] = [];
+  for (const ld of tilemap.layers) {
+    if (HIDDEN_LAYERS.has(ld.name)) continue;
+    const layer = tilemap.createLayer(ld.name, tilesets, 0, 0);
+    if (!layer) continue;
+    (ABOVE_LAYERS.has(ld.name) ? above : below).push(layer);
+  }
+
+  return {
+    tiled,
+    tilemap,
+    grid: CollisionGrid.fromTiled(tiled),
+    spawn: mapSpawn(tiled, DEFAULT_SPAWN),
+    widthPx: tilemap.widthInPixels,
+    heightPx: tilemap.heightInPixels,
+    below,
+    above,
+  };
+}
