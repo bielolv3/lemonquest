@@ -1,15 +1,175 @@
 // DONO: agente "movimento". Contrato público usado por WorldRoom — não mudar as assinaturas.
-import type { CollisionGrid, MoveMsg, TurnMsg, WalkToMsg } from "@tibinha/shared";
+import {
+  DIR_DELTA, TICK_MS, Dir, canStepTerrain, dirFromDelta, isNearSpawn, isValidDir, stepDuration,
+  type CollisionGrid, type MoveMsg, type TurnMsg, type WalkToMsg,
+} from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
+import { findPath, PATH_MAX_DIST, type Point } from "./pathfinding.ts";
+
+/** Estado de movimento por jogador que não precisa ser sincronizado. */
+interface Mover {
+  /** Instante (ms) em que o passo atual termina; antes disso o jogador não pode iniciar outro. */
+  stepEndsAt: number;
+  /** Direção segurada (null = soltou). */
+  intent: Dir | null;
+  /** Buffer de 1 passo: garante que um toque rápido (aperta+solta) ainda ande um tile. */
+  pending: Dir | null;
+  /** Caminho do clique (sem a posição atual). */
+  path: Point[] | null;
+  /** Já recalculou o caminho por bloqueio de jogador desde o último passo bem-sucedido. */
+  recomputed: boolean;
+}
+
+export interface MovementOptions {
+  /** Tile de spawn/templo: tiles a até 1 tile dele não bloqueiam por jogador. */
+  spawn?: { x: number; y: number };
+  /** Relógio (ms) usado ao processar mensagens (o tick recebe `now`). Padrão Date.now — injetável em testes. */
+  now?: () => number;
+}
+
+type StepResult = "ok" | "wall" | "player";
 
 export class MovementSystem {
-  constructor(private readonly grid: CollisionGrid) {}
+  private readonly players = new Map<string, PlayerState>();
+  private readonly movers = new Map<string, Mover>();
+  private readonly spawn: { x: number; y: number } | undefined;
+  private readonly now: () => number;
 
-  addPlayer(_p: PlayerState): void {}
-  removePlayer(_id: string): void {}
-  onMove(_p: PlayerState, _msg: MoveMsg): void {}
-  onWalkTo(_p: PlayerState, _msg: WalkToMsg): void {}
-  onTurn(_p: PlayerState, _msg: TurnMsg): void {}
+  constructor(private readonly grid: CollisionGrid, opts: MovementOptions = {}) {
+    this.spawn = opts.spawn;
+    this.now = opts.now ?? Date.now;
+  }
+
+  addPlayer(p: PlayerState): void {
+    this.players.set(p.id, p);
+    this.movers.set(p.id, { stepEndsAt: 0, intent: null, pending: null, path: null, recomputed: false });
+  }
+
+  removePlayer(id: string): void {
+    this.players.delete(id);
+    this.movers.delete(id);
+  }
+
+  onMove(p: PlayerState, msg: MoveMsg): void {
+    const m = this.movers.get(p.id);
+    if (!m || !msg || typeof msg !== "object") return;
+    if (typeof msg.seq !== "number" || !Number.isFinite(msg.seq)) return;
+    const dir = msg.dir;
+    if (dir !== null && !isValidDir(dir)) return;
+    const now = this.now();
+    // Recupera o atraso do tick com a intenção ANTIGA: se o passo já deveria ter começado antes desta
+    // mensagem chegar (ex.: soltar a tecla logo após o cliente iniciar um passo), ele acontece.
+    this.advance(p, m, now);
+    if (dir === null) {
+      m.intent = null;
+    } else {
+      m.intent = dir;
+      m.pending = dir;
+      m.path = null;
+    }
+    p.seq = Math.max(0, Math.min(0xffffffff, Math.floor(msg.seq)));
+    // Livre? Começa já, sem esperar o próximo tick (o cliente já começou na predição).
+    this.advance(p, m, now);
+  }
+
+  onWalkTo(p: PlayerState, msg: WalkToMsg): void {
+    const m = this.movers.get(p.id);
+    if (!m || !msg || typeof msg !== "object") return;
+    const { x, y } = msg;
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
+    if (x < 0 || y < 0 || x >= this.grid.width || y >= this.grid.height) return;
+    if (Math.max(Math.abs(x - p.x), Math.abs(y - p.y)) > PATH_MAX_DIST) return;
+    // Clique sobrepõe teclas: zera intenção/buffer para não brigar com o caminho.
+    m.intent = null;
+    m.pending = null;
+    m.recomputed = false;
+    const path = findPath(this.grid, p, { x, y }, (bx, by) => this.isOccupied(bx, by, p.id));
+    m.path = path && path.length ? path : null;
+    this.advance(p, m, this.now());
+  }
+
+  onTurn(p: PlayerState, msg: TurnMsg): void {
+    const m = this.movers.get(p.id);
+    if (!m || !msg || !isValidDir(msg.dir)) return;
+    if (this.now() < m.stepEndsAt) return;
+    p.dir = msg.dir;
+  }
+
   /** Chamado a cada tick (TICK_MS). `now` = Date.now(). */
-  tick(_now: number, _players: Iterable<PlayerState>): void {}
+  tick(now: number, players: Iterable<PlayerState>): void {
+    for (const p of players) {
+      const m = this.movers.get(p.id);
+      if (m) this.advance(p, m, now);
+    }
+  }
+
+  // --- internos -------------------------------------------------------------
+
+  /** Se o jogador está livre, inicia o próximo passo (buffer > tecla segurada > caminho do clique). */
+  private advance(p: PlayerState, m: Mover, now: number) {
+    if (now < m.stepEndsAt) return;
+    if (m.pending !== null) {
+      const d = m.pending;
+      m.pending = null;
+      this.tryStep(p, m, d, now);
+    } else if (m.intent !== null) {
+      this.tryStep(p, m, m.intent, now);
+    } else if (m.path) {
+      this.followPath(p, m, now);
+    }
+  }
+
+  private followPath(p: PlayerState, m: Mover, now: number) {
+    const next = m.path![0];
+    const dir = dirFromDelta(next.x - p.x, next.y - p.y);
+    if (dir === null) { m.path = null; return; }
+    const r = this.tryStep(p, m, dir, now);
+    if (r === "ok") {
+      m.path!.shift();
+      if (m.path!.length === 0) m.path = null;
+      m.recomputed = false;
+      return;
+    }
+    if (r === "player" && !m.recomputed) {
+      m.recomputed = true;
+      const goal = m.path![m.path!.length - 1];
+      const path = findPath(this.grid, p, goal, (bx, by) => this.isOccupied(bx, by, p.id));
+      // Se o próprio destino está ocupado, o caminho novo continua terminando nele; paramos ao lado.
+      m.path = path && path.length ? path : null;
+      return;
+    }
+    m.path = null;
+  }
+
+  /** Tenta iniciar um passo. Bloqueado → apenas vira para a direção. */
+  private tryStep(p: PlayerState, m: Mover, dir: Dir, now: number): StepResult {
+    const { dx, dy } = DIR_DELTA[dir];
+    const tx = p.x + dx, ty = p.y + dy;
+    let result: StepResult = "ok";
+    if (!canStepTerrain(this.grid, p.x, p.y, dx, dy)) result = "wall";
+    else if (this.isOccupied(tx, ty, p.id)) result = "player";
+
+    p.dir = dir;
+    if (result !== "ok") return result;
+
+    const dur = stepDuration(p.level, dir);
+    // Cadência exata: se o passo anterior terminou há no máximo um tick, encadeia a partir do fim dele
+    // (senão a quantização do tick de 50ms deixaria o andar contínuo mais lento que no cliente).
+    // Passo "do zero" começa agora — nunca antes do input chegar, para o servidor não passar à frente
+    // da predição do cliente.
+    const startAt = now - m.stepEndsAt <= TICK_MS ? m.stepEndsAt : now;
+    m.stepEndsAt = startAt + dur;
+    p.x = tx;
+    p.y = ty;
+    p.stepMs = dur;
+    return "ok";
+  }
+
+  private isOccupied(x: number, y: number, selfId: string): boolean {
+    if (isNearSpawn(this.spawn, x, y)) return false;
+    for (const o of this.players.values()) {
+      if (o.id !== selfId && o.x === x && o.y === y) return true;
+    }
+    return false;
+  }
 }

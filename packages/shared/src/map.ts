@@ -59,3 +59,30 @@ export function findObjects(map: TiledMap, kind: string): TiledObject[] {
 
 /** Converte posição em pixels de um objeto Tiled para coordenada de tile. */
 export const objectTile = (o: TiledObject, tile = 16) => ({ x: Math.floor(o.x / tile), y: Math.floor(o.y / tile) });
+
+// ---------------------------------------------------------------------------
+// Helpers de movimento compartilhados (servidor = autoridade, cliente = predição).
+// ---------------------------------------------------------------------------
+
+/** Tile de spawn do mapa (objeto "spawn_player"), ou o fallback informado. */
+export function mapSpawn(map: TiledMap, fallback: { x: number; y: number }): { x: number; y: number } {
+  const sp = findObjects(map, "spawn_player")[0];
+  return sp ? objectTile(sp, map.tilewidth) : { x: fallback.x, y: fallback.y };
+}
+
+/** Tiles a até este raio (Chebyshev) do spawn não bloqueiam por jogador (anti-grief no templo). */
+export const SPAWN_SAFE_RADIUS = 1;
+
+export function isNearSpawn(spawn: { x: number; y: number } | null | undefined, x: number, y: number): boolean {
+  return !!spawn && Math.max(Math.abs(spawn.x - x), Math.abs(spawn.y - y)) <= SPAWN_SAFE_RADIUS;
+}
+
+/**
+ * Checa só o terreno para um passo de (x,y) em (dx,dy): o destino precisa ser andável e,
+ * em diagonais, os dois vizinhos ortogonais também (sem cortar quina).
+ */
+export function canStepTerrain(grid: CollisionGrid, x: number, y: number, dx: number, dy: number): boolean {
+  if (!grid.isWalkable(x + dx, y + dy)) return false;
+  if (dx !== 0 && dy !== 0) return grid.isWalkable(x + dx, y) && grid.isWalkable(x, y + dy);
+  return true;
+}
