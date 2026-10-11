@@ -17,6 +17,7 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
   const me: PlayerView = {
     id: ME, name: "QA Combate", vocation: "knight", level: 8, x: spawn.x, y: spawn.y, dir: 4, stepMs: 280, seq: 0,
     hp: 160, maxHp: 200, mana: 80, maxMana: 100, xp: 400, targetId: "",
+    magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100,
   };
   (window as unknown as Record<string, unknown>).__scene = scene;
   scene.setLocalId(ME);
@@ -45,7 +46,7 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     const t = tiles[i * 2 % Math.max(1, tiles.length)];
     if (!t) return;
     const hp = MONSTERS[defId]?.hp ?? 50;
-    const m: MonsterView = { id: `m${i}`, defId, x: t.x, y: t.y, dir: 4, stepMs: 300, hp, maxHp: hp, targetId: "" };
+    const m: MonsterView = { id: `m${i}`, defId, x: t.x, y: t.y, dir: 4, stepMs: 300, hp, maxHp: hp, targetId: "", ownerId: "" };
     mons.set(m.id, m);
     home.set(m.id, t);
     scene.addMonster(m.id, m);

@@ -18,6 +18,15 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint32") maxMana = 50;
   @type("uint32") xp = 0;
   @type("string") targetId = "";
+  @type("uint16") magicLevel = 0;
+  @type("uint16") skillMelee = 10;
+  @type("uint16") skillDistance = 10;
+  @type("uint16") skillShield = 10;
+  @type("uint8") magicPct = 0;
+  @type("uint8") meleePct = 0;
+  @type("uint8") distancePct = 0;
+  @type("uint8") shieldPct = 0;
+  @type("uint16") speedPct = 100;
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */
@@ -31,6 +40,7 @@ export class MonsterState extends Schema implements MonsterView {
   @type("uint32") hp = 1;
   @type("uint32") maxHp = 1;
   @type("string") targetId = "";
+  @type("string") ownerId = "";
 }
 
 export class WorldState extends Schema {

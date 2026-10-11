@@ -5,3 +5,5 @@ export * from "./map.ts";
 export * from "./formulas.ts";
 export * from "./explore.ts";
 export * from "./data/monsters.ts";
+export * from "./data/spells.ts";
+export * from "./skills.ts";

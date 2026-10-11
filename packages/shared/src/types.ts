@@ -49,6 +49,17 @@ export interface PlayerView {
   maxMana: number;
   xp: number;          // XP total acumulada
   targetId: string;    // alvo de ataque atual ("" = nenhum); id de monstro ou sessionId de jogador
+  magicLevel: number;
+  skillMelee: number;
+  skillDistance: number;
+  skillShield: number;
+  /** Progresso (0–100) para o próximo nível de cada skill. */
+  magicPct: number;
+  meleePct: number;
+  distancePct: number;
+  shieldPct: number;
+  /** Velocidade efetiva em % (100 = normal; haste > 100). Informativo para o HUD. */
+  speedPct: number;
 }
 
 /** Espelho de MonsterState (packages/server/src/state.ts). */
@@ -62,6 +73,8 @@ export interface MonsterView {
   hp: number;
   maxHp: number;
   targetId: string;    // sessionId do jogador que está atacando ("" = nenhum)
+  /** sessionId do druida dono, se for invocação ("" = selvagem). */
+  ownerId: string;
 }
 
 export type DamageKind = "physical" | "fire" | "ice" | "energy" | "earth" | "holy" | "death" | "heal" | "mana";

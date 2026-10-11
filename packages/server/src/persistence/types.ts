@@ -6,6 +6,8 @@ export interface CharacterData {
   explored?: string;
   hp?: number;
   mana?: number;
+  /** Skills: nível e tentativas acumuladas no nível atual. */
+  skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
 }
 
 /** Registro persistido de um personagem (1 personagem por conta; nome da conta = nome do personagem). */
