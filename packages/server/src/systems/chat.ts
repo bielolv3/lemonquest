@@ -22,11 +22,18 @@ export function clearChatState(sessionId: string): void {
   recent.delete(sessionId);
 }
 
-export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg): void {
+export interface ChatHooks {
+  /** Palavras mágicas: retorna true se o texto é uma magia (já tratada; não vai para o chat). */
+  castWords?: (p: PlayerState, text: string) => boolean;
+}
+
+export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg, hooks: ChatHooks = {}): void {
   if (!msg || typeof msg.text !== "string") return;
   if (msg.channel !== "global") return; // party virá depois
   const text = msg.text.trim().slice(0, MAX_CHAT_LEN).trim();
   if (!text) return;
+  // Magia: as palavras aparecem sobre o conjurador via S2C.SpellCast (cliente), nunca no log do chat.
+  if (hooks.castWords?.(from, text)) return;
 
   if (!checkRate(client.sessionId)) {
     const notice: NoticeMsg = { text: "Calma! Você está falando rápido demais.", kind: "warn" };
