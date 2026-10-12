@@ -1,6 +1,6 @@
 // IA de monstros: idle → chase (ataca) → flee → return. Roda a cada tick, mas só "pensa"
 // (varredura de aggro, A*) a cada THINK_MS por monstro, com offsets escalonados.
-import { DIR_DELTA, Dir, dirFromDelta } from "@lemonquest/shared";
+import { DIR_DELTA, Dir, canStepTerrain, dirFromDelta } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, type Point } from "./pathfinding.ts";
 import { SLEEP_DIST, cheb, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
@@ -17,6 +17,8 @@ export const AI_PATH_MAX_NODES = 600;
 export const AI_PATH_MAX_DIST = 30;
 /** Voltando há mais que isso sem chegar → teleporta para o spawn. */
 export const RETURN_STUCK_MS = 15_000;
+/** Limite de nós da busca (BFS) por um tile com linha de visão quando o alvo está atrás de parede. */
+export const LOS_SEARCH_MAX_NODES = 400;
 
 const ALL_DIRS: Dir[] = [Dir.N, Dir.NE, Dir.E, Dir.SE, Dir.S, Dir.SW, Dir.W, Dir.NW];
 
@@ -129,9 +131,18 @@ function think(m: Monster, w: MonsterManager, now: number) {
   if (m.mode === "flee") { m.path = null; return; }
 
   const d = cheb(s.x, s.y, target.x, target.y);
-  const needMove = d > Math.max(1, m.def.attackRange);
-  if (!needMove) { m.path = null; return; }
+  const range = Math.max(1, m.def.attackRange);
+  const needMove = d > range;
   const moved = cheb(target.x, target.y, m.pathGoal.x, m.pathGoal.y);
+  if (!needMove) {
+    // Distância: no alcance mas sem linha de visão → anda até um tile que enxergue o alvo.
+    if (range > 1 && !w.los(s.x, s.y, target.x, target.y)) {
+      if (!m.path || m.path.length === 0 || moved >= 1 || now - m.pathAt >= PATH_RECOMPUTE_MS) computeLosPath(m, w, target, range, now);
+      return;
+    }
+    m.path = null;
+    return;
+  }
   if (!m.path || m.path.length === 0 || moved >= 2 || (moved >= 1 && now - m.pathAt >= PATH_RECOMPUTE_MS)) {
     computePath(m, w, target, now, m.def.attackRange <= 1);
   }
@@ -144,6 +155,50 @@ export function computePath(m: Monster, w: MonsterManager, goal: Point, now: num
     { maxNodes: AI_PATH_MAX_NODES, maxDist: AI_PATH_MAX_DIST });
   if (path && dropLast && path.length) path.pop();
   m.path = path && path.length ? path : null;
+}
+
+/**
+ * Caminho (BFS, passos de 1 tile) até o tile mais próximo, a até `range` do alvo, que tenha linha de visão
+ * até ele. Sem tile assim ao alcance da busca → caminho direto até o alvo (aproximar costuma abrir a visão).
+ */
+export function computeLosPath(m: Monster, w: MonsterManager, target: Point, range: number, now: number): void {
+  m.pathAt = now;
+  m.pathGoal = { x: target.x, y: target.y };
+  const path = findLosTilePath(m, w, target, range);
+  if (path) { m.path = path.length ? path : null; return; }
+  computePath(m, w, target, now, false);
+  m.pathGoal = { x: target.x, y: target.y };
+}
+
+/** BFS a partir do monstro; null = nenhum tile com visão encontrado dentro do limite de nós. */
+export function findLosTilePath(m: Monster, w: MonsterManager, target: Point, range: number): Point[] | null {
+  const s = m.s, b = m.bounds;
+  const W = w.grid.width;
+  const start = s.y * W + s.x;
+  const prev = new Map<number, number>([[start, -1]]);
+  const queue: number[] = [start];
+  for (let qi = 0; qi < queue.length && prev.size <= LOS_SEARCH_MAX_NODES; qi++) {
+    const cur = queue[qi];
+    const cx = cur % W, cy = (cur - cx) / W;
+    if (cur !== start) {
+      const d = cheb(cx, cy, target.x, target.y);
+      if (d >= 1 && d <= range && w.los(cx, cy, target.x, target.y)) {
+        const out: Point[] = [];
+        for (let k = cur; k !== start; k = prev.get(k)!) out.push({ x: k % W, y: Math.floor(k / W) });
+        return out.reverse();
+      }
+    }
+    for (const dir of ALL_DIRS) {
+      const { dx, dy } = DIR_DELTA[dir];
+      const nx = cx + dx, ny = cy + dy, key = ny * W + nx;
+      if (prev.has(key) || !canStepTerrain(w.grid, cx, cy, dx, dy) || w.blockedForMonster(nx, ny)) continue;
+      if (b && (nx < b.x0 || nx > b.x1 || ny < b.y0 || ny > b.y1)) continue;
+      if (!b && cheb(nx, ny, m.spawn.x, m.spawn.y) > LEASH_DIST) continue;
+      prev.set(key, cur);
+      queue.push(key);
+    }
+  }
+  return null;
 }
 
 // --- agir (todo tick) -------------------------------------------------------------
@@ -159,9 +214,11 @@ function act(m: Monster, w: MonsterManager, now: number) {
   const d = cheb(s.x, s.y, target.x, target.y);
   const range = Math.max(1, m.def.attackRange);
   const ranged = range > 1;
+  // Ataque à distância exige linha de visão (corpo a corpo não).
+  const sight = !ranged || d > range || w.los(s.x, s.y, target.x, target.y);
 
   // Ataque (fugindo, só os de distância continuam atirando).
-  if ((m.mode === "chase" || ranged) && d >= 1 && d <= range && now >= m.nextAttackAt && !w.inPz(s.x, s.y)) {
+  if ((m.mode === "chase" || ranged) && d >= 1 && d <= range && sight && now >= m.nextAttackAt && !w.inPz(s.x, s.y)) {
     const face = dirFromDelta(Math.sign(target.x - s.x), Math.sign(target.y - s.y));
     if (face !== null && now >= m.stepEndsAt) s.dir = face;
     m.nextAttackAt = now + m.def.attackMs;
@@ -172,8 +229,13 @@ function act(m: Monster, w: MonsterManager, now: number) {
   if (now < m.stepEndsAt) return;
   if (m.mode === "flee") { stepAway(m, w, target, now, false); return; }
   if (ranged) {
+    if (d <= range && !sight) {
+      // Atrás de parede: segue o caminho até um tile com visão (think recalcula); senão se aproxima.
+      if (!followPath(m, w, now, target)) greedyStep(m, w, target, now, false);
+      return;
+    }
     const keep = Math.max(1, range - 1);
-    if (d < keep) { stepAway(m, w, target, now, true); return; }
+    if (d < keep) { stepAway(m, w, target, now, true, true); return; }
     if (d <= range) return;
   } else if (d <= 1) return;
   if (!followPath(m, w, now, target)) greedyStep(m, w, target, now, false);
@@ -206,15 +268,19 @@ export function greedyStep(m: Monster, w: MonsterManager, goal: Point, now: numb
   return false;
 }
 
-/** Afasta-se de `from` (fuga ou kiting). `strict` = só passos que aumentam a distância. */
-function stepAway(m: Monster, w: MonsterManager, from: Point, now: number, strict: boolean): boolean {
+/**
+ * Afasta-se de `from` (fuga ou kiting). `strict` = só passos que aumentam a distância;
+ * `keepSight` = só passos que mantêm a linha de visão até `from` (kiting não se esconde atrás de parede).
+ */
+function stepAway(m: Monster, w: MonsterManager, from: Point, now: number, strict: boolean, keepSight = false): boolean {
   const s = m.s;
   const cur = cheb(s.x, s.y, from.x, from.y);
   const options = ALL_DIRS.map((dir) => {
     const { dx, dy } = DIR_DELTA[dir];
     const nx = s.x + dx, ny = s.y + dy;
     return { dir, d: cheb(nx, ny, from.x, from.y), e: (nx - from.x) ** 2 + (ny - from.y) ** 2, nx, ny };
-  }).filter((o) => (strict ? o.d > cur : o.d >= cur) && (!!m.bounds || cheb(o.nx, o.ny, m.spawn.x, m.spawn.y) <= LEASH_DIST))
+  }).filter((o) => (strict ? o.d > cur : o.d >= cur) && (!!m.bounds || cheb(o.nx, o.ny, m.spawn.x, m.spawn.y) <= LEASH_DIST)
+    && (!keepSight || w.los(o.nx, o.ny, from.x, from.y)))
     .sort((a, b) => b.d - a.d || b.e - a.e);
   for (const o of options) if (w.tryStep(m, o.dir, now)) return true;
   return false;

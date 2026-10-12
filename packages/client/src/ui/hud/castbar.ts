@@ -28,6 +28,7 @@ export const FAIL_TEXT: Record<CastFailReason, string> = {
   level: "Level insuficiente",
   vocation: "Sua vocação não pode usar esta magia",
   dead: "Você está morto",
+  no_los: "Sem linha de visão",
   unknown: "Não foi possível conjurar",
 };
 

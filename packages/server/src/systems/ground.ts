@@ -5,7 +5,7 @@
 // no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
 // servidor desligado também conta).
 import {
-  RARITY_LABEL, S2C,
+  RARITY_LABEL, S2C, lineOfSight,
   type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type NoticeMsg, type PickupItemMsg, type Rarity,
 } from "@lemonquest/shared";
 import { GroundItemState, type PlayerState } from "../state.ts";
@@ -78,20 +78,8 @@ const isInt = (n: unknown): n is number => Number.isInteger(n);
 const tileKey = (x: number, y: number) => `${x},${y}`;
 const ownerKey = (p: PlayerState) => p.name.toLowerCase();
 
-/** Bresenham: true se todos os tiles ENTRE a e b (exclusive) deixam passar. */
-export function lineClear(ax: number, ay: number, bx: number, by: number, pass: (x: number, y: number) => boolean): boolean {
-  let x = ax, y = ay;
-  const dx = Math.abs(bx - ax), dy = -Math.abs(by - ay);
-  const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
-  let err = dx + dy;
-  for (;;) {
-    if (x === bx && y === by) return true;
-    if ((x !== ax || y !== ay) && !pass(x, y)) return false;
-    const e2 = 2 * err;
-    if (e2 >= dy) { err += dy; x += sx; }
-    if (e2 <= dx) { err += dx; y += sy; }
-  }
-}
+/** Linha livre para arremessar (mesma regra da linha de visão de combate/magias: `lineOfSight` do shared). */
+export const lineClear = lineOfSight;
 
 export class GroundSystem {
   private readonly entries = new Map<string, GroundEntry>(); // ordem de inserção = mais antigo primeiro

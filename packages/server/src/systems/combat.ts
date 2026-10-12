@@ -183,6 +183,8 @@ export class CombatSystem {
       if (d > TARGET_MAX_DIST) { p.targetId = ""; continue; }
       const va = this.attackOf(p);
       if (d < 1 || d > va.range || now < (this.nextAttackAt.get(p.id) ?? 0)) continue;
+      // Ataque à distância (arco, varinha...) exige linha de visão; sem ela não ataca (a perseguição reposiciona).
+      if (va.ranged && !this.o.monsters.los(p.x, p.y, m.s.x, m.s.y)) continue;
       this.nextAttackAt.set(p.id, now + PLAYER_ATTACK_MS);
       this.lastCombatAt.set(p.id, now);
       this.hooks.onAutoAttack?.(p);

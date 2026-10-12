@@ -339,8 +339,10 @@ const DRAW = {
     const t = a.top, d = a.facing === "down" ? 1 : a.facing === "up" ? -1 : -front(a);
     const e = a.ext[t + 3] ?? [a.headL, a.headR];
     const bx = d > 0 ? e[1] - 3 : e[0] + 3, y = t + 3;
-    feather(F, bx, y - 1, d, 7, "white", "ruby", true);
-    F.set(bx, y, "ruby", 1);
+    // pluma macia: sobe, faz arco para trás (d) e cai; vermelha com brilho claro, ponta branca, afinando
+    const M = { L: ["ruby", 1], R: ["ruby", 2], D: ["ruby", 3], W: ["white", 1] };
+    const plume = ["..LLRL...", ".LRRRRRL.", "LRRRRDRRL", "RRDDDDDRD", "RDDRRRDRW", ".D...RDRW", "......DW.", "RD......."];
+    F.stamp(d > 0 ? bx : bx - 8, y - plume.length + 2, plume, M, d < 0);
   },
 
   // ---------- Invocador
@@ -373,17 +375,23 @@ const DRAW = {
   // ---------- Guerreiro
   guerreiro_asas(F, B, a) {
     const t = a.top;
-    const M = { w: ["white", 1], s: ["white", 2], d: ["white", 3] };
-    // asa direita (aponta para +x); espelhada para a esquerda
-    const wing = ["....w", "...ww", "..wws", ".wwsd", "wwsd.", "wsd.."];
+    // Asa em leque: 3 penas (de baixo para cima, a de cima sobrepõe), cada uma = 3 linhas
+    // (claro / médio / escuro) para ler como pena e não como chifre.
+    const fan = (L, rx, ry, d, tips) => {
+      for (const [dx, dy] of tips) {
+        L.line(rx, ry + 2, rx + d * dx, ry + dy + 2, "white", 3);
+        L.line(rx, ry + 1, rx + d * dx, ry + dy + 1, "white", 2);
+        L.line(rx, ry, rx + d * dx, ry + dy, "white", 1);
+      }
+    };
     if (side(a)) {
-      const f = front(a), c = a.c2 >> 1;
-      // asa do lado de cá, abrindo para trás
-      F.stamp(f < 0 ? c - 1 : c - 4, t - 2, wing, M, f > 0);
-      B.stamp(f < 0 ? c + 1 : c - 6, t - 3, ["....w", "...ww", "..ww."], M, f > 0);
+      const d = -front(a), c = a.c2 >> 1;
+      // asa varrida para trás: pena baixa mais curta, pena alta mais longa e mais erguida
+      fan(F, c - d * 0, t + 1, d, [[6, 1], [7, -2], [6, -5]]);
+      fan(B, c - d * 0, t, d, [[4, -4], [5, -6]]);
     } else {
-      F.stamp(a.headR - 2, t - 2, wing, M);
-      F.stamp(a.headL - 2, t - 2, wing, M, true);
+      fan(F, a.headR - 1, t + 2, 1, [[5, 1], [5, -2], [4, -5]]);
+      fan(F, a.headL + 1, t + 2, -1, [[5, 1], [5, -2], [4, -5]]);
     }
   },
   guerreiro_machado(F, B, a) {
@@ -466,6 +474,7 @@ const DRAW = {
     if (a.facing !== "up") { F.set(gx, gy, "ruby", 1); F.set(gx + 1, gy, "ruby", 3); F.set(gx, gy + 1, "ruby", 3); F.set(gx + 1, gy + 1, "ruby", 3); F.set(gx, gy - 1, "gold"); F.set(gx + 1, gy - 1, "gold"); }
     // pluma
     F.v(gx + (d > 0 ? 1 : 0), t - 1, gy - 2, "white");
+    F.v(gx + (d > 0 ? 1 : 0) + d, t - 1, gy - 3, "white", 2); // 2 px de largura: lê como pluma, não antena
     F.set(gx + (d > 0 ? 1 : 0) + d, t - 2, "white"); F.set(gx + (d > 0 ? 1 : 0) + d * 2, t - 3, "red"); F.set(gx + (d > 0 ? 1 : 0) + d, t - 3, "white");
   },
   oriental_cimitarra(F, B, a) {
@@ -640,9 +649,11 @@ const BASES = {
     recolorBody: { "#d14b34": "#5560b8", "#ef914f": "#5560b8", "#f2eaf1": "#7b86dc" },
     belt: ["#f1c471", "#d78b4a"],
     faceRecolorFromY: 26,
+    faceClean: { y0: 8, y1: 11, xL: 3, xR: 12, skin: "#ef914f" },
+    faceMaxY: 10, // abaixo disso, vermelho = manga/túnica (não rosto)
     faceBody: { "#d14b34": "#5560b8" },
-    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#d78b4a" },
-    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#cf736d" },
+    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#ef914f" },
+    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#f2ad7d" },
     // barba longa no retrato (abaixo do bigode do Master)
     faceDraw(px, w, h) {
       const set = (x, y, c) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; const v = hex(c); px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255; };
@@ -686,11 +697,11 @@ function generateBases() {
       for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
         const i = px(x, y); if (out[i + 3] < 128) continue;
         const h = rgbHex(out[i], out[i + 1], out[i + 2]);
-        let to = spec.recolor[h] ?? (y > a.neck || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
+        let to = spec.recolor[h] ?? (y > a.neck || (spec.faceMaxY !== undefined && y > spec.faceMaxY) || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
         // faixa dourada na cintura (só sobre a túnica)
         if (spec.belt && y === a.bottom - 2 && (to || Object.values(spec.recolor).includes(h))) to = spec.belt[(x + row) % 3 === 0 ? 1 : 0];
         // rosto: riscos vermelhos → sobrancelhas grisalhas (encostadas no cabelo branco) ou sombra de pele
-        if (!to && spec.faceFix && y < a.neck && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
+        if (!to && spec.faceFix && y < a.neck && y <= (spec.faceMaxY ?? 15) && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
         if (to) { const c = hex(to); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
       }
       // 2) detalhes permanentes (contorno não risca o cabelo/barba brancos da base)
@@ -703,6 +714,14 @@ function generateBases() {
         const isOutline = rgba[si] === OUTLINE[0] && rgba[si + 1] === OUTLINE[1] && rgba[si + 2] === OUTLINE[2];
         if (isOutline && out[i + 3] >= 128 && rgbHex(out[i], out[i + 1], out[i + 2]) === HAIR_WHITE) continue;
         out[i] = rgba[si]; out[i + 1] = rgba[si + 1]; out[i + 2] = rgba[si + 2]; out[i + 3] = 255;
+      }
+      // 3) limpeza do rosto de frente: sobra de pele laranja nas laterais (fora das sobrancelhas/olhos) vira capuz branco
+      if (spec.faceClean && a.facing === "down") {
+        for (let y = spec.faceClean.y0; y <= spec.faceClean.y1; y++) for (let x = 0; x < 16; x++) {
+          if (x > spec.faceClean.xL && x < spec.faceClean.xR) continue;
+          const i = px(x, y);
+          if (out[i + 3] >= 128 && rgbHex(out[i], out[i + 1], out[i + 2]) === spec.faceClean.skin) { const c = hex(HAIR_WHITE); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
+        }
       }
     }
     writePng(join(root, "assets", o.sheet), src.width, src.height, out);
@@ -787,6 +806,7 @@ export function generateAll() {
   writePreview(results, false);
   writePreview(results, true);
   writeOutfitPreview(results.find((r) => r.outfit.id === "mago"), "preview_mago.png");
+  writeFixesPreview(results);
   return results;
 }
 
@@ -814,6 +834,37 @@ function writeOutfitPreview(r, file) {
   for (let st = 0; st < 4; st++) for (let col = 0; col < 4; col++) cell(st, col, 0, (st * 4 + col) * CW + st * GAP, 0);
   for (let col = 0; col < 4; col++) for (let row = 0; row < 4; row++) cell(3, col, row, (col * 4 + row) * CW + col * GAP, CH);
   writePng(join(OUT_DIR, file), W, H, out);
+}
+
+/** Recorte 8x dos itens corrigidos (guerreiro: elmo alado, nobre: pena, mago: rosto): 4 lados x 2 frames de caminhada. */
+function writeFixesPreview(results) {
+  const S = 8, CW = 28, CH = 30, cx0 = OX - 6, cy0 = OY - 12;
+  const ids = ["guerreiro", "nobre", "mago"], frames = [];
+  for (let col = 0; col < 4; col++) for (const row of [1, 3]) frames.push([col, row]);
+  const W = frames.length * CW * S, H = ids.length * CH * S;
+  const out = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, k = ((x / (S * 4) | 0) + (y / (S * 4) | 0)) % 2;
+    out[i] = k ? 92 : 84; out[i + 1] = k ? 138 : 128; out[i + 2] = k ? 84 : 78; out[i + 3] = 255;
+  }
+  const put = (X, Y, c) => { for (let a = 0; a < S; a++) for (let b = 0; b < S; b++) { const i = ((Y * S + a) * W + X * S + b) * 4; out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; } };
+  const blit = (src, sw, sx, sy, dx, dy) => {
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) { const i = ((sy + y) * sw + sx + x) * 4; if (src[i + 3] >= 128) put(dx + x, dy + y, [src[i], src[i + 1], src[i + 2]]); }
+  };
+  ids.forEach((id, oi) => {
+    const r = results.find((q) => q.outfit.id === id);
+    if (!r) return;
+    frames.forEach(([col, row], k) => {
+      const dx = k * CW, dy = oi * CH;
+      for (const ad of r.addons) if (ad.back) blit(ad.back, ad.SW, col * FW + cx0, row * FH + cy0, dx, dy);
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const i = ((row * 16 + y) * r.base.width + col * 16 + x) * 4;
+        if (r.base.data[i + 3] >= 128) put(dx + x + (OX - cx0), dy + y + (OY - cy0), [r.base.data[i], r.base.data[i + 1], r.base.data[i + 2]]);
+      }
+      for (const ad of r.addons) blit(ad.front, ad.SW, col * FW + cx0, row * FH + cy0, dx, dy);
+    });
+  });
+  writePng(join(OUT_DIR, "preview_fixes.png"), W, H, out);
 }
 
 function writePreview(results, walk) {

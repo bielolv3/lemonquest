@@ -79,7 +79,7 @@ export const SPELLS: Record<string, SpellDef> = {
   // ------------------------------------------------------------------ CURA ÚNICA (todas as vocações)
   light_heal: {
     id: "light_heal", name: "Cura", words: "exura", vocations: ["knight", "paladin", "sorcerer", "druid"], level: 1, mana: 20, manaPerLevel: 1.5, manaMax: 70, cooldownMs: 1000,
-    target: "self", heal: { base: 22, perLevel: 2, perMagic: 1.8, variance: 0.15 }, fx: "heal",
+    target: "self", heal: { base: 22, perLevel: 2.2, perMagic: 0.45, variance: 0.15 }, fx: "heal",
     description: "Cura uma parte da sua vida. Cresce com o level e, principalmente para magos, com o magic level. O custo de mana sobe com o level.",
   },
 
@@ -219,10 +219,11 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Gerada pelo console.table do spells.test.ts. dmg/heal = média por alvo, sem variância.
  *
  * magia                voc       lvl  mana  cd(s)  esperado
- * CURA (todas as vocações; mana = 20 + 1.5*level, máx. 70; cd 1 s; fórmula 22 + 2*level + 1.8*ML, ±15%)
- * Cura (exura)          todas    1   ~22     1    lv1 ~24 (16% HP); lv10 mago ~55 (28%) pal ~46 (19%) cav ~44 (15%)
- *                                 lv20 (mana 50): mago ~89 (36%), pal ~71 (21%), cav ~66 (15%)
- *                                 lv30 (mana 65): mago ~122 (41%), pal ~95 (22%), cav ~89 (15%)
+ * CURA (todas as vocações; mana = 20 + 1.5*level, máx. 70; cd 1 s; fórmula 22 + 2.2*level + 0.45*ML, ±15%)
+ * Cura (exura)          todas    1   ~22     1    lv1 ~24 (16% HP); lv10 mago ~47 (24%) pal ~45 (19%) cav ~44 (16%)
+ *                                 lv20 (mana 50): mago ~73 (30%), pal ~68 (20%), cav ~67 (15%)
+ *                                 lv30 (mana 65): mago ~98 (33%), pal ~91 (21%), cav ~90 (15%)
+ *                                 (antes: 22 + 2*level + 1.8*ML → mago 36% no lv20 e 41% no lv30)
  * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida; cura aliados]
  * Removidas: Cura Intensa (exura gran), Cura Vital (exura vita), Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico):
  * cada vocação tem exatamente UMA cura própria.
