@@ -90,7 +90,7 @@ No `docker-compose.yml`, descomente/ajuste:
     volumes:
       - ./docker-data:/app/data
       - /mnt/nas/lemonquest:/backup-copy        # Linux: disco/NAS já montado no host
-      # - D:\backups-lemonquest:/backup-copy    # Windows (Docker Desktop): outra unidade
+      # - D:/backups-lemonquest:/backup-copy    # Windows (Docker Desktop): outra unidade
 ```
 
 e rode `docker compose up -d`. Confira no log: `[backup] cópia externa: /backup-copy/lemonquest-....db`.

@@ -29,7 +29,7 @@ services:
       - ./docker-data:/app/data
       # Cópia externa dos backups (outro disco, NAS, pasta de rede já montada no host):
       # - /mnt/nas/lemonquest:/backup-copy           # Linux
-      # - D:\\backups-lemonquest:/backup-copy         # Windows (Docker Desktop)
+      # - D:/backups-lemonquest:/backup-copy           # Windows (Docker Desktop)
     stop_grace_period: 30s           # tempo para salvar os jogadores antes de o Docker forçar a parada
     logging:
       driver: json-file
