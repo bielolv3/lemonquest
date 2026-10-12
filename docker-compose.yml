@@ -19,7 +19,7 @@ services:
       PORT: "2567"
       TZ: "America/Sao_Paulo"        # horário dos backups (lemonquest-AAAAMMDD-HH.db) e dos logs
       # Administradores (personagens): /kick /mute /anuncio /online /resetsenha /tp — funcionam em produção.
-      # LEMONQUEST_ADMINS: "Leonardo"
+      LEMONQUEST_ADMINS: "Leonardo"
       # Comandos de desenvolvimento (/level, /item...) — só fora de produção; deixe desligado no escritório.
       # LEMONQUEST_DEV_COMMANDS: "1"
       # Cópia extra dos backups em outro disco/compartilhamento (1 por dia, 14 dias). Monte o volume abaixo.
