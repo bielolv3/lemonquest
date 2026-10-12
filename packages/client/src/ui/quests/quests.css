@@ -22,6 +22,11 @@
 .quest-reward b { color: var(--hud-muted); font-weight: 500; }
 .quest-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .quest-actions:empty { display: none; }
+.quest-btn, .quest-tracker-head button {
+  font: inherit; font-size: 12px; cursor: pointer; color: var(--hud-text) !important; background: #1b2030;
+  border: 1px solid #343b4e; border-radius: 4px; transition: background-color 120ms, border-color 120ms;
+}
+.quest-btn:hover, .quest-tracker-head button:hover { background: #262d42; border-color: var(--hud-line-hi); }
 .quest-btn { padding: 3px 12px; height: 26px; }
 .quest-btn.primary { color: #11141c !important; background: #d9a441 !important; border-color: #d9a441 !important; font-weight: 600; }
 .quest-btn.primary:hover { background: #ebb551 !important; }

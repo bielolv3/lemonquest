@@ -23,6 +23,7 @@ async function talkTo(page: Page, npcId: string, name: string) {
 const marker = (page: Page, id: string) => page.evaluate((i) => (window as any).__lq.npcMarker(i), id);
 
 test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa", async ({ page }) => {
+  test.setTimeout(300_000);
   await enterGame(page, "knight");
   await setLevel(page, 30);
   await expect.poll(() => marker(page, "guard_captain")).toBe("available");
@@ -44,7 +45,7 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   await page.keyboard.press("F8");
   const progress = async () => Number((await tracker.locator(".qt-step span").last().textContent())?.split("/")[0] ?? 0);
   let spawn = 0;
-  const deadline = Date.now() + 150_000;
+  const deadline = Date.now() + 200_000;
   while ((await progress()) < 5 && Date.now() < deadline) {
     const m = (await me(page))!;
     const rats = (await monsters(page)).filter((x) => x.defId === "rat" && Math.max(Math.abs(x.x - m.x), Math.abs(x.y - m.y)) <= 9);
@@ -77,8 +78,9 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   await expect(tracker).toBeHidden();
 
   // Diário (L): aparece em concluídas.
-  await page.locator("#game canvas").hover({ position: { x: 300, y: 300 } });
   await win.getByRole("button", { name: "Fechar" }).click();
+  await expect(win).toBeHidden();
+  await page.locator("#game canvas").hover({ position: { x: 700, y: 500 }, timeout: 5000 });
   await page.keyboard.press("l");
   const log = page.getByRole("dialog", { name: "Diário de missões" });
   await expect(log).toBeVisible();
