@@ -18,10 +18,14 @@ Nome novo cria o personagem (senha de no mínimo 6 caracteres; escolha a vocaç�
 | Andar até um ponto | clique esquerdo no chão |
 | Atacar / soltar alvo | clique (esquerdo ou direito) na criatura |
 | Falar com NPC | clique no NPC |
+| Largar item no chão | arraste da mochila/equipamento para o mundo (até 3 tiles; `Shift` escolhe a quantidade) |
+| Pegar item do chão | clique direito, duplo clique ou `Ctrl`+clique no item (ou arraste para a mochila) |
 | Chat | `Enter` |
 | Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
 | Mapa | `M` |
 | Ajuda com todos os atalhos | `F1` ou `?` |
+
+Itens no chão somem em 10 min (raros ou melhores: 20 min) e também ao reiniciar o servidor (não são salvos).
 
 Não use a mesma senha do trabalho: a rede do escritório não é criptografada (HTTP).
 
