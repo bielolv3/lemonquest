@@ -97,6 +97,8 @@ export interface SpellSystemOptions {
   magicBonus?: (p: PlayerState) => number;
   /** Multiplicador do dano causado (postura). */
   dealtMult?: (p: PlayerState) => number;
+  /** Tile ocupado por algo além de monstros/jogadores (NPCs) — a investida não para em cima. */
+  isBlocked?: (x: number, y: number) => boolean;
 }
 
 type Resolved =
@@ -289,7 +291,7 @@ export class SpellSystem {
     const mm = this.o.monsters;
     let x = p.x, y = p.y;
     const free = (tx: number, ty: number) => {
-      if (mm.isMonsterAt(tx, ty)) return false;
+      if (mm.isMonsterAt(tx, ty) || this.o.isBlocked?.(tx, ty)) return false;
       for (const o of this.o.players()) if (o.id !== p.id && o.x === tx && o.y === ty) return false;
       return true;
     };

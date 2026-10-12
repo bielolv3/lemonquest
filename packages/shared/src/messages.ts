@@ -153,7 +153,14 @@ export interface NoticeMsg { text: string; kind?: "info" | "warn" | "good" }
 export interface LoginRequest { name: string; password: string; vocation?: Vocation }
 export type LoginResponse =
   | { ok: true; token: string; name: string; vocation: Vocation; isNew: boolean }
-  | { ok: false; error: "invalid_name" | "wrong_password" | "need_vocation" | "already_online" | "invalid_request" };
+  | {
+    ok: false;
+    error: "invalid_name" | "wrong_password" | "need_vocation" | "already_online" | "invalid_request" | "weak_password" | "too_many_attempts";
+    /** too_many_attempts: segundos até poder tentar de novo. */
+    retryAfterSec?: number;
+    /** Texto pronto (pt-BR) para erros que o cliente não conheça. */
+    message?: string;
+  };
 
 /** Opções do joinOrCreate("world", ...) */
 export interface JoinOptions { token: string }

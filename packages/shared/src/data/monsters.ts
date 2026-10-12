@@ -308,7 +308,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
 };
 
 export function monsterDef(id: string): MonsterDef | undefined {
-  return MONSTERS[id];
+  return Object.hasOwn(MONSTERS, id) ? MONSTERS[id] : undefined;
 }
 
 /*

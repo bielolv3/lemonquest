@@ -4,6 +4,8 @@ import type { Vocation } from "@tibinha/shared";
 export interface CharacterData {
   /** Máscara de exploração do minimapa (base64, ver shared/explore.ts). */
   explored?: string;
+  /** Largura do mapa quando `explored` foi salva (mudou → máscara descartada; mesma largura → prefixo aproveitado). */
+  exploredW?: number;
   hp?: number;
   mana?: number;
   /** Skills: nível e tentativas acumuladas no nível atual. */

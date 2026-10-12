@@ -116,4 +116,4 @@ export const NPCS: Record<string, NpcDef> = {
   },
 };
 
-export const npcDef = (id: string): NpcDef | undefined => NPCS[id];
+export const npcDef = (id: string): NpcDef | undefined => (Object.hasOwn(NPCS, id) ? NPCS[id] : undefined);

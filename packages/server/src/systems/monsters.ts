@@ -7,6 +7,7 @@ import {
 import { MonsterState, type PlayerState } from "../state.ts";
 import { updateMonster } from "./ai.ts";
 import type { Point } from "./pathfinding.ts";
+import { ErrorLog } from "./safe.ts";
 
 export interface SpawnPoint {
   defId: string;
@@ -86,6 +87,8 @@ export interface MonsterManagerOptions {
   /** Aviso global (anúncio de boss). */
   notice?: (text: string, kind: "info" | "warn" | "good") => void;
   log?: (msg: string) => void;
+  /** Log de erros (IA que lança): padrão ErrorLog com 1 linha/10 s. */
+  errors?: ErrorLog;
 }
 
 // --- leitura do mapa ---------------------------------------------------------
@@ -147,6 +150,7 @@ export class MonsterManager {
   private readonly respawns: { spawn: SpawnPoint; at: number }[] = [];
   private readonly warned = new Set<string>();
   private nextId = 1;
+  private readonly errors: ErrorLog;
   /** Jogadores do tick atual (≤ 32; varrer é mais barato que indexar). */
   playerList: PlayerState[] = [];
 
@@ -155,6 +159,7 @@ export class MonsterManager {
     this.W = o.grid.width;
     this.rng = o.rng ?? Math.random;
     this.now = o.now ?? Date.now;
+    this.errors = o.errors ?? new ErrorLog();
     this.mask = new Uint8Array(o.grid.width * o.grid.height);
     for (const r of o.safeZones ?? []) {
       for (let y = Math.max(0, r.y0); y <= Math.min(o.grid.height - 1, r.y1); y++)
@@ -371,8 +376,14 @@ export class MonsterManager {
     this.playerList = [...this.o.players()];
     this.processRespawns(now);
     for (const m of this.list.values()) {
-      if (m.s.ownerId) this.summonAi?.(m, this, now);
-      else updateMonster(m, this, now);
+      try {
+        if (m.s.ownerId) this.summonAi?.(m, this, now);
+        else updateMonster(m, this, now);
+      } catch (e) {
+        // Monstro com estado corrompido: remove (o respawn normal recria) em vez de derrubar o tick.
+        this.errors.report(`monstro ${m.s.defId}`, e);
+        try { this.clearTargetsOf(m.s.id); this.kill(m, now); } catch (e2) { this.errors.report("monstro/despawn", e2); }
+      }
     }
   }
 

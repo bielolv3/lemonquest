@@ -198,7 +198,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
 };
 
-export const spellDef = (id: string): SpellDef | undefined => SPELLS[id];
+export const spellDef = (id: string): SpellDef | undefined => (Object.hasOwn(SPELLS, id) ? SPELLS[id] : undefined);
 
 export function spellsFor(vocation: Vocation): SpellDef[] {
   return Object.values(SPELLS).filter((s) => s.vocation === vocation).sort((a, b) => a.level - b.level);

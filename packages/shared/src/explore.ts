@@ -7,7 +7,13 @@ export class ExploredMask {
 
   constructor(readonly width: number, readonly height: number, bits?: Uint8Array) {
     const len = Math.ceil((width * height) / 8);
-    this.bits = bits && bits.length === len ? bits : new Uint8Array(len);
+    if (bits && bits.length === len) {
+      this.bits = bits;
+    } else {
+      this.bits = new Uint8Array(len);
+      // Máscara menor (mapa cresceu para baixo, mesma largura): as linhas antigas continuam válidas → copia o prefixo.
+      if (bits && bits.length < len) this.bits.set(bits);
+    }
   }
 
   has(x: number, y: number): boolean {
@@ -37,13 +43,18 @@ export class ExploredMask {
     return btoa(s);
   }
 
-  static fromBase64(width: number, height: number, b64: string | undefined): ExploredMask {
-    if (!b64) return new ExploredMask(width, height);
+  /**
+   * `storedWidth` = largura do mapa quando a máscara foi salva (se conhecida). Largura diferente → descarta
+   * (as linhas não batem); mesma largura e máscara menor → aproveita o prefixo.
+   */
+  static fromBase64(width: number, height: number, b64: string | undefined, storedWidth?: number): ExploredMask {
+    if (!b64 || (storedWidth !== undefined && storedWidth !== width)) return new ExploredMask(width, height);
     try {
       const s = atob(b64);
       const bits = new Uint8Array(s.length);
       for (let i = 0; i < s.length; i++) bits[i] = s.charCodeAt(i);
-      return new ExploredMask(width, height, bits);
+      // Máscara maior que o mapa atual (mapa encolheu): não dá para reaproveitar com segurança.
+      return new ExploredMask(width, height, bits.length <= Math.ceil((width * height) / 8) ? bits : undefined);
     } catch {
       return new ExploredMask(width, height);
     }

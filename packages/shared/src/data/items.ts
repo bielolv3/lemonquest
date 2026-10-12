@@ -327,5 +327,5 @@ trinket("amulet_goblin_king", "Amuleto do Rei Goblin", "amulet", "gold", 38, { a
 /** Catálogo (derivado das listas acima). */
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(ITEM_LIST.map((d) => [d.id, d]));
 
-export const itemDef = (id: string): ItemDef | undefined => ITEMS[id];
+export const itemDef = (id: string): ItemDef | undefined => (Object.hasOwn(ITEMS, id) ? ITEMS[id] : undefined);
 export const isEquipable = (d: ItemDef): boolean => d.slot != null;

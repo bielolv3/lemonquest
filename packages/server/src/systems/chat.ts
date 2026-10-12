@@ -18,6 +18,9 @@ export function checkRate(sessionId: string, now = Date.now()): boolean {
   return true;
 }
 
+/** Remove caracteres de controle/formatação (quebras de linha, RTL override, zero-width, surrogates soltos). */
+export const sanitizeText = (s: string): string => s.replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, "");
+
 export function clearChatState(sessionId: string): void {
   recent.delete(sessionId);
 }
@@ -25,16 +28,19 @@ export function clearChatState(sessionId: string): void {
 export interface ChatHooks {
   /** Palavras mágicas: retorna true se o texto é uma magia (já tratada; não vai para o chat). */
   castWords?: (p: PlayerState, text: string) => boolean;
-  /** Comandos (dev): retorna true se o texto era um comando (já tratado; nunca vai para o chat). */
+  /** Comandos (dev): retorna true se tratou. Texto com "/" NUNCA vai para o chat (desconhecido → aviso). */
   command?: (p: PlayerState, text: string) => boolean;
 }
 
 export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg, hooks: ChatHooks = {}): void {
   if (!msg || typeof msg.text !== "string") return;
   if (msg.channel !== "global") return; // party virá depois
-  const text = msg.text.trim().slice(0, MAX_CHAT_LEN).trim();
+  const text = sanitizeText(msg.text.slice(0, MAX_CHAT_LEN * 4)).trim().slice(0, MAX_CHAT_LEN).trim();
   if (!text) return;
-  if (text.startsWith("/") && hooks.command?.(from, text)) return;
+  if (text.startsWith("/")) {
+    if (!hooks.command?.(from, text)) client.send(S2C.Notice, { text: "Comando desconhecido.", kind: "warn" } satisfies NoticeMsg);
+    return;
+  }
   // Magia: as palavras aparecem sobre o conjurador via S2C.SpellCast (cliente), nunca no log do chat.
   if (hooks.castWords?.(from, text)) return;
 

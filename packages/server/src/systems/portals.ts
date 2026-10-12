@@ -1,6 +1,7 @@
 import { findObjects, objectTile, type TeleportedMsg, type TiledMap } from "@tibinha/shared";
 import type { PlayerState } from "../state.ts";
 import type { MovementSystem } from "./movement.ts";
+import { nearestFreeTile } from "../world/tiles.ts";
 
 export const PORTAL_COOLDOWN_MS = 1000;
 
@@ -17,6 +18,8 @@ export class PortalSystem {
     private readonly movement: Pick<MovementSystem, "teleport">,
     private readonly send: (playerId: string, msg: TeleportedMsg) => void,
     private readonly now: () => number = Date.now,
+    /** Tile livre para chegar (andável, sem monstro/NPC/jogador). Destino ocupado → tile livre mais próximo. */
+    private readonly isFree?: (x: number, y: number, self: PlayerState) => boolean,
   ) {
     for (const o of findObjects(tiled, "portal")) {
       const num = (n: string) => Number(o.properties?.find((p) => p.name === n)?.value);
@@ -32,6 +35,12 @@ export class PortalSystem {
     return this.portals.has(`${x},${y}`);
   }
 
+  /** Destino do portal em (x,y), se houver (alcançabilidade). */
+  destination(x: number, y: number): { x: number; y: number } | undefined {
+    const d = this.portals.get(`${x},${y}`);
+    return d ? { x: d.toX, y: d.toY } : undefined;
+  }
+
   /** Chamar após o movimento, a cada tick. */
   check(p: PlayerState): void {
     const prev = this.last.get(p);
@@ -42,8 +51,10 @@ export class PortalSystem {
     const now = this.now();
     if (now < (this.cooldownUntil.get(p) ?? 0)) return;
     this.cooldownUntil.set(p, now + PORTAL_COOLDOWN_MS);
-    this.movement.teleport(p, dest.toX, dest.toY);
-    this.last.set(p, { x: dest.toX, y: dest.toY });
-    this.send(p.id, { x: dest.toX, y: dest.toY });
+    const free = this.isFree;
+    const to = (free && nearestFreeTile(dest.toX, dest.toY, (x, y) => free(x, y, p))) || { x: dest.toX, y: dest.toY };
+    this.movement.teleport(p, to.x, to.y);
+    this.last.set(p, to);
+    this.send(p.id, to);
   }
 }
