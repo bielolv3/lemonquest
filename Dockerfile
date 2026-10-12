@@ -28,8 +28,8 @@ RUN apk add --no-cache binutils && strip --strip-all /usr/local/bin/node && node
 # ---------------------------------------------------------------- runtime
 FROM alpine:3.22 AS runtime
 # libstdc++/libgcc: exigidos pelo binário do Node no Alpine · tzdata: TZ=America/Sao_Paulo (backups e logs).
-# util-linux-misc: setpriv de verdade (o do busybox não tem --reuid).
-RUN apk add --no-cache libstdc++ libgcc tzdata util-linux-misc
+# setpriv: o de verdade (o do busybox não tem --reuid) (o do busybox não tem --reuid).
+RUN apk add --no-cache libstdc++ libgcc tzdata setpriv
 COPY --from=nodebin /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
