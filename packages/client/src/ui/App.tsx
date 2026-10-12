@@ -8,6 +8,7 @@ import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { CombatOverlays } from "./combat/CombatOverlays.tsx";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
+import { Announce } from "./Announce.tsx";
 import { FXTEST } from "../game/fxtest.ts";
 import { UITEST } from "./uitest/flag.ts";
 import { WorldMapOverlay, ZoneBanner } from "./minimap/Minimap.tsx";
@@ -28,6 +29,7 @@ export function App() {
       <Chat />
       <WorldMapOverlay />
       <ZoneBanner />
+      <Announce />
       <TeleportFade />
       <CombatOverlays />
       <ConnectionStatus />

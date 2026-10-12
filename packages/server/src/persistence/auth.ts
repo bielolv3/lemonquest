@@ -3,11 +3,12 @@ import { promisify } from "node:util";
 import { Router, type Response } from "express";
 import {
   MAX_CHARACTERS_PER_ACCOUNT, MAX_NAME_LEN, VOCATIONS,
-  type AccountSession, type AuthFail, type CharacterSummary, type CreateCharacterRequest, type LoginRequest,
-  type PlayRequest, type PlayResponse,
+  type AccountSession, type AuthFail, type CharacterSummary, type CreateCharacterRequest, type DeleteCharacterRequest,
+  type LoginRequest, type PlayRequest, type PlayResponse, type ResetPasswordRequest,
 } from "@lemonquest/shared";
 import {
-  countCharacters, createAccount, createCharacter, findAccount, getCharacterByName, listCharacters, nameKey,
+  countCharacters, createAccount, createCharacter, deleteCharacterArchived, deleteResetCode, findAccount,
+  getCharacterByName, getResetCode, listCharacters, nameKey, setResetCode, updatePassword,
 } from "./db.ts";
 import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 import type { CharacterRecord } from "./types.ts";
@@ -37,6 +38,14 @@ export const CREATE_MAX_PER_HOUR = 3;
 /** 10 tentativas de criar personagem por conta por hora (anti-spam/varredura de nomes). */
 export const CHAR_CREATE_MAX_PER_HOUR = 10;
 
+/** Código de recuperação de senha: 8 caracteres, vale 24 h, uso único. */
+export const RESET_CODE_LEN = 8;
+export const RESET_CODE_TTL_MS = 24 * 3600_000;
+/** Sem 0/O/1/I/L: fácil de ditar e de digitar. */
+const RESET_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+/** 10 tentativas de excluir personagem por conta por hora (a senha errada também conta no limitador do login). */
+export const DELETE_MAX_PER_HOUR = 10;
+
 const scrypt = promisify(crypto.scrypt) as (pw: string, salt: string, len: number) => Promise<Buffer>;
 
 /** Dados que o onAuth estático entrega ao onJoin (client.auth). Precisa ser JSON puro (passa por IPC). */
@@ -62,14 +71,17 @@ const ipFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_
 const accountFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_LOCK_MS);
 const creations = new RateCounter(CREATE_MAX_PER_HOUR, 3600_000);
 const charCreations = new RateCounter(CHAR_CREATE_MAX_PER_HOUR, 3600_000);
+/** Recuperação de senha: mesmo esquema do login (5 falhas/min por IP e por conta → 5 min). */
+const resetIpFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_LOCK_MS);
+const resetAccountFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_LOCK_MS);
+const deletions = new RateCounter(DELETE_MAX_PER_HOUR, 3600_000);
 let lastSweep = 0;
 
 /** Zera o estado em memória (testes). */
 export function resetAuthState(): void {
   tokens.clear(); pendingByKey.clear(); online.clear(); sessions.clear();
-  for (const l of [ipFails, accountFails]) l.sweep(Number.MAX_SAFE_INTEGER);
-  creations.sweep(Number.MAX_SAFE_INTEGER);
-  charCreations.sweep(Number.MAX_SAFE_INTEGER);
+  for (const l of [ipFails, accountFails, resetIpFails, resetAccountFails]) l.sweep(Number.MAX_SAFE_INTEGER);
+  for (const c of [creations, charCreations, deletions]) c.sweep(Number.MAX_SAFE_INTEGER);
   lastSweep = 0;
 }
 
@@ -115,7 +127,8 @@ function sweep(now: number) {
   if (now - lastSweep < 60_000) return;
   lastSweep = now;
   for (const [t, s] of sessions) if (s.expires <= now) sessions.delete(t);
-  ipFails.sweep(now); accountFails.sweep(now); creations.sweep(now); charCreations.sweep(now);
+  for (const l of [ipFails, accountFails, resetIpFails, resetAccountFails]) l.sweep(now);
+  for (const c of [creations, charCreations, deletions]) c.sweep(now);
 }
 
 function issueToken(name: string, weakPassword: boolean, now: number): string {
@@ -284,6 +297,137 @@ export function handleResume(req: { session?: unknown }, ctx: LoginContext = {})
   return sessionResponse(req.session as string, s);
 }
 
+/** Normaliza o código digitado: maiúsculas, sem espaços/hífens. */
+export const normalizeResetCode = (raw: unknown): string =>
+  typeof raw === "string" ? raw.toUpperCase().replace(/[\s-]/g, "").slice(0, 32) : "";
+
+/** Código formatado para exibir/ditar: ABCD-EFGH (o hífen é opcional na hora de digitar). */
+export const formatResetCode = (code: string): string => `${code.slice(0, 4)}-${code.slice(4)}`;
+
+export interface ResetCodeResult { code: string; account: string; expiresAt: number }
+
+/**
+ * Gera um código de recuperação para a conta (substitui um anterior). Guarda só o hash (scrypt + salt).
+ * Devolve null se a conta não existe. `by` = quem gerou (admin/CLI), para o log.
+ */
+export async function createResetCode(accountName: string, by: string, now = Date.now()): Promise<ResetCodeResult | null> {
+  const acc = typeof accountName === "string" ? findAccount(accountName.normalize("NFC").trim().replace(/\s+/g, " ")) : undefined;
+  if (!acc) return null;
+  let code = "";
+  for (let i = 0; i < RESET_CODE_LEN; i++) code += RESET_ALPHABET[crypto.randomInt(RESET_ALPHABET.length)];
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = await hashPassword(code, salt);
+  const expiresAt = now + RESET_CODE_TTL_MS;
+  setResetCode(acc.id, hash, salt, expiresAt, by, now);
+  console.log(`[auth] código de recuperação gerado para a conta ${acc.name} por ${by} (vale até ${new Date(expiresAt).toLocaleString("pt-BR")})`);
+  return { code, account: acc.name, expiresAt };
+}
+
+/** Derruba todas as sessões de conta abertas (senha trocada). */
+function closeAccountSessions(accountId: number) {
+  for (const [t, s] of sessions) if (s.accountId === accountId) sessions.delete(t);
+}
+
+/** POST /api/reset-password — troca a senha com um código de recuperação válido e já entra na conta. */
+export async function handleResetPassword(req: ResetPasswordRequest, ctx: LoginContext = {}): Promise<AccountSession> {
+  const now = ctx.now ?? Date.now;
+  const ip = ctx.ip ?? "?";
+  if (!req || typeof req !== "object" || typeof req.password !== "string" || typeof req.code !== "string") return fail("invalid_request");
+  const account = normalizeAccount(req.account);
+  if (!account) return fail("invalid_account");
+  if (req.password.length < MIN_PASSWORD_LEN || req.password.length > MAX_PASSWORD_LEN) {
+    return fail("weak_password", `A senha precisa ter pelo menos ${MIN_PASSWORD_LEN} caracteres.`);
+  }
+  const key = nameKey(account);
+  sweep(now());
+  const wait = Math.max(resetIpFails.lockedFor(ip, now()), resetAccountFails.lockedFor(key, now()));
+  if (wait > 0) return limited(wait);
+
+  const code = normalizeResetCode(req.code);
+  const acc = findAccount(account);
+  const row = acc ? getResetCode(acc.id) : undefined;
+  resetIpFails.begin(ip);
+  resetAccountFails.begin(key);
+  let ok = false;
+  try {
+    ok = !!row && row.expires_at > now() && code.length === RESET_CODE_LEN && await checkPassword(code, row.code_salt, row.code_hash);
+  } finally {
+    resetIpFails.end(ip, !ok, now());
+    resetAccountFails.end(key, !ok, now());
+  }
+  if (!ok || !acc) {
+    if (acc && row && row.expires_at <= now()) deleteResetCode(acc.id);
+    console.warn(`[auth] código de recuperação inválido/expirado para a conta "${account}" de ${ip}`);
+    return fail("invalid_code");
+  }
+  // Uso único: o código sai ANTES de gravar a senha (dois pedidos simultâneos com o mesmo código: só um troca).
+  const still = getResetCode(acc.id);
+  if (!still || still.code_hash !== row!.code_hash) return fail("invalid_code");
+  deleteResetCode(acc.id);
+  const salt = crypto.randomBytes(16).toString("hex");
+  updatePassword(acc.id, await hashPassword(req.password, salt), salt);
+  closeAccountSessions(acc.id);
+  resetAccountFails.reset(key);
+  accountFails.reset(key);
+  console.log(`[auth] senha da conta ${acc.name} redefinida com código de recuperação (de ${ip})`);
+  const s = openSession(acc.id, acc.name, false, now());
+  return sessionResponse(s, sessions.get(s)!);
+}
+
+const ONLINE_MSG = "Esse personagem está online. Saia do jogo com ele antes de excluí-lo.";
+const TRAINING_MSG = "Esse personagem está treinando offline. Entre com ele (o treino termina), saia e tente de novo.";
+
+/** POST /api/characters/delete — exclui (arquivando) um personagem da conta. Exige a senha da conta. */
+export async function handleDeleteCharacter(req: DeleteCharacterRequest, ctx: LoginContext = {}): Promise<AccountSession> {
+  const now = ctx.now ?? Date.now;
+  const ip = ctx.ip ?? "?";
+  if (!req || typeof req !== "object" || typeof req.password !== "string") return fail("invalid_request");
+  sweep(now());
+  const s = touchSession(req.session, now());
+  if (!s) return fail("invalid_session");
+  const key = nameKey(s.account);
+  const wait = Math.max(ipFails.lockedFor(ip, now()), accountFails.lockedFor(key, now()));
+  if (wait > 0) return limited(wait);
+  const ck = String(s.accountId);
+  const dw = deletions.waitFor(ck, now());
+  if (dw > 0) return limited(dw);
+  deletions.record(ck, now());
+  if (typeof req.name !== "string" || req.name.length > 64) return fail("no_character");
+  const ckey = nameKey(req.name.normalize("NFC").trim());
+  const find = () => listCharacters(s.accountId).find((c) => nameKey(c.name) === ckey);
+  const rec = find();
+  if (!rec) return fail("no_character");
+  if (online.has(ckey)) return fail("character_online", ONLINE_MSG);
+  if (rec.data.offlineTraining) return fail("character_training", TRAINING_MSG);
+
+  const acc = findAccount(s.account);
+  if (!acc) return fail("invalid_session");
+  ipFails.begin(ip);
+  accountFails.begin(key);
+  let ok = false;
+  try {
+    ok = req.password.length <= MAX_PASSWORD_LEN && req.password.length >= LEGACY_MIN_PASSWORD_LEN
+      && await checkPassword(req.password, acc.salt, acc.pass_hash);
+  } finally {
+    ipFails.end(ip, !ok, now());
+    accountFails.end(key, !ok, now());
+  }
+  if (!ok) {
+    console.warn(`[auth] senha errada ao excluir personagem na conta "${s.account}" de ${ip}`);
+    return fail("wrong_password");
+  }
+  // Rechecagem depois do hash assíncrono: pode ter entrado no jogo nesse meio-tempo.
+  const again = find();
+  if (!again) return fail("no_character");
+  if (online.has(ckey)) return fail("character_online", ONLINE_MSG);
+  if (again.data.offlineTraining) return fail("character_training", TRAINING_MSG);
+  const pending = pendingByKey.get(ckey);
+  if (pending) { tokens.delete(pending); pendingByKey.delete(ckey); }
+  if (!deleteCharacterArchived(again.id, s.accountId, s.account, now())) return fail("no_character");
+  console.log(`[auth] personagem excluído: ${again.name} (level ${again.level} ${again.vocation}) da conta ${s.account} — arquivado em deleted_characters`);
+  return sessionResponse(req.session, s);
+}
+
 /** POST /api/logout — encerra a sessão da conta. */
 export function handleLogout(req: { session?: unknown }): { ok: true } {
   if (typeof req?.session === "string") sessions.delete(req.session);
@@ -312,6 +456,8 @@ export const authRouter = Router();
 authRouter.post("/login", route(handleLogin));
 authRouter.post("/session", route(handleResume));
 authRouter.post("/characters", route(handleCreateCharacter));
+authRouter.post("/characters/delete", route(handleDeleteCharacter));
+authRouter.post("/reset-password", route(handleResetPassword));
 authRouter.post("/play", route(handlePlay));
 authRouter.post("/logout", route(handleLogout));
 

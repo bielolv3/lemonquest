@@ -134,7 +134,11 @@ export const S2C = {
   ArenaResult: "arenaResult",
   /** Você foi teletransportado (portal). x,y = novo tile. */
   Teleported: "teleported",
+  /** Anúncio de um administrador (faixa grande no centro da tela, para todos). */
+  Announce: "announce",
 } as const;
+
+export interface AnnounceMsg { text: string; from: string }
 
 export interface TeleportedMsg { x: number; y: number }
 
@@ -218,7 +222,12 @@ export interface LevelUpMsg { level: number; maxHp: number; maxMana: number }
 export interface DiedMsg { lostXp: number; killerName: string }
 export interface CreatureDiedMsg { id: string; x: number; y: number; defId: string }
 export interface ExploredMsg { width: number; height: number; bits: string /* base64 */ }
-export interface NoticeMsg { text: string; kind?: "info" | "warn" | "good" }
+export interface NoticeMsg {
+  text: string;
+  kind?: "info" | "warn" | "good";
+  /** Também registra no chat (linha de sistema, copiável) — respostas de comandos de admin. */
+  log?: boolean;
+}
 
 /**
  * Fluxo de contas (uma conta → vários personagens):
@@ -245,7 +254,7 @@ export const MAX_CHARACTERS_PER_ACCOUNT = 5;
 export type AuthError =
   | "invalid_request" | "invalid_account" | "invalid_name" | "wrong_password" | "no_account" | "account_taken"
   | "weak_password" | "too_many_attempts" | "name_taken" | "too_many_characters" | "invalid_session" | "no_character"
-  | "already_online";
+  | "already_online" | "invalid_code" | "character_online" | "character_training";
 export type AuthFail = {
   ok: false;
   error: AuthError;
@@ -259,12 +268,20 @@ export type AccountSession = { ok: true; session: string; account: string; chara
 export interface CreateCharacterRequest { session: string; name: string; vocation: Vocation }
 export interface PlayRequest { session: string; name: string }
 export type PlayResponse = { ok: true; token: string; name: string; vocation: Vocation } | AuthFail;
+/**
+ * Recuperação de senha: um admin gera um código (/resetsenha <conta> no jogo, ou `npm run admin -- reset-password <conta>`).
+ * POST /api/reset-password {account, code, password} → AccountSession (já entra na conta). Código de uso único, 24 h.
+ */
+export interface ResetPasswordRequest { account: string; code: string; password: string }
+/** POST /api/characters/delete — exclui um personagem da conta (exige a senha; recusa se online/treinando). */
+export interface DeleteCharacterRequest { session: string; name: string; password: string }
 /** @deprecated mantido só para compatibilidade de tipos antigos. */
 export type LoginResponse = AccountSession;
 
 /** Códigos de fechamento próprios (o Colyseus reserva 4000–4010). */
 export const CLOSE_REPLACED = 4100;   // a conta entrou em outro lugar
 export const CLOSE_TRAINING = 4101;   // saiu para treinar offline
+export const CLOSE_KICKED = 4102;     // expulso por um administrador (reason = motivo)
 
 /** Opções do joinOrCreate("world", ...) */
 export interface JoinOptions { token: string }

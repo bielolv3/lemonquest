@@ -1,7 +1,8 @@
 import type { Room } from "@colyseus/sdk";
 import {
-  CLOSE_REPLACED, CLOSE_TRAINING,
-  type AccountSession, type AuthFail, type CreateCharacterRequest, type JoinOptions, type LoginRequest, type PlayResponse,
+  CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING,
+  type AccountSession, type AuthFail, type CreateCharacterRequest, type DeleteCharacterRequest, type JoinOptions, type LoginRequest,
+  type PlayResponse, type ResetPasswordRequest,
 } from "@lemonquest/shared";
 import { client, endpoint } from "./net.ts";
 
@@ -19,7 +20,7 @@ export type ConnStatus = "idle" | "online" | "reconnecting" | "closed";
  * FAILED_TO_RECONNECT=4003, MAY_TRY_RECONNECT). CLOSE_REPLACED (4100) = personagem entrou em outro lugar;
  * CLOSE_TRAINING (4101) = saiu para treinar offline (ver shared/messages.ts).
  */
-export { CLOSE_REPLACED, CLOSE_TRAINING };
+export { CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING };
 
 /** Sessão da conta guardada na aba (sessionStorage): após desconectar, volta direto à lista de personagens. */
 const ACCOUNT_SESSION_KEY = "lemonquest.accountSession";
@@ -51,6 +52,12 @@ export function closeMessage(code: number, reason?: string): string {
     return "Sua conta entrou em outro lugar.";
   }
   if (code === 4001 && !/reconnect/.test(r)) return "O servidor foi reiniciado ou desligado.";
+  if (code === CLOSE_KICKED) {
+    const why = (reason ?? "").trim();
+    return why && why !== "Expulso por um administrador"
+      ? `Você foi expulso por um administrador. Motivo: ${why}`
+      : "Você foi expulso por um administrador.";
+  }
   if (code === CLOSE_TRAINING) return "Seu personagem está treinando offline. Entre de novo para ver o progresso.";
   if (/kick|expuls/.test(r)) return "Você foi expulso do servidor.";
   if (code === 4003 || /reconnect/.test(r) || code === 1006 || code === 1001) {
@@ -110,6 +117,16 @@ class Session {
 
   async createCharacter(req: Omit<CreateCharacterRequest, "session">): Promise<AccountSession> {
     return this.remember(await post<AccountSession>("characters", { ...req, session: this.accountSession ?? "" }));
+  }
+
+  /** Troca a senha com o código de recuperação e já entra na conta. */
+  async resetPassword(req: ResetPasswordRequest): Promise<AccountSession> {
+    return this.remember(await post<AccountSession>("reset-password", req));
+  }
+
+  /** Exclui um personagem da conta (exige a senha). Devolve a lista atualizada. */
+  async deleteCharacter(req: Omit<DeleteCharacterRequest, "session">): Promise<AccountSession> {
+    return this.remember(await post<AccountSession>("characters/delete", { ...req, session: this.accountSession ?? "" }));
   }
 
   async play(name: string): Promise<PlayResponse> {

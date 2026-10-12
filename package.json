@@ -14,7 +14,8 @@
     "start:fast": "npm run start -w @lemonquest/server",
     "typecheck": "tsc -p packages/shared && tsc -p packages/server && tsc -p packages/client",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "admin": "npm run admin -w @lemonquest/server --"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

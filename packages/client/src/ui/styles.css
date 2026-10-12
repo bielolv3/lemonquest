@@ -184,3 +184,40 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; col
 .conn-card h2 { margin: 0; font-size: 22px; color: #d9a441; }
 .conn-card p { margin: 0; font-size: 15px; color: #c9ccd8; }
 .login-notice { margin: 0; font-size: 12px; color: #7f8496; text-align: center; border-top: 1px solid #2c3242; padding-top: 10px; }
+
+/* ---------- Recuperar senha / excluir personagem ---------- */
+.field input.reset-code { letter-spacing: 3px; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.char-del {
+  font: inherit; font-size: 11px; line-height: 1; padding: 4px 7px; flex: none; cursor: pointer;
+  color: #a07878; background: transparent; border: 1px solid #3a2c30; border-radius: 3px;
+  opacity: 0; transition: opacity 80ms, color 80ms, border-color 80ms;
+}
+.char-card:hover .char-del, .char-card.selected .char-del, .char-del:focus-visible { opacity: 1; }
+.char-del:hover:not(:disabled) { color: #ff8a7a; border-color: #ff8a7a; }
+.char-del:disabled { cursor: default; }
+@media (hover: none) { .char-del { opacity: 1; } }
+.login-dialog-wrap {
+  position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 7, 11, 0.7);
+}
+.login-dialog { width: min(400px, 92vw); padding: 20px; display: flex; flex-direction: column; gap: 12px; border-color: #6b3a3a; }
+.login-step.danger { color: #ff8a7a; }
+.login-dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.login-dialog-actions .btn { flex: 1; }
+.btn.danger { background: #b5473d; border-color: #b5473d; color: #fff3ef; }
+
+/* ---------- Anúncio de admin (/anuncio) ---------- */
+.announce {
+  position: fixed; top: 30%; left: 50%; transform: translateX(-50%); z-index: 45; cursor: pointer;
+  width: min(720px, 90vw); padding: 16px 24px; text-align: center; box-sizing: border-box;
+  background: rgba(17, 20, 28, 0.9); border: 2px solid #d9a441; border-radius: 8px;
+  box-shadow: 0 0 0 1px #000, 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 164, 65, 0.25);
+  animation: announce-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.announce-label { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #d9a441; margin-bottom: 6px; }
+.announce-text {
+  font-size: clamp(20px, 3vw, 32px); font-weight: 600; color: #f3e6b8; overflow-wrap: anywhere;
+  text-shadow: 0 2px 0 #000;
+}
+@keyframes announce-in { from { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) { .announce { animation: none; } }

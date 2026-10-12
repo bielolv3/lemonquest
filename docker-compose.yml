@@ -18,12 +18,18 @@ services:
     environment:
       PORT: "2567"
       TZ: "America/Sao_Paulo"        # horário dos backups (lemonquest-AAAAMMDD-HH.db) e dos logs
-      # Comandos de desenvolvimento (/level, /item...) — deixe desligado no escritório.
-      # LEMONQUEST_DEV_COMMANDS: "1"
+      # Administradores (personagens): /kick /mute /anuncio /online /resetsenha /tp — funcionam em produção.
       # LEMONQUEST_ADMINS: "Leonardo"
+      # Comandos de desenvolvimento (/level, /item...) — só fora de produção; deixe desligado no escritório.
+      # LEMONQUEST_DEV_COMMANDS: "1"
+      # Cópia extra dos backups em outro disco/compartilhamento (1 por dia, 14 dias). Monte o volume abaixo.
+      # LEMONQUEST_BACKUP_COPY_DIR: "/backup-copy"
     volumes:
       # Banco (lemonquest.db) e backups ficam aqui, na pasta do projeto, fora do container.
       - ./docker-data:/app/data
+      # Cópia externa dos backups (outro disco, NAS, pasta de rede já montada no host):
+      # - /mnt/nas/lemonquest:/backup-copy           # Linux
+      # - D:/backups-lemonquest:/backup-copy           # Windows (Docker Desktop)
     stop_grace_period: 30s           # tempo para salvar os jogadores antes de o Docker forçar a parada
     logging:
       driver: json-file
