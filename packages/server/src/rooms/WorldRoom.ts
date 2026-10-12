@@ -1,9 +1,9 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
-  C2S, S2C, TICK_MS, baseStats,
+  C2S, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type QuickPotionMsg, type TurnMsg,
-  type UseItemMsg, type WalkToMsg,
+  type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -17,6 +17,7 @@ import { handleChat, clearChatState } from "../systems/chat.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
+import { TrainingSystem, parseStatues } from "../systems/training.ts";
 import { SummonSystem } from "../systems/summons.ts";
 import { SpellSystem } from "../systems/spells.ts";
 import { InventorySystem } from "../systems/inventory.ts";
@@ -41,7 +42,7 @@ export const REPLACED_REASON = "Sua conta entrou em outro lugar";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2,
 };
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
@@ -76,6 +77,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private loot!: LootSystem;
   private npcs!: NpcSystem;
   private fight!: FightModeSystem;
+  private training!: TrainingSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
@@ -184,6 +186,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       dealtMult: stanceDealt,
       isBlocked: (x, y) => this.npcs.isNpcAt(x, y),
     });
+    this.training = new TrainingSystem({
+      statues: parseStatues(this.map.tiled), skills: this.skills,
+      inCombat: (id, now) => this.combat.inCombat(id, now), send,
+      isFree: (x, y, selfId) => this.isFreeTile(x, y, selfId),
+    });
     this.fight = new FightModeSystem({
       movement: this.movement, monsters: this.monsters,
       attackRange: (p) => this.combat.attackOf(p).range,
@@ -244,6 +251,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<NpcInteractMsg>(C2S.NpcInteract, (p, m) => this.npcs.onInteract(p, m));
     this.on<NpcTradeMsg>(C2S.NpcTrade, (p, m) => this.npcs.onTrade(p, m));
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
+    this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
+    this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
 
     const players = () => this.state.players.values();
     this.steps = [
@@ -322,6 +331,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.y = start.y;
     p.dir = rec.dir;
     this.skills.load(p, rec.data.skills);
+    // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
+    const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
     this.fight.load(p, rec.data.stance, rec.data.chase);
     this.food.load(p.id, rec.data, Date.now());
     this.records.set(sid, rec);
@@ -331,12 +342,47 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     client.send(S2C.Explored, this.exploration.addPlayer(sid, rec, p.x, p.y));
     const inv = this.inventory.inventoryMsg(p.id);
     if (inv) client.send(S2C.Inventory, inv);
+    if (trained) client.send(S2C.TrainingResult, trained);
     if (auth.weakPassword) {
       client.send(S2C.Notice, {
         text: "Sua senha é curta (menos de 6 caracteres). Considere uma senha mais forte.", kind: "warn",
       } satisfies NoticeMsg);
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
+  }
+
+  /** Aplica e limpa o treino offline do registro (chamado no onJoin, antes de o jogador entrar no mundo). */
+  private returnFromTraining(p: PlayerState, rec: CharacterRecord): TrainingResultMsg | null {
+    const t = rec.data.offlineTraining;
+    delete rec.data.offlineTraining;
+    if (!t || !SKILLS.includes(t.skill)) return null;
+    const result = this.training.applyOffline(p, t, Date.now());
+    p.hp = p.maxHp;
+    p.mana = p.maxMana;
+    const tile = this.training.returnTile(t.statueId, p.id);
+    if (tile) { p.x = tile.x; p.y = tile.y; }
+    else if (!this.validStart(p.x, p.y)) { p.x = this.map.spawn.x; p.y = this.map.spawn.y; }
+    return result;
+  }
+
+  /** C2S.TrainOffline: valida, grava o treino, salva e desconecta com CLOSE_TRAINING. */
+  private startOfflineTraining(p: PlayerState, m: TrainOfflineMsg, c: Client) {
+    const rec = this.records.get(p.id);
+    if (!rec) return;
+    const t = this.training.begin(p, m, Date.now());
+    if (!t) return;
+    rec.data.offlineTraining = t;
+    // Salva já (síncrono): se falhar, o jogador continua online e o treino não vale.
+    try {
+      this.save(p.id);
+    } catch (e) {
+      delete rec.data.offlineTraining;
+      this.errors.report("save (treino offline)", e);
+      c.send(S2C.Notice, { text: "Não foi possível salvar. Tente de novo.", kind: "warn" } satisfies NoticeMsg);
+      return;
+    }
+    console.log(`[world] ${p.name} foi treinar ${t.skill} offline`);
+    c.leave(CLOSE_TRAINING, "Treinando offline");
   }
 
   /** A posição salva serve? (andável, alcançável do spawn, sem portal/NPC/monstro). */
@@ -376,7 +422,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
    */
   onDrop(client: Client, code?: number) {
     const sid = client.sessionId;
-    if (this.shuttingDown || !this.records.has(sid) || code === CloseCode.WITH_ERROR || code === CLOSE_REPLACED) return; // → onLeave
+    if (this.shuttingDown || !this.records.has(sid) || code === CloseCode.WITH_ERROR || code === CLOSE_REPLACED || code === CLOSE_TRAINING) return; // → onLeave
     const p = this.state.players.get(sid);
     if (p) this.movement.teleport(p, p.x, p.y); // para de andar
     console.log(`[world] ${p?.name ?? sid} caiu (código ${code}); aguardando reconexão por ${RECONNECT_S} s`);

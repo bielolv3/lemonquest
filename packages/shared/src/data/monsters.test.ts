@@ -33,6 +33,7 @@ describe("MONSTERS", () => {
 
   it("campos sensatos", () => {
     for (const [key, d] of Object.entries(MONSTERS)) {
+      if (d.invulnerable) { expect(d.stationary, key).toBe(true); expect(d.xp, key).toBe(0); continue; } // boneco de treino
       if (key.startsWith("summoned_")) { expect(d.hp).toBeGreaterThan(0); continue; } // invocações: xp 0, sem respawn
       expect(d.id).toBe(key);
       expect(d.hp).toBeGreaterThan(0);
@@ -46,7 +47,7 @@ describe("MONSTERS", () => {
   });
 
   it("xp por hp cresce (aprox.) com o level", () => {
-    const list = Object.values(MONSTERS).filter((d) => !d.boss && !d.id.startsWith("summoned_")).sort((a, b) => a.level - b.level);
+    const list = Object.values(MONSTERS).filter((d) => !d.boss && !d.invulnerable && !d.id.startsWith("summoned_")).sort((a, b) => a.level - b.level);
     for (let i = 1; i < list.length; i++) {
       const prev = list[i - 1], cur = list[i];
       expect(cur.xp / cur.hp, `${prev.id} -> ${cur.id}`).toBeGreaterThanOrEqual((prev.xp / prev.hp) * 0.9);

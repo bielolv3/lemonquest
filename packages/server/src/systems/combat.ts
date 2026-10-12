@@ -127,7 +127,8 @@ export class CombatSystem {
     if (typeof id !== "string") return;
     const m = this.o.monsters.wild(id);
     if (!m || cheb(p.x, p.y, m.s.x, m.s.y) > TARGET_MAX_DIST) return;
-    if (this.o.monsters.inPz(p.x, p.y) || this.o.monsters.inPz(m.s.x, m.s.y)) {
+    // Na zona de proteção só se pode atacar bonecos de treino (invulneráveis).
+    if (!m.def.invulnerable && (this.o.monsters.inPz(p.x, p.y) || this.o.monsters.inPz(m.s.x, m.s.y))) {
       p.targetId = "";
       this.o.send(p.id, S2C.Notice, { text: "Você não pode atacar em zona de proteção.", kind: "warn" } satisfies NoticeMsg);
       return;
@@ -172,7 +173,7 @@ export class CombatSystem {
     for (const p of this.o.players()) {
       if (!p.targetId) continue;
       const m = this.o.monsters.wild(p.targetId);
-      if (!m || this.o.monsters.inPz(p.x, p.y)) { p.targetId = ""; continue; }
+      if (!m || (!m.def.invulnerable && this.o.monsters.inPz(p.x, p.y))) { p.targetId = ""; continue; }
       const d = cheb(p.x, p.y, m.s.x, m.s.y);
       if (d > TARGET_MAX_DIST) { p.targetId = ""; continue; }
       const va = this.attackOf(p);
@@ -194,6 +195,18 @@ export class CombatSystem {
   damageMonster(m: Monster, sourceId: string, amount: number, kind: DamageKind, now: number,
     o: { creditId?: string; crit?: boolean; ranged?: boolean } = {}): number {
     if (m.s.hp <= 0 || this.o.monsters.get(m.s.id) !== m) return 0;
+    if (m.def.invulnerable) {
+      // Boneco de treino: mostra o dano (e marca combate), mas a vida não muda, ninguém ganha XP/loot nem ele revida.
+      const shown = Math.max(0, Math.round(amount));
+      this.push({
+        sourceId, targetId: m.s.id, amount: shown, kind,
+        crit: o.crit && shown > 0 ? true : undefined,
+        miss: shown === 0 ? true : undefined,
+        ranged: o.ranged ? true : undefined,
+      });
+      this.markCombat(o.creditId ?? sourceId, now);
+      return shown;
+    }
     const dealt = Math.min(m.s.hp, Math.max(0, Math.round(amount)));
     const credit = o.creditId ?? sourceId;
     this.push({
