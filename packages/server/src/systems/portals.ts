@@ -1,4 +1,4 @@
-import { findObjects, objectTile, type TeleportedMsg, type TiledMap } from "@tibinha/shared";
+import { findObjects, objectTile, type TeleportedMsg, type TiledMap } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { MovementSystem } from "./movement.ts";
 import { nearestFreeTile } from "../world/tiles.ts";

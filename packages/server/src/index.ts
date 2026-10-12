@@ -38,14 +38,14 @@ process.on("unhandledRejection", (reason) => {
 // --- checagens de boot -------------------------------------------------------------------------------------------
 const dist = path.join(root, "packages/client/dist");
 if (PROD && !fs.existsSync(path.join(dist, "index.html"))) {
-  console.error(`[tibinha] cliente não encontrado em ${dist}. Rode \`npm run build\` primeiro.`);
+  console.error(`[lemonquest] cliente não encontrado em ${dist}. Rode \`npm run build\` primeiro.`);
   process.exit(1);
 }
 initDb();
 if (devCommandsEnabled()) {
   const admins = [...devAdmins()];
   console.warn("!".repeat(72));
-  console.warn(`!! COMANDOS DE DEV LIGADOS (TIBINHA_DEV_COMMANDS=1) para: ${admins.join(", ") || "(ninguém — defina TIBINHA_ADMINS)"}`);
+  console.warn(`!! COMANDOS DE DEV LIGADOS (LEMONQUEST_DEV_COMMANDS=1) para: ${admins.join(", ") || "(ninguém — defina LEMONQUEST_ADMINS)"}`);
   console.warn("!! /level /item /gold /heal /tp /ml — NÃO use isto no servidor do escritório.");
   console.warn("!".repeat(72));
 }
@@ -108,8 +108,8 @@ let shuttingDown = false;
 async function shutdown(reason: string, code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[tibinha] desligando (${reason})...`);
-  const force = setTimeout(() => { console.error("[tibinha] desligamento travou — saindo"); process.exit(code || 1); }, 15_000);
+  console.log(`[lemonquest] desligando (${reason})...`);
+  const force = setTimeout(() => { console.error("[lemonquest] desligamento travou — saindo"); process.exit(code || 1); }, 15_000);
   force.unref();
   // Salva os jogadores (WorldRoom.onBeforeShutdown) → descarta salas → onShutdown (checkpoint + close).
   await gameServer.gracefullyShutdown(false);
@@ -121,5 +121,5 @@ for (const sig of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"] as const) process.
 await gameServer.listen(PORT, "0.0.0.0");
 await matchMaker.createRoom("world", {}); // O mundo único, criado já no boot (joinOrCreate sempre cai nele).
 stopBackups = startBackups();
-console.log(`[tibinha] backups em ${backupDir()}`);
-console.log(`[tibinha] servidor ouvindo em http://0.0.0.0:${PORT}`);
+console.log(`[lemonquest] backups em ${backupDir()}`);
+console.log(`[lemonquest] servidor ouvindo em http://0.0.0.0:${PORT}`);

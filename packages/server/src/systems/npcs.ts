@@ -4,7 +4,7 @@
 import {
   NPC_BUY_RATIO, NPC_RANGE, S2C, findObjects, npcBuyPrice, npcDef, objectTile,
   type NoticeMsg, type NpcDef, type NpcInteractMsg, type NpcOpenMsg, type NpcSayMsg, type NpcTradeMsg, type TiledMap,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { maxStackOf, makeItem, type InventorySystem } from "./inventory.ts";
 import { cheb } from "./monsters.ts";

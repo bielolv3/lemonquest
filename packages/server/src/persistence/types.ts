@@ -1,4 +1,4 @@
-import type { Vocation } from "@tibinha/shared";
+import type { Vocation } from "@lemonquest/shared";
 
 /** Dados flexíveis do personagem, guardados como JSON na coluna `data`. Cada marco acrescenta campos opcionais. */
 export interface CharacterData {

@@ -1,6 +1,6 @@
 // Personagem renderizado: sprite + sombra + nome, com interpolação de passos encadeados.
 import Phaser from "phaser";
-import { BASE_STEP_MS, TILE_SIZE, type Dir, type Facing } from "@tibinha/shared";
+import { BASE_STEP_MS, TILE_SIZE, type Dir, type Facing } from "@lemonquest/shared";
 import { dirToFacing } from "./facing.ts";
 import { walkAnimKey, type CharacterLook } from "./sprites.ts";
 import { TEX } from "./textures.ts";

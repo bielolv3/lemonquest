@@ -1,5 +1,5 @@
 // Ação "padrão" de um item (clique direito / duplo clique): usar, equipar, desequipar, vender, guardar.
-import { DEPOT_SIZE, type ItemDef, type ItemInstance, type ItemLocation, type NpcOpenMsg } from "@tibinha/shared";
+import { DEPOT_SIZE, type ItemDef, type ItemInstance, type ItemLocation, type NpcOpenMsg } from "@lemonquest/shared";
 import { npcStore, sellItem } from "../npc/npc.ts";
 import { pushToast } from "../toasts.ts";
 import {

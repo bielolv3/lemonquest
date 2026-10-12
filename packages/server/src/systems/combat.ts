@@ -4,7 +4,7 @@ import {
   playerDamageRange, rollAttack, rollInt, splitXp, weaponDamageRange,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type NoticeMsg, type XpGainMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { cheb, isMonsterState, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
 import { weaponSkill } from "./inventory.ts";

@@ -1,5 +1,5 @@
 // Utilitários de tiles do mundo: alcançabilidade a partir do spawn, validação da posição salva e tile livre mais próximo.
-import { canStepTerrain, type CollisionGrid } from "@tibinha/shared";
+import { canStepTerrain, type CollisionGrid } from "@lemonquest/shared";
 
 export interface Pt { x: number; y: number }
 

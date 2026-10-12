@@ -1,6 +1,6 @@
 // Ícone de item nítido (pixelado), escalado por fator inteiro e centralizado num quadrado `box`.
 // Suporta imagem única e frame de atlas (background-position). Borda/brilho de raridade e contagem de pilha.
-import type { ItemDef, ItemInstance, ItemIcon as ItemIconDef, Rarity } from "@tibinha/shared";
+import type { ItemDef, ItemInstance, ItemIcon as ItemIconDef, Rarity } from "@lemonquest/shared";
 import { useEffect, useState } from "preact/hooks";
 import { defOf } from "./inventory.ts";
 import "./items.css";

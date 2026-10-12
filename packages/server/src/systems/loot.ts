@@ -3,7 +3,7 @@
 import {
   RARITIES, RARITY_LABEL, S2C, isEquipable, rollInt,
   type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { GOLD_ID, makeItem, type InventorySystem, type ItemDefs } from "./inventory.ts";
 import type { Monster } from "./monsters.ts";

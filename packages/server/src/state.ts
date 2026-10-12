@@ -1,5 +1,5 @@
 import { Schema, MapSchema, type } from "@colyseus/schema";
-import type { FightStance, MonsterView, PlayerView, Vocation } from "@tibinha/shared";
+import type { FightStance, MonsterView, PlayerView, Vocation } from "@lemonquest/shared";
 
 /** Deve espelhar PlayerView (packages/shared/src/types.ts). */
 export class PlayerState extends Schema implements PlayerView {

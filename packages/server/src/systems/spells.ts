@@ -5,7 +5,7 @@ import {
   DIR_DELTA, Dir, GLOBAL_SPELL_COOLDOWN_MS, S2C, canStepTerrain, dirFromDelta, evalSpellFormula, mitigateSpell,
   spellByWords, spellDef,
   type CastFailReason, type CastMsg, type CastResultMsg, type CollisionGrid, type SpellCastMsg, type SpellDef,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CombatSystem } from "./combat.ts";
 import type { ConditionSystem } from "./conditions.ts";

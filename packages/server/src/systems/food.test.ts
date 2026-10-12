@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FOOD_MAX_MS, FOOD_TICK_MS } from "@tibinha/shared";
+import { FOOD_MAX_MS, FOOD_TICK_MS } from "@lemonquest/shared";
 import { MSG, makeItem } from "./inventory.ts";
 import { invWorld } from "./m4kit.ts";
 

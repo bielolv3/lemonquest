@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg } from "@tibinha/shared";
+import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";

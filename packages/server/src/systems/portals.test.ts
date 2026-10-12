@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { CollisionGrid, Dir, type TiledMap } from "@tibinha/shared";
+import { CollisionGrid, Dir, type TiledMap } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { MovementSystem } from "./movement.ts";
 import { PORTAL_COOLDOWN_MS, PortalSystem } from "./portals.ts";

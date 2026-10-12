@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { render } from "preact";
 import { WorldScene } from "./scenes/WorldScene.ts";
 import { App } from "./ui/App.tsx";
-import { GAME_NAME } from "@tibinha/shared";
+import { GAME_NAME } from "@lemonquest/shared";
 
 document.title = GAME_NAME;
 

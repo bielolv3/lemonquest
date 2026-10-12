@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findObjects, objectTile } from "@tibinha/shared";
+import { findObjects, objectTile } from "@lemonquest/shared";
 import { CLOSE_REPLACED, REPLACED_REASON, WorldRoom, currentWorld } from "./WorldRoom.ts";
 import { createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
 import { handleLogin, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";

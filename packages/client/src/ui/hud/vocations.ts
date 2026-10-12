@@ -1,4 +1,4 @@
-import type { Vocation } from "@tibinha/shared";
+import type { Vocation } from "@lemonquest/shared";
 
 export interface VocationMeta { label: string; color: string; faceset: string }
 

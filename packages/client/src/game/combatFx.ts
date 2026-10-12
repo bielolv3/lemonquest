@@ -1,7 +1,7 @@
 // Efeitos de combate: números flutuantes, impactos, projéteis, fumaça, cadáveres e level-up.
 // Tudo com pools (sem alocar por frame). Textos ficam na camada de UI (nítidos), o resto na do mundo.
 import Phaser from "phaser";
-import { type DamageKind } from "@tibinha/shared";
+import { type DamageKind } from "@lemonquest/shared";
 import type { PixelCamera } from "./pixelCamera.ts";
 import { TEX } from "./textures.ts";
 

@@ -3,7 +3,7 @@ import {
   FOOD_TICK_MS, RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT,
   type DamageKind, type EquipSlot, type ItemDef, type ItemInstance, type ItemKind, type Rarity, type StatId, type Stats, type Vocation,
   type WeaponType,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 
 export const STAT_LABEL: Record<StatId, string> = {
   attack: "Ataque", armor: "Armadura", hpMax: "Vida máx.", manaMax: "Mana máx.",

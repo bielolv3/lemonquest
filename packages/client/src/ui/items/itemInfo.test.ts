@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ItemDef, ItemInstance } from "@tibinha/shared";
+import type { ItemDef, ItemInstance } from "@lemonquest/shared";
 import { canEquip, compareStats, fmtStat, sellPrice, statLines, totalStats, useText } from "./itemInfo.ts";
 
 const sword: ItemDef = { id: "s", name: "Espada", kind: "weapon", slot: "weapon", icon: { url: "x.png" }, value: 100, stats: { attack: 10 }, level: 5, vocations: ["knight"] };

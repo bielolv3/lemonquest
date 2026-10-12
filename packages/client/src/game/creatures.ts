@@ -1,6 +1,6 @@
 // Visual das criaturas: converte MonsterDef.sprite (shared) em CharacterSheet/CharacterLook do cliente.
 import type Phaser from "phaser";
-import { MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@tibinha/shared";
+import { MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@lemonquest/shared";
 import { gridSheet, type CharacterLook, type CharacterSheet } from "./sprites.ts";
 
 const sheets = new Map<string, CharacterSheet>();

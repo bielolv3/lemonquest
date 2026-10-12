@@ -1,5 +1,5 @@
 // Janela de NPC: fala com digitação, abas Comprar / Vender / Depot.
-import { DEPOT_SIZE, itemDef, type NpcOpenMsg } from "@tibinha/shared";
+import { DEPOT_SIZE, itemDef, type NpcOpenMsg } from "@lemonquest/shared";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { npcBuys } from "../items/actions.ts";

@@ -1,6 +1,6 @@
 // Modos de batalha (estilo Tibia): postura ofensiva/equilibrada/defensiva + seguir o alvo. Fica no cabeçalho da Batalha.
 import { useEffect } from "preact/hooks";
-import { C2S, type FightModeMsg, type FightStance } from "@tibinha/shared";
+import { C2S, type FightModeMsg, type FightStance } from "@lemonquest/shared";
 import { send } from "../items/net.ts";
 import { PixelIcon } from "./icons.tsx";
 import { createStore, useStore } from "./store.ts";

@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { GAME_NAME, type Vocation } from "@tibinha/shared";
+import { GAME_NAME, type Vocation } from "@lemonquest/shared";
 import { session } from "../session.ts";
 
 const VOCS: { id: Vocation; name: string; desc: string; color: string }[] = [
@@ -21,7 +21,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export function Login() {
-  const [name, setName] = useState(() => localStorage.getItem("tibinha.name") ?? "");
+  const [name, setName] = useState(() => localStorage.getItem("lemonquest.name") ?? "");
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<"creds" | "vocation">("creds");
   const [vocation, setVocation] = useState<Vocation | null>(null);
@@ -35,7 +35,7 @@ export function Login() {
     try {
       const res = await session.login({ name, password, vocation: voc });
       if (res.ok) {
-        localStorage.setItem("tibinha.name", res.name);
+        localStorage.setItem("lemonquest.name", res.name);
         await session.connect(res.token, res.name);
         return;
       }

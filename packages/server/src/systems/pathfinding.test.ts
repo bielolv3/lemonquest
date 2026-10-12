@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CollisionGrid } from "@tibinha/shared";
+import { CollisionGrid } from "@lemonquest/shared";
 import { findPath, type Point } from "./pathfinding.ts";
 
 /** '#' = parede, '.' = livre. */

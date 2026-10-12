@@ -1,4 +1,4 @@
-import { Dir, type Facing } from "@tibinha/shared";
+import { Dir, type Facing } from "@lemonquest/shared";
 
 /** 8 direções → 4 lados do spritesheet. Diagonais usam o lado horizontal (como no Tibia). */
 export function dirToFacing(d: Dir): Facing {

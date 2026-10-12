@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { S2C } from "@tibinha/shared";
+import { S2C } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 
 const IN_MS = 120, OUT_MS = 250;

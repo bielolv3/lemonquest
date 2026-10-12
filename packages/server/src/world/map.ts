@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, findObjects, objectTile, type TiledMap } from "@tibinha/shared";
+import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, findObjects, objectTile, type TiledMap } from "@lemonquest/shared";
 
 const assetsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../assets");
 

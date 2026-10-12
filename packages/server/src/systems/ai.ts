@@ -1,6 +1,6 @@
 // IA de monstros: idle → chase (ataca) → flee → return. Roda a cada tick, mas só "pensa"
 // (varredura de aggro, A*) a cada THINK_MS por monstro, com offsets escalonados.
-import { DIR_DELTA, Dir, dirFromDelta } from "@tibinha/shared";
+import { DIR_DELTA, Dir, dirFromDelta } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, type Point } from "./pathfinding.ts";
 import { SLEEP_DIST, cheb, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";

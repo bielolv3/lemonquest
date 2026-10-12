@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EXPLORE_RADIUS, ExploredMask } from "@tibinha/shared";
+import { EXPLORE_RADIUS, ExploredMask } from "@lemonquest/shared";
 import { ExplorationSystem } from "./exploration.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 

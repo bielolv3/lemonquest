@@ -1,5 +1,5 @@
 // Retrato, nome, vocação, level, HP/mana e XP do jogador local.
-import { xpForLevel } from "@tibinha/shared";
+import { xpForLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { Section } from "./Section.tsx";
 import { StatBar } from "./StatBar.tsx";

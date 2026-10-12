@@ -1,5 +1,5 @@
 // Loot recebido (S2C.Loot) → pilha de toasts no canto inferior direito + som; S2C.Feed → chat + faixa de notícias.
-import type { FeedMsg, LootMsg } from "@tibinha/shared";
+import type { FeedMsg, LootMsg } from "@lemonquest/shared";
 import { sfx } from "../../game/sfx.ts";
 import { createStore } from "../hud/store.ts";
 import { pushToast } from "../toasts.ts";

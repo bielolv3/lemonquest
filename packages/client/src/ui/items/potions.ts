@@ -1,5 +1,5 @@
 // Poções rápidas (Q = vida, E = mana) e recarga compartilhada (1 s) para qualquer poção usada.
-import { C2S, type QuickPotionMsg } from "@tibinha/shared";
+import { C2S, type QuickPotionMsg } from "@lemonquest/shared";
 import { pushToast } from "../toasts.ts";
 import { createStore } from "../hud/store.ts";
 import { defOf, inventoryStore } from "./inventory.ts";

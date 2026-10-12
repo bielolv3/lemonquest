@@ -1,7 +1,7 @@
 // Efeitos de magia: palavras, projéteis, áreas, ondas, curas, auras persistentes, invocação, raízes, provocar e investida.
 // Sheets carregadas sob demanda (em segundo plano); animações/atrasos usam o relógio da cena (respeitam timeScale).
 import Phaser from "phaser";
-import { TILE_SIZE, spellDef, type ConditionId, type SpellCastMsg, type SpellDef, type SpellFx as FxKey } from "@tibinha/shared";
+import { TILE_SIZE, spellDef, type ConditionId, type SpellCastMsg, type SpellDef, type SpellFx as FxKey } from "@lemonquest/shared";
 import type { Actor } from "./actor.ts";
 import type { CombatFx } from "./combatFx.ts";
 import type { PixelCamera } from "./pixelCamera.ts";

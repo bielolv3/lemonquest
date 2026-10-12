@@ -1,7 +1,7 @@
 // Espelho em objetos simples do estado sincronizado (room.state.players), para a UI.
 // Notificações agrupadas por frame (rAF) para não re-renderizar a cada patch do Colyseus.
 import { Callbacks, type Room } from "@colyseus/sdk";
-import type { PlayerView } from "@tibinha/shared";
+import type { PlayerView } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { createStore } from "./store.ts";
 

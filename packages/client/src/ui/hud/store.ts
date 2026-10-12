@@ -44,9 +44,9 @@ function writeLocal(key: string, v: string) {
   try { localStorage.setItem(key, v); } catch { /* localStorage indisponível */ }
 }
 
-/** Booleano persistido em localStorage (chave "tibinha.ui.<key>"). */
+/** Booleano persistido em localStorage (chave "lemonquest.ui.<key>"). */
 export function persistedBool(key: string, fallback: boolean, override?: boolean): Store<boolean> {
-  const k = `tibinha.ui.${key}`;
+  const k = `lemonquest.ui.${key}`;
   const raw = readLocal(k);
   const stored = raw === "1" ? true : raw === "0" ? false : fallback;
   // override vale só para esta sessão (não sobrescreve a preferência salva até o usuário mexer).
@@ -57,7 +57,7 @@ export function persistedBool(key: string, fallback: boolean, override?: boolean
 
 /** Objeto JSON persistido em localStorage (mesclado sobre o fallback). */
 export function persistedJson<T extends object>(key: string, fallback: T): Store<T> {
-  const k = `tibinha.ui.${key}`;
+  const k = `lemonquest.ui.${key}`;
   let initial = fallback;
   try {
     const raw = readLocal(k);

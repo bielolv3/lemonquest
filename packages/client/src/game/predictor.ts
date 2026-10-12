@@ -1,5 +1,5 @@
 // Predição do próprio jogador. Lógica pura (sem Phaser) — espelha as regras do MovementSystem do servidor.
-import { DIR_DELTA, TICK_MS, canStepTerrain, isNearSpawn, stepDuration, type CollisionGrid, type Dir, type GroundSpeedGrid } from "@tibinha/shared";
+import { DIR_DELTA, TICK_MS, canStepTerrain, isNearSpawn, stepDuration, type CollisionGrid, type Dir, type GroundSpeedGrid } from "@lemonquest/shared";
 
 export interface PredictWorld {
   grid: CollisionGrid;

@@ -1,6 +1,6 @@
 // Regeneração (a cada REGEN_INTERVAL_MS; ×3 na zona de proteção): HP fora de combate; mana sempre (metade em combate).
 // Monstros regeneram por completo ao voltar ao spawn (ai.ts).
-import { REGEN_INTERVAL_MS, manaRegenAmount, regenAmount } from "@tibinha/shared";
+import { REGEN_INTERVAL_MS, manaRegenAmount, regenAmount } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 
 export interface RegenOptions {

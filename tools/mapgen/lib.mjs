@@ -1,4 +1,4 @@
-// Shared helpers for the Tibinha map generator: RNG/noise, tileset registry, layer grid, autotile, stamps, preview renderer.
+// Shared helpers for the The Lemon Quest map generator: RNG/noise, tileset registry, layer grid, autotile, stamps, preview renderer.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

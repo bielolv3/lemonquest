@@ -1,5 +1,5 @@
 // Item sob o mouse (para o balão de detalhes).
-import type { ItemInstance, ItemLocation } from "@tibinha/shared";
+import type { ItemInstance, ItemLocation } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 
 export interface ItemTip {

@@ -1,7 +1,7 @@
 // Comida estilo Tibia: comer concede/estende o estado "alimentado" (condição "fed"): a cada FOOD_TICK_MS o jogador
 // recupera hpPerTick de vida e manaPerTick de mana (dentro e fora de combate, somado à regen normal).
 // Regra: taxas = máximo entre as atuais e as da comida nova; duração soma, limitada a FOOD_MAX_MS.
-import { FOOD_MAX_MS, FOOD_TICK_MS, type ConditionsMsg } from "@tibinha/shared";
+import { FOOD_MAX_MS, FOOD_TICK_MS, type ConditionsMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterData } from "../persistence/types.ts";
 

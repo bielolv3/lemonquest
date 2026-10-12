@@ -4,8 +4,8 @@ import { createStore, type Store } from "./store.ts";
 export const PANEL_IDS = ["minimap", "status", "equipment", "battle", "backpack"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
 
-export const ORDER_KEY = "tibinha.ui.panelOrder.v1";
-export const PINS_KEY = "tibinha.ui.panelPins.v1";
+export const ORDER_KEY = "lemonquest.ui.panelOrder.v1";
+export const PINS_KEY = "lemonquest.ui.panelPins.v1";
 
 const isPanelId = (v: unknown): v is PanelId => typeof v === "string" && (PANEL_IDS as readonly string[]).includes(v);
 

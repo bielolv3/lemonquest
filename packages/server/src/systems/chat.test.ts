@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MAX_CHAT_LEN } from "@tibinha/shared";
+import { MAX_CHAT_LEN } from "@lemonquest/shared";
 import { handleChat } from "./chat.ts";
 
 function mk(id: string) {

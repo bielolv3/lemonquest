@@ -1,5 +1,5 @@
 // Estado da janela de NPC (diálogo/loja/depot). O mundo (Phaser) chama openNpc(npcId) ao clicar num NPC.
-import { C2S, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg } from "@tibinha/shared";
+import { C2S, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { send } from "../items/net.ts";
 

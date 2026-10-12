@@ -5,7 +5,7 @@ import {
   C2S, S2C, TILE_SIZE, NPC_RANGE,
   spellDef, spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";

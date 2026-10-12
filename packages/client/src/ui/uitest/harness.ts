@@ -5,7 +5,7 @@
 import {
   BACKPACK_SIZE, C2S, DEPOT_SIZE, EQUIP_SLOTS, ITEMS, itemDef,
   type EquipSlot, type FeedMsg, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation, type LootMsg, type NpcOpenMsg, type NpcTradeMsg, type Rarity, type StatId,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { playersStore, type PlayerSnap } from "../hud/world.ts";
 import { depotStore, inventoryStore } from "../items/inventory.ts";

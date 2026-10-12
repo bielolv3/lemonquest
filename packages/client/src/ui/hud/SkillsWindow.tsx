@@ -1,5 +1,5 @@
 // Janela de habilidades (tecla K): arrastável pela barra de título, posição lembrada.
-import { Dir, stepDuration, type SkillId } from "@tibinha/shared";
+import { Dir, stepDuration, type SkillId } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { StatBar } from "./StatBar.tsx";
 import { fmt, xpProgress } from "./StatusPanel.tsx";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { BACKPACK_SIZE, NPC_BUY_RATIO, RARITIES, S2C, STANCE_DEALT, STANCE_TAKEN, npcBuyPrice, type Rarity } from "@tibinha/shared";
+import { BACKPACK_SIZE, NPC_BUY_RATIO, RARITIES, S2C, STANCE_DEALT, STANCE_TAKEN, npcBuyPrice, type Rarity } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
 import { LootSystem, RARITY_WEIGHTS, bonusPool, rollBonuses, rollLoot, rollRarity } from "./loot.ts";
 import { CLOSED, NpcSystem } from "./npcs.ts";
@@ -233,7 +233,7 @@ describe("dev commands", () => {
       inventory: w.inv, send: (to: string, type: string, msg: unknown) => w.sent.push({ to, type, msg }),
       teleport: (_: PlayerState, x: number, y: number) => tp.push(x, y), isWalkable: () => true,
       setMagicLevel: (_: PlayerState, n: number) => { ml = n; }, rng: seeded(1),
-      env: { NODE_ENV: "development", TIBINHA_DEV_COMMANDS: "1", TIBINHA_ADMINS: "p1" },
+      env: { NODE_ENV: "development", LEMONQUEST_DEV_COMMANDS: "1", LEMONQUEST_ADMINS: "p1" },
     };
     return { w, p, c, tp, ml: () => ml };
   }

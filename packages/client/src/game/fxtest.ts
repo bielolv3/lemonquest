@@ -3,7 +3,7 @@
 import {
   DIR_DELTA, ITEMS, MONSTERS, NPCS, RARITIES, SPELLS, spellDef, type ItemInstance, type Rarity,
   type CombatEvent, type ConditionId, type DamageKind, type MonsterView, type PlayerView, type SpellCastMsg, type SpellDef, type SpellFx,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { WorldScene } from "../scenes/WorldScene.ts";
 import { handleCastResult, setCastTransport } from "../ui/hud/castbar.ts";
 import { playersStore } from "../ui/hud/world.ts";

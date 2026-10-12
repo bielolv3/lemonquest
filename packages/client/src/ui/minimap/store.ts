@@ -1,7 +1,7 @@
 // Estado compartilhado do minimapa: cores do mapa, máscara de exploração (fog of war), posições e zonas.
 // Vive fora dos componentes para já capturar S2C.Explored no momento em que a sala conecta.
 import { Callbacks, type Room } from "@colyseus/sdk";
-import { ExploredMask, S2C, type ExploredMsg, type TiledMap, type TiledObject } from "@tibinha/shared";
+import { ExploredMask, S2C, type ExploredMsg, type TiledMap, type TiledObject } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 
 const FOG_RGB = [7, 8, 12] as const; // #07080c

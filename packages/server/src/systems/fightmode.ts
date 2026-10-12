@@ -1,6 +1,6 @@
 // Modos de batalha (estilo Tibia): postura (ofensivo/equilibrado/defensivo → multiplicadores de dano causado/recebido)
 // e perseguição (com alvo fora do alcance, anda até ele um passo por vez pelo MovementSystem).
-import { STANCE_DEALT, STANCE_TAKEN, dirFromDelta, type FightModeMsg, type FightStance } from "@tibinha/shared";
+import { STANCE_DEALT, STANCE_TAKEN, dirFromDelta, type FightModeMsg, type FightStance } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { MovementSystem } from "./movement.ts";
 import { cheb, type MonsterManager } from "./monsters.ts";

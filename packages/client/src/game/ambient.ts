@@ -1,6 +1,6 @@
 // Ambiente barato: borboletas esvoaçando perto de pontos de interesse da cidade (flores do herbalista, spawn).
 import Phaser from "phaser";
-import { TILE_SIZE } from "@tibinha/shared";
+import { TILE_SIZE } from "@lemonquest/shared";
 
 const TEX_BUTTERFLY = "amb_butterfly";
 const COLORS = [0xffd447, 0xff8fc2, 0x9fd8ff, 0xffffff, 0xffa24a];

@@ -1,6 +1,6 @@
 // Carrega e monta o mapa Tiled (tilesets embutidos; imagem relativa ao arquivo do mapa).
 import Phaser from "phaser";
-import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, mapSpawn, type TiledMap } from "@tibinha/shared";
+import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, mapSpawn, type TiledMap } from "@lemonquest/shared";
 
 export const MAP_KEY = "world";
 export const MAP_URL = `${import.meta.env.BASE_URL}maps/world.json`;

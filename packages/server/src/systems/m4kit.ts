@@ -1,5 +1,5 @@
 // Fixtures de teste do M4 (itens/NPCs próprios, independentes do catálogo). Não é importado pelo servidor.
-import type { ItemDef, NpcDef } from "@tibinha/shared";
+import type { ItemDef, NpcDef } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { FoodSystem } from "./food.ts";
 import { InventorySystem } from "./inventory.ts";

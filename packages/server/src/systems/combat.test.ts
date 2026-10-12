@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_ATTACK_MS, REGEN_INTERVAL_MS, S2C, baseStats, deathPenalty, xpForLevel } from "@tibinha/shared";
+import { PLAYER_ATTACK_MS, REGEN_INTERVAL_MS, S2C, baseStats, deathPenalty, xpForLevel } from "@lemonquest/shared";
 import { RegenSystem } from "./regen.ts";
 import { def, openGrid, player, world } from "./testkit.ts";
 

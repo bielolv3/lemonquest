@@ -1,4 +1,4 @@
-import { ExploredMask, type ExploredMsg } from "@tibinha/shared";
+import { ExploredMask, type ExploredMsg } from "@lemonquest/shared";
 import type { CharacterRecord } from "../persistence/types.ts";
 
 interface Entry { mask: ExploredMask; x: number; y: number }

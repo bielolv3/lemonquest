@@ -2,7 +2,7 @@
 // de colisão e de velocidade do chão, precisam produzir exatamente os mesmos passos (posição, duração e
 // instante de término) — senão o cliente "corrige" a cada mudança de terreno.
 import { describe, expect, it } from "vitest";
-import { CollisionGrid, Dir, GroundSpeedGrid, TICK_MS, type TiledMap } from "@tibinha/shared";
+import { CollisionGrid, Dir, GroundSpeedGrid, TICK_MS, type TiledMap } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { MovementSystem } from "./movement.ts";
 import { Predictor } from "../../../client/src/game/predictor.ts";

@@ -1,5 +1,5 @@
 // Slot de item genérico (mochila/equipamento/depot): arrasto, duplo clique/botão direito, balão de detalhes.
-import type { ItemInstance, ItemLocation } from "@tibinha/shared";
+import type { ItemInstance, ItemLocation } from "@lemonquest/shared";
 import type { ComponentChildren } from "preact";
 import { useStore } from "../hud/store.ts";
 import { activateItem } from "./actions.ts";

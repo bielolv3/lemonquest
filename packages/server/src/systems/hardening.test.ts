@@ -1,6 +1,6 @@
 // Endurecimento: comandos de dev, chat, isolamento de falhas, posição salva, tile livre, backups.
 import { describe, expect, it, vi } from "vitest";
-import { CollisionGrid, ExploredMask } from "@tibinha/shared";
+import { CollisionGrid, ExploredMask } from "@lemonquest/shared";
 import { devCommandsEnabled, handleDevCommand, isDevAdmin } from "./devcommands.ts";
 import { handleChat, sanitizeText } from "./chat.ts";
 import { ErrorLog, runSteps } from "./safe.ts";
@@ -9,15 +9,15 @@ import { isValidStart, nearestFreeTile, reachableFrom } from "../world/tiles.ts"
 import { backupFileName, parseBackupName, selectBackupsToDelete } from "../persistence/backup.ts";
 
 describe("comandos de dev", () => {
-  const on = { TIBINHA_DEV_COMMANDS: "1", TIBINHA_ADMINS: "Leo, José da Silva", NODE_ENV: "development" };
-  it("só com TIBINHA_DEV_COMMANDS=1, fora de produção e para admins", () => {
+  const on = { LEMONQUEST_DEV_COMMANDS: "1", LEMONQUEST_ADMINS: "Leo, José da Silva", NODE_ENV: "development" };
+  it("só com LEMONQUEST_DEV_COMMANDS=1, fora de produção e para admins", () => {
     expect(devCommandsEnabled({})).toBe(false);
     expect(devCommandsEnabled({ ...on, NODE_ENV: "production" })).toBe(false);
     expect(devCommandsEnabled(on)).toBe(true);
     expect(isDevAdmin("LEO", on)).toBe(true);
     expect(isDevAdmin("josé da silva", on)).toBe(true);
     expect(isDevAdmin("Ana", on)).toBe(false);
-    expect(isDevAdmin("Leo", { ...on, TIBINHA_DEV_COMMANDS: "0" })).toBe(false);
+    expect(isDevAdmin("Leo", { ...on, LEMONQUEST_DEV_COMMANDS: "0" })).toBe(false);
   });
 
   it("não-admin: /level não é tratado (vira 'Comando desconhecido.' no chat)", () => {
@@ -137,8 +137,8 @@ describe("máscara de exploração", () => {
 describe("rotação de backups", () => {
   const at = (y: number, mo: number, d: number, h: number) => new Date(y, mo - 1, d, h);
   it("nome ↔ data", () => {
-    expect(backupFileName(at(2026, 3, 7, 9))).toBe("tibinha-20260307-09.db");
-    expect(parseBackupName("tibinha-20260307-09.db")?.getTime()).toBe(at(2026, 3, 7, 9).getTime());
+    expect(backupFileName(at(2026, 3, 7, 9))).toBe("lemonquest-20260307-09.db");
+    expect(parseBackupName("lemonquest-20260307-09.db")?.getTime()).toBe(at(2026, 3, 7, 9).getTime());
     expect(parseBackupName("outro.db")).toBeNull();
   });
   it("mantém 48 h de horários + 1 por dia por 14 dias; ignora arquivos alheios", () => {
@@ -152,10 +152,10 @@ describe("rotação de backups", () => {
     // 48 horários (h = 0..47)
     for (let h = 0; h < 48; h++) expect(kept).toContain(backupFileName(new Date(now.getTime() - h * 3600_000)));
     // Dias mais antigos: só o último backup do dia (23h).
-    expect(kept).toContain("tibinha-20261016-23.db");
-    expect(kept).not.toContain("tibinha-20261016-22.db");
+    expect(kept).toContain("lemonquest-20261016-23.db");
+    expect(kept).not.toContain("lemonquest-20261016-22.db");
     // Mais de 14 dias → apagado.
-    expect(kept.some((n) => n.startsWith("tibinha-202610050"))).toBe(false);
+    expect(kept.some((n) => n.startsWith("lemonquest-202610050"))).toBe(false);
     expect(kept.filter((n) => n.endsWith(".db")).length).toBeLessThanOrEqual(48 + 14);
   });
 });

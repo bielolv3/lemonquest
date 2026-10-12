@@ -1,5 +1,5 @@
 import type { Client, Room } from "colyseus";
-import { MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@tibinha/shared";
+import { MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 
 const RATE_MAX = 5;

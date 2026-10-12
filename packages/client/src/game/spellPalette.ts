@@ -1,5 +1,5 @@
 // Paleta por elemento de magia (coerente com KIND_COLOR do combate). Compartilhada por jogo e HUD.
-import type { SpellFx as FxKey } from "@tibinha/shared";
+import type { SpellFx as FxKey } from "@lemonquest/shared";
 
 export interface Pal { main: number; light: number; dark: number }
 export const PAL: Record<FxKey, Pal> = {

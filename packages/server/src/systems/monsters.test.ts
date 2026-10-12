@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { S2C, type TiledMap } from "@tibinha/shared";
+import { S2C, type TiledMap } from "@lemonquest/shared";
 import { RESPAWN_PLAYER_DIST, cheb, parseSafeZones, parseSpawns, type SpawnPoint } from "./monsters.ts";
 import { LEASH_DIST, LOST_TARGET_MS } from "./ai.ts";
 import { def, grid, openGrid, player, world } from "./testkit.ts";

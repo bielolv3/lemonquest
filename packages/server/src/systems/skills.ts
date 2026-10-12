@@ -1,5 +1,5 @@
 // Skills (melee, distance, magic, shield): tentativas → nível, espelhadas no PlayerState e persistidas em rec.data.skills.
-import { S2C, SKILLS, SKILL_START, skillTriesFor, type SkillId, type SkillUpMsg } from "@tibinha/shared";
+import { S2C, SKILLS, SKILL_START, skillTriesFor, type SkillId, type SkillUpMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterData } from "../persistence/types.ts";
 

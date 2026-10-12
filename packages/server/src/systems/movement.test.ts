@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CollisionGrid, Dir, GroundSpeedGrid, TICK_MS, stepDuration } from "@tibinha/shared";
+import { CollisionGrid, Dir, GroundSpeedGrid, TICK_MS, stepDuration } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { MovementSystem } from "./movement.ts";
 

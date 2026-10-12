@@ -1,5 +1,5 @@
 {
-  "name": "@tibinha/server",
+  "name": "@lemonquest/server",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@colyseus/ws-transport": "^0.18.4",
-    "@tibinha/shared": "*",
+    "@lemonquest/shared": "*",
     "colyseus": "^0.18.9",
     "express": "^5.3.0"
   },

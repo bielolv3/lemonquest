@@ -1,6 +1,6 @@
 // NPCs no mundo: sprites parados (olham em volta / viram para o jogador), nome com selos, balões de fala e acerto de clique.
 import Phaser from "phaser";
-import { NPCS, TILE_SIZE, findObjects, objectTile, type Facing, type TiledMap } from "@tibinha/shared";
+import { NPCS, TILE_SIZE, findObjects, objectTile, type Facing, type TiledMap } from "@lemonquest/shared";
 import { Actor, type ActorDeps } from "./actor.ts";
 import { gridSheet, type CharacterSheet } from "./sprites.ts";
 

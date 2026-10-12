@@ -1,5 +1,5 @@
 // A* em grade, 8 direções, sem cortar quina. Função pura — reutilizada pela IA de monstros (M2).
-import { DIAGONAL_COST } from "@tibinha/shared";
+import { DIAGONAL_COST } from "@lemonquest/shared";
 
 export interface Point { x: number; y: number }
 

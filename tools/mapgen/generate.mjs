@@ -1,4 +1,4 @@
-// Tibinha overworld generator. Deterministic (seeded). Run: node tools/mapgen/generate.mjs
+// The Lemon Quest overworld generator. Deterministic (seeded). Run: node tools/mapgen/generate.mjs
 // Outputs assets/maps/world.json, preview.png (16px/tile), preview-small.png (4px/tile). Fails loudly if BFS reachability checks fail.
 import fs from 'node:fs';
 import path from 'node:path';

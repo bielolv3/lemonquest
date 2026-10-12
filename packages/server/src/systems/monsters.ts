@@ -3,7 +3,7 @@
 import {
   DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, applySpeedPct, canStepTerrain, findObjects, isDiagonal, monsterDef, objectTile,
   type CollisionGrid, type GroundSpeedGrid, type MonsterDef, type TiledMap,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { MonsterState, type PlayerState } from "../state.ts";
 import { updateMonster } from "./ai.ts";
 import type { Point } from "./pathfinding.ts";

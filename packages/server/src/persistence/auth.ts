@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { Router } from "express";
-import { MAX_NAME_LEN, VOCATIONS, type LoginRequest, type LoginResponse, type Vocation } from "@tibinha/shared";
+import { MAX_NAME_LEN, VOCATIONS, type LoginRequest, type LoginResponse, type Vocation } from "@lemonquest/shared";
 import { createAccount, findAccount, getCharacterByName, nameKey } from "./db.ts";
 import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 

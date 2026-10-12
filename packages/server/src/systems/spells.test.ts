@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   BASE_STEP_MS, Dir, evalSpellFormula, mitigateSpell, playerDamageRange, GLOBAL_SPELL_COOLDOWN_MS, S2C, SKILL_START, TICK_MS, skillTriesFor, stepDuration,
   type MonsterDef, type SpellDef,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { ConditionSystem } from "./conditions.ts";
 import { SkillSystem } from "./skills.ts";
 import { SummonSystem } from "./summons.ts";
@@ -10,7 +10,7 @@ import { SpellSystem, circleTiles, waveTiles } from "./spells.ts";
 import { MovementSystem } from "./movement.ts";
 import { handleChat } from "./chat.ts";
 import { def, grid, openGrid, player, world } from "./testkit.ts";
-import type { CollisionGrid } from "@tibinha/shared";
+import type { CollisionGrid } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 
 const F = (base: number) => ({ base, perLevel: 0, perMagic: 0, variance: 0 });

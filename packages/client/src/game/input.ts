@@ -1,6 +1,6 @@
 // Teclado → intenção de movimento (8 direções). Usa eventos DOM (sem captura do Phaser) para não
 // atrapalhar campos de texto da UI.
-import { Dir, dirFromDelta } from "@tibinha/shared";
+import { Dir, dirFromDelta } from "@lemonquest/shared";
 
 type Axis = "up" | "down" | "left" | "right";
 

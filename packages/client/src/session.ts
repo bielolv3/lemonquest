@@ -1,5 +1,5 @@
 import type { Room } from "@colyseus/sdk";
-import { JoinOptions, LoginRequest, LoginResponse } from "@tibinha/shared";
+import { JoinOptions, LoginRequest, LoginResponse } from "@lemonquest/shared";
 import { client, endpoint } from "./net.ts";
 
 /**

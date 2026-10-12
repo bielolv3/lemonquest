@@ -2,7 +2,7 @@
 // Efeitos: haste/slow/rooted (velocidade), protect (−% dano), manashield, regen (cura/1 s),
 // burn/poison/energy/bleed/freeze (dano a cada 2 s), taunted (monstro forçado a atacar quem provocou).
 // O jogador recebe S2C.Conditions sempre que a lista dele muda (inclui "combat" e "pz", calculados aqui).
-import { S2C, type ConditionId, type ConditionsMsg, type DamageKind } from "@tibinha/shared";
+import { S2C, type ConditionId, type ConditionsMsg, type DamageKind } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CombatSystem } from "./combat.ts";
 import type { MonsterManager } from "./monsters.ts";

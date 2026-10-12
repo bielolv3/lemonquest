@@ -1,6 +1,6 @@
 // Minimapa com fog of war, mapa-múndi em tela cheia (tecla M) e banner de zona.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { C2S, type WalkToMsg } from "@tibinha/shared";
+import { C2S, type WalkToMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { isTyping } from "../focus.ts";
 import { minimapStore as store } from "./store.ts";
@@ -10,7 +10,7 @@ const BG = "#07080c";
 const FRAME_MS = 66; // ~15 fps
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 4;
-const ZOOM_KEY = "tibinha.minimap.zoom";
+const ZOOM_KEY = "lemonquest.minimap.zoom";
 
 function loadZoom(): number {
   const z = Number(localStorage.getItem(ZOOM_KEY));

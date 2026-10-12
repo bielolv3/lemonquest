@@ -1,5 +1,5 @@
 // Mochila 4x5 com itens reais (arrastar, usar, equipar). O ouro fica no cabeçalho.
-import { BACKPACK_SIZE } from "@tibinha/shared";
+import { BACKPACK_SIZE } from "@lemonquest/shared";
 import { GoldLabel } from "../items/Gold.tsx";
 import { inventoryStore } from "../items/inventory.ts";
 import { ItemSlot } from "../items/ItemSlot.tsx";

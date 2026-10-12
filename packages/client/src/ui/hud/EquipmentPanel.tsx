@@ -1,5 +1,5 @@
 // Paper doll: itens reais do servidor (S2C.Inventory). Cap e Arm (stats.armor) abaixo.
-import type { EquipSlot } from "@tibinha/shared";
+import type { EquipSlot } from "@lemonquest/shared";
 import { inventoryStore } from "../items/inventory.ts";
 import { ItemSlot } from "../items/ItemSlot.tsx";
 import { SLOT_LABEL } from "../items/itemInfo.ts";

@@ -3,7 +3,7 @@
 import {
   C2S, GLOBAL_SPELL_COOLDOWN_MS, S2C, spellsFor,
   type CastFailReason, type CastMsg, type CastResultMsg, type SpellDef,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { cssColor, PAL } from "../../game/spellPalette.ts";
 import { sfx } from "../../game/sfx.ts";
 import { session } from "../../session.ts";

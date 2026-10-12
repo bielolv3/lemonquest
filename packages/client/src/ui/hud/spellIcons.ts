@@ -1,5 +1,5 @@
 // Ícones pixel-art das magias, desenhados em canvas (16x16, contorno automático, paleta do elemento).
-import type { SpellFx, SpellTarget } from "@tibinha/shared";
+import type { SpellFx, SpellTarget } from "@lemonquest/shared";
 import { cssColor, PAL } from "../../game/spellPalette.ts";
 
 type Put = (x: number, y: number, c: string) => void;

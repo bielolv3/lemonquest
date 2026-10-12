@@ -4,7 +4,7 @@ import {
   type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type QuickPotionMsg, type TurnMsg,
   type UseItemMsg, type WalkToMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
 import { MovementSystem } from "../systems/movement.ts";
@@ -215,15 +215,15 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onMonsterKilled: (m) => this.combat.later(() => this.loot.onKill(m)),
     };
     this.monsters.spawnAll();
-    console.log(`[tibinha] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns, ${this.npcs.list.length} NPCs`);
+    console.log(`[lemonquest] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns, ${this.npcs.list.length} NPCs`);
 
     // Alcançabilidade a partir do spawn (inclui portais) — valida a posição salva no onJoin.
     this.reachable = reachableFrom(this.map.grid, this.map.spawn, (x, y) => this.portals.destination(x, y));
     let nReach = 0;
     for (const v of this.reachable) nReach += v;
-    console.log(`[tibinha] ${nReach} tiles alcançáveis a partir do spawn`);
+    console.log(`[lemonquest] ${nReach} tiles alcançáveis a partir do spawn`);
 
-    // Comandos com "/": só admins com TIBINHA_DEV_COMMANDS=1 (fora de produção); senão "Comando desconhecido." (chat.ts).
+    // Comandos com "/": só admins com LEMONQUEST_DEV_COMMANDS=1 (fora de produção); senão "Comando desconhecido." (chat.ts).
     const command = (p: PlayerState, text: string) => handleDevCommand(p, text, {
       inventory: this.inventory, send,
       teleport: (pl, x, y) => this.movement.teleport(pl, x, y),

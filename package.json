@@ -1,5 +1,5 @@
 {
-  "name": "tibinha",
+  "name": "lemonquest",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -8,10 +8,10 @@
     "packages/client"
   ],
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"npm:dev -w @tibinha/server\" \"npm:dev -w @tibinha/client\"",
-    "build": "npm run build -w @tibinha/client",
-    "start": "npm run build && npm run start -w @tibinha/server",
-    "start:fast": "npm run start -w @tibinha/server",
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev -w @lemonquest/server\" \"npm:dev -w @lemonquest/client\"",
+    "build": "npm run build -w @lemonquest/client",
+    "start": "npm run build && npm run start -w @lemonquest/server",
+    "start:fast": "npm run start -w @lemonquest/server",
     "typecheck": "tsc -p packages/shared && tsc -p packages/server && tsc -p packages/client",
     "test": "vitest run"
   },

@@ -1,7 +1,7 @@
 // Comandos de desenvolvimento no chat. Resposta só para quem digitou (Notice).
-// Ligados SÓ com TIBINHA_DEV_COMMANDS=1, NODE_ENV != production e para nomes listados em TIBINHA_ADMINS (vírgulas).
+// Ligados SÓ com LEMONQUEST_DEV_COMMANDS=1, NODE_ENV != production e para nomes listados em LEMONQUEST_ADMINS (vírgulas).
 //   /level N · /item <id> [count] [rarity] · /gold N · /heal · /tp x y · /ml N
-import { RARITIES, S2C, isEquipable, xpForLevel, type NoticeMsg, type Rarity, type TeleportedMsg } from "@tibinha/shared";
+import { RARITIES, S2C, isEquipable, xpForLevel, type NoticeMsg, type Rarity, type TeleportedMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { InventorySystem } from "./inventory.ts";
 import { createItem } from "./loot.ts";
@@ -12,14 +12,14 @@ export const MAX_DEV_LEVEL = 300;
 
 type Env = Record<string, string | undefined>;
 
-/** Chaves (name_key) dos admins em TIBINHA_ADMINS="Leo, Ana Maria". */
+/** Chaves (name_key) dos admins em LEMONQUEST_ADMINS="Leo, Ana Maria". */
 export function devAdmins(env: Env = process.env): Set<string> {
-  return new Set((env.TIBINHA_ADMINS ?? "").split(",").map((s) => nameKey(s.trim().replace(/\s+/g, " "))).filter(Boolean));
+  return new Set((env.LEMONQUEST_ADMINS ?? "").split(",").map((s) => nameKey(s.trim().replace(/\s+/g, " "))).filter(Boolean));
 }
 
-/** Comandos ligados? Exige TIBINHA_DEV_COMMANDS=1 e nunca em produção. */
+/** Comandos ligados? Exige LEMONQUEST_DEV_COMMANDS=1 e nunca em produção. */
 export const devCommandsEnabled = (env: Env = process.env): boolean =>
-  env.TIBINHA_DEV_COMMANDS === "1" && env.NODE_ENV !== "production";
+  env.LEMONQUEST_DEV_COMMANDS === "1" && env.NODE_ENV !== "production";
 
 /** Este jogador pode usar comandos de dev? */
 export const isDevAdmin = (name: string, env: Env = process.env): boolean =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CollisionGrid, Dir, stepDuration } from "@tibinha/shared";
+import { CollisionGrid, Dir, stepDuration } from "@lemonquest/shared";
 import { Predictor } from "./predictor.ts";
 
 function grid(rows: string[]): CollisionGrid {

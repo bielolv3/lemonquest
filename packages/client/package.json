@@ -1,5 +1,5 @@
 {
-  "name": "@tibinha/client",
+  "name": "@lemonquest/client",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@colyseus/sdk": "^0.18.5",
-    "@tibinha/shared": "*",
+    "@lemonquest/shared": "*",
     "phaser": "^3.90.0",
     "preact": "^11.0.1"
   },

@@ -1,6 +1,6 @@
 // Câmera pixel-perfect: zoom inteiro, seguimento suave (lerp independente de FPS), limitada ao mapa.
 import Phaser from "phaser";
-import { TILE_SIZE } from "@tibinha/shared";
+import { TILE_SIZE } from "@lemonquest/shared";
 import { getHudInsets } from "../ui/hud/layout.ts";
 
 /** Tiles visíveis na vertical que buscamos (~15–19). */

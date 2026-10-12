@@ -1,7 +1,7 @@
 // Invocações: monstros aliados com dono (MonsterState.ownerId = sessionId). Seguem o dono (até 3 tiles),
 // atacam o alvo do dono ou quem ataca o dono/a invocação, não dão XP, somem ao expirar ou quando o dono
 // sai/morre/se afasta mais de SUMMON_LEASH tiles. 1 conjuração ativa por jogador (reconjurar substitui).
-import { DIR_DELTA, Dir, dirFromDelta, mitigate, monsterDef, rollInt, type MonsterDef } from "@tibinha/shared";
+import { DIR_DELTA, Dir, dirFromDelta, mitigate, monsterDef, rollInt, type MonsterDef } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { THINK_MS, computePath, followPath, greedyStep } from "./ai.ts";
 import type { CombatSystem } from "./combat.ts";

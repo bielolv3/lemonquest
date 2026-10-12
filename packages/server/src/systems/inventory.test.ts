@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKPACK_SIZE, S2C, baseStats, weaponDamageRange, playerDamageRange } from "@tibinha/shared";
+import { BACKPACK_SIZE, S2C, baseStats, weaponDamageRange, playerDamageRange } from "@lemonquest/shared";
 import { MSG, makeItem } from "./inventory.ts";
 import { attackProfile } from "./combat.ts";
 import { invWorld, itemsFx } from "./m4kit.ts";

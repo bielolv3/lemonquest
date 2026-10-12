@@ -7,7 +7,7 @@ import {
   type DepotMsg, type DiscardItemMsg, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance,
   type ItemLocation, type MoveItemMsg, type NoticeMsg, type QuickPotionMsg, type Rarity, type SkillId,
   type StatId, type Stats, type UseItemMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterData } from "../persistence/types.ts";
 

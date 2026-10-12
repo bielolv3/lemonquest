@@ -1,5 +1,5 @@
 // Configuração ÚNICA de sprites de personagem. Trocar o pack de arte = mexer só aqui.
-import type { Facing, Vocation } from "@tibinha/shared";
+import type { Facing, Vocation } from "@lemonquest/shared";
 
 export interface CharacterSheet {
   /** Chave da textura no Phaser (uma por arquivo). */

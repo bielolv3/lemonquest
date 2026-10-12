@@ -1,6 +1,6 @@
 // Animação de loot: itens/moedas saltam no tile do abate e voam até o jogador. Ícones carregados sob demanda.
 import Phaser from "phaser";
-import { RARITY_COLOR, TILE_SIZE, itemDef, type ItemIcon, type ItemInstance, type Rarity } from "@tibinha/shared";
+import { RARITY_COLOR, TILE_SIZE, itemDef, type ItemIcon, type ItemInstance, type Rarity } from "@lemonquest/shared";
 import type { CombatFx } from "./combatFx.ts";
 import { sfx, type SfxName } from "./sfx.ts";
 import { TEX } from "./textures.ts";

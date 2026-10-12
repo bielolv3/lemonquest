@@ -2,7 +2,7 @@
 import {
   DIR_DELTA, TICK_MS, Dir, canStepTerrain, dirFromDelta, isNearSpawn, isValidDir, stepDuration,
   type CollisionGrid, type GroundSpeedGrid, type MoveMsg, type TurnMsg, type WalkToMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, PATH_MAX_DIST, type Point } from "./pathfinding.ts";
 

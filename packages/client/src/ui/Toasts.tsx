@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { S2C, type NoticeMsg } from "@tibinha/shared";
+import { S2C, type NoticeMsg } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { onToast } from "./toasts.ts";
 

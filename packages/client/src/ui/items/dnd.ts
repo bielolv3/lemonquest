@@ -2,7 +2,7 @@
 // Os slots declaram `data-loc="bp:3" | "eq:helmet" | "dp:12"`. O alvo é achado com elementFromPoint ao soltar.
 import {
   BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, type EquipSlot, type ItemDef, type ItemInstance, type ItemLocation,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { playersStore, selectMe } from "../hud/world.ts";
 import { npcStore } from "../npc/npc.ts";

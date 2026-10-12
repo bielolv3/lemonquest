@@ -1,4 +1,4 @@
-// Backups da base: `VACUUM INTO data/backups/tibinha-YYYYMMDD-HH.db` a cada hora (e um no boot).
+// Backups da base: `VACUUM INTO data/backups/lemonquest-YYYYMMDD-HH.db` a cada hora (e um no boot).
 // Rotação: todos das últimas 48 h + o mais recente de cada dia por 14 dias.
 import fs from "node:fs";
 import path from "node:path";
@@ -6,14 +6,14 @@ import { DATA_DIR, backupTo } from "./db.ts";
 
 export const BACKUP_HOURLY_KEEP_H = 48;
 export const BACKUP_DAILY_KEEP_D = 14;
-const NAME_RE = /^tibinha-(\d{4})(\d{2})(\d{2})-(\d{2})\.db$/;
+const NAME_RE = /^lemonquest-(\d{4})(\d{2})(\d{2})-(\d{2})\.db$/;
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export const backupDir = (): string => process.env.TIBINHA_BACKUP_DIR || path.join(DATA_DIR, "backups");
+export const backupDir = (): string => process.env.LEMONQUEST_BACKUP_DIR || path.join(DATA_DIR, "backups");
 
 /** Nome do backup da hora de `d` (hora local). */
 export function backupFileName(d: Date): string {
-  return `tibinha-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}.db`;
+  return `lemonquest-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}.db`;
 }
 
 /** Hora (local) codificada no nome, ou null se não for um backup nosso. */
@@ -42,7 +42,7 @@ export function selectBackupsToDelete(
     const t = d.getTime();
     if (t >= hourlyCut) continue;
     if (t < dailyCut) { del.push(name); continue; }
-    const day = name.slice(8, 16); // YYYYMMDD
+    const day = NAME_RE.exec(name)!.slice(1, 4).join(""); // YYYYMMDD (independe do tamanho do prefixo)
     const cur = newestOfDay.get(day);
     if (!cur) newestOfDay.set(day, { name, t });
     else if (t > cur.t) { del.push(cur.name); newestOfDay.set(day, { name, t }); }

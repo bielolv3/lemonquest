@@ -1,5 +1,5 @@
 // Utilitários de teste (monstros/combate). Não é importado pelo servidor.
-import { CollisionGrid, Dir, TICK_MS, type MonsterDef } from "@tibinha/shared";
+import { CollisionGrid, Dir, TICK_MS, type MonsterDef } from "@lemonquest/shared";
 import type { MonsterState, PlayerState } from "../state.ts";
 import { MonsterManager, type MonsterManagerOptions, type SpawnPoint } from "./monsters.ts";
 import { CombatSystem } from "./combat.ts";

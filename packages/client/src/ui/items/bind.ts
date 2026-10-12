@@ -1,5 +1,5 @@
 // Liga as mensagens do servidor (inventário, depot, NPC, loot, feed) aos stores da UI. Importar uma vez (Hud).
-import { S2C, type DepotMsg, type FeedMsg, type InventoryMsg, type LootMsg, type NpcOpenMsg } from "@tibinha/shared";
+import { S2C, type DepotMsg, type FeedMsg, type InventoryMsg, type LootMsg, type NpcOpenMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { handleNpcOpen } from "../npc/npc.ts";
 import { depotStore, inventoryStore } from "./inventory.ts";

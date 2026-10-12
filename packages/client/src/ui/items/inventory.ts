@@ -3,7 +3,7 @@ import {
   BACKPACK_SIZE, C2S, itemDef,
   type DiscardItemMsg, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation,
   type MoveItemMsg, type UseItemMsg,
-} from "@tibinha/shared";
+} from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { send } from "./net.ts";
 

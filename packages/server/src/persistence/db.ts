@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import type { Vocation } from "@tibinha/shared";
+import type { Vocation } from "@lemonquest/shared";
 import type { CharacterData, CharacterRecord } from "./types.ts";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -96,7 +96,7 @@ export function migrateForTest(d: DatabaseSync) { migrate(d); }
 
 export function initDb(file?: string): DatabaseSync {
   db?.close();
-  const target = file ?? process.env.TIBINHA_DB ?? path.join(DATA_DIR, "tibinha.db");
+  const target = file ?? process.env.LEMONQUEST_DB ?? path.join(DATA_DIR, "lemonquest.db");
   if (target !== ":memory:") fs.mkdirSync(path.dirname(target), { recursive: true });
   const d = new DatabaseSync(target);
   d.exec("PRAGMA journal_mode = WAL");
