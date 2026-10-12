@@ -22,11 +22,14 @@ RUN npm run build
 
 # ---------------------------------------------------------------- node (só o binário)
 FROM node:24-alpine AS nodebin
+# strip: tira a tabela de símbolos/debug do binário (não afeta a execução; -20 a -40 MB).
+RUN apk add --no-cache binutils && strip --strip-all /usr/local/bin/node && node --version
 
 # ---------------------------------------------------------------- runtime
 FROM alpine:3.22 AS runtime
 # libstdc++/libgcc: exigidos pelo binário do Node no Alpine · tzdata: TZ=America/Sao_Paulo (backups e logs).
-RUN apk add --no-cache libstdc++ libgcc tzdata
+# util-linux-misc: setpriv de verdade (o do busybox não tem --reuid).
+RUN apk add --no-cache libstdc++ libgcc tzdata util-linux-misc
 COPY --from=nodebin /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
