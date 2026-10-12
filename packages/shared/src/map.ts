@@ -176,6 +176,27 @@ export function findObjects(map: TiledMap, kind: string): TiledObject[] {
 /** Converte posição em pixels de um objeto Tiled para coordenada de tile. */
 export const objectTile = (o: TiledObject, tile = 16) => ({ x: Math.floor(o.x / tile), y: Math.floor(o.y / tile) });
 
+/** Estátua de treino offline (objeto "training_statue"): id (prop `statueId`, senão o nome) e tile. */
+export interface TrainingStatue { id: string; x: number; y: number }
+
+/** Distância (Chebyshev) de (x,y) à estátua. A estátua ocupa 2x2: (x..x+1, y-1..y), com o ponto do mapa na base à esquerda. */
+export function statueDistance(s: TrainingStatue, x: number, y: number): number {
+  const dx = Math.max(s.x - x, 0, x - (s.x + 1));
+  const dy = Math.max(s.y - 1 - y, 0, y - s.y);
+  return Math.max(dx, dy);
+}
+
+export function findTrainingStatues(map: TiledMap): TrainingStatue[] {
+  const out: TrainingStatue[] = [];
+  for (const o of findObjects(map, "training_statue")) {
+    const id = String(o.properties?.find((p) => p.name === "statueId")?.value ?? o.name ?? "");
+    if (!id || out.some((s) => s.id === id)) continue;
+    const t = objectTile(o, map.tilewidth);
+    out.push({ id, x: t.x, y: t.y });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers de movimento compartilhados (servidor = autoridade, cliente = predição).
 // ---------------------------------------------------------------------------

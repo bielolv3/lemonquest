@@ -111,7 +111,7 @@ export class SummonSystem {
     const w = this.o.monsters;
     const near = (t: Monster) => cheb(owner.x, owner.y, t.s.x, t.s.y) <= SUMMON_FIGHT_DIST;
     const ot = w.wild(owner.targetId);
-    if (ot && near(ot)) return ot;
+    if (ot && !ot.def.invulnerable && near(ot)) return ot; // invocações ignoram bonecos de treino
     const cur = w.wild(m.s.targetId);
     if (cur && near(cur) && (cur.s.targetId === owner.id || cur.s.targetId === m.s.id)) return cur;
     let best: Monster | undefined, bestD = Infinity;

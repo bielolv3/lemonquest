@@ -31,12 +31,15 @@ export const C2S = {
   NpcTrade: "npcTrade",
   /** Modo de batalha: postura (ofensivo/equilibrado/defensivo) e seguir o alvo. */
   FightMode: "fightMode",
+  /** Pedir a escolha de skill de uma estátua de treino adjacente (o servidor responde S2C.TrainingOpen). */
+  TrainOpen: "trainOpen",
   /** Começar treino offline numa estátua de treino adjacente (o servidor salva e desconecta com CLOSE_TRAINING). */
   TrainOffline: "trainOffline",
   /** Coliseu: ações de lobby (no NPC do coliseu) e de partida. */
   Arena: "arena",
 } as const;
 
+export interface TrainOpenMsg { statueId: string }
 export interface TrainOfflineMsg { skill: SkillId }
 export type ArenaActionMsg =
   | { action: "list" }                        // pede S2C.ArenaLobbies

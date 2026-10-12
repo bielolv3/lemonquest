@@ -21,6 +21,8 @@ export const SPEED_RULES = [
   ['TilesetFloor', 11, 19, 16, 20, 115, 'swamp'],  // boggy swamp soil
   // ---- cave floor: same image as TilesetFloor (the cave reuses the mud art), separate tileset so it can be normal speed
   ['TilesetCaveFloor', 11, 14, 21, 18, 100, 'stone'],
+  // ---- arena floor: same image as TilesetFloor, normal speed (the orange sand ground + tufts)
+  ['TilesetArenaFloor', 0, 5, 5, 6, 100, 'sand'],
   // ---- TilesetInteriorFloor
   ['TilesetInteriorFloor', 0, 0, 21, 11, 85, 'floor'],    // polished stone / wooden floors
   ['TilesetInteriorFloor', 0, 12, 10, 16, 85, 'cobble'],  // town plaza cobblestone

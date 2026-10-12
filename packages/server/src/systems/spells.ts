@@ -162,7 +162,14 @@ export class SpellSystem {
     if (p.level < s.level) return this.fail(s.id, "level");
     const mm = this.o.monsters;
     const aggressive = isAggressive(s);
-    if ((aggressive || s.summon) && mm.inPz(p.x, p.y)) return this.fail(s.id, "pz");
+    const casterPz = mm.inPz(p.x, p.y);
+    if (s.summon && casterPz) return this.fail(s.id, "pz");
+    // Na PZ só se conjura ofensivo contra bonecos de treino (alvo único: ver resolveTarget; área/onda: boneco ao alcance).
+    if (aggressive && casterPz) {
+      const single = s.target === "target" || s.target === "area_target";
+      const ok = single ? !!mm.wild(targetId || p.targetId)?.def.invulnerable : this.dummyInReach(p, s);
+      if (!ok) return this.fail(s.id, "pz");
+    }
     const usesGlobal = s.global !== false;
     const cdLeft = Math.max(0, (this.cd.get(p.id)?.get(s.id) ?? 0) - now);
     const gLeft = usesGlobal ? Math.max(0, (this.globalCd.get(p.id) ?? 0) - now) : 0;
@@ -204,8 +211,15 @@ export class SpellSystem {
     const m = mm.wild(targetId || p.targetId);
     if (!m) return { ok: false, reason: "target" };
     if (cheb(p.x, p.y, m.s.x, m.s.y) > range) return { ok: false, reason: "range" };
-    if (mm.inPz(m.s.x, m.s.y)) return { ok: false, reason: "pz" };
+    if (!m.def.invulnerable && mm.inPz(m.s.x, m.s.y)) return { ok: false, reason: "pz" };
     return { ok: true, monster: m };
+  }
+
+  /** Há um boneco de treino ao alcance de uma magia de área/onda conjurada por `p`? */
+  private dummyInReach(p: PlayerState, s: SpellDef): boolean {
+    const reach = Math.max(s.radius ?? 0, s.length ?? 0, 1);
+    for (const m of this.o.monsters.all()) if (m.def.invulnerable && cheb(p.x, p.y, m.s.x, m.s.y) <= reach) return true;
+    return false;
   }
 
   private wall = (x: number, y: number) => !this.o.grid.isWalkable(x, y);
@@ -226,7 +240,7 @@ export class SpellSystem {
     else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.wall);
 
     // Quem é atingido.
-    const hitMonsters: Monster[] = [];
+    let hitMonsters: Monster[] = [];
     const allies: PlayerState[] = [];
     if (s.target === "target") {
       if (r.monster) hitMonsters.push(r.monster);
@@ -247,6 +261,9 @@ export class SpellSystem {
         for (const o of this.o.players()) if (o.hp > 0 && set.has(o.y * this.o.grid.width + o.x)) allies.push(o);
       }
     }
+
+    // Conjurando de dentro da PZ, só os bonecos de treino levam o efeito (nada selvagem é atingido "de graça").
+    if (mm.inPz(p.x, p.y)) hitMonsters = hitMonsters.filter((m) => m.def.invulnerable);
 
     const ml = (p.magicLevel ?? 0) + (this.o.magicBonus?.(p) ?? 0);
     const dealt = this.o.dealtMult?.(p) ?? 1;
@@ -272,7 +289,7 @@ export class SpellSystem {
       const rad = s.radius ?? DEFAULT_TAUNT_RADIUS;
       const dur = c?.durationMs ?? DEFAULT_TAUNT_MS;
       for (const m of mm.all()) {
-        if (m.s.ownerId || cheb(p.x, p.y, m.s.x, m.s.y) > rad) continue;
+        if (m.s.ownerId || m.def.invulnerable || cheb(p.x, p.y, m.s.x, m.s.y) > rad) continue;
         this.o.conditions.apply(m.s.id, "taunted", dur, c?.id === "taunted" ? c.value : undefined, p.id, now);
       }
     }

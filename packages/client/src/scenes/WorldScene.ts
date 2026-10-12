@@ -14,6 +14,7 @@ import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
+import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
 import { KeyboardInput } from "../game/input.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
@@ -23,6 +24,7 @@ import { ALL_SHEETS, lookFor } from "../game/sprites.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
 import { openNpc } from "../ui/npc/npc.ts";
+import { openStatue } from "../ui/training/training.ts";
 import { showDeath, showLevelBanner } from "../ui/combat/combatUi.ts";
 import { setConditions } from "../ui/hud/conditions.ts";
 import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
@@ -75,7 +77,8 @@ export class WorldScene extends Phaser.Scene {
   private loot!: LootFx;
   private butterflies!: Butterflies;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
-  private pendingNpc: { id: string; until: number } | null = null;
+  private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
+  private statues!: StatueIndex;
   private myVocation = "";
   private unlockedUpTo = 0;
   private hover!: Phaser.GameObjects.Image;
@@ -146,6 +149,7 @@ export class WorldScene extends Phaser.Scene {
     });
     this.npcs = new NpcManager(this, () => this.actorDeps(), this.uiLayer);
     this.npcs.addFromMap(this.world.tiled);
+    this.statues = new StatueIndex(this.world.tiled);
     this.loot = new LootFx(this, this.worldLayer, this.uiLayer, this.fx, () => {
       const me = this.actors.get(this.myId);
       return me ? { x: me.bodyX, y: me.bodyY, headY: me.headY } : null;
@@ -427,6 +431,8 @@ export class WorldScene extends Phaser.Scene {
       if (cid) { toggleTarget({ id: cid, kind: "monster" }); return; }
       const nid = this.npcAtPointer(ptr);
       if (nid) { this.clickNpc(nid); return; }
+      const sid = this.statueAtPointer(ptr);
+      if (sid) { this.clickStatue(sid); return; }
       if (!left || !this.room) return;
       this.pendingNpc = null;
       const t = this.pointerTile(ptr);
@@ -443,6 +449,53 @@ export class WorldScene extends Phaser.Scene {
   private npcAtPointer(ptr: Phaser.Input.Pointer): string | null {
     const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
     return this.npcs.atPoint(wp.x, wp.y);
+  }
+
+  private statueAtPointer(ptr: Phaser.Input.Pointer): string | null {
+    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    return this.statues.atPoint(wp.x, wp.y);
+  }
+
+  /** Tile andável e livre ao redor da pegada da estátua, o mais perto do jogador. */
+  private freeStatueNeighbor(id: string, me: Actor): { x: number; y: number } | null {
+    const t = this.statues.tileOf(id);
+    if (!t) return null;
+    let best: { x: number; y: number } | null = null, bestD = Infinity;
+    for (let y = t.y - 2; y <= t.y + 1; y++) for (let x = t.x - 1; x <= t.x + 2; x++) {
+      if (this.statues.distance(id, x, y) !== 1) continue;
+      if (!this.world.grid.isWalkable(x, y) || this.isOccupiedByOther(x, y)) continue;
+      const d = Math.hypot(x - me.tileX, y - me.tileY);
+      if (d < bestD) { bestD = d; best = { x, y }; }
+    }
+    return best;
+  }
+
+  /** Tile andável e livre ao lado de (t), o mais perto do jogador (null = nenhum). */
+  private freeNeighbor(t: { x: number; y: number }, me: Actor): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null, bestD = Infinity;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = t.x + dx, y = t.y + dy;
+      if (!this.world.grid.isWalkable(x, y) || this.isOccupiedByOther(x, y)) continue;
+      const d = Math.hypot(x - me.tileX, y - me.tileY) + (dx && dy ? 0.5 : 0);
+      if (d < bestD) { bestD = d; best = { x, y }; }
+    }
+    return best;
+  }
+
+  /** Clique numa estátua de treino: ao lado = pede a escolha de skill; longe = anda até ficar ao lado e pede. */
+  private clickStatue(id: string) {
+    const me = this.actors.get(this.myId);
+    const t = this.statues.tileOf(id);
+    if (!t || !this.room || !me) return;
+    if (this.statues.distance(id, me.tileX, me.tileY) <= STATUE_RANGE) { this.pendingNpc = null; openStatue(id); return; }
+    const best = this.freeStatueNeighbor(id, me);
+    if (!best) return;
+    this.room.send(C2S.WalkTo, { x: best.x, y: best.y } satisfies WalkToMsg);
+    this.predictor.clearIntent();
+    this.input_.forgetIntent();
+    this.showMarker(best.x, best.y);
+    this.pendingNpc = { id, until: performance.now() + 20_000, statue: true };
   }
 
   /** Clique num NPC: perto = abre; longe = anda até o tile vizinho mais próximo e abre ao chegar. Nunca ataca. */
@@ -474,8 +527,12 @@ export class WorldScene extends Phaser.Scene {
     const p = this.pendingNpc;
     if (!p) return;
     const me = this.actors.get(this.myId);
-    const t = this.npcs.tileOf(p.id);
+    const t = p.statue ? this.statues.tileOf(p.id) : this.npcs.tileOf(p.id);
     if (!me || !t || performance.now() > p.until) { this.pendingNpc = null; return; }
+    if (p.statue) {
+      if (!me.isMoving && this.statues.distance(p.id, me.tileX, me.tileY) <= STATUE_RANGE) { this.pendingNpc = null; openStatue(p.id); }
+      return;
+    }
     if (!me.isMoving && chebyshev(me.tileX, me.tileY, t.x, t.y) <= NPC_RANGE) { this.pendingNpc = null; openNpc(p.id); }
   }
 
@@ -774,6 +831,10 @@ export class WorldScene extends Phaser.Scene {
     const nt = nid ? this.npcs.tileOf(nid) : null;
     this.game.canvas.style.cursor = nt ? "pointer" : "";
     if (nt) { this.hover.setPosition(nt.x * TILE_SIZE, nt.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
+    const sid = this.statueAtPointer(ptr);
+    const st = sid ? this.statues.tileOf(sid) : null;
+    this.game.canvas.style.cursor = st ? "pointer" : "";
+    if (st) { this.hover.setPosition(st.x * TILE_SIZE, st.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const t = this.pointerTile(ptr);
     if (!t) { this.hover.setVisible(false); return; }
     this.hover.setPosition(t.x * TILE_SIZE, t.y * TILE_SIZE).setAlpha(0.18).setVisible(true);
