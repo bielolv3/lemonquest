@@ -1,6 +1,7 @@
 import type { ChatChannel, ChatMessage, CombatEvent, Dir, FightStance, Vocation } from "./types.ts";
 import type { ConditionId } from "./data/spells.ts";
 import type { SkillId } from "./skills.ts";
+import type { PartyShareReason } from "./party.ts";
 export type { SkillId };
 import type { EquipSlot, ItemInstance, Rarity, Stats } from "./data/items.ts";
 
@@ -43,7 +44,18 @@ export const C2S = {
   Arena: "arena",
   /** Trocar roupa/addons (janela de roupas). */
   SetOutfit: "setOutfit",
+  /** Grupo (party): convidar/aceitar/recusar/sair/expulsar/passar liderança/desfazer. */
+  Party: "party",
 } as const;
+
+export type PartyActionMsg =
+  | { action: "invite"; targetId: string }
+  | { action: "accept"; fromId: string }
+  | { action: "decline"; fromId: string }
+  | { action: "leave" }
+  | { action: "kick"; targetId: string }
+  | { action: "lead"; targetId: string }
+  | { action: "disband" };
 
 export interface SetOutfitMsg { outfit: string; addons: number }
 
@@ -51,7 +63,7 @@ export interface TrainOpenMsg { statueId: string }
 export interface TrainOfflineMsg { skill: SkillId }
 export type ArenaActionMsg =
   | { action: "list" }                        // pede S2C.ArenaLobbies
-  | { action: "create" }                      // cria um lobby (você é o líder)
+  | { action: "create"; withParty?: boolean } // cria um lobby (você é o líder); withParty = traz o seu grupo (party) junto
   | { action: "join"; lobbyId: string }
   | { action: "leave" }                       // sai do lobby OU desiste da partida (volta à vila)
   | { action: "start" }                       // só o líder: inicia (precisa estar perto do NPC do coliseu)
@@ -136,7 +148,30 @@ export const S2C = {
   Teleported: "teleported",
   /** Anúncio de um administrador (faixa grande no centro da tela, para todos). */
   Announce: "announce",
+  /** Estado do SEU grupo (party), enviado ao mudar (null = sem grupo). */
+  Party: "party",
+  /** Convite para um grupo (toast com Aceitar/Recusar). */
+  PartyInvite: "partyInvite",
 } as const;
+
+export interface PartyMemberInfo {
+  id: string;
+  name: string;
+  vocation: Vocation;
+  level: number;
+  /** Atacou/curou nos últimos PARTY_ACTIVE_MS (conta para dividir a XP). */
+  active: boolean;
+}
+export interface PartyStateMsg {
+  party: null | {
+    id: string;
+    leaderId: string;
+    members: PartyMemberInfo[];
+    /** XP compartilhada: ativa (verde) ou inativa (vermelho) com o motivo. */
+    share: { active: boolean; reason?: PartyShareReason; minLevel?: number };
+  };
+}
+export interface PartyInviteMsg { fromId: string; fromName: string; /** ms até expirar. */ expiresInMs: number }
 
 export interface AnnounceMsg { text: string; from: string }
 
