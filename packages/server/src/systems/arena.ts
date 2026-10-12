@@ -604,7 +604,7 @@ export class ArenaSystem {
     return {
       state: {
         lobbyId: party.id,
-        ...(party.arena && party.phase !== "lobby" && party.phase !== "queued" ? { arenaId: party.arena.id } : {}),
+        ...(party.arena && party.inArena ? { arenaId: party.arena.id } : {}),
         phase: party.phase,
         wave: party.wave,
         ...(party.phaseEndsAt ? { phaseEndsAt: party.phaseEndsAt, serverNow: this.now() } : {}),

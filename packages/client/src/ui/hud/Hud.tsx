@@ -17,6 +17,8 @@ import { ItemTooltip } from "../items/ItemTooltip.tsx";
 import { LootToasts } from "../items/LootToasts.tsx";
 import { QuickPotions } from "../items/QuickPotions.tsx";
 import { NpcWindow } from "../npc/NpcWindow.tsx";
+import { ArenaWindow } from "../arena/ArenaWindow.tsx";
+import { ArenaHud } from "../arena/ArenaHud.tsx";
 import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
 import "./world.ts";
 import "./hud.css";
@@ -33,6 +35,8 @@ export function Hud() {
       <ActionBar />
       <QuickPotions />
       <NpcWindow />
+      <ArenaWindow />
+      <ArenaHud />
       <LootToasts />
       <SkillsWindow />
       <Sidebar />

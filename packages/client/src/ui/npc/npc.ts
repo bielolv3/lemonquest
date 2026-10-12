@@ -2,6 +2,7 @@
 import { C2S, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { send } from "../items/net.ts";
+import { closeArenaWindow, openArenaWindow } from "../arena/arena.ts";
 
 export type NpcTab = "buy" | "sell" | "depot";
 export interface NpcState { msg: NpcOpenMsg; tab: NpcTab; /** muda a cada nova abertura (reinicia a digitação). */ nonce: number }
@@ -27,7 +28,9 @@ export const npcTabs = (m: NpcOpenMsg): NpcTab[] => {
 
 /** S2C.NpcOpen: npcId "" fecha; senão abre/atualiza a janela. */
 export function handleNpcOpen(m: NpcOpenMsg): void {
-  if (!m.npcId) { closeNpc(); return; }
+  if (!m.npcId) { closeNpc(); closeArenaWindow(); return; }
+  // Mestre do Coliseu: abre a janela própria (lobbies) no lugar do diálogo.
+  if (m.npcId === "arena_master") { closeNpc(); openArenaWindow(); return; }
   const cur = npcStore.get();
   if (cur && cur.msg.npcId === m.npcId) {
     const tabs = npcTabs(m);
