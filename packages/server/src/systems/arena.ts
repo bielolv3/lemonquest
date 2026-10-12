@@ -82,6 +82,9 @@ export interface ArenaOptions {
   now?: () => number;
   rng?: () => number;
   defs?: (id: string) => MonsterDef | undefined;
+  /** Recorde do servidor persistido: lido no construtor, gravado quando é batido. */
+  loadServerBest?: () => number;
+  saveServerBest?: (waves: number) => void;
 }
 
 interface Member {
@@ -130,13 +133,15 @@ export class ArenaSystem {
   private readonly defs: (id: string) => MonsterDef | undefined;
   private nextId = 1;
   private lobbiesDirty = false;
-  /** Maior número de ondas vencidas desde que o servidor subiu (para "novo recorde" no feed). */
+  /** Maior número de ondas vencidas no servidor, persistido entre reinícios (para "novo recorde" no feed). */
   serverBest = 0;
 
   constructor(private readonly o: ArenaOptions) {
     this.now = o.now ?? Date.now;
     this.rng = o.rng ?? Math.random;
     this.defs = o.defs ?? monsterDef;
+    const saved = o.loadServerBest?.();
+    if (typeof saved === "number" && Number.isFinite(saved) && saved > 0) this.serverBest = Math.floor(saved);
   }
 
   get arenas(): readonly ArenaDef[] { return this.o.layout.arenas; }
@@ -503,7 +508,10 @@ export class ArenaSystem {
   private feed(party: Party, reason: ArenaResultMsg["reason"]): void {
     const waves = party.cleared;
     const record = waves > this.serverBest && waves >= ARENA_FEED_RECORD_MIN;
-    if (waves > this.serverBest) this.serverBest = waves;
+    if (waves > this.serverBest) {
+      this.serverBest = waves;
+      try { this.o.saveServerBest?.(waves); } catch (e) { console.error("[arena] falha ao gravar o recorde:", e); }
+    }
     if (waves < ARENA_FEED_MIN_WAVES && !record && reason !== "completed") return;
     const names = party.members.map((m) => m.name);
     const who = names.length > 1 ? `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}` : names[0] ?? "?";

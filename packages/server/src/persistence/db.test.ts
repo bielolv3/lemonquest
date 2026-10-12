@@ -6,9 +6,31 @@ import path from "node:path";
 import crypto from "node:crypto";
 import {
   createAccountWithCharacter as createAccount, createCharacter, findAccount, getCharacterByName, initDb, listCharacters,
-  migrateForTest, nameKey, saveCharacter,
+  getKv, loadGroundRows, migrateForTest, nameKey, replaceGroundRows, saveCharacter, setKv,
 } from "./db.ts";
 import { consumeToken, handleCreateCharacter, handleLogin, handlePlay, resetAuthState } from "./auth.ts";
+
+describe("db: estado do mundo", () => {
+  beforeEach(() => { initDb(":memory:"); });
+
+  it("kv: lê, grava e sobrescreve", () => {
+    expect(getKv("arena.serverBest")).toBeUndefined();
+    setKv("arena.serverBest", "7");
+    setKv("arena.serverBest", "9");
+    expect(getKv("arena.serverBest")).toBe("9");
+  });
+
+  it("itens no chão: substitui a lista inteira, preservando a ordem", () => {
+    const row = (x: number, owner: string | null = null) => ({ x, y: 1, item: `{"n":${x}}`, expiresAt: 1000 + x, owner, ownerUntil: owner ? 5 : null });
+    replaceGroundRows([row(1), row(2, "kiko"), row(3)]);
+    expect(loadGroundRows().map((r) => r.x)).toEqual([1, 2, 3]);
+    expect(loadGroundRows()[1]).toMatchObject({ owner: "kiko", ownerUntil: 5, expiresAt: 1002 });
+    replaceGroundRows([row(9)]);
+    expect(loadGroundRows().map((r) => r.x)).toEqual([9]);
+    replaceGroundRows([]);
+    expect(loadGroundRows()).toEqual([]);
+  });
+});
 
 describe("db", () => {
   beforeEach(() => { initDb(":memory:"); });
@@ -89,7 +111,7 @@ describe("migração v3 (vários personagens por conta)", () => {
     old.close();
 
     const d = initDb(file);
-    expect((d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(3);
+    expect((d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBeGreaterThanOrEqual(3);
     expect(d.prepare("SELECT id, account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at FROM characters ORDER BY id").all()).toEqual([
       { id: 3, account_id: 7, name: "Leo", name_key: "leo", vocation: "knight", level: 12, xp: 9999, x: 40, y: 41, dir: 2,
         data: '{"gold":500,"skills":{"melee":{"level":30,"tries":5}}}', updated_at: 333 },

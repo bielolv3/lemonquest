@@ -1,7 +1,9 @@
 // Itens no chão (estilo Tibia): largar da mochila/equipamento num tile (≤ 3 tiles, linha livre) ou no próprio,
 // pegar de volta (alcance 1, qualquer jogador), sumir com o tempo (10/20 min) e receber o loot que não coube
 // (protegido para quem matou por 60 s). Estado sincronizado: state.groundItems (sem bônus); a instância completa
-// fica aqui. SÓ EM MEMÓRIA: reiniciar o servidor apaga o que estiver no chão.
+// fica aqui. Persistência (`store`, opcional): grava a lista inteira (com debounce) quando algo muda e no desligamento;
+// no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
+// servidor desligado também conta).
 import {
   RARITY_LABEL, S2C,
   type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type NoticeMsg, type PickupItemMsg, type Rarity,
@@ -49,7 +51,17 @@ export interface GroundCollection {
   get(k: string): GroundItemState | undefined;
 }
 
+export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number; owner?: string; ownerUntil?: number }
+/** Armazenamento dos itens do chão (o jogo usa o SQLite; os testes, um array). */
+export interface GroundStore {
+  load(): GroundRecord[];
+  save(rows: GroundRecord[]): void;
+}
+/** Intervalo mínimo entre gravações. */
+export const SAVE_DEBOUNCE_MS = 5000;
+
 export interface GroundOptions {
+  store?: GroundStore;
   inventory: InventorySystem;
   collection: GroundCollection;
   /** Tile onde um item pode ficar (andável, sem NPC/portal...). */
@@ -89,6 +101,8 @@ export class GroundSystem {
   private readonly log: (msg: string) => void;
   private nextSweep = 0;
   private seq = 0;
+  private dirty = false;
+  private lastSave = 0;
 
   constructor(private readonly o: GroundOptions) {
     this.now = o.now ?? Date.now;
@@ -136,6 +150,7 @@ export class GroundSystem {
       // Parte coube: o resto continua no chão (uid novo para não repetir o que entrou na mochila).
       e.item = { ...e.item, uid: newUid(), count: left, bonuses: e.item.bonuses.map((b) => ({ ...b })) };
       e.state.count = left;
+      this.dirty = true;
       this.warn(p, GROUND_MSG.full);
     } else {
       this.remove(e.state.id);
@@ -163,6 +178,7 @@ export class GroundSystem {
       top.item.count += item.count;
       top.state.count = top.item.count;
       top.expiresAt = now + DECAY_MS[item.rarity];
+      this.dirty = true;
       return top.state.id;
     }
     if (ids.length >= MAX_PER_TILE) return undefined;
@@ -185,6 +201,7 @@ export class GroundSystem {
     const list = this.tiles.get(k);
     if (list) list.push(s.id); else this.tiles.set(k, [s.id]);
     this.o.collection.set(s.id, s);
+    this.dirty = true;
     return s.id;
   }
 
@@ -210,6 +227,7 @@ export class GroundSystem {
       if (!list.length) this.tiles.delete(k);
     }
     this.o.collection.delete(id);
+    this.dirty = true;
   }
 
   /** Some com o que passou do tempo (varre 1×/s). */
@@ -217,6 +235,56 @@ export class GroundSystem {
     if (now < this.nextSweep) return;
     this.nextSweep = now + SWEEP_MS;
     for (const [id, e] of this.entries) if (e.expiresAt <= now) this.remove(id);
+    if (this.dirty && now - this.lastSave >= SAVE_DEBOUNCE_MS) this.flush(now);
+  }
+
+  /** Grava o chão agora, se mudou desde a última gravação (debounce na varredura / desligamento). */
+  flush(now = this.now()): void {
+    const store = this.o.store;
+    if (!store || !this.dirty) return;
+    this.dirty = false;
+    this.lastSave = now;
+    try {
+      store.save([...this.entries.values()].map((e) => ({
+        x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt, owner: e.owner, ownerUntil: e.ownerUntil,
+      })));
+    } catch (err) {
+      this.dirty = true; // tenta de novo na próxima varredura
+      this.log(`[ground] falha ao gravar: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** Recarrega do `store` (boot): descarta expirados, definições desconhecidas e tiles inválidos. Retorna quantos voltaram. */
+  restore(now = this.now()): number {
+    const store = this.o.store;
+    if (!store) return 0;
+    let rows: GroundRecord[];
+    try { rows = store.load(); } catch (err) {
+      this.log(`[ground] falha ao carregar: ${err instanceof Error ? err.message : String(err)}`);
+      return 0;
+    }
+    let n = 0;
+    for (const r of rows) {
+      if (r.expiresAt <= now || !this.o.inventory.defs(r.item.defId) || !this.o.canHold(r.x, r.y)) continue;
+      if (this.at(r.x, r.y).length >= MAX_PER_TILE || this.entries.size >= MAX_GROUND_ITEMS) continue;
+      const s = new GroundItemState();
+      s.id = `g${(++this.seq).toString(36)}`;
+      s.defId = r.item.defId;
+      s.count = r.item.count;
+      s.rarity = r.item.rarity;
+      s.x = r.x;
+      s.y = r.y;
+      const e: GroundEntry = { state: s, item: r.item, expiresAt: r.expiresAt };
+      if (r.owner && (r.ownerUntil ?? 0) > now) { e.owner = r.owner; e.ownerUntil = r.ownerUntil; }
+      this.entries.set(s.id, e);
+      const k = tileKey(r.x, r.y);
+      const list = this.tiles.get(k);
+      if (list) list.push(s.id); else this.tiles.set(k, [s.id]);
+      this.o.collection.set(s.id, s);
+      n++;
+    }
+    this.dirty = n !== rows.length; // descartou algo: regrava a lista limpa
+    return n;
   }
 
   removePlayer(id: string): void { this.limiter.clearPrefix(`${id}:`); }
