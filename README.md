@@ -68,6 +68,25 @@ npm test
 
 O Vite escuta só em `localhost`; para testar de outra máquina use `LEMONQUEST_DEV_LAN=1 npm run dev`.
 
+### Testes E2E (Playwright)
+
+```bash
+npx playwright install chromium   # uma vez
+npm run test:e2e                  # builda o cliente, sobe um servidor de teste e roda e2e/*.spec.ts no Chromium headless
+npx playwright show-report        # relatório HTML (playwright-report/); screenshots de falhas em test-results/
+```
+
+- O `playwright.config.ts` sobe o próprio servidor (`e2e/start-server.mjs`) na porta **2851** (`E2E_PORT` muda), com
+  banco e backups temporários em `%TEMP%/lemonquest-e2e-<porta>` (apagados a cada execução). Não toca no jogo de verdade.
+- Ele roda com `NODE_ENV=test LEMONQUEST_E2E=1`: o servidor entrega o cliente buildado (como em produção) e desliga o
+  limite de contas novas por IP; os comandos de dev (`/level`, `/tp`, `/item`…) valem para os nomes de teste
+  (`e2e/names.ts`). Esse modo **nunca** liga com `NODE_ENV=production` nem sem a variável explícita.
+- O cliente expõe `window.__lq` (estado do jogo e tile → pixel) só com `?e2e` na URL; os testes usam isso para clicar
+  e arrastar no mundo como um jogador.
+- `E2E_SKIP_BUILD=1` pula o build do cliente; `E2E_SNAPS=1` salva capturas de revisão em `test-results/snaps/`;
+  `--trace on` grava traces (desligados por padrão: deixam o carregamento muito lento com vários workers).
+- Rodar um arquivo/teste: `npm run test:e2e -- e2e/arena.spec.ts -g "solo"`.
+
 ## Produção (servidor do escritório)
 
 ```bash
