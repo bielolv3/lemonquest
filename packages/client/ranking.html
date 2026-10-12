@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ranking — The Lemon Quest</title>
+    <link rel="icon" href="/favicon/favicon.ico" sizes="16x16 32x32 48x48" />
+    <style>
+      body { margin: 0; background: #1b1f2a; color: #e8e6d9; font-family: "Pixelify Sans", system-ui, sans-serif; }
+      main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+      h1 { color: #d9a441; margin: 0 0 4px; } .sub { color: #8a8fa0; margin-bottom: 20px; font-size: 14px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+      section { background: #11141c; border: 1px solid #2c3242; border-radius: 6px; padding: 10px 12px; }
+      h2 { margin: 0 0 6px; font-size: 16px; color: #d9a441; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      td { padding: 3px 4px; border-top: 1px solid #232838; } td.n { text-align: right; font-variant-numeric: tabular-nums; }
+      .empty { color: #8a8fa0; font-size: 13px; } a { color: #d9a441; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ranking</h1>
+      <div class="sub" id="sub">Carregando…</div>
+      <div class="grid" id="grid"></div>
+      <p><a href="/">Jogar The Lemon Quest</a></p>
+    </main>
+    <script>
+      var base = location.port === "3000" ? location.protocol + "//" + location.hostname + ":2567" : "";
+      fetch(base + "/api/ranking").then(function (r) { return r.json(); }).then(function (d) {
+        var best = d.arenaServerBest > 0 ? d.arenaServerBest + " ondas" : "—";
+        document.getElementById("sub").textContent = "Recorde do Coliseu: " + best;
+        var g = document.getElementById("grid");
+        d.categories.forEach(function (c) {
+          var s = document.createElement("section");
+          var h = document.createElement("h2"); h.textContent = c.title; s.appendChild(h);
+          if (!c.entries.length) { var e = document.createElement("div"); e.className = "empty"; e.textContent = "Ninguém ainda."; s.appendChild(e); }
+          else {
+            var t = document.createElement("table");
+            c.entries.forEach(function (x) {
+              var tr = document.createElement("tr");
+              [x.rank, x.name, x.value + " " + c.unit].forEach(function (v, i) {
+                var td = document.createElement("td"); td.textContent = v; if (i === 2) td.className = "n"; tr.appendChild(td);
+              });
+              t.appendChild(tr);
+            });
+            s.appendChild(t);
+          }
+          g.appendChild(s);
+        });
+      }).catch(function () { document.getElementById("sub").textContent = "Não foi possível carregar o ranking."; });
+    </script>
+  </body>
+</html>
