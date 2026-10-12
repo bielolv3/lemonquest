@@ -38,7 +38,7 @@ Object.assign(SP, { light_heal: SPELLS.light_heal });
 // Fixtures fora do cooldown global (exceto heal/bolt/big/free), para os testes de efeito.
 for (const s of Object.values(SP)) if (!["heal", "bolt", "big", "free", "light_heal"].includes(s.id)) s.global = false;
 
-interface SetupOpts { grid?: CollisionGrid; monsters?: { x: number; y: number; def?: Partial<MonsterDef> }[]; safeZones?: { x0: number; y0: number; x1: number; y1: number }[] }
+interface SetupOpts { grid?: CollisionGrid; monsters?: { x: number; y: number; def?: Partial<MonsterDef> }[]; safeZones?: { x0: number; y0: number; x1: number; y1: number }[]; isAlly?: (a: PlayerState, b: PlayerState) => boolean }
 
 function setup(o: SetupOpts = {}) {
   const mons = o.monsters ?? [{ x: 10, y: 10 }];
@@ -58,7 +58,7 @@ function setup(o: SetupOpts = {}) {
     grid: o.grid ?? openGrid(40, 40), monsters: w.mm, combat: w.combat, conditions, summons, skills,
     players: () => w.players.values(), getPlayer: (id) => w.players.get(id),
     teleport: (p, x, y) => { p.x = x; p.y = y; }, send, broadcast: (type, msg) => send("*", type, msg),
-    now: w.now, rng: () => 0.5, spells: (id) => SP[id],
+    now: w.now, rng: () => 0.5, spells: (id) => SP[id], isAlly: o.isAlly,
   });
   w.combat.hooks = {
     damageTakenPct: (id) => conditions.damageTakenPct(id),
@@ -155,6 +155,21 @@ describe("cast validation", () => {
     const b = w.addP("b", 30, 20, { hp: 50 });
     w.spells.cast(p, "party");
     expect([p.hp, a.hp, b.hp]).toEqual([110, 60, 50]);
+  });
+
+  it("party heal with a party: only self + party members within radius (strangers nearby are skipped)", () => {
+    const party = new Set(["p", "a", "far"]);
+    const w = setup({ isAlly: (x, y) => party.has(x.id) && party.has(y.id) });
+    const p = w.addP("p", 20, 20, { hp: 100 });
+    const a = w.addP("a", 22, 20, { hp: 50 });
+    const stranger = w.addP("s", 21, 20, { hp: 50 });
+    const far = w.addP("far", 30, 20, { hp: 50 });
+    w.spells.cast(p, "party");
+    expect([p.hp, a.hp, stranger.hp, far.hp]).toEqual([110, 60, 50, 50]);
+    // Sem grupo: só o próprio conjurador.
+    party.clear();
+    w.spells.cast(p, "party");
+    expect([p.hp, a.hp, stranger.hp]).toEqual([120, 60, 50]);
   });
 });
 

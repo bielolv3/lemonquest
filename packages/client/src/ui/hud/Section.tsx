@@ -8,7 +8,7 @@ import { panelSizesStore, resetPanelRows, rowsFromDrag, rowsToPx, setPanelRows, 
 import { panelPinsStore, togglePin, type PanelId } from "./panels.ts";
 import { persistedJson, useStore } from "./store.ts";
 
-export type SectionId = "status" | "equipment" | "battle" | "backpack";
+export type SectionId = "status" | "equipment" | "battle" | "backpack" | "party";
 
 const smallScreen = typeof window !== "undefined" && window.innerHeight < 860;
 export const sectionsStore = persistedJson<Record<SectionId, boolean>>("sections", {
@@ -16,6 +16,7 @@ export const sectionsStore = persistedJson<Record<SectionId, boolean>>("sections
   equipment: true,
   battle: true,
   backpack: !smallScreen,
+  party: true,
 });
 
 export const PIN_TIP = "Fixar (fica visível com a barra recolhida)";

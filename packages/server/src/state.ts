@@ -33,6 +33,7 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint8") addons = 0;
   /** Título ativo (texto). Conquistas. */
   @type("string") title = "";
+  @type("string") partyId = "";
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */

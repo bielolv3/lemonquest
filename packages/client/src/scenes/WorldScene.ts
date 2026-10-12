@@ -24,7 +24,8 @@ import { Predictor } from "../game/predictor.ts";
 import { sfx } from "../game/sfx.ts";
 import { SpellEffects } from "../game/spellFx.ts";
 import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
-import { openCtxMenu, openOutfit } from "../ui/outfit/outfit.ts";
+import { openCtxMenu, openOutfit, type CtxMenuItem } from "../ui/outfit/outfit.ts";
+import { amLeader, isPartyMember, partyAction, partyStore } from "../ui/party/party.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { MAP_KEY, buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
 import { loading } from "../ui/loading.ts";
@@ -146,6 +147,9 @@ export class WorldScene extends Phaser.Scene {
     // Fonte pixel dos números flutuantes (a CSS é carregada pelo styles.css; garante antes do 1º uso).
     void document.fonts?.load('600 16px "Pixelify Sans"');
     this.input.mouse?.disableContextMenu();
+    // Grupo: nomes verdes + escudinho nos membros.
+    const offParty = partyStore.subscribe(() => this.refreshPartyCues());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offParty);
 
     // Duas "camadas" de render: mundo (câmera principal, com zoom) e UI (nomes nítidos, zoom 1).
     this.worldLayer = this.add.layer().setDepth(0);
@@ -304,6 +308,7 @@ export class WorldScene extends Phaser.Scene {
     actor.setTitle(p.title ?? "");
     actor.setHp(p.hp, p.maxHp, true);
     this.actors.set(id, actor);
+    if (isPartyMember(id)) actor.setParty(true);
     this.known.set(id, { x: p.x, y: p.y, dir: p.dir, stepMs: p.stepMs });
     if (isMe) {
       this.predictor.level = p.level;
@@ -508,7 +513,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.room && !FXTEST) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
-      // Botão direito no próprio personagem: menu (Trocar roupa / pegar item do chão).
+      // Botão direito no próprio personagem: menu (Trocar roupa / pegar item do chão / sair do grupo).
       const me = this.actors.get(this.myId);
       if (right && me && t.x === me.tileX && t.y === me.tileY) {
         const ev = ptr.event as MouseEvent;
@@ -516,7 +521,16 @@ export class WorldScene extends Phaser.Scene {
         openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, [
           { label: "Trocar roupa", run: openOutfit },
           ...(gidHere ? [{ label: "Pegar item do chão", run: () => this.pickupGround(gidHere) }] : []),
+          ...(partyStore.get() ? [{ label: "Sair do grupo", run: () => partyAction({ action: "leave" }) }] : []),
         ]);
+        return;
+      }
+      // Botão direito em outro jogador: menu do grupo (convidar / expulsar / passar liderança).
+      const other = right ? this.playerAtTile(t.x, t.y) : null;
+      if (other) {
+        const ev = ptr.event as MouseEvent;
+        const items = this.partyMenu(other);
+        if (items.length) openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, items);
         return;
       }
       if (!this.room) return;
@@ -541,6 +555,31 @@ export class WorldScene extends Phaser.Scene {
       this.walkToTile(t.x, t.y);
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
+  }
+
+  /** Outro jogador (não eu) parado no tile. */
+  private playerAtTile(x: number, y: number): string | null {
+    for (const [id, a] of this.actors) if (id !== this.myId && a.tileX === x && a.tileY === y) return id;
+    return null;
+  }
+
+  /** Itens do menu de contexto de outro jogador (grupo). */
+  private partyMenu(id: string): CtxMenuItem[] {
+    const inParty = !!partyStore.get();
+    const leader = amLeader();
+    if (isPartyMember(id, true)) {
+      return leader ? [
+        { label: "Passar liderança", run: () => partyAction({ action: "lead", targetId: id }) },
+        { label: "Expulsar do grupo", run: () => partyAction({ action: "kick", targetId: id }) },
+      ] : [];
+    }
+    if (inParty && !leader) return [];
+    return [{ label: "Convidar para o grupo", run: () => partyAction({ action: "invite", targetId: id }) }];
+  }
+
+  /** Escudinho/nome verde nos membros do meu grupo. */
+  private refreshPartyCues() {
+    for (const [id, a] of this.actors) a.setParty(isPartyMember(id));
   }
 
   /** Clique para andar até um tile (cancela NPC/pegar pendentes). */

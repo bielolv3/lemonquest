@@ -66,7 +66,7 @@ export function world(o: WorldOpts & { grid: CollisionGrid; spawns: SpawnPoint[]
     spawn: o.spawn ?? { x: 0, y: 0 },
     send: (to, type, msg) => sent.push({ to, type, msg }),
     broadcast: (type, msg) => sent.push({ to: "*", type, msg }),
-    rng,
+    rng, now: () => clock,
   });
   const add = (p: PlayerState) => { players.set(p.id, p); return p; };
   /** Avança `ms` em ticks (IA + combate + flush). */
