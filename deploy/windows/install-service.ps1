@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Instala (ou reconfigura) o Tibinha como servico do Windows usando o NSSM.
+  Instala (ou reconfigura) o HappyHour como servico do Windows usando o NSSM.
   Execute como Administrador. Idempotente: pode rodar de novo para atualizar a configuracao.
 .PARAMETER RepoPath
   Pasta do repositorio (padrao: duas pastas acima deste script).
@@ -9,7 +9,7 @@
 .PARAMETER Port
   Porta do servidor (padrao 2567).
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File .\install-service.ps1 -RepoPath C:\tibinha -NssmPath C:\nssm\win64\nssm.exe
+  powershell -ExecutionPolicy Bypass -File .\install-service.ps1 -RepoPath C:\happyhour -NssmPath C:\nssm\win64\nssm.exe
 #>
 param(
   [string]$RepoPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
@@ -18,7 +18,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$svc = "Tibinha"
+$svc = "HappyHour"
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Error "Execute como Administrador."; exit 1 }
@@ -58,8 +58,8 @@ if (-not $exists) {
 }
 
 & $NssmPath set $svc AppDirectory $server | Out-Null
-& $NssmPath set $svc DisplayName "Tibinha (servidor do jogo)" | Out-Null
-& $NssmPath set $svc Description "Servidor do jogo Tibinha (Colyseus)" | Out-Null
+& $NssmPath set $svc DisplayName "HappyHour (servidor do jogo)" | Out-Null
+& $NssmPath set $svc Description "Servidor do jogo HappyHour (Colyseus)" | Out-Null
 & $NssmPath set $svc Start SERVICE_AUTO_START | Out-Null
 & $NssmPath set $svc AppEnvironmentExtra "NODE_ENV=production" "PORT=$Port" "NODE_OPTIONS=--disable-warning=ExperimentalWarning" | Out-Null
 
@@ -70,8 +70,8 @@ if (-not $exists) {
 & $NssmPath set $svc AppStopMethodThreads 0 | Out-Null
 
 # Logs com rotacao (1 MB)
-& $NssmPath set $svc AppStdout (Join-Path $logs "tibinha.out.log") | Out-Null
-& $NssmPath set $svc AppStderr (Join-Path $logs "tibinha.err.log") | Out-Null
+& $NssmPath set $svc AppStdout (Join-Path $logs "happyhour.out.log") | Out-Null
+& $NssmPath set $svc AppStderr (Join-Path $logs "happyhour.err.log") | Out-Null
 & $NssmPath set $svc AppRotateFiles 1 | Out-Null
 & $NssmPath set $svc AppRotateOnline 1 | Out-Null
 & $NssmPath set $svc AppRotateBytes 1048576 | Out-Null

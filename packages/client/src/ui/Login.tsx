@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import type { Vocation } from "@tibinha/shared";
+import { GAME_NAME, type Vocation } from "@tibinha/shared";
 import { session } from "../session.ts";
 
 const VOCS: { id: Vocation; name: string; desc: string; color: string }[] = [
@@ -65,7 +65,7 @@ export function Login() {
   return (
     <div class="login-wrap">
       <div class="panel login-card">
-        <h1 class="login-title">Tibinha</h1>
+        <h1 class="login-title">{GAME_NAME}</h1>
         {step === "creds" ? (
           <>
             <label class="field">

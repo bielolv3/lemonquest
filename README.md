@@ -1,4 +1,4 @@
-# Tibinha
+# HappyHour
 
 Jogo multiplayer no navegador, inspirado em Tibia, feito para jogar com a galera na rede do escritório (~10 jogadores).
 Monorepo com npm workspaces:
@@ -48,3 +48,15 @@ npm start            # build + start
 Em produção o servidor serve tudo na porta 2567 (`PORT` para mudar).
 
 **Guia completo para Windows (serviço, firewall, backups, atualização):** [deploy/windows/README-DEPLOY.md](deploy/windows/README-DEPLOY.md)
+
+## Trocar o nome do jogo
+
+O nome exibido fica em `packages/shared/src/brand.json`. Para trocar (tela de login, título da aba, documentação, caminhos de instalação e nome do serviço do Windows):
+
+```
+node tools/rename-game.mjs "Novo Nome" --dry-run   # mostra o que vai mudar
+node tools/rename-game.mjs "Novo Nome"             # aplica
+npm run build
+```
+
+Depois reinicie o servidor. Se o serviço do Windows já estiver instalado com o nome antigo, reinstale-o (veja `deploy/windows/README-DEPLOY.md`). Identificadores internos (`@tibinha/*`, variáveis `TIBINHA_*`, `data/tibinha.db`) não mudam, para não quebrar bancos e configurações existentes.

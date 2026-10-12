@@ -2,6 +2,9 @@ import Phaser from "phaser";
 import { render } from "preact";
 import { WorldScene } from "./scenes/WorldScene.ts";
 import { App } from "./ui/App.tsx";
+import { GAME_NAME } from "@tibinha/shared";
+
+document.title = GAME_NAME;
 
 new Phaser.Game({
   type: Phaser.AUTO,

@@ -9,3 +9,4 @@ export * from "./data/spells.ts";
 export * from "./data/items.ts";
 export * from "./data/npcs.ts";
 export * from "./skills.ts";
+export * from "./brand.ts";
