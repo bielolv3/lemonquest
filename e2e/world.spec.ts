@@ -1,6 +1,6 @@
 // Mundo: andar (teclado e clique), atacar um monstro, magia na tecla 1 e janela de roupas (O).
 import { expect, test } from "@playwright/test";
-import { clickTile, enterGame, me, meState, monsters, setLevel, targetNearest, teleport, tileToClient, walkableNear, waitSettled } from "./helpers.ts";
+import { clickTile, enterGame, me, meState, monsters, say, setLevel, targetNearest, teleport, tileToClient, walkableNear, waitSettled } from "./helpers.ts";
 
 /** Floresta ao norte da vila: spawn de ratos/gosmas (mapa: rat em 70,62). */
 const FOREST = { x: 70, y: 62 };
@@ -52,8 +52,10 @@ test("magia na tecla 1 (cura) gasta mana e entra em recarga", async ({ page }) =
 });
 
 test("janela de roupas (O): trocar de roupa e confirmar", async ({ page }) => {
-  await enterGame(page, "knight");
+  const p = await enterGame(page, "knight");
   const before = (await meState(page))!.outfit as string;
+  // Addons vêm de conquistas; o admin libera um com /desbloquear (o outro continua bloqueado).
+  await say(page, `/desbloquear ${p.name} cidadao_chapeu`);
   await page.locator("#game canvas").hover({ position: { x: 300, y: 300 } });
   await page.keyboard.press("o");
   const win = page.getByRole("dialog", { name: "Roupas" });
@@ -62,10 +64,11 @@ test("janela de roupas (O): trocar de roupa e confirmar", async ({ page }) => {
   const box = (await win.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(900);
-  const other = win.locator(".outfit-cell:not(.cur)").first();
-  const name = (await other.locator("span").last().textContent())!;
-  await other.click();
+  const name = "Cidadão";
+  await win.locator(".outfit-cell:not(.cur)", { hasText: name }).click();
   await expect(win.locator(".outfit-name")).toHaveText(name);
+  await expect(win.locator(".outfit-addon").nth(1)).toHaveClass(/locked/);
+  await expect(win.locator(".outfit-addon").first()).not.toHaveClass(/locked/);
   // Addon 1 liga/desliga.
   await win.locator(".outfit-addon").first().click();
   await expect(win.locator(".outfit-addon").first()).toHaveClass(/on/);
