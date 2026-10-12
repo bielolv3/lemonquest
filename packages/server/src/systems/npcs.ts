@@ -34,6 +34,8 @@ export interface NpcOptions {
   defs?: (id: string) => NpcDef | undefined;
   now?: () => number;
   rng?: () => number;
+  /** Bloqueio extra (coliseu: loja da arena só na pausa). Retorna o aviso, ou null se pode usar. */
+  blocked?: (p: PlayerState, npcId: string) => string | null;
 }
 
 export const CLOSED: NpcOpenMsg = { npcId: "", name: "", greeting: "" };
@@ -78,6 +80,17 @@ export class NpcSystem {
 
   removePlayer(id: string): void { this.open.delete(id); }
 
+  /** Fecha o diálogo aberto do jogador (se houver). `only` = só se for este NPC (ou prefixo terminado em "_"). */
+  close(id: string, only?: string): void {
+    const cur = this.open.get(id);
+    if (!cur || (only && !(only.endsWith("_") ? cur.startsWith(only) : cur === only))) return;
+    this.open.delete(id);
+    this.o.send(id, S2C.NpcOpen, CLOSED);
+  }
+
+  /** Posição de um NPC do mapa (ou null). */
+  spot(npcId: string): NpcSpot | null { return this.spots.get(npcId) ?? null; }
+
   /** Monta o NpcOpen (preços da loja). */
   openMsg(d: NpcDef): NpcOpenMsg {
     const msg: NpcOpenMsg = { npcId: d.id, name: d.name, greeting: d.greeting };
@@ -98,6 +111,8 @@ export class NpcSystem {
     const d = this.defs(msg.npcId);
     if (!d || !this.spots.has(d.id)) return;
     if (!this.inRange(p, d.id)) return this.notice(p, "Chegue mais perto para falar.", "warn");
+    const why = this.o.blocked?.(p, d.id);
+    if (why) return this.notice(p, why, "warn");
     this.open.set(p.id, d.id);
     this.o.send(p.id, S2C.NpcOpen, this.openMsg(d));
     if (d.depot) this.o.inventory.sendDepot(p.id);
@@ -107,6 +122,7 @@ export class NpcSystem {
   onTrade(p: PlayerState, msg: NpcTradeMsg): void {
     if (!msg || typeof msg !== "object" || typeof msg.npcId !== "string" || p.hp <= 0) return;
     if (this.open.get(p.id) !== msg.npcId || !this.inRange(p, msg.npcId)) return;
+    if (this.o.blocked?.(p, msg.npcId)) return;
     const d = this.defs(msg.npcId);
     if (!d?.shop) return;
     const count = msg.count;

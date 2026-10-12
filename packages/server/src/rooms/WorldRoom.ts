@@ -1,7 +1,7 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
   C2S, S2C, TICK_MS, baseStats,
-  type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
+  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type QuickPotionMsg, type TurnMsg,
   type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
@@ -22,6 +22,7 @@ import { SpellSystem } from "../systems/spells.ts";
 import { InventorySystem } from "../systems/inventory.ts";
 import { LootSystem } from "../systems/loot.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
+import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand } from "../systems/devcommands.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
@@ -41,7 +42,7 @@ export const REPLACED_REASON = "Sua conta entrou em outro lugar";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20,
 };
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
@@ -76,6 +77,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private loot!: LootSystem;
   private npcs!: NpcSystem;
   private fight!: FightModeSystem;
+  private arena!: ArenaSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
@@ -158,6 +160,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.npcs = new NpcSystem({
       npcs: parseNpcs(this.map.tiled), inventory: this.inventory,
       players: () => this.state.players.values(), getPlayer, send, broadcast,
+      blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende nas pausas entre as ondas." : null),
     });
     this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y));
     this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast });
@@ -213,7 +216,28 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         }
       },
       onMonsterKilled: (m) => this.combat.later(() => this.loot.onKill(m)),
+      interceptDeath: (p) => this.arena.interceptDeath(p),
     };
+    this.arena = new ArenaSystem({
+      layout: parseArenas(this.map.tiled),
+      master: () => this.npcs.spot("arena_master"),
+      fallbackExit: this.map.spawn,
+      monsters: this.monsters, combat: this.combat,
+      players: () => this.state.players.values(), getPlayer,
+      teleport: (p, x, y) => this.movement.teleport(p, x, y),
+      isFree: (x, y, self) => this.isFreeTile(x, y, self),
+      addGold: (p, n) => this.inventory.addGold(p, n),
+      getBest: (id) => this.records.get(id)?.data.arenaBest ?? 0,
+      setBest: (id, n) => { const rec = this.records.get(id); if (rec) rec.data.arenaBest = n; },
+      onEnter: (p) => this.npcs.close(p.id),
+      onExit: (p) => {
+        this.npcs.close(p.id);
+        this.summons.despawnOwner(p.id);
+        this.conditions.clear(p.id);
+      },
+      closeNpc: (id) => this.npcs.close(id, "arena_shop_"),
+      send, broadcast,
+    });
     this.monsters.spawnAll();
     console.log(`[lemonquest] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns, ${this.npcs.list.length} NPCs`);
 
@@ -241,7 +265,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<UseItemMsg>(C2S.UseItem, (p, m) => this.inventory.onUseItem(p, m));
     this.on<QuickPotionMsg>(C2S.QuickPotion, (p, m) => this.inventory.onQuickPotion(p, m));
     this.on<DiscardItemMsg>(C2S.DiscardItem, (p, m) => this.inventory.onDiscard(p, m));
-    this.on<NpcInteractMsg>(C2S.NpcInteract, (p, m) => this.npcs.onInteract(p, m));
+    this.on<NpcInteractMsg>(C2S.NpcInteract, (p, m) => {
+      this.npcs.onInteract(p, m);
+      if (m?.npcId === "arena_master" && this.npcs.openFor(p.id) === "arena_master") this.arena.openLobbies(p);
+    });
+    this.on<ArenaActionMsg>(C2S.Arena, (p, m) => this.arena.onAction(p, m));
     this.on<NpcTradeMsg>(C2S.NpcTrade, (p, m) => this.npcs.onTrade(p, m));
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
 
@@ -255,6 +283,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["combat", () => this.combat.tick(this.tickNow)],
       ["conditions", () => this.conditions.tick(this.tickNow)],
       ["regen", () => this.regen.tick(this.tickNow, players())],
+      ["arena", () => this.arena.tick(this.tickNow)],
       ["food", () => this.food.tick(this.tickNow, players())],
       ["npcs", () => this.npcs.tick(this.tickNow)],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
@@ -317,7 +346,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.hp = rec.data.hp ?? Number.MAX_SAFE_INTEGER;
     p.mana = rec.data.mana ?? Number.MAX_SAFE_INTEGER;
     this.inventory.applyStats(p);
-    const start = this.validStart(rec.x, rec.y) ? { x: rec.x!, y: rec.y! } : this.map.spawn;
+    // Saiu/caiu no meio de uma partida do coliseu: volta na saída do coliseu.
+    const start = this.arena.loginPosition(rec.x, rec.y)
+      ?? (this.validStart(rec.x, rec.y) ? { x: rec.x!, y: rec.y! } : this.map.spawn);
     p.x = start.x;
     p.y = start.y;
     p.dir = rec.dir;
@@ -394,6 +425,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const inv = this.inventory.inventoryMsg(sid);
     if (inv) client.send(S2C.Inventory, inv);
     this.conditions.refreshPlayer(sid);
+    this.arena.resend(sid);
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);
   }
 
@@ -407,6 +439,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   /** Salva e remove a sessão de todos os sistemas. Limpeza e liberação do nome SEMPRE rodam, mesmo se salvar falhar. */
   cleanupSession(sid: string) {
     try {
+      // Coliseu antes de salvar: quem estava numa partida volta para a saída (e é salvo lá), sem penalidade.
+      runSafe("saída/arena", () => this.arena.removePlayer(sid), this.errors);
       this.save(sid);
     } catch (e) {
       this.errors.report("save (saída)", e);

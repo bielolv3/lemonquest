@@ -20,6 +20,8 @@ export interface CharacterData {
   /** Estado "alimentado" (comida): tempo restante (o tempo não passa offline) e regen por tique. */
   fed?: { remainingMs: number; hpPerTick: number; manaPerTick: number };
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
+  /** Coliseu: recorde pessoal de ondas vencidas. */
+  arenaBest?: number;
 }
 
 /** Registro persistido de um personagem (1 personagem por conta; nome da conta = nome do personagem). */

@@ -91,6 +91,11 @@ export interface CombatHooks {
   onLevelUp?: (p: PlayerState) => void;
   /** Monstro selvagem morto (antes de sair da lista; damageBy intacto) — loot. */
   onMonsterKilled?: (m: Monster) => void;
+  /**
+   * Antes da morte normal (penalidade + templo): retorna true se outro sistema assumiu a morte (coliseu: sem
+   * penalidade; ele mesmo teletransporta e restaura). Alvos/combate já foram limpos.
+   */
+  interceptDeath?: (p: PlayerState, killerName: string) => boolean;
 }
 
 export interface CombatOptions {
@@ -268,14 +273,14 @@ export class CombatSystem {
     if (isMonsterState(target)) {
       const sm = this.o.monsters.get(target.id);
       if (!sm || sm.s.hp <= 0) return;
-      const raw = rollInt(m.def.damage[0], m.def.damage[1], this.rng);
+      const raw = Math.round(rollInt(m.def.damage[0], m.def.damage[1], this.rng) * (m.dmgMult ?? 1));
       // Invocação morta não dá XP a ninguém (creditId "").
       this.damageMonster(sm, m.s.id, mitigate(raw, sm.def.armor), m.def.damageKind, now, { creditId: "", ranged });
       return;
     }
     const p = target;
     if (p.hp <= 0 || this.o.monsters.inPz(p.x, p.y)) return;
-    const raw = rollInt(m.def.damage[0], m.def.damage[1], this.rng);
+    const raw = Math.round(rollInt(m.def.damage[0], m.def.damage[1], this.rng) * (m.dmgMult ?? 1));
     if (!ranged) this.hooks.onMeleeHit?.(p);
     this.damagePlayer(p, m.s.id, mitigate(raw, this.armorOf(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
   }
@@ -301,7 +306,8 @@ export class CombatSystem {
 
   private killMonster(m: Monster, now: number) {
     const { id, x, y, defId } = m.s;
-    const online = m.s.ownerId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
+    // Invocações e monstros do coliseu (recompensa por onda) não dão XP por abate.
+    const online = m.s.ownerId || m.arenaId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
     const shares = splitXp(m.def.xp, online);
     if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
     this.o.monsters.kill(m, now);
@@ -335,12 +341,13 @@ export class CombatSystem {
   }
 
   private playerDied(p: PlayerState, killerName: string) {
-    const lostXp = deathPenalty(p.level, p.xp);
-    p.xp -= lostXp;
     p.targetId = "";
     this.o.monsters.clearTargetsOf(p.id);
     this.lastCombatAt.delete(p.id);
     this.nextAttackAt.delete(p.id);
+    if (this.hooks.interceptDeath?.(p, killerName)) return;
+    const lostXp = deathPenalty(p.level, p.xp);
+    p.xp -= lostXp;
     this.o.teleport(p, this.o.spawn.x, this.o.spawn.y);
     p.hp = p.maxHp;
     p.mana = p.maxMana;

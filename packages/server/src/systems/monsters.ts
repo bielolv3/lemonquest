@@ -58,6 +58,14 @@ export interface Monster {
   /** Provocação (taunt): forçado a atacar `tauntBy` até `tauntUntil`. */
   tauntBy?: string;
   tauntUntil?: number;
+  /** Coliseu: id da arena (monstro de onda: sem respawn, sem loot nem XP por abate — a recompensa é por onda). */
+  arenaId?: number;
+  /** Confinado a este retângulo (não dá passos para fora; sem leash/volta ao spawn; nunca dorme). */
+  bounds?: TileRect;
+  /** Só persegue/ataca jogadores aceitos por este filtro (membros da partida). */
+  allow?: (p: PlayerState) => boolean;
+  /** Multiplicador do dano dos ataques (elite/escala do coliseu). Ausente = 1. */
+  dmgMult?: number;
 }
 
 /** Criatura que pode ser alvo de monstro: jogador ou invocação de jogador. */
@@ -211,6 +219,17 @@ export class MonsterManager {
     return m && m.s.ownerId && m.s.hp > 0 ? m.s : undefined;
   }
 
+  /** O monstro pode mirar este id? (coliseu: só membros da partida e suas invocações). */
+  allowedFor(m: Monster, id: string): boolean {
+    if (!m.allow) return true;
+    const p = this.getPlayer(id);
+    if (p) return m.allow(p);
+    const o = this.list.get(id);
+    if (!o?.s.ownerId) return false;
+    const owner = this.getPlayer(o.s.ownerId);
+    return !!owner && m.allow(owner);
+  }
+
   /** Monstro selvagem (não invocado) vivo com esse id. */
   wild(id: string): Monster | undefined {
     const m = id ? this.list.get(id) : undefined;
@@ -311,7 +330,44 @@ export class MonsterManager {
       this.onSummonRemoved?.(m);
       return;
     }
+    if (m.arenaId) return; // onda do coliseu: sem respawn
     this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs });
+  }
+
+  /**
+   * Monstro de onda do coliseu em (x,y) (tile livre): vida × hpMult, dano × dmgMult, confinado a `bounds`,
+   * agressivo só com quem `allow` aceitar. Sem respawn.
+   */
+  spawnArena(def: MonsterDef, x: number, y: number,
+    o: { arenaId: number; bounds: TileRect; allow: (p: PlayerState) => boolean; hpMult?: number; dmgMult?: number },
+    now = this.now()): Monster {
+    const s = new MonsterState();
+    s.id = `m${this.nextId++}`;
+    s.defId = def.id;
+    s.x = x;
+    s.y = y;
+    s.dir = Dir.S;
+    s.maxHp = Math.max(1, Math.round(def.hp * (o.hpMult ?? 1)));
+    s.hp = s.maxHp;
+    const m: Monster = {
+      s, def, spawn: { defId: def.id, x, y, count: 1, radius: 0 }, mode: "idle", sleeping: false,
+      stepEndsAt: 0, nextThinkAt: now, nextWanderAt: now + 2000, nextAttackAt: now + 500, path: null, pathAt: 0,
+      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", damageBy: new Map(),
+      arenaId: o.arenaId, bounds: o.bounds, allow: o.allow, dmgMult: o.dmgMult ?? 1,
+    };
+    this.list.set(s.id, m);
+    this.occ.set(y * this.W + x, m);
+    this.o.collection.set(s.id, s);
+    return m;
+  }
+
+  /** Remove um monstro sem respawn (fim de partida do coliseu). */
+  despawn(m: Monster): void {
+    if (!this.list.delete(m.s.id)) return;
+    const key = m.s.y * this.W + m.s.x;
+    if (this.occ.get(key) === m) this.occ.delete(key);
+    this.o.collection.delete(m.s.id);
+    this.clearTargetsOf(m.s.id);
   }
 
   /** Teleporta o monstro (volta forçada ao spawn quando preso). */
@@ -332,6 +388,8 @@ export class MonsterManager {
     const pct = m.speedPct ?? 100;
     if (pct <= 0) return false; // enraizado
     if (!canStepTerrain(this.grid, s.x, s.y, dx, dy) || this.blockedForMonster(tx, ty)) return false;
+    const b = m.bounds;
+    if (b && (tx < b.x0 || tx > b.x1 || ty < b.y0 || ty > b.y1)) return false;
     const speed = this.o.groundSpeed?.speedAt(s.x, s.y) ?? 100;
     const dur = applySpeedPct(Math.round(((isDiagonal(dir) ? m.def.stepMs * DIAGONAL_COST : m.def.stepMs) * speed) / 100), pct);
     const startAt = now - m.stepEndsAt <= TICK_MS ? m.stepEndsAt : now;
@@ -354,7 +412,7 @@ export class MonsterManager {
     m.lastAttackerId = attackerId;
     m.sleeping = false;
     if (m.mode === "idle" || m.mode === "return" || ((m.mode === "chase" || m.mode === "flee") && !this.validTarget(m.s.targetId))) {
-      if (this.validTarget(attackerId)) {
+      if (this.validTarget(attackerId) && this.allowedFor(m, attackerId)) {
         m.mode = "chase";
         m.s.targetId = attackerId;
         m.lostSince = 0;

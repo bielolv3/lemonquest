@@ -178,6 +178,8 @@ export interface ArenaStateMsg {
     wave: number;                  // onda atual (1..); 0 antes de começar
     /** Fim da contagem/pausa (ms epoch do servidor), se houver. */
     phaseEndsAt?: number;
+    /** Relógio do servidor no envio (o cliente corrige a diferença de relógio para a contagem). */
+    serverNow?: number;
     monstersLeft?: number;
     members: { name: string; alive: boolean; ready?: boolean }[];
     leader: string;
