@@ -111,7 +111,7 @@ describe("migração v3 (vários personagens por conta)", () => {
     old.close();
 
     const d = initDb(file);
-    expect((d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBeGreaterThanOrEqual(3);
+    expect((d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBeGreaterThanOrEqual(4);
     expect(d.prepare("SELECT id, account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at FROM characters ORDER BY id").all()).toEqual([
       { id: 3, account_id: 7, name: "Leo", name_key: "leo", vocation: "knight", level: 12, xp: 9999, x: 40, y: 41, dir: 2,
         data: '{"gold":500,"skills":{"melee":{"level":30,"tries":5}}}', updated_at: 333 },

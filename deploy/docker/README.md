@@ -75,6 +75,38 @@ Abra `http://localhost:2567`. De outro PC: `http://<IP-desta-máquina>:2567` (o 
 
   (Se o `del` reclamar que os arquivos não existem, tudo bem.)
 
+### Cópia dos backups em outro disco (recomendado)
+
+Se o disco da máquina morrer, `docker-data\backups\` vai junto. Com `LEMONQUEST_BACKUP_COPY_DIR`, depois de cada backup o
+servidor copia o arquivo novo para outra pasta, com rotação própria (o mais recente de cada dia, por 14 dias). Se a pasta
+não estiver disponível (disco desligado, rede fora), o servidor só registra `[backup] cópia externa falhou` no log e segue —
+o jogo não cai e a pasta **não** é criada no disco local por engano.
+
+No `docker-compose.yml`, descomente/ajuste:
+
+```yaml
+    environment:
+      LEMONQUEST_BACKUP_COPY_DIR: "/backup-copy"
+    volumes:
+      - ./docker-data:/app/data
+      - /mnt/nas/lemonquest:/backup-copy        # Linux: disco/NAS já montado no host
+      # - D:/backups-lemonquest:/backup-copy    # Windows (Docker Desktop): outra unidade
+```
+
+e rode `docker compose up -d`. Confira no log: `[backup] cópia externa: /backup-copy/lemonquest-....db`.
+
+**Alternativa sem mexer no container (Linux, cron + rsync)** — copia a pasta de backups para outro disco/servidor toda hora:
+
+```bash
+crontab -e
+# a cada hora, no minuto 10 (o backup do jogo sai na virada da hora):
+10 * * * * rsync -a --delete-after ~/lemonquest/docker-data/backups/ /mnt/nas/lemonquest-backups/ >> ~/lemonquest-rsync.log 2>&1
+# ou para outra máquina via SSH (chave sem senha):
+# 10 * * * * rsync -a -e "ssh -i ~/.ssh/backup_key" ~/lemonquest/docker-data/backups/ usuario@outro-servidor:/srv/lemonquest-backups/
+```
+
+(`--delete-after` espelha a rotação local; tire-o para guardar tudo no destino.)
+
 ## 6. Configuração
 
 Edite `docker-compose.yml` (seção `environment`) e rode `docker compose up -d` de novo:
@@ -83,8 +115,9 @@ Edite `docker-compose.yml` (seção `environment`) e rode `docker compose up -d`
 | --- | --- | --- |
 | `PORT` | `2567` | Porta dentro do container (para mudar a porta de fora, altere `ports: "NOVA:2567"`). |
 | `TZ` | `America/Sao_Paulo` | Fuso dos nomes de backup e dos logs. |
-| `LEMONQUEST_DEV_COMMANDS` | desligado | `"1"` liga /level, /item etc. **Não use no escritório.** |
-| `LEMONQUEST_ADMINS` | vazio | Personagens que podem usar os comandos de dev (ex.: `"Leonardo"`). |
+| `LEMONQUEST_ADMINS` | vazio | Personagens administradores (ex.: `"Leonardo, Ana"`) — comandos de admin, veja o passo 9. |
+| `LEMONQUEST_DEV_COMMANDS` | desligado | `"1"` liga /level, /item etc. para os admins — só fora de produção (no container, que roda em produção, nunca liga). |
+| `LEMONQUEST_BACKUP_COPY_DIR` | vazio | Pasta para uma **cópia extra** de cada backup (outro disco/NAS). Veja o passo 5. |
 
 ## 7. Servidor Linux do escritório (repositório privado no GitHub)
 
@@ -132,6 +165,28 @@ O código fica em `github.com/leocsd/lemonquest` (privado). No servidor:
 - O processo roda como o usuário `node` (sem privilégios). Na partida o container acerta o dono da pasta `/app/data`, para funcionar também com pastas montadas no Linux.
 - `docker stop` manda SIGTERM: o servidor salva todos os jogadores e fecha o banco antes de sair (até 30 s, `stop_grace_period`).
 - Healthcheck em `/health` a cada 30 s.
+
+## 9. Administração
+
+Coloque o seu personagem em `LEMONQUEST_ADMINS` (seção `environment`) e rode `docker compose up -d`. No jogo, digite no
+chat: `/online`, `/kick <nome> [motivo]`, `/mute <nome> <minutos>`, `/unmute <nome>`, `/anuncio <texto>`, `/tp <nome>`,
+`/resetsenha <conta>` (detalhes no [README principal](../../README.md#administradores)). Tudo fica no log com `[admin]`:
+`docker compose logs | grep "\[admin\]"`.
+
+**Recuperar a senha de alguém sem admin online** (o container precisa estar rodando; o diretório de trabalho da imagem
+é `/app/packages/server` e o banco é o de `LEMONQUEST_DB=/app/data/lemonquest.db`):
+
+```bash
+docker compose exec -u node lemonquest node --import tsx scripts/admin.ts reset-password <conta>
+docker compose exec -u node lemonquest node --import tsx scripts/admin.ts deleted     # personagens excluídos
+```
+
+Conta com espaço no nome: use aspas (`reset-password "Time Azul"`). O `-u node` evita criar arquivos do banco como root.
+O código aparece no terminal (vale 24 h, uso único); a pessoa usa em "Esqueci minha senha" na tela de login.
+
+**Personagens excluídos** pelos jogadores ficam guardados na tabela `deleted_characters` (linha inteira: level, itens,
+depot, posição). Para restaurar à mão: pare o jogo, abra o banco com `sqlite3` e copie a linha de volta para `characters`
+(o nome precisa estar livre).
 
 ## Problemas comuns
 

@@ -35,6 +35,9 @@ const ERRORS: Record<AuthError, string> = {
   invalid_session: "Sua sessão expirou. Entre na conta de novo.",
   no_character: "Personagem não encontrado nesta conta.",
   already_online: "Este personagem já está online.",
+  invalid_code: "Código inválido ou expirado. Peça um novo a um administrador.",
+  character_online: "Esse personagem está online. Saia do jogo com ele antes de excluí-lo.",
+  character_training: "Esse personagem está treinando offline. Entre com ele (o treino termina), saia e tente de novo.",
 };
 
 function errorText(r: AuthFail): string {
@@ -56,7 +59,10 @@ export function sinceText(sinceMs: number, now = Date.now()): string {
 const LAST_CHAR_KEY = "lemonquest.lastCharacter";
 function storeLastChar(): string | null { try { return localStorage.getItem(LAST_CHAR_KEY); } catch { return null; } }
 
-type Step = "loading" | "account" | "chars" | "new";
+type Step = "loading" | "account" | "reset" | "chars" | "new";
+
+/** Mesma chave do servidor (NFC + minúsculas): confirmar a exclusão digitando o nome. */
+const sameName = (a: string, b: string) => a.normalize("NFC").trim().toLowerCase() === b.normalize("NFC").trim().toLowerCase();
 
 /** Teclas digitadas na tela de login não vão para o jogo. */
 const stop = (e: KeyboardEvent) => e.stopPropagation();
@@ -74,6 +80,12 @@ export function Login() {
   const [vocation, setVocation] = useState<Vocation | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  /** Personagem na confirmação de exclusão (null = diálogo fechado). */
+  const [del, setDel] = useState<CharacterSummary | null>(null);
+  const [delName, setDelName] = useState("");
+  const [delPass, setDelPass] = useState("");
+  const [delError, setDelError] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false); // trava síncrona (clique + duplo clique no mesmo tick)
 
@@ -121,6 +133,51 @@ export function Login() {
     showChars(r.account, r.characters);
   });
 
+  const submitReset = () => run(async () => {
+    if (!resetCode.trim()) { setError("Digite o código de recuperação."); return; }
+    if (password.length < MIN_NEW_PASSWORD) { setError(ERRORS.weak_password); return; }
+    if (password !== confirm) { setError("As senhas não conferem."); return; }
+    const r = await session.resetPassword({ account, code: resetCode, password });
+    if (!r.ok) { setError(errorText(r)); return; }
+    setResetCode("");
+    if (r.characters.length === 0) { setAccName(r.account); setChars([]); setPassword(""); setConfirm(""); setStep("new"); return; }
+    showChars(r.account, r.characters);
+  });
+
+  function openReset() { setError(""); setPassword(""); setConfirm(""); setResetCode(""); setStep("reset"); }
+  function backToLogin() { setError(""); setPassword(""); setConfirm(""); setResetCode(""); setCreating(false); setStep("account"); }
+
+  function openDelete(c: CharacterSummary) {
+    setError("");
+    if (c.online) { setError(ERRORS.character_online); return; }
+    if (c.training) { setError(ERRORS.character_training); return; }
+    setDel(c); setDelName(""); setDelPass(""); setDelError("");
+  }
+  function closeDelete() { setDel(null); setDelName(""); setDelPass(""); setDelError(""); listRef.current?.focus(); }
+
+  const confirmDelete = () => {
+    const c = del;
+    if (!c || busyRef.current) return;
+    if (!sameName(delName, c.name)) { setDelError("Digite o nome do personagem exatamente como aparece."); return; }
+    if (!delPass) { setDelError("Digite a senha da conta."); return; }
+    busyRef.current = true;
+    setBusy(true);
+    setDelError("");
+    session.deleteCharacter({ name: c.name, password: delPass })
+      .then((r) => {
+        if (!r.ok) {
+          if (r.error === "invalid_session") { setDel(null); setStep("account"); setError(errorText(r)); return; }
+          setDelError(errorText(r));
+          return;
+        }
+        setDel(null); setDelName(""); setDelPass("");
+        if (r.characters.length === 0) { setAccName(r.account); setChars([]); setStep("new"); return; }
+        showChars(r.account, r.characters);
+      })
+      .catch(() => setDelError("Não foi possível conectar ao servidor."))
+      .finally(() => { busyRef.current = false; setBusy(false); });
+  };
+
   const play = (c: CharacterSummary | undefined) => c && run(async () => {
     const r = await session.play(c.name);
     if (!r.ok) {
@@ -161,7 +218,8 @@ export function Login() {
     else if (e.key === "Enter") {
       e.preventDefault();
       if (sel < chars.length) play(chars[sel]); else openNew();
-    } else if (e.key === "Escape") { e.preventDefault(); logout(); }
+    } else if (e.key === "Delete" && sel < chars.length) { e.preventDefault(); openDelete(chars[sel]!); }
+    else if (e.key === "Escape") { e.preventDefault(); logout(); }
   };
 
   function openNew() { setError(""); setNewName(""); setVocation(null); setStep("new"); }
@@ -223,6 +281,64 @@ export function Login() {
             ? `A conta é privada (ninguém a vê no jogo) e pode ter até ${MAX_CHARACTERS_PER_ACCOUNT} personagens. Senha de no mínimo ${MIN_NEW_PASSWORD} caracteres.`
             : "Uma conta guarda todos os seus personagens."}
         </p>
+        {!creating && <button class="link-btn" disabled={busy} onClick={openReset}>Esqueci minha senha</button>}
+      </>
+    );
+  } else if (step === "reset") {
+    body = (
+      <>
+        <h2 class="login-step">Recuperar senha</h2>
+        <p class="hint left">
+          Peça um <b>código de recuperação</b> a um administrador do jogo (vale 24 h e só funciona uma vez) e escolha uma senha nova.
+        </p>
+        <label class="field">
+          Conta
+          <input
+            value={account}
+            maxLength={MAX_ACCOUNT}
+            autoFocus
+            autocomplete="username"
+            spellcheck={false}
+            onInput={(e) => setAccount((e.target as HTMLInputElement).value)}
+            onKeyDown={onFieldKey(submitReset)}
+          />
+        </label>
+        <label class="field">
+          Código de recuperação
+          <input
+            class="reset-code"
+            value={resetCode}
+            maxLength={16}
+            autocomplete="one-time-code"
+            spellcheck={false}
+            placeholder="ABCD-EFGH"
+            onInput={(e) => setResetCode((e.target as HTMLInputElement).value.toUpperCase())}
+            onKeyDown={onFieldKey(submitReset)}
+          />
+        </label>
+        <label class="field">
+          Nova senha
+          <input
+            type="password"
+            value={password}
+            autocomplete="new-password"
+            onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
+            onKeyDown={onFieldKey(submitReset)}
+          />
+        </label>
+        <label class="field">
+          Confirmar nova senha
+          <input
+            type="password"
+            value={confirm}
+            autocomplete="new-password"
+            onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
+            onKeyDown={onFieldKey(submitReset)}
+          />
+        </label>
+        <button class="btn" disabled={busy} onClick={submitReset}>{busy ? "Salvando..." : "Trocar senha e entrar"}</button>
+        <button class="btn ghost" disabled={busy} onClick={backToLogin}>Voltar</button>
+        <p class="hint">Senha de no mínimo {MIN_NEW_PASSWORD} caracteres.</p>
       </>
     );
   } else if (step === "chars") {
@@ -271,6 +387,17 @@ export function Login() {
                     </span>
                   )}
                 </div>
+                <button
+                  class="char-del"
+                  title={`Excluir ${c.name}`}
+                  aria-label={`Excluir ${c.name}`}
+                  tabIndex={-1}
+                  disabled={busy}
+                  onClick={(e) => { e.stopPropagation(); openDelete(c); }}
+                  onDblClick={(e) => e.stopPropagation()}
+                >
+                  Excluir
+                </button>
                 <span class="char-play" aria-hidden="true" />
               </div>
             );
@@ -294,7 +421,7 @@ export function Login() {
         <button class="btn" disabled={busy || sel >= chars.length} onClick={() => play(chars[sel])}>
           {busy ? "Entrando..." : sel < chars.length ? `Jogar com ${chars[sel]!.name}` : "Jogar"}
         </button>
-        <p class="hint">↑↓ escolhe · Enter joga · duplo clique também</p>
+        <p class="hint">↑↓ escolhe · Enter joga · duplo clique também · Delete exclui</p>
         <button class="link-btn" disabled={busy} onClick={logout}>Sair da conta</button>
       </>
     );
@@ -358,6 +485,50 @@ export function Login() {
         {error && <div class="error" role="alert">{error}</div>}
         <p class="login-notice">Rede do escritório sem criptografia: não use a mesma senha do trabalho.</p>
       </div>
+      {del && (
+        <div
+          class="login-dialog-wrap"
+          onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); closeDelete(); } }}
+          onClick={(e) => { if (e.target === e.currentTarget && !busy) closeDelete(); }}
+        >
+          <div class="panel login-dialog" role="alertdialog" aria-modal="true" aria-labelledby="del-title">
+            <h2 id="del-title" class="login-step danger">Excluir {del.name}?</h2>
+            <p class="hint left">
+              {vocationMeta(del.vocation).label}, nível {del.level}. O personagem, os itens e o depot somem do jogo e o nome fica livre
+              para outra pessoa. <b>Não dá para desfazer pelo jogo.</b>
+            </p>
+            <label class="field">
+              Digite o nome do personagem para confirmar
+              <input
+                value={delName}
+                autoFocus
+                spellcheck={false}
+                autocomplete="off"
+                placeholder={del.name}
+                onInput={(e) => setDelName((e.target as HTMLInputElement).value)}
+                onKeyDown={onFieldKey(confirmDelete)}
+              />
+            </label>
+            <label class="field">
+              Senha da conta
+              <input
+                type="password"
+                value={delPass}
+                autocomplete="current-password"
+                onInput={(e) => setDelPass((e.target as HTMLInputElement).value)}
+                onKeyDown={onFieldKey(confirmDelete)}
+              />
+            </label>
+            {delError && <div class="error" role="alert">{delError}</div>}
+            <div class="login-dialog-actions">
+              <button class="btn ghost" disabled={busy} onClick={closeDelete}>Cancelar</button>
+              <button class="btn danger" disabled={busy || !sameName(delName, del.name) || !delPass} onClick={confirmDelete}>
+                {busy ? "Excluindo..." : "Excluir para sempre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

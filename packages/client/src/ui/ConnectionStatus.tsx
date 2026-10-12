@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { CLOSE_TRAINING } from "@lemonquest/shared";
+import { CLOSE_KICKED, CLOSE_TRAINING } from "@lemonquest/shared";
 import { closeMessage, session } from "../session.ts";
 import { SKILL_NAMES, trainingSkill } from "./training/training.ts";
 
@@ -30,7 +30,7 @@ export function ConnectionStatus() {
     return (
       <div class="conn-overlay" role="alertdialog" aria-modal="true">
         <div class="panel conn-card">
-          <h2>Você foi desconectado</h2>
+          <h2>{info?.code === CLOSE_KICKED ? "Você foi expulso" : "Você foi desconectado"}</h2>
           <p>{closeMessage(info?.code ?? 0, info?.reason)}</p>
           {/* Recarregar a página é o reset mais limpo: zera Phaser, stores e sala. */}
           <button class="btn" autoFocus onClick={() => location.reload()}>{back}</button>

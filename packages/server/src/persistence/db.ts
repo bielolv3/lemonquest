@@ -91,7 +91,34 @@ const MIGRATIONS: Migration[] = [
     d.exec("CREATE UNIQUE INDEX characters_name_key ON characters(name_key)");
     d.exec("CREATE INDEX characters_account ON characters(account_id)");
   },
-  // v4: estado do mundo que sobrevive a reinícios — pares chave/valor (recorde do Coliseu...) e itens no chão.
+  // v4: códigos de recuperação de senha (hash scrypt, uso único, 1 por conta) e arquivo de personagens excluídos
+  // (cópia integral da linha no momento da exclusão: um admin consegue restaurar à mão).
+  `CREATE TABLE password_resets (
+     account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+     code_hash TEXT NOT NULL,
+     code_salt TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL,
+     created_by TEXT NOT NULL
+   );
+   CREATE TABLE deleted_characters (
+     id INTEGER PRIMARY KEY,
+     char_id INTEGER NOT NULL,
+     account_id INTEGER NOT NULL,
+     account_name TEXT NOT NULL,
+     name TEXT NOT NULL,
+     vocation TEXT NOT NULL,
+     level INTEGER NOT NULL,
+     xp INTEGER NOT NULL,
+     x INTEGER,
+     y INTEGER,
+     dir INTEGER NOT NULL,
+     data TEXT NOT NULL,
+     updated_at INTEGER NOT NULL,
+     deleted_at INTEGER NOT NULL
+   );
+   CREATE INDEX deleted_characters_name ON deleted_characters(name);`,
+  // v5: estado do mundo que sobrevive a reinícios — pares chave/valor (recorde do Coliseu...) e itens no chão.
   `CREATE TABLE kv (
      key TEXT PRIMARY KEY,
      value TEXT NOT NULL
@@ -144,6 +171,8 @@ export function initDb(file?: string): DatabaseSync {
   const d = new DatabaseSync(target);
   d.exec("PRAGMA journal_mode = WAL");
   d.exec("PRAGMA foreign_keys = ON");
+  // Outro processo (CLI de admin) pode estar escrevendo: espera até 3 s pelo lock em vez de falhar na hora.
+  d.exec("PRAGMA busy_timeout = 3000");
   migrate(d);
   db = d;
   return d;
@@ -243,6 +272,55 @@ export function saveCharacter(c: CharacterRecord): void {
   ).run(c.vocation, c.level, c.xp, c.x, c.y, c.dir, JSON.stringify(c.data ?? {}), Date.now(), c.id);
 }
 
+export function findAccountById(id: number): AccountRow | undefined {
+  return getDb().prepare("SELECT * FROM accounts WHERE id = ?").get(id) as AccountRow | undefined;
+}
+
+/** Troca a senha da conta (hash + salt novos). */
+export function updatePassword(accountId: number, passHash: string, salt: string): void {
+  getDb().prepare("UPDATE accounts SET pass_hash = ?, salt = ? WHERE id = ?").run(passHash, salt, accountId);
+}
+
+export interface ResetRow { account_id: number; code_hash: string; code_salt: string; created_at: number; expires_at: number; created_by: string }
+
+/** Grava o código de recuperação da conta (substitui um anterior: só o mais novo vale). */
+export function setResetCode(accountId: number, codeHash: string, codeSalt: string, expiresAt: number, createdBy: string, now = Date.now()): void {
+  getDb().prepare(
+    "INSERT OR REPLACE INTO password_resets (account_id, code_hash, code_salt, created_at, expires_at, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(accountId, codeHash, codeSalt, now, expiresAt, createdBy);
+}
+
+export function getResetCode(accountId: number): ResetRow | undefined {
+  return getDb().prepare("SELECT * FROM password_resets WHERE account_id = ?").get(accountId) as ResetRow | undefined;
+}
+
+export function deleteResetCode(accountId: number): void {
+  getDb().prepare("DELETE FROM password_resets WHERE account_id = ?").run(accountId);
+}
+
+/**
+ * Exclui o personagem guardando a linha inteira em `deleted_characters` (mesma transação). O nome fica livre.
+ * Devolve false se o personagem não existe (ou não é da conta).
+ */
+export function deleteCharacterArchived(charId: number, accountId: number, accountName: string, now = Date.now()): boolean {
+  const d = getDb();
+  d.exec("BEGIN");
+  try {
+    const r = d.prepare(
+      `INSERT INTO deleted_characters (char_id, account_id, account_name, name, vocation, level, xp, x, y, dir, data, updated_at, deleted_at)
+       SELECT id, account_id, ?, name, vocation, level, xp, x, y, dir, COALESCE(data, '{}'), updated_at, ?
+       FROM characters WHERE id = ? AND account_id = ?`,
+    ).run(accountName, now, charId, accountId);
+    if (Number(r.changes) !== 1) { d.exec("ROLLBACK"); return false; }
+    d.prepare("DELETE FROM characters WHERE id = ?").run(charId);
+    d.exec("COMMIT");
+    return true;
+  } catch (e) {
+    d.exec("ROLLBACK");
+    throw e;
+  }
+}
+
 // --- estado do mundo (kv + itens no chão) ---------------------------------------------------------------------------
 
 export function getKv(key: string): string | undefined {
@@ -283,4 +361,19 @@ export function replaceGroundRows(rows: readonly GroundRow[]): void {
     d.exec("ROLLBACK");
     throw e;
   }
+}
+  } catch (e) {
+    d.exec("ROLLBACK");
+    throw e;
+  }
+}
+
+export interface DeletedCharacterRow {
+  id: number; char_id: number; account_id: number; account_name: string; name: string; vocation: string;
+  level: number; xp: number; x: number | null; y: number | null; dir: number; data: string; updated_at: number; deleted_at: number;
+}
+
+/** Arquivo de excluídos (mais recentes primeiro). */
+export function listDeletedCharacters(): DeletedCharacterRow[] {
+  return getDb().prepare("SELECT * FROM deleted_characters ORDER BY id DESC").all() as unknown as DeletedCharacterRow[];
 }

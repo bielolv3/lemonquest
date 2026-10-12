@@ -8,7 +8,7 @@ import { ROOT_DIR } from "./paths.ts";
 import { WorldRoom } from "./rooms/WorldRoom.ts";
 import { authRouter } from "./persistence/auth.ts";
 import { checkpoint, closeDb, initDb } from "./persistence/db.ts";
-import { backupDir, startBackups } from "./persistence/backup.ts";
+import { backupCopyDir, backupDir, startBackups } from "./persistence/backup.ts";
 import { devAdmins, devCommandsEnabled } from "./systems/devcommands.ts";
 
 const PORT = Number(process.env.PORT ?? 2567);
@@ -42,6 +42,10 @@ if (PROD && !fs.existsSync(path.join(dist, "index.html"))) {
   process.exit(1);
 }
 initDb();
+{
+  const admins = [...devAdmins()];
+  console.log(`[admin] administradores (LEMONQUEST_ADMINS): ${admins.join(", ") || "nenhum"}`);
+}
 if (devCommandsEnabled()) {
   const admins = [...devAdmins()];
   console.warn("!".repeat(72));
@@ -121,5 +125,5 @@ for (const sig of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"] as const) process.
 await gameServer.listen(PORT, "0.0.0.0");
 await matchMaker.createRoom("world", {}); // O mundo único, criado já no boot (joinOrCreate sempre cai nele).
 stopBackups = startBackups();
-console.log(`[lemonquest] backups em ${backupDir()}`);
+console.log(`[lemonquest] backups em ${backupDir()}${backupCopyDir() ? ` (cópia externa em ${backupCopyDir()})` : ""}`);
 console.log(`[lemonquest] servidor ouvindo em http://0.0.0.0:${PORT}`);

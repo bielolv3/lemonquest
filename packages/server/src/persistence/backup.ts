@@ -1,5 +1,7 @@
 // Backups da base: `VACUUM INTO data/backups/lemonquest-YYYYMMDD-HH.db` a cada hora (e um no boot).
 // Rotação: todos das últimas 48 h + o mais recente de cada dia por 14 dias.
+// Cópia externa opcional (LEMONQUEST_BACKUP_COPY_DIR: outro disco / pasta de rede): após cada backup, o arquivo novo
+// é copiado para lá, com rotação própria (o mais recente de cada dia, por 14 dias). Falhas só são logadas.
 import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR, backupTo } from "./db.ts";
@@ -10,6 +12,9 @@ const NAME_RE = /^lemonquest-(\d{4})(\d{2})(\d{2})-(\d{2})\.db$/;
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export const backupDir = (): string => process.env.LEMONQUEST_BACKUP_DIR || path.join(DATA_DIR, "backups");
+/** Pasta da cópia externa (vazio = desligada). */
+export const backupCopyDir = (): string | null => process.env.LEMONQUEST_BACKUP_COPY_DIR?.trim() || null;
+export const BACKUP_COPY_KEEP_D = 14;
 
 /** Nome do backup da hora de `d` (hora local). */
 export function backupFileName(d: Date): string {
@@ -51,8 +56,41 @@ export function selectBackupsToDelete(
   return del.sort();
 }
 
-/** Faz o backup da hora atual e roda a rotação. Nunca lança (loga). */
-export function runBackup(dir = backupDir(), now = new Date()): string | null {
+/**
+ * Copia `file` para `copyDir` e roda a rotação de lá (1 por dia, `keepDays` dias). Nunca lança: devolve true/false.
+ * A pasta NÃO é criada: se não existir (disco/compartilhamento desmontado), é falha — nada é gravado no disco local
+ * por engano no lugar do ponto de montagem. A cópia vai para um `.partial` e é renomeada no fim (nunca fica meia).
+ */
+export async function copyBackupOffsite(file: string, copyDir: string | null = backupCopyDir(), now = new Date(), keepDays = BACKUP_COPY_KEEP_D): Promise<boolean> {
+  if (!copyDir) return false;
+  const name = path.basename(file);
+  const dest = path.join(copyDir, name);
+  const tmp = `${dest}.partial`;
+  try {
+    const st = await fs.promises.stat(copyDir).catch(() => null);
+    if (!st?.isDirectory()) throw new Error(`pasta indisponível: ${copyDir}`);
+    const t0 = performance.now();
+    await fs.promises.copyFile(file, tmp);
+    await fs.promises.rename(tmp, dest);
+    console.log(`[backup] cópia externa: ${dest} (${(performance.now() - t0).toFixed(0)} ms)`);
+  } catch (e) {
+    await fs.promises.rm(tmp, { force: true }).catch(() => {});
+    console.error(`[backup] cópia externa falhou (${copyDir}):`, (e as Error).message ?? e);
+    return false;
+  }
+  try {
+    // hourlyH = -1: nenhum arquivo cai na faixa "horária" (nem o da hora atual) — todos seguem a regra diária
+    // (o mais recente de cada dia), por keepDays dias.
+    const del = selectBackupsToDelete(await fs.promises.readdir(copyDir), now, -1, keepDays);
+    for (const n of del) await fs.promises.rm(path.join(copyDir, n), { force: true });
+  } catch (e) {
+    console.error("[backup] rotação da cópia externa falhou:", (e as Error).message ?? e);
+  }
+  return true;
+}
+
+/** Faz o backup da hora atual e roda a rotação. Nunca lança (loga). Com LEMONQUEST_BACKUP_COPY_DIR, copia em seguida (assíncrono). */
+export function runBackup(dir = backupDir(), now = new Date(), copyDir: string | null = backupCopyDir()): string | null {
   const file = path.join(dir, backupFileName(now));
   try {
     const t0 = performance.now();
@@ -68,6 +106,7 @@ export function runBackup(dir = backupDir(), now = new Date()): string | null {
   } catch (e) {
     console.error("[backup] rotação falhou:", e);
   }
+  if (copyDir) void copyBackupOffsite(file, copyDir, now);
   return file;
 }
 
