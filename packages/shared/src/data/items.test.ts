@@ -29,8 +29,11 @@ describe("ITEMS", () => {
   it("ícones existem em disco e frames estão dentro do atlas", () => {
     for (const d of all) {
       expect(existsSync(root + "assets/" + d.icon.url), `${d.id}: ${d.icon.url}`).toBe(true);
-      if (d.icon.frame !== undefined) {
-        expect(d.icon.url).toBe("icons/gear.png");
+      // Outras folhas com frame (ex.: baú de 2 quadros): frame 0, 16x16.
+      if (d.icon.frame !== undefined && d.icon.url !== "icons/gear.png") {
+        expect(d.icon.frame, d.id).toBe(0);
+        expect([d.icon.frameWidth, d.icon.frameHeight], d.id).toEqual([16, 16]);
+      } else if (d.icon.frame !== undefined) {
         expect(d.icon.frame, d.id).toBeGreaterThanOrEqual(0);
         expect(d.icon.frame, d.id).toBeLessThan(gear.count);
         expect(d.icon.frameWidth).toBe(16);
