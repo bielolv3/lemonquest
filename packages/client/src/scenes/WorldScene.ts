@@ -52,6 +52,8 @@ const SPLASHY = new Set(["mud", "swamp"]);
 
 /** Criaturas mais longe que isto (tiles) do jogador ficam escondidas (não destruídas). */
 const CULL_TILES = 25;
+/** Janela do duplo clique num item do chão (ms). */
+const GROUND_DBL_MS = 350;
 /** Testes E2E (Playwright): expõe window.__lq (ver installE2EProbe). */
 const E2E_PROBE = typeof location !== "undefined" && new URLSearchParams(location.search).has("e2e");
 const PROJECTILE_MS = 180;
@@ -90,6 +92,8 @@ export class WorldScene extends Phaser.Scene {
   /** Item do chão clicado de longe: pega ao chegar ao lado (cancelado por movimento manual). */
   private pendingPickup: { id: string; until: number } | null = null;
   private lastGroundClick = { id: "", at: 0 };
+  /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
+  private groundWalkTimer = 0;
   private butterflies!: Butterflies;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
   private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
@@ -468,7 +472,7 @@ export class WorldScene extends Phaser.Scene {
 
   private onInputDir(d: Dir | null) {
     if (!this.room) return;
-    if (d !== null) { this.pendingNpc = null; this.pendingPickup = null; }
+    if (d !== null) { this.pendingNpc = null; this.pendingPickup = null; window.clearTimeout(this.groundWalkTimer); }
     // Mesma ordem do servidor: primeiro recupera um passo que já era devido com a intenção antiga.
     this.stepLocal();
     if (d === null) this.predictor.release();
@@ -519,11 +523,17 @@ export class WorldScene extends Phaser.Scene {
       if (gid) {
         const ev = ptr.event as MouseEvent;
         const now = performance.now();
-        const dbl = left && this.lastGroundClick.id === gid && now - this.lastGroundClick.at < 350;
+        const dbl = left && this.lastGroundClick.id === gid && now - this.lastGroundClick.at < GROUND_DBL_MS;
         this.lastGroundClick = { id: left ? gid : "", at: now };
+        window.clearTimeout(this.groundWalkTimer);
         if (right || ev?.ctrlKey || dbl) { this.pickupGround(gid); return; }
         const inst = this.ground.instanceOf(gid);
-        if (inst && Number.isFinite(ev?.clientX)) { beginGroundPress(ev.clientX, ev.clientY, gid, inst, () => this.walkToTile(t.x, t.y)); return; }
+        if (inst && Number.isFinite(ev?.clientX)) {
+          beginGroundPress(ev.clientX, ev.clientY, gid, inst, () => {
+            this.groundWalkTimer = window.setTimeout(() => this.walkToTile(t.x, t.y), GROUND_DBL_MS);
+          });
+          return;
+        }
       }
       if (!left) return;
       this.walkToTile(t.x, t.y);
@@ -1045,6 +1055,7 @@ export class WorldScene extends Phaser.Scene {
   setLocalId(id: string) { this.myId = id; session.myId = id; }
 
   private teardown() {
+    window.clearTimeout(this.groundWalkTimer);
     for (const d of this.disposers) d();
     this.disposers = [];
     this.input_?.destroy();

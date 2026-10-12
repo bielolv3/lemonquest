@@ -116,7 +116,10 @@ export const tileToClient = (page: Page, x: number, y: number, fy = 0.5) =>
 
 export async function clickTile(page: Page, x: number, y: number, opts: { button?: "left" | "right"; modifiers?: ("Control")[]; fy?: number } = {}): Promise<void> {
   const c = await tileToClient(page, x, y, opts.fy);
-  await page.mouse.click(c.x, c.y, { button: opts.button ?? "left", modifiers: opts.modifiers });
+  // mouse.click não aceita modificadores: segura as teclas em volta do clique.
+  for (const k of opts.modifiers ?? []) await page.keyboard.down(k);
+  await page.mouse.click(c.x, c.y, { button: opts.button ?? "left" });
+  for (const k of opts.modifiers ?? []) await page.keyboard.up(k);
 }
 
 /** Arrasta com o mouse real (pointer events), em passos. */
