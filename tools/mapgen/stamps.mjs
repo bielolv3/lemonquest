@@ -42,3 +42,15 @@ export const S = {
   crystalA: ['N', 0, 15, 1, 1], crystalB: ['N', 1, 15, 1, 1], crystalC: ['N', 2, 15, 1, 1], crystalD: ['N', 3, 15, 1, 1],
   crystalBigA: ['N', 0, 16, 1, 1], crystalBigB: ['N', 1, 16, 1, 1], crystalBigC: ['N', 2, 16, 1, 1], crystalBigD: ['N', 3, 16, 1, 1],
 };
+
+// ---- Lemon polish (swamp / ruins dressing): mossy VillageAbandoned huts, grey mossy statues, fallen logs.
+Object.assign(S, {
+  swampHutA: ['V', 11, 0, 3, 3, { baseRows: 3 }], swampHutB: ['V', 11, 3, 3, 3, { baseRows: 3 }],
+  swampHutBig: ['V', 12, 6, 4, 5, { baseRows: 5 }], swampHutBig2: ['V', 16, 5, 4, 6, { baseRows: 6 }],
+  frogStatue: ['V', 9, 5, 2, 2, { baseRows: 2 }], stumpBig: ['V', 7, 8, 2, 3, { baseRows: 2 }],
+  logV1: ['N', 12, 14, 1, 2, { baseRows: 2 }], logV2: ['N', 13, 14, 1, 2, { baseRows: 2 }], logV3: ['V', 6, 6, 1, 2, { baseRows: 2 }],
+  stumpMoss: ['V', 6, 7, 2, 1, { baseRows: 1 }],
+  statueG1: ['H', 3, 19, 2, 2], statueG2: ['H', 5, 19, 2, 2], statueG3: ['H', 3, 21, 2, 2], idolG: ['H', 1, 19, 3, 3], pillarG: ['H', 0, 19, 1, 3, { baseRows: 1 }],
+  ruinWallB: ['V', 6, 0, 5, 3, { baseRows: 3 }], brokenFence: ['V', 9, 9, 3, 2, { baseRows: 1 }],
+  bushA: ['N', 0, 10, 1, 1, { baseRows: 1, collide: false }],
+});
