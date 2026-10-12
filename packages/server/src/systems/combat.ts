@@ -112,6 +112,8 @@ export interface CombatOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   rng?: () => number;
+  /** Relógio (curas não recebem `now`). Padrão Date.now. */
+  now?: () => number;
 }
 
 export class CombatSystem {
@@ -275,7 +277,7 @@ export class CombatSystem {
     const healed = Math.max(0, Math.min(p.maxHp - p.hp, Math.round(amount)));
     p.hp += healed;
     this.push({ sourceId, targetId: p.id, amount: healed, kind: "heal" });
-    if (healed > 0 && sourceId && sourceId !== p.id && this.o.getPlayer(sourceId)) this.hooks.onActivity?.(sourceId, Date.now());
+    if (healed > 0 && sourceId && sourceId !== p.id && this.o.getPlayer(sourceId)) this.hooks.onActivity?.(sourceId, (this.o.now ?? Date.now)());
     return healed;
   }
 
