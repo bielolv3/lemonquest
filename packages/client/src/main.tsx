@@ -3,8 +3,10 @@ import { render } from "preact";
 import { WorldScene } from "./scenes/WorldScene.ts";
 import { App } from "./ui/App.tsx";
 import { GAME_NAME } from "@lemonquest/shared";
+import { loading } from "./ui/loading.ts";
 
 document.title = GAME_NAME;
+loading.init(); // overlay #boot já está pintado pelo index.html; aqui ele passa a mostrar progresso real
 
 new Phaser.Game({
   type: Phaser.AUTO,
