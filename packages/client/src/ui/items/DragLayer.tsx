@@ -1,4 +1,4 @@
-// Fantasma do item sendo arrastado + diálogos (quantidade / jogar fora).
+// Fantasma do item sendo arrastado + diálogo de quantidade.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { bindGhost, dragStore } from "./dnd.ts";
@@ -45,12 +45,12 @@ function ItemDialogs() {
   if (!d) return null;
   return (
     <div class="item-dialog-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) closeDialog(); }}>
-      {d.kind === "count" ? <CountDialog d={d} /> : <DiscardDialog d={d} />}
+      <CountDialog d={d} />
     </div>
   );
 }
 
-function CountDialog({ d }: { d: Extract<NonNullable<ReturnType<typeof dialogStore.get>>, { kind: "count" }> }) {
+function CountDialog({ d }: { d: NonNullable<ReturnType<typeof dialogStore.get>> }) {
   const [n, setN] = useState(d.initial);
   const clamp = (v: number) => Math.max(1, Math.min(d.max, Math.round(v) || 1));
   const input = useRef<HTMLInputElement>(null);
@@ -76,27 +76,7 @@ function CountDialog({ d }: { d: Extract<NonNullable<ReturnType<typeof dialogSto
       <input class="dlg-range" type="range" min={1} max={d.max} value={n} onInput={(e) => set(Number((e.target as HTMLInputElement).value))} />
       <div class="dlg-actions">
         <button class="dlg-btn" onClick={closeDialog}>Cancelar</button>
-        <button class="dlg-btn primary" onClick={() => d.onConfirm(n)}>Mover {n}</button>
-      </div>
-    </div>
-  );
-}
-
-function DiscardDialog({ d }: { d: Extract<NonNullable<ReturnType<typeof dialogStore.get>>, { kind: "discard" }> }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if (e.key === "Enter") { e.preventDefault(); d.onConfirm(); }
-    };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [d]);
-  return (
-    <div class="hud-card item-dialog" role="alertdialog" aria-label="Jogar fora">
-      <div class="dlg-title">Jogar fora?</div>
-      <div class="dlg-text">{d.count > 1 ? `${d.count}× ` : ""}<b>{d.name}</b> será destruído para sempre.</div>
-      <div class="dlg-actions">
-        <button class="dlg-btn" onClick={closeDialog}>Cancelar</button>
-        <button class="dlg-btn danger" onClick={d.onConfirm}>Jogar fora</button>
+        <button class="dlg-btn primary" onClick={() => d.onConfirm(n)}>{d.verb ?? "Mover"} {n}</button>
       </div>
     </div>
   );

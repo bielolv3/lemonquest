@@ -4,7 +4,7 @@ import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, S2C, TILE_SIZE, NPC_RANGE,
   spellDef, spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
-  type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
+  type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, type ActorDeps } from "../game/actor.ts";
@@ -13,6 +13,9 @@ import { allCreatureSheets, creatureVisual, levelColor, sheetTrim } from "../gam
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
+import { GroundItems } from "../game/ground.ts";
+import { beginGroundPress } from "../ui/items/dnd.ts";
+import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
 import { KeyboardInput } from "../game/input.ts";
@@ -75,6 +78,10 @@ export class WorldScene extends Phaser.Scene {
   private spells!: SpellEffects;
   private npcs!: NpcManager;
   private loot!: LootFx;
+  private ground!: GroundItems;
+  /** Item do chão clicado de longe: pega ao chegar ao lado (cancelado por movimento manual). */
+  private pendingPickup: { id: string; until: number } | null = null;
+  private lastGroundClick = { id: "", at: 0 };
   private butterflies!: Butterflies;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
   private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
@@ -154,6 +161,17 @@ export class WorldScene extends Phaser.Scene {
       const me = this.actors.get(this.myId);
       return me ? { x: me.bodyX, y: me.bodyY, headY: me.headY } : null;
     });
+    this.ground = new GroundItems(this, this.worldLayer, this.uiLayer);
+    setGroundBridge({
+      tileAt: (cx, cy) => {
+        const r = this.game.canvas.getBoundingClientRect();
+        const wp = this.cameras.main.getWorldPoint(cx - r.left, cy - r.top);
+        const x = Math.floor(wp.x / TILE_SIZE), y = Math.floor(wp.y / TILE_SIZE);
+        return x >= 0 && y >= 0 && x < this.world.grid.width && y < this.world.grid.height ? { x, y } : null;
+      },
+      myTile: () => { const k = this.known.get(this.myId); return k ? { x: k.x, y: k.y } : null; },
+    });
+    this.disposers.push(() => setGroundBridge(null));
     const homes = [this.world.spawn, ...["herbalist", "shop"].map((id) => this.npcs.tileOf(id)).filter((t): t is { x: number; y: number } => !!t)];
     this.butterflies = new Butterflies(this, this.worldLayer, homes);
     this.setupPointer();
@@ -194,6 +212,18 @@ export class WorldScene extends Phaser.Scene {
       console.warn("[combate] state.monsters indisponível", e);
     }
 
+    try {
+      this.ground.beginSync();
+      const gAdd = $.onAdd("groundItems", (g: GroundItemView, id: string) => {
+        this.ground.add(id, g);
+        this.disposers.push($.onChange(g, () => this.ground.change(id, g)));
+      });
+      const gRemove = $.onRemove("groundItems", (_g: GroundItemView, id: string) => this.ground.remove(id));
+      this.disposers.push(gAdd, gRemove);
+    } catch (e) {
+      console.warn("[chão] state.groundItems indisponível", e);
+    }
+
     const msg = <T>(type: string, fn: (m: T) => void) => {
       const off = room.onMessage(type, fn) as unknown;
       if (typeof off === "function") this.disposers.push(off as () => void);
@@ -223,6 +253,8 @@ export class WorldScene extends Phaser.Scene {
     this.dying.clear();
     this.gone.clear();
     this.battleSig = "";
+    this.ground?.clear();
+    this.pendingPickup = null;
     clearBattleEntries("monsters");
     this.room = null;
   }
@@ -402,7 +434,7 @@ export class WorldScene extends Phaser.Scene {
 
   private onInputDir(d: Dir | null) {
     if (!this.room) return;
-    if (d !== null) this.pendingNpc = null;
+    if (d !== null) { this.pendingNpc = null; this.pendingPickup = null; }
     // Mesma ordem do servidor: primeiro recupera um passo que já era devido com a intenção antiga.
     this.stepLocal();
     if (d === null) this.predictor.release();
@@ -433,17 +465,65 @@ export class WorldScene extends Phaser.Scene {
       if (nid) { this.clickNpc(nid); return; }
       const sid = this.statueAtPointer(ptr);
       if (sid) { this.clickStatue(sid); return; }
-      if (!left || !this.room) return;
-      this.pendingNpc = null;
+      if (!this.room) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
-      this.room.send(C2S.WalkTo, { x: t.x, y: t.y } satisfies WalkToMsg);
-      // O servidor zera a intenção de teclado ao receber walkTo; espelhamos aqui.
-      this.predictor.clearIntent();
-      this.input_.forgetIntent();
-      this.showMarker(t.x, t.y);
+      // Item no chão: direito / Ctrl+clique / duplo clique = pegar; arrastar até a mochila = pegar; clique = andar.
+      const gid = this.ground.topAt(t.x, t.y);
+      if (gid) {
+        const ev = ptr.event as MouseEvent;
+        const now = performance.now();
+        const dbl = left && this.lastGroundClick.id === gid && now - this.lastGroundClick.at < 350;
+        this.lastGroundClick = { id: left ? gid : "", at: now };
+        if (right || ev?.ctrlKey || dbl) { this.pickupGround(gid); return; }
+        const inst = this.ground.instanceOf(gid);
+        if (inst && Number.isFinite(ev?.clientX)) { beginGroundPress(ev.clientX, ev.clientY, gid, inst, () => this.walkToTile(t.x, t.y)); return; }
+      }
+      if (!left) return;
+      this.walkToTile(t.x, t.y);
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
+  }
+
+  /** Clique para andar até um tile (cancela NPC/pegar pendentes). */
+  private walkToTile(x: number, y: number) {
+    if (!this.room) return;
+    this.pendingNpc = null;
+    this.pendingPickup = null;
+    this.room.send(C2S.WalkTo, { x, y } satisfies WalkToMsg);
+    // O servidor zera a intenção de teclado ao receber walkTo; espelhamos aqui.
+    this.predictor.clearIntent();
+    this.input_.forgetIntent();
+    this.showMarker(x, y);
+  }
+
+  /** Pegar item do chão: ao lado (ou em cima) = já; longe = anda até ficar ao lado e pega ao chegar. */
+  private pickupGround(id: string) {
+    const g = this.ground.get(id);
+    const me = this.actors.get(this.myId);
+    if (!g || !me || !this.room) return;
+    this.pendingNpc = null;
+    if (chebyshev(me.tileX, me.tileY, g.x, g.y) <= 1 && !me.isMoving) { this.pendingPickup = null; pickupItem(id); return; }
+    // Destino: o próprio tile (se livre) ou o vizinho livre mais perto.
+    const onTile = this.world.grid.isWalkable(g.x, g.y) && !this.isOccupiedByOther(g.x, g.y);
+    const near = this.freeNeighbor(g, me);
+    const dOn = Math.hypot(g.x - me.tileX, g.y - me.tileY);
+    const best = near && (!onTile || Math.hypot(near.x - me.tileX, near.y - me.tileY) < dOn) ? near : onTile ? { x: g.x, y: g.y } : null;
+    if (!best) return;
+    this.room.send(C2S.WalkTo, { x: best.x, y: best.y } satisfies WalkToMsg);
+    this.predictor.clearIntent();
+    this.input_.forgetIntent();
+    this.showMarker(best.x, best.y);
+    this.pendingPickup = { id, until: performance.now() + 20_000 };
+  }
+
+  private checkPendingPickup() {
+    const p = this.pendingPickup;
+    if (!p) return;
+    const g = this.ground.get(p.id);
+    const me = this.actors.get(this.myId);
+    if (!g || !me || performance.now() > p.until) { this.pendingPickup = null; return; }
+    if (!me.isMoving && chebyshev(me.tileX, me.tileY, g.x, g.y) <= 1) { this.pendingPickup = null; pickupItem(p.id); }
   }
 
   private npcAtPointer(ptr: Phaser.Input.Pointer): string | null {
@@ -570,6 +650,8 @@ export class WorldScene extends Phaser.Scene {
     this.npcs.update(dt, me);
     this.npcs.placeUi(zoom, dt, (wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
     this.checkPendingNpc();
+    this.checkPendingPickup();
+    this.ground.update(dt, me ? { tx: me.tileX, ty: me.tileY } : null, (wx, wy) => ({ x: this.pcam.toScreenX(wx), y: this.pcam.toScreenY(wy) }), zoom);
     this.butterflies.update(time, me ? me.rx : this.world.spawn.x * TILE_SIZE, me ? me.ry : this.world.spawn.y * TILE_SIZE);
     this.loot.update(dt);
     this.fx.update(dt);
@@ -818,6 +900,7 @@ export class WorldScene extends Phaser.Scene {
 
   private updateHover() {
     const ptr = this.input.activePointer;
+    this.ground.showLabel(null);
     if (!ptr || !this.input.isOver) { this.hover.setVisible(false); return; }
     const cid = this.creatureAtPointer(ptr);
     const c = cid ? this.creatures.get(cid) : undefined;
@@ -837,6 +920,14 @@ export class WorldScene extends Phaser.Scene {
     if (st) { this.hover.setPosition(st.x * TILE_SIZE, st.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const t = this.pointerTile(ptr);
     if (!t) { this.hover.setVisible(false); return; }
+    const gid = this.ground.topAt(t.x, t.y);
+    if (gid) {
+      // Item no chão: cursor de mão + nome (cor da raridade) acima do tile.
+      this.game.canvas.style.cursor = "pointer";
+      this.ground.showLabel(gid, this.pcam.toScreenX((t.x + 0.5) * TILE_SIZE), this.pcam.toScreenY(t.y * TILE_SIZE) - 2);
+      this.hover.setPosition(t.x * TILE_SIZE, t.y * TILE_SIZE).setAlpha(0.45).setVisible(true);
+      return;
+    }
     this.hover.setPosition(t.x * TILE_SIZE, t.y * TILE_SIZE).setAlpha(0.18).setVisible(true);
   }
 
@@ -876,6 +967,7 @@ export class WorldScene extends Phaser.Scene {
     this.spells?.destroy();
     this.npcs?.destroy();
     this.loot?.destroy();
+    this.ground?.destroy();
     this.butterflies?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();

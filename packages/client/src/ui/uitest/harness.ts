@@ -136,6 +136,15 @@ export function startUiTest(): void {
         break;
       }
       case C2S.DiscardItem: backpack[m.index as number] = null; break;
+      case C2S.DropItem: {
+        // Sem mundo no harness: o item só sai do inventário.
+        const from = m.from as ItemLocation, count = m.count as number | undefined;
+        const a = get(from);
+        if (!a) return;
+        if (count && count < a.count) a.count -= count; else put(from, null);
+        notice(`largou ${a.defId} no chão em ${m.x},${m.y}`);
+        break;
+      }
       case C2S.NpcInteract: setTimeout(() => { handleNpcOpen(npc()); pushDepot(); }, 60); return;
       case C2S.NpcTrade: {
         const t = m as unknown as NpcTradeMsg;

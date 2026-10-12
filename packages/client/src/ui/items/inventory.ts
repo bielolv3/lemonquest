@@ -1,7 +1,7 @@
 // Estado do inventário (mochila/equipamento/ouro/depot) alimentado por S2C.Inventory e S2C.Depot + ações (C2S).
 import {
   BACKPACK_SIZE, C2S, itemDef,
-  type DiscardItemMsg, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation,
+  type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation,
   type MoveItemMsg, type UseItemMsg,
 } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
@@ -38,10 +38,6 @@ export function moveItem(from: ItemLocation, to: ItemLocation, count?: number): 
 export function useBackpackItem(index: number): void {
   const m: UseItemMsg = { index };
   send(C2S.UseItem, m);
-}
-export function discardBackpackItem(index: number): void {
-  const m: DiscardItemMsg = { index };
-  send(C2S.DiscardItem, m);
 }
 
 /** Tenta equipar o item da mochila no slot da definição. */

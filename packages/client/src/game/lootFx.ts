@@ -41,11 +41,43 @@ interface Drop {
   sfxItem: boolean;
 }
 
+// --- ícones de item sob demanda (também usados por game/ground.ts) ------------------------
+
+/** Chave de textura do ícone de um item. */
+export function itemIconKey(icon: ItemIcon): string {
+  return icon.frame !== undefined ? `lootsheet:${icon.url}:${icon.frameWidth}x${icon.frameHeight}` : `lootimg:${icon.url}`;
+}
+
+const pendingIcons = new WeakMap<Phaser.Scene, Map<string, ((ok: boolean) => void)[]>>();
+
+/** Carrega o ícone (uma vez por cena) e chama `done(ok)`. */
+export function ensureItemIcon(scene: Phaser.Scene, icon: ItemIcon, done: (ok: boolean) => void): void {
+  const key = itemIconKey(icon);
+  if (scene.textures.exists(key)) { done(true); return; }
+  let pending = pendingIcons.get(scene);
+  if (!pending) { pending = new Map(); pendingIcons.set(scene, pending); }
+  const waiting = pending.get(key);
+  if (waiting) { waiting.push(done); return; }
+  pending.set(key, [done]);
+  const url = `${import.meta.env.BASE_URL}${icon.url}`;
+  const finish = (ok: boolean) => {
+    scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onErr);
+    const cbs = pending!.get(key) ?? [];
+    pending!.delete(key);
+    for (const cb of cbs) cb(ok);
+  };
+  const onErr = (f: Phaser.Loader.File) => { if (f.key === key) finish(false); };
+  scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onErr);
+  scene.load.once(`${Phaser.Loader.Events.FILE_KEY_COMPLETE}${icon.frame !== undefined ? "spritesheet" : "image"}-${key}`, () => finish(true));
+  if (icon.frame !== undefined) scene.load.spritesheet(key, url, { frameWidth: icon.frameWidth ?? 16, frameHeight: icon.frameHeight ?? 16 });
+  else scene.load.image(key, url);
+  if (!scene.load.isLoading()) scene.load.start();
+}
+
 interface LootLike { x: number; y: number; items: ItemInstance[]; gold: number }
 
 export class LootFx {
   private drops: Drop[] = [];
-  private pending = new Map<string, ((ok: boolean) => void)[]>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -65,32 +97,8 @@ export class LootFx {
     scene.anims.create({ key: COIN_ANIM, frames: scene.anims.generateFrameNumbers(COIN_KEY, { start: 0, end: 3 }), frameRate: 9, repeat: -1 });
   }
 
-  // --- ícones sob demanda ---------------------------------------------------
-
-  private iconKey(icon: ItemIcon) {
-    return icon.frame !== undefined ? `lootsheet:${icon.url}:${icon.frameWidth}x${icon.frameHeight}` : `lootimg:${icon.url}`;
-  }
-
-  private ensureIcon(icon: ItemIcon, done: (ok: boolean) => void) {
-    const key = this.iconKey(icon);
-    if (this.scene.textures.exists(key)) { done(true); return; }
-    const waiting = this.pending.get(key);
-    if (waiting) { waiting.push(done); return; }
-    this.pending.set(key, [done]);
-    const url = `${import.meta.env.BASE_URL}${icon.url}`;
-    const finish = (ok: boolean) => {
-      this.scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onErr);
-      const cbs = this.pending.get(key) ?? [];
-      this.pending.delete(key);
-      for (const cb of cbs) cb(ok);
-    };
-    const onErr = (f: Phaser.Loader.File) => { if (f.key === key) finish(false); };
-    this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onErr);
-    this.scene.load.once(`${Phaser.Loader.Events.FILE_KEY_COMPLETE}${icon.frame !== undefined ? "spritesheet" : "image"}-${key}`, () => finish(true));
-    if (icon.frame !== undefined) this.scene.load.spritesheet(key, url, { frameWidth: icon.frameWidth ?? 16, frameHeight: icon.frameHeight ?? 16 });
-    else this.scene.load.image(key, url);
-    if (!this.scene.load.isLoading()) this.scene.load.start();
-  }
+  private iconKey(icon: ItemIcon) { return itemIconKey(icon); }
+  private ensureIcon(icon: ItemIcon, done: (ok: boolean) => void) { ensureItemIcon(this.scene, icon, done); }
 
   // --- drop ------------------------------------------------------------------
 

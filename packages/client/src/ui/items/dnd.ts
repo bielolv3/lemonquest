@@ -1,5 +1,7 @@
-// Arrastar e soltar com pointer events entre mochila, equipamento e depot.
+// Arrastar e soltar com pointer events entre mochila, equipamento, depot e o chão do mundo.
 // Os slots declaram `data-loc="bp:3" | "eq:helmet" | "dp:12"`. O alvo é achado com elementFromPoint ao soltar.
+// Soltar fora dos painéis (sobre o mundo) = largar no chão naquele tile (sem confirmação). Arrastar um item
+// do chão (WorldScene → beginGroundPress) até um slot = pegar.
 import {
   BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, type EquipSlot, type ItemDef, type ItemInstance, type ItemLocation,
 } from "@lemonquest/shared";
@@ -7,12 +9,16 @@ import { createStore } from "../hud/store.ts";
 import { playersStore, selectMe } from "../hud/world.ts";
 import { npcStore } from "../npc/npc.ts";
 import { closeDialog, openDialog } from "./dialogs.ts";
-import { defOf, discardBackpackItem, inventoryStore, moveItem } from "./inventory.ts";
+import { dropAtPointer, pickupItem } from "./ground.ts";
+import { defOf, inventoryStore, moveItem } from "./inventory.ts";
 import { canEquip } from "./itemInfo.ts";
 import { itemTipStore } from "./tipStore.ts";
 
+/** Origem do arrasto: um slot ou um item do chão (id do servidor). */
+export type DragFrom = ItemLocation | { where: "ground"; id: string };
+
 export interface DragState {
-  from: ItemLocation;
+  from: DragFrom;
   inst: ItemInstance;
   def: ItemDef | undefined;
   /** Chaves de slot onde soltar é válido. */
@@ -22,8 +28,8 @@ export interface DragState {
 }
 export const dragStore = createStore<DragState | null>(null);
 
-export const locKey = (l: ItemLocation): string =>
-  l.where === "backpack" ? `bp:${l.index}` : l.where === "depot" ? `dp:${l.index}` : `eq:${l.slot}`;
+export const locKey = (l: DragFrom): string =>
+  l.where === "backpack" ? `bp:${l.index}` : l.where === "depot" ? `dp:${l.index}` : l.where === "ground" ? `gr:${l.id}` : `eq:${l.slot}`;
 
 export function parseLoc(key: string | undefined): ItemLocation | null {
   if (!key) return null;
@@ -38,7 +44,7 @@ export function parseLoc(key: string | undefined): ItemLocation | null {
 
 const REASON_TEXT = { slot: "Slot incompatível", level: "Level insuficiente", vocation: "Vocação não pode usar", twohanded: "Arma de duas mãos equipada" } as const;
 
-function computeValid(from: ItemLocation, inst: ItemInstance): Pick<DragState, "valid" | "reasons"> {
+function computeValid(from: DragFrom, inst: ItemInstance): Pick<DragState, "valid" | "reasons"> {
   const valid = new Set<string>();
   const reasons = new Map<string, string>();
   const inv = inventoryStore.get();
@@ -59,6 +65,7 @@ function computeValid(from: ItemLocation, inst: ItemInstance): Pick<DragState, "
   if (npc?.msg.depot) {
     for (let i = 0; i < DEPOT_SIZE; i++) {
       if (from.where === "equip") { reasons.set(`dp:${i}`, "Desequipe primeiro"); continue; }
+      if (from.where === "ground") { reasons.set(`dp:${i}`, "Pegue para a mochila primeiro"); continue; }
       if (`dp:${i}` !== fromKey) valid.add(`dp:${i}`);
     }
   }
@@ -88,9 +95,20 @@ export function cancelDrag(): boolean {
 /** Chamado no pointerdown de um slot preenchido. Vira arrasto depois de mover alguns pixels. */
 export function beginPress(e: PointerEvent, from: ItemLocation, inst: ItemInstance): void {
   if (e.button !== 0) return;
+  startPress(e.clientX, e.clientY, e.shiftKey, from, inst);
+}
+
+/**
+ * Pointerdown num item do chão (WorldScene). Mover > 4 px = arrasto (soltar num slot pega o item);
+ * soltar sem arrastar chama `onClick` (andar até o tile, como um clique normal).
+ */
+export function beginGroundPress(clientX: number, clientY: number, id: string, inst: ItemInstance, onClick: () => void): void {
+  startPress(clientX, clientY, false, { where: "ground", id }, inst, onClick);
+}
+
+function startPress(sx: number, sy: number, shiftDown: boolean, from: DragFrom, inst: ItemInstance, onClick?: () => void): void {
   cancelDrag();
-  const sx = e.clientX, sy = e.clientY;
-  let shift = e.shiftKey;
+  let shift = shiftDown;
   let dragging = false;
 
   const move = (ev: PointerEvent) => {
@@ -114,6 +132,7 @@ export function beginPress(e: PointerEvent, from: ItemLocation, inst: ItemInstan
     shift = shift || ev.shiftKey;
     cleanup?.();
     if (was && d) drop(d, ev.clientX, ev.clientY, shift);
+    else if (!was) onClick?.();
   };
 
   const off = () => {
@@ -135,25 +154,33 @@ const PANEL_SEL = ".hud-panel, .hud-rail, .npc-window, .hud-window, .action-bar,
 function drop(d: DragState, x: number, y: number, shift: boolean) {
   const target = document.elementFromPoint(x, y);
   const slot = target?.closest("[data-loc]") as HTMLElement | null;
+  const from = d.from;
+  if (from.where === "ground") {
+    // Do chão para um slot: pegar. Mover entre tiles do chão não é suportado.
+    const to = slot ? parseLoc(slot.dataset.loc) : null;
+    if (!to || !d.valid.has(locKey(to))) return;
+    if (to.where === "backpack" || to.where === "equip") pickupItem(from.id, to);
+    return;
+  }
   if (slot) {
     const to = parseLoc(slot.dataset.loc);
-    if (!to || locKey(to) === locKey(d.from)) return;
+    if (!to || locKey(to) === locKey(from)) return;
     if (!d.valid.has(locKey(to))) return;
-    if (shift && d.inst.count > 1 && d.from.where !== "equip") {
+    if (shift && d.inst.count > 1 && from.where !== "equip") {
       openDialog({
         kind: "count", title: `Mover ${d.def?.name ?? "item"}`, max: d.inst.count, initial: Math.max(1, Math.floor(d.inst.count / 2)),
-        onConfirm: (n) => { closeDialog(); moveItem(d.from, to, n); },
+        onConfirm: (n) => { closeDialog(); moveItem(from, to, n); },
       });
-    } else moveItem(d.from, to);
+    } else moveItem(from, to);
     return;
   }
   if (target?.closest(PANEL_SEL)) return;
-  // Soltou fora de qualquer painel: jogar fora (só mochila).
-  if (d.from.where === "backpack") {
-    const index = d.from.index;
+  // Soltou fora dos painéis: larga no chão (tile sob o mouse; o servidor decide se cai lá ou no seu tile). Sem confirmação.
+  if (from.where === "depot") return;
+  if (shift && d.inst.count > 1 && from.where === "backpack") {
     openDialog({
-      kind: "discard", name: d.def?.name ?? "item", count: d.inst.count,
-      onConfirm: () => { closeDialog(); discardBackpackItem(index); },
+      kind: "count", title: `Largar ${d.def?.name ?? "item"}`, verb: "Largar", max: d.inst.count, initial: Math.max(1, Math.floor(d.inst.count / 2)),
+      onConfirm: (n) => { closeDialog(); dropAtPointer(from, x, y, n); },
     });
-  }
+  } else dropAtPointer(from, x, y);
 }
