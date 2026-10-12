@@ -62,6 +62,36 @@ const MIGRATIONS: Migration[] = [
     d.exec("CREATE UNIQUE INDEX accounts_name_key ON accounts(name_key)");
     d.exec("CREATE UNIQUE INDEX characters_name_key ON characters(name_key)");
   },
+  // v3: contas com VÁRIOS personagens — characters.account_id deixa de ser UNIQUE. O SQLite não remove uma
+  // restrição UNIQUE de coluna: recria a tabela (mesmos ids, dados e name_key) dentro da transação da migração.
+  // Contas existentes continuam iguais: o nome da conta = nome do seu (único) personagem.
+  (d) => {
+    d.exec(`CREATE TABLE characters_v3 (
+      id INTEGER PRIMARY KEY,
+      account_id INTEGER NOT NULL REFERENCES accounts(id),
+      name TEXT UNIQUE COLLATE NOCASE NOT NULL,
+      name_key TEXT NOT NULL,
+      vocation TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
+      xp INTEGER NOT NULL DEFAULT 0,
+      x INTEGER,
+      y INTEGER,
+      dir INTEGER NOT NULL DEFAULT 4,
+      data TEXT NOT NULL DEFAULT '{}',
+      updated_at INTEGER NOT NULL
+    )`);
+    d.exec(`INSERT INTO characters_v3 (id, account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at)
+      SELECT id, account_id, name, COALESCE(name_key, lower(name) || '#' || id), vocation, level, xp, x, y, dir,
+             COALESCE(data, '{}'), updated_at
+      FROM characters`);
+    const before = (d.prepare("SELECT COUNT(*) AS n FROM characters").get() as { n: number }).n;
+    const after = (d.prepare("SELECT COUNT(*) AS n FROM characters_v3").get() as { n: number }).n;
+    if (before !== after) throw new Error(`migração v3: ${before} personagens na origem, ${after} copiados`);
+    d.exec("DROP TABLE characters");
+    d.exec("ALTER TABLE characters_v3 RENAME TO characters");
+    d.exec("CREATE UNIQUE INDEX characters_name_key ON characters(name_key)");
+    d.exec("CREATE INDEX characters_account ON characters(account_id)");
+  },
 ];
 
 export interface AccountRow {
@@ -90,10 +120,10 @@ function migrate(d: DatabaseSync) {
   }
 }
 
-/** Abre (ou reabre) a base. `file` = caminho ou ":memory:". Útil para testes. */
 /** Aplica as migrações pendentes numa base já aberta (testes de migração). */
 export function migrateForTest(d: DatabaseSync) { migrate(d); }
 
+/** Abre (ou reabre) a base. `file` = caminho ou ":memory:". Útil para testes. */
 export function initDb(file?: string): DatabaseSync {
   db?.close();
   const target = file ?? process.env.LEMONQUEST_DB ?? path.join(DATA_DIR, "lemonquest.db");
@@ -142,25 +172,45 @@ function parseData(raw: string | null): CharacterData {
   try { return raw ? (JSON.parse(raw) as CharacterData) : {}; } catch { return {}; }
 }
 
+/** Conta pelo nome (chave NFC + minúsculas). O nome da conta é privado e independe dos nomes dos personagens. */
 export function findAccount(name: string): AccountRow | undefined {
   return getDb().prepare("SELECT * FROM accounts WHERE name_key = ?").get(nameKey(name)) as AccountRow | undefined;
 }
 
-/** Cria conta + personagem (mesmo nome) numa transação. */
-export function createAccount(name: string, passHash: string, salt: string, vocation: Vocation): CharacterRecord {
-  const d = getDb();
+/** Cria uma conta (sem personagens). Lança se o nome já existir (inclusive variante de caixa/acentos). */
+export function createAccount(name: string, passHash: string, salt: string): AccountRow {
   const now = Date.now();
+  const r = getDb().prepare("INSERT INTO accounts (name, name_key, pass_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(name, nameKey(name), passHash, salt, now);
+  return { id: Number(r.lastInsertRowid), name, pass_hash: passHash, salt, created_at: now };
+}
+
+/** Cria um personagem na conta. Lança se o nome já existir em QUALQUER conta. */
+export function createCharacter(accountId: number, name: string, vocation: Vocation): CharacterRecord {
+  const r = getDb().prepare(
+    "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?)",
+  ).run(accountId, name, nameKey(name), vocation, Date.now());
+  return { id: Number(r.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data: {} };
+}
+
+/** Personagens da conta, na ordem de criação. */
+export function listCharacters(accountId: number): CharacterRecord[] {
+  return (getDb().prepare("SELECT * FROM characters WHERE account_id = ? ORDER BY id").all(accountId) as unknown as CharRow[]).map(toRecord);
+}
+
+export function countCharacters(accountId: number): number {
+  return (getDb().prepare("SELECT COUNT(*) AS n FROM characters WHERE account_id = ?").get(accountId) as { n: number }).n;
+}
+
+/** Atalho (testes/ferramentas): conta + um personagem com o mesmo nome, como no esquema antigo. */
+export function createAccountWithCharacter(name: string, passHash: string, salt: string, vocation: Vocation): CharacterRecord {
+  const d = getDb();
   d.exec("BEGIN");
   try {
-    const key = nameKey(name);
-    const acc = d.prepare("INSERT INTO accounts (name, name_key, pass_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(name, key, passHash, salt, now);
-    const accountId = Number(acc.lastInsertRowid);
-    const ch = d.prepare(
-      "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?)",
-    ).run(accountId, name, key, vocation, now);
+    const acc = createAccount(name, passHash, salt);
+    const ch = createCharacter(acc.id, name, vocation);
     d.exec("COMMIT");
-    return { id: Number(ch.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data: {} };
+    return ch;
   } catch (e) {
     d.exec("ROLLBACK");
     throw e;

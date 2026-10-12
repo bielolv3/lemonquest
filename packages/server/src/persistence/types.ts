@@ -26,7 +26,7 @@ export interface CharacterData {
   arenaBest?: number;
 }
 
-/** Registro persistido de um personagem (1 personagem por conta; nome da conta = nome do personagem). */
+/** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */
 export interface CharacterRecord {
   id: number;
   name: string;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLOSE_TRAINING, S2C, statueDistance } from "@lemonquest/shared";
 import { WorldRoom } from "./WorldRoom.ts";
-import { createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
+import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
 import { resetAuthState, type AuthData } from "../persistence/auth.ts";
 
 // Sala real (mapa real), fora do matchmaker; a estátua é injetada ao lado do spawn (a do mapa real não é necessária).

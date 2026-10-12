@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findObjects, objectTile } from "@lemonquest/shared";
-import { CLOSE_REPLACED, REPLACED_REASON, WorldRoom, currentWorld } from "./WorldRoom.ts";
-import { createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
-import { handleLogin, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";
+import { CLOSE_REPLACED, findObjects, objectTile } from "@lemonquest/shared";
+import { REPLACED_REASON, WorldRoom, currentWorld } from "./WorldRoom.ts";
+import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
+import { handleCreateCharacter, handleLogin, handlePlay, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";
 
 // Sala real (mapa real), fora do matchmaker: __init + onCreate; clientes falsos.
 const rooms: any[] = [];
@@ -36,21 +36,33 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Conta "leo" com o personagem "Leo"; devolve a sessão da conta. */
+async function accountWithLeo(): Promise<string> {
+  const a = await handleLogin({ account: "leo", password: "segredo1", create: true });
+  if (!a.ok) throw new Error("login falhou");
+  const c = handleCreateCharacter({ session: a.session, name: "Leo", vocation: "knight" });
+  if (!c.ok) throw new Error("criação falhou");
+  return a.session;
+}
+
 describe("WorldRoom: onAuth estático", () => {
   it("aceita token válido (uma vez), recusa reuso e lixo", async () => {
-    const r = await handleLogin({ name: "Leo", password: "segredo1", vocation: "knight" });
-    if (!r.ok) throw new Error("login falhou");
+    const session = await accountWithLeo();
+    const r = handlePlay({ session, name: "Leo" });
+    if (!r.ok) throw new Error("play falhou");
     await expect(WorldRoom.onAuth("", { token: r.token })).resolves.toMatchObject({ name: "Leo", key: "leo" });
     await expect(WorldRoom.onAuth("", { token: r.token })).rejects.toThrow();
     await expect(WorldRoom.onAuth("", { token: "lixo" })).rejects.toThrow();
     await expect(WorldRoom.onAuth("", undefined)).rejects.toThrow();
   });
 
-  it("login novo invalida o token pendente anterior (reserva do nome)", async () => {
-    await handleLogin({ name: "Leo", password: "segredo1", vocation: "knight" });
-    const a = await handleLogin({ name: "Leo", password: "segredo1" });
-    const b = await handleLogin({ name: "Leo", password: "segredo1" });
-    if (!a.ok || !b.ok) throw new Error("login falhou");
+  it("novo /play invalida o token pendente anterior (reserva do nome)", async () => {
+    const session = await accountWithLeo();
+    const other = await handleLogin({ account: "leo", password: "segredo1" });
+    if (!other.ok) throw new Error("login falhou");
+    const a = handlePlay({ session, name: "Leo" });
+    const b = handlePlay({ session: other.session, name: "leo" });
+    if (!a.ok || !b.ok) throw new Error("play falhou");
     await expect(WorldRoom.onAuth("", { token: a.token })).rejects.toThrow();
     await expect(WorldRoom.onAuth("", { token: b.token })).resolves.toMatchObject({ name: "Leo" });
   });
@@ -71,6 +83,24 @@ describe("WorldRoom: sala única", () => {
 });
 
 describe("WorldRoom: sessões", () => {
+  it("conta → /play → onAuth → onJoin; outro /play do mesmo personagem derruba a sessão antiga", async () => {
+    const r = makeRoom();
+    const session = await accountWithLeo();
+    const t1 = handlePlay({ session, name: "Leo" });
+    if (!t1.ok) throw new Error("play falhou");
+    const c1 = fakeClient(r, "s1");
+    r.onJoin(c1, {}, await WorldRoom.onAuth("", { token: t1.token }));
+    const list = await handleLogin({ account: "LEO", password: "segredo1" });
+    expect(list).toMatchObject({ ok: true, characters: [{ name: "Leo", online: true }] });
+    if (!list.ok) return;
+    const t2 = handlePlay({ session: list.session, name: "Leo" });
+    if (!t2.ok) throw new Error("play falhou");
+    const c2 = fakeClient(r, "s2");
+    r.onJoin(c2, {}, await WorldRoom.onAuth("", { token: t2.token }));
+    expect(c1.leave).toHaveBeenCalledWith(CLOSE_REPLACED, REPLACED_REASON);
+    expect(onlineOwner("Leo")).toBe("s2");
+  });
+
   it("login duplo: salva e derruba a sessão antiga (4100); onLeave da antiga não libera o nome da nova", () => {
     const r = makeRoom();
     createAccount("Leo", "h", "s", "knight");
