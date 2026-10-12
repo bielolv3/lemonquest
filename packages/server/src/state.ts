@@ -29,6 +29,8 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint16") speedPct = 100;
   @type("string") stance: FightStance = "balanced";
   @type("boolean") chase = false;
+  @type("string") outfit = "cavaleiro";
+  @type("uint8") addons = 0;
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */

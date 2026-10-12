@@ -41,7 +41,11 @@ export const C2S = {
   TrainOffline: "trainOffline",
   /** Coliseu: ações de lobby (no NPC do coliseu) e de partida. */
   Arena: "arena",
+  /** Trocar roupa/addons (janela de roupas). */
+  SetOutfit: "setOutfit",
 } as const;
+
+export interface SetOutfitMsg { outfit: string; addons: number }
 
 export interface TrainOpenMsg { statueId: string }
 export interface TrainOfflineMsg { skill: SkillId }
@@ -228,6 +232,9 @@ export interface CharacterSummary {
   name: string;
   vocation: Vocation;
   level: number;
+  /** Roupa atual (retrato na lista de personagens). */
+  outfit?: string;
+  addons?: number;
   /** Treinando offline agora (ao entrar, recebe o progresso). */
   training?: { skill: SkillId; sinceMs: number };
   online?: boolean;

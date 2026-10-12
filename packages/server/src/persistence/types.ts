@@ -24,6 +24,9 @@ export interface CharacterData {
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
   /** Coliseu: recorde pessoal de ondas vencidas. */
   arenaBest?: number;
+  /** Roupa (OUTFITS) e addons (bits 1|2). Ausente = padrão da vocação. */
+  outfit?: string;
+  addons?: number;
 }
 
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */

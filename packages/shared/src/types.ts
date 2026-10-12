@@ -66,6 +66,10 @@ export interface PlayerView {
   stance: FightStance;
   /** true = persegue o alvo automaticamente; false = fica parado. */
   chase: boolean;
+  /** Roupa (id em OUTFITS, shared/data/outfits.ts). Cosmético. */
+  outfit: string;
+  /** Addons ativos da roupa: bit 1 = addon 1, bit 2 = addon 2. */
+  addons: number;
 }
 
 /** Espelho de MonsterState (packages/server/src/state.ts). */

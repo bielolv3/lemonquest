@@ -11,6 +11,7 @@ import {
 } from "./db.ts";
 import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 import type { CharacterRecord } from "./types.ts";
+import { loadOutfit } from "../systems/outfit.ts";
 
 /** Validade do token de entrada no mundo (uso único, emitido pelo /api/play). */
 export const TOKEN_TTL_MS = 60_000;
@@ -146,7 +147,8 @@ function touchSession(token: unknown, now: number): AccountSessionEntry | null {
 }
 
 export function summarize(rec: CharacterRecord): CharacterSummary {
-  const s: CharacterSummary = { name: rec.name, vocation: rec.vocation, level: rec.level };
+  const look = loadOutfit(rec);
+  const s: CharacterSummary = { name: rec.name, vocation: rec.vocation, level: rec.level, outfit: look.outfit, addons: look.addons };
   const t = rec.data.offlineTraining;
   if (t && typeof t.skill === "string" && typeof t.sinceMs === "number") s.training = { skill: t.skill, sinceMs: t.sinceMs };
   if (online.has(nameKey(rec.name))) s.online = true;

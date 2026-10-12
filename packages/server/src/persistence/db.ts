@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import type { Vocation } from "@lemonquest/shared";
+import { defaultOutfit, type Vocation } from "@lemonquest/shared";
 import type { CharacterData, CharacterRecord } from "./types.ts";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -187,10 +187,12 @@ export function createAccount(name: string, passHash: string, salt: string): Acc
 
 /** Cria um personagem na conta. Lança se o nome já existir em QUALQUER conta. */
 export function createCharacter(accountId: number, name: string, vocation: Vocation): CharacterRecord {
+  // Roupa inicial = a padrão da vocação (o jogador troca depois na janela de roupas).
+  const data: CharacterData = { outfit: defaultOutfit(vocation), addons: 0 };
   const r = getDb().prepare(
-    "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?)",
-  ).run(accountId, name, nameKey(name), vocation, Date.now());
-  return { id: Number(r.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data: {} };
+    "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?, ?)",
+  ).run(accountId, name, nameKey(name), vocation, JSON.stringify(data), Date.now());
+  return { id: Number(r.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data };
 }
 
 /** Personagens da conta, na ordem de criação. */

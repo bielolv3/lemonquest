@@ -2,7 +2,7 @@ import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, ty
 import {
   C2S, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
-  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type TurnMsg,
+  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -27,6 +27,7 @@ import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
 import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand } from "../systems/devcommands.ts";
+import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import { getCharacterByName, saveCharacter } from "../persistence/db.ts";
@@ -43,7 +44,7 @@ export const REPLACED_REASON = "Sua conta entrou em outro lugar";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2,
 };
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
@@ -290,6 +291,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
     this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
+    this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
 
     const players = () => this.state.players.values();
     this.steps = [
@@ -371,6 +373,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     p.x = start.x;
     p.y = start.y;
     p.dir = rec.dir;
+    const look = loadOutfit(rec);
+    p.outfit = look.outfit;
+    p.addons = look.addons;
     this.skills.load(p, rec.data.skills);
     // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
     const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
@@ -570,6 +575,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     if (fed) rec.data.fed = fed; else delete rec.data.fed;
     rec.data.stance = p.stance;
     rec.data.chase = p.chase;
+    rec.data.outfit = p.outfit;
+    rec.data.addons = p.addons;
     this.persist(rec);
   }
 
