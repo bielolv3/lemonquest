@@ -56,6 +56,9 @@ export const TILESET_FILES = [
   // Same image as TilesetFloor: the cave floor reuses the swamp-mud art but must be normal speed, and
   // Tiled tile properties are per gid, so it gets its own tileset (appended: existing gids stay stable).
   ['TilesetCaveFloor', 'TilesetFloor.png'],
+  // Appended (gids of everything above stay stable): desert art (colosseum) + a normal-speed sand floor alias for the arenas.
+  ['TilesetDesert', 'TilesetDesert.png'],
+  ['TilesetArenaFloor', 'TilesetFloor.png'],
 ];
 
 export class Tilesets {
@@ -72,7 +75,7 @@ export class Tilesets {
       this.byName[name] = ts;
       gid += tilecount;
     }
-    this.short = { F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor', C: 'TilesetCaveFloor' };
+    this.short = { F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor', C: 'TilesetCaveFloor', T: 'TilesetDesert', A: 'TilesetArenaFloor' };
   }
   gid(ts, col, row) {
     const t = this.byName[this.short[ts] ?? ts];
@@ -177,7 +180,7 @@ export class GameMap {
   addObject(o) {
     const obj = { id: this.nextId++, name: o.name ?? o.type, type: o.type, class: o.type, x: o.x, y: o.y, width: o.width ?? 0, height: o.height ?? 0, rotation: 0, visible: true };
     if (!o.rect) obj.point = true;
-    if (o.props) obj.properties = Object.entries(o.props).map(([name, value]) => ({ name, type: typeof value === 'number' ? 'int' : 'string', value }));
+    if (o.props) obj.properties = Object.entries(o.props).map(([name, value]) => ({ name, type: typeof value === 'number' ? 'int' : typeof value === 'boolean' ? 'bool' : 'string', value }));
     this.objects.push(obj);
     return obj;
   }
@@ -236,7 +239,7 @@ export function renderPreview(map, outPath, { scale = 16, layers = ['ground', 'd
     for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const di = ((y * 16 + j) * W + x * 16 + i) * 4; full[di] = Math.min(255, full[di] * 0.6 + 100); full[di + 1] *= 0.6; full[di + 2] *= 0.6; }
   }
   if (objectsOverlay) {
-    const col = { spawn_player: [0, 255, 0], npc: [0, 200, 255], monster_spawn: [255, 0, 0], portal: [255, 0, 255] };
+    const col = { spawn_player: [0, 255, 0], npc: [0, 200, 255], monster_spawn: [255, 0, 0], portal: [255, 0, 255], training_statue: [255, 255, 0], arena_entry: [0, 255, 0], arena_spawn: [255, 128, 0], arena_exit: [0, 255, 128] };
     for (const o of map.objects) {
       const c = col[o.type]; if (!c) continue;
       const tx = Math.floor(o.x / 16), ty = Math.floor(o.y / 16);
