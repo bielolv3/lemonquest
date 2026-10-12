@@ -46,9 +46,10 @@ $logs = Join-Path $RepoPath "logs"
 New-Item -ItemType Directory -Force $logs | Out-Null
 
 # --- instala / atualiza ---
-$exists = $false
-& $NssmPath status $svc 2>$null | Out-Null
-if ($LASTEXITCODE -eq 0) { $exists = $true }
+# Daqui em diante o nssm.exe pode escrever mensagens normais no stderr; no Windows PowerShell 5.1 isso,
+# com ErrorActionPreference=Stop, vira erro fatal. Por isso relaxamos para Continue e checamos $LASTEXITCODE.
+$ErrorActionPreference = "Continue"
+$exists = [bool](Get-Service -Name $svc -ErrorAction SilentlyContinue)
 if (-not $exists) {
   & $NssmPath install $svc $node "--import tsx src/index.ts" | Out-Null
 } else {

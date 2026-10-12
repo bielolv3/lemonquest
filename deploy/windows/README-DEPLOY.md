@@ -40,27 +40,81 @@ Para parar: `Ctrl+C` (o servidor salva os jogadores antes de sair).
    powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\firewall.ps1 -Port 2567
    ```
 
-   A regra vale para redes Domínio e Privada. Se o Windows classificou a rede como "Pública", mude para "Privada" em Configurações > Rede.
+   A regra vale para redes Domínio e Privada. Se o Windows classificou a rede do escritório como "Pública" (comum no Wi-Fi), mude para "Privada" em Configurações > Rede **ou** acrescente `-IncludePublic` ao comando acima.
 3. Em outro PC da rede abra `http://192.168.0.10:2567` (use o seu IP).
 
 > A conexão é HTTP, sem criptografia. Avise o pessoal para não reutilizar a senha do trabalho.
 
-## 5. Instalar como serviço (inicia com o Windows)
+## 5. Iniciar junto com o Windows
 
-Usamos o **NSSM** (https://nssm.cc/download): baixe o zip, extraia (ex.: `C:\nssm`) e use `win64\nssm.exe`.
+Há dois jeitos. **Recomendado: serviço (5A).**
 
-### Opção automática
+| | 5A. Serviço do Windows (NSSM) | 5B. Atalho na Inicialização |
+| --- | --- | --- |
+| Sobe quando | o PC liga, **sem ninguém logado** | alguém entra na conta do Windows |
+| Se o servidor cair | reinicia sozinho em 5 s | fica fora até reabrir |
+| Precisa de administrador | sim (uma vez) | não |
+| Onde ver o log | `C:\lemonquest\logs\` | janela minimizada do servidor |
 
-PowerShell **como administrador**:
+Use **só um dos dois** (os dois juntos disputam a porta 2567).
+
+### 5A. Serviço com NSSM (recomendado)
+
+1. **Instale o NSSM.** O site https://nssm.cc vive fora do ar, então use o winget (vem no Windows 10/11):
+
+   ```powershell
+   winget install --id NSSM.NSSM --exact
+   ```
+
+   Copie o executável para um lugar fixo (o serviço roda como sistema e não deve depender do seu perfil):
+
+   ```powershell
+   New-Item -ItemType Directory -Force C:\nssm\win64 | Out-Null
+   $src = (Get-Item "$env:LOCALAPPDATA\Microsoft\WinGet\Links\nssm.exe").LinkTarget
+   Copy-Item $src C:\nssm\win64\nssm.exe -Force
+   ```
+
+   (Sem winget: baixe o zip em https://nssm.cc/download — use a versão **2.24-101** ou mais nova — e extraia em `C:\nssm`.)
+
+2. **Pare o servidor manual**, se estiver aberto (feche a janela do `start-lemonquest.cmd`), e desligue o atalho da opção 5B, se você tinha usado:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\remove-startup.ps1
+   ```
+
+3. **Instale, libere a porta e inicie** — PowerShell **como administrador** (botão direito > Executar como administrador):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\install-service.ps1 -RepoPath C:\lemonquest -NssmPath C:\nssm\win64\nssm.exe -Port 2567
+   powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\firewall.ps1 -Port 2567 -IncludePublic
+   C:\nssm\win64\nssm.exe start LemonQuest
+   ```
+
+   (Tire o `-IncludePublic` se a rede do escritório estiver como "Privada".)
+
+4. **Confira:** `Get-Service LemonQuest` deve mostrar `Running` / `Automatic`, e `http://localhost:2567` deve abrir o jogo. Daqui em diante ele sobe sozinho quando o PC liga.
+
+Comandos do dia a dia (PowerShell como administrador):
+
+| Ação | Comando |
+| --- | --- |
+| Parar (salva todos os jogadores) | `C:\nssm\win64\nssm.exe stop LemonQuest` |
+| Iniciar | `C:\nssm\win64\nssm.exe start LemonQuest` |
+| Reiniciar | `C:\nssm\win64\nssm.exe restart LemonQuest` |
+| Ver estado | `Get-Service LemonQuest` |
+| Desinstalar o serviço | `C:\nssm\win64\nssm.exe remove LemonQuest confirm` |
+
+### 5B. Atalho na Inicialização (sem administrador)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\install-service.ps1 -RepoPath C:\lemonquest -NssmPath C:\nssm\win64\nssm.exe -Port 2567
-nssm start LemonQuest
+powershell -ExecutionPolicy Bypass -File C:\lemonquest\deploy\windows\install-startup.ps1
 ```
 
-O script pode ser executado de novo para atualizar a configuração.
+Cria o atalho "The Lemon Quest (servidor)" na pasta Inicialização (`shell:startup`): o servidor abre minimizado quando você entra no Windows. Para desfazer: `remove-startup.ps1`. Para parar o servidor: Ctrl+C ou feche a janela dele (ele salva antes de sair).
 
-### Opção manual (o que o script faz)
+### 5A em detalhe: instalar o serviço à mão (o que o script faz)
+
+O `install-service.ps1` pode ser executado de novo para atualizar a configuração. Se preferir fazer à mão:
 
 ```powershell
 nssm install LemonQuest
@@ -106,14 +160,20 @@ Comandos úteis: `nssm start LemonQuest`, `nssm stop LemonQuest`, `nssm restart 
 
 ## 6. Atualizar o jogo
 
+Com o serviço (5A), em PowerShell como administrador:
+
 ```powershell
-nssm stop LemonQuest
+C:\nssm\win64\nssm.exe stop LemonQuest
 cd C:\lemonquest
-git pull
+git pull            # ou copie os arquivos novos por cima (sem node_modules e data)
 npm ci
 npm run build
-nssm start LemonQuest
+C:\nssm\win64\nssm.exe start LemonQuest
 ```
+
+Com o atalho (5B): feche a janela do servidor, rode os mesmos `git pull` / `npm ci` / `npm run build` e abra o `start-lemonquest.cmd` de novo.
+
+> O servidor faz backup do banco de hora em hora em `data\backups`; antes de uma atualização grande, vale guardar também uma cópia manual.
 
 ## 7. Variáveis de ambiente
 
@@ -135,11 +195,15 @@ O servidor gera backups do banco automaticamente em `data\backups` (ou em `LEMON
 Para restaurar:
 
 ```powershell
-nssm stop LemonQuest
+C:
+ssmwin64
+ssm.exe stop LemonQuest
 cd C:\lemonquest\data
 copy backups\<ARQUIVO-DE-BACKUP>.db lemonquest.db
 del lemonquest.db-wal, lemonquest.db-shm
-nssm start LemonQuest
+C:
+ssmwin64
+ssm.exe start LemonQuest
 ```
 
 (Se o `del` reclamar que os arquivos não existem, tudo bem. Guarde uma cópia do `lemonquest.db` antigo antes de sobrescrever.)
