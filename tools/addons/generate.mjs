@@ -474,6 +474,7 @@ const DRAW = {
     if (a.facing !== "up") { F.set(gx, gy, "ruby", 1); F.set(gx + 1, gy, "ruby", 3); F.set(gx, gy + 1, "ruby", 3); F.set(gx + 1, gy + 1, "ruby", 3); F.set(gx, gy - 1, "gold"); F.set(gx + 1, gy - 1, "gold"); }
     // pluma
     F.v(gx + (d > 0 ? 1 : 0), t - 1, gy - 2, "white");
+    F.v(gx + (d > 0 ? 1 : 0) + d, t - 1, gy - 3, "white", 2); // 2 px de largura: lê como pluma, não antena
     F.set(gx + (d > 0 ? 1 : 0) + d, t - 2, "white"); F.set(gx + (d > 0 ? 1 : 0) + d * 2, t - 3, "red"); F.set(gx + (d > 0 ? 1 : 0) + d, t - 3, "white");
   },
   oriental_cimitarra(F, B, a) {
@@ -805,6 +806,7 @@ export function generateAll() {
   writePreview(results, false);
   writePreview(results, true);
   writeOutfitPreview(results.find((r) => r.outfit.id === "mago"), "preview_mago.png");
+  writeFixesPreview(results);
   return results;
 }
 
@@ -832,6 +834,37 @@ function writeOutfitPreview(r, file) {
   for (let st = 0; st < 4; st++) for (let col = 0; col < 4; col++) cell(st, col, 0, (st * 4 + col) * CW + st * GAP, 0);
   for (let col = 0; col < 4; col++) for (let row = 0; row < 4; row++) cell(3, col, row, (col * 4 + row) * CW + col * GAP, CH);
   writePng(join(OUT_DIR, file), W, H, out);
+}
+
+/** Recorte 8x dos itens corrigidos (guerreiro: elmo alado, nobre: pena, mago: rosto): 4 lados x 2 frames de caminhada. */
+function writeFixesPreview(results) {
+  const S = 8, CW = 28, CH = 30, cx0 = OX - 6, cy0 = OY - 12;
+  const ids = ["guerreiro", "nobre", "mago"], frames = [];
+  for (let col = 0; col < 4; col++) for (const row of [1, 3]) frames.push([col, row]);
+  const W = frames.length * CW * S, H = ids.length * CH * S;
+  const out = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, k = ((x / (S * 4) | 0) + (y / (S * 4) | 0)) % 2;
+    out[i] = k ? 92 : 84; out[i + 1] = k ? 138 : 128; out[i + 2] = k ? 84 : 78; out[i + 3] = 255;
+  }
+  const put = (X, Y, c) => { for (let a = 0; a < S; a++) for (let b = 0; b < S; b++) { const i = ((Y * S + a) * W + X * S + b) * 4; out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; } };
+  const blit = (src, sw, sx, sy, dx, dy) => {
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) { const i = ((sy + y) * sw + sx + x) * 4; if (src[i + 3] >= 128) put(dx + x, dy + y, [src[i], src[i + 1], src[i + 2]]); }
+  };
+  ids.forEach((id, oi) => {
+    const r = results.find((q) => q.outfit.id === id);
+    if (!r) return;
+    frames.forEach(([col, row], k) => {
+      const dx = k * CW, dy = oi * CH;
+      for (const ad of r.addons) if (ad.back) blit(ad.back, ad.SW, col * FW + cx0, row * FH + cy0, dx, dy);
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const i = ((row * 16 + y) * r.base.width + col * 16 + x) * 4;
+        if (r.base.data[i + 3] >= 128) put(dx + x + (OX - cx0), dy + y + (OY - cy0), [r.base.data[i], r.base.data[i + 1], r.base.data[i + 2]]);
+      }
+      for (const ad of r.addons) blit(ad.front, ad.SW, col * FW + cx0, row * FH + cy0, dx, dy);
+    });
+  });
+  writePng(join(OUT_DIR, "preview_fixes.png"), W, H, out);
 }
 
 function writePreview(results, walk) {
