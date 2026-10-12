@@ -382,13 +382,55 @@ describe("conquistas: sala", () => {
     const p = r.state.players.get("h1");
     const rec = r.records.get("h1");
     r.combat.hooks.onKillCredit("h1", { def: { id: "goblin_king", boss: true } }, true);
-    expect(rec.data.ach.stats).toMatchObject({ kills: 1, bosses: 1, party: 1, "boss:goblin_king": 1 });
+    expect(rec.data.ach.stats).toMatchObject({ kills: 1, bosses: 1, "boss:goblin_king": 1 });
+    // Abate em grupo vem só de partyKillCredit (mesmo grupo), não do "mais de um jogador".
+    expect(rec.data.ach.stats.party ?? 0).toBe(0);
     r.combat.hooks.onPlayerDied(p, "Rato");
     expect(rec.data.ach.stats.deaths).toBe(1);
     r.inventory.addGold(p, 500);
     expect(rec.data.ach.stats.gold).toBe(500);
     expect(Object.keys(rec.data.ach.done)).toContain("boss_goblin");
     expect(rec.data.unlocks).toContain("outfit:assassino");
+  });
+
+  it("abate em grupo: só conta com 2+ membros do MESMO grupo (dano ou perto, vivo)", () => {
+    const r = makeRoom();
+    const ids = ["g1", "g2", "g3", "g4"];
+    for (const [i, name] of ["Gaa", "Gab", "Gac", "Gad"].entries()) {
+      createAccount(name, "h", "s", "knight");
+      r.onJoin(fakeClient(r, ids[i]!), {}, auth(name));
+    }
+    const P = (id: string) => r.state.players.get(id);
+    for (const id of ids) Object.assign(P(id), { x: 50, y: 50, hp: 100 });
+    // g1+g2 num grupo; g3 sozinho; g4 fora de qualquer grupo também.
+    r.party.invite(P("g1"), "g2");
+    r.party.accept(P("g2"), "g1");
+    expect(r.party.sameParty("g1", "g2")).toBe(true);
+    const mon = (dmg: string[], extra: Record<string, unknown> = {}) =>
+      ({ s: { x: 51, y: 50, ownerId: "" }, def: { id: "rat" }, damageBy: new Map(dmg.map((d) => [d, 10])), ...extra }) as any;
+
+    // Dois sem grupo batendo juntos: não conta.
+    expect(r.partyKillCredit(mon(["g3", "g4"]))).toEqual([]);
+    // Um membro do grupo + um estranho, com o colega LONGE: não conta.
+    Object.assign(P("g2"), { x: 90, y: 90 });
+    expect(r.partyKillCredit(mon(["g1", "g3"]))).toEqual([]);
+    // Colega perto (curandeiro que não bateu): conta para os dois membros, não para o estranho.
+    Object.assign(P("g2"), { x: 52, y: 50 });
+    expect(r.partyKillCredit(mon(["g1", "g3"])).sort()).toEqual(["g1", "g2"]);
+    // Colega perto mas morto: não conta.
+    P("g2").hp = 0;
+    expect(r.partyKillCredit(mon(["g1"]))).toEqual([]);
+    // Os dois deram dano (mesmo o morto): conta.
+    expect(r.partyKillCredit(mon(["g1", "g2"])).sort()).toEqual(["g1", "g2"]);
+    // Invocação não conta.
+    P("g2").hp = 100;
+    expect(r.partyKillCredit({ ...mon(["g1", "g2"]), s: { x: 51, y: 50, ownerId: "g1" } })).toEqual([]);
+
+    // Gancho ligado: o abate de verdade soma "party" só para o grupo.
+    r.combat.hooks.onMonsterKilled(mon(["g1", "g3"]));
+    expect(r.records.get("g1").data.ach.stats.party).toBe(1);
+    expect(r.records.get("g2").data.ach.stats.party).toBe(1);
+    expect(r.records.get("g3").data.ach.stats.party ?? 0).toBe(0);
   });
 
   it("AchievementsRequest devolve o estado completo", () => {

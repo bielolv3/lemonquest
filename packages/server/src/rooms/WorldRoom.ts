@@ -280,11 +280,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       },
       onMonsterKilled: (m) => {
         this.quests.onKill(m.def.id, this.questCredit(m));
+        for (const pid of this.partyKillCredit(m)) this.ach?.event(pid, "party_kill");
         this.combat.later(() => this.loot.onKill(m));
       },
-      onKillCredit: (pid, m, shared) => {
+      onKillCredit: (pid, m) => {
         this.ach?.event(pid, "kill", { defId: m.def.id, boss: !!m.def.boss });
-        if (shared) this.ach?.event(pid, "party_kill");
       },
       interceptDeath: (p) => this.arena.interceptDeath(p),
       xpShares: (m, shares, now) => this.party.shareXp(shares, m.s.x, m.s.y, now),
@@ -743,6 +743,27 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       for (const mate of this.partyMembersNear(id, m.s.x, m.s.y, PARTY_SHARE_RANGE)) out.add(mate.id);
     }
     return [...out];
+  }
+
+  /**
+   * Conquista "abate em grupo": quem deu dano + membros vivos do mesmo grupo perto do monstro (o curandeiro conta),
+   * desde que pelo menos 2 membros do MESMO grupo tenham participado. Jogadores sem grupo nunca contam.
+   */
+  partyKillCredit(m: Monster): string[] {
+    if (m.s.ownerId) return [];
+    const byParty = new Map<object, Set<string>>();
+    for (const id of m.damageBy.keys()) {
+      if (!this.state.players.has(id)) continue;
+      const party = this.party.partyFor(id);
+      if (!party) continue;
+      let set = byParty.get(party);
+      if (!set) byParty.set(party, (set = new Set()));
+      set.add(id);
+      for (const mate of this.partyMembersNear(id, m.s.x, m.s.y, PARTY_SHARE_RANGE)) set.add(mate.id);
+    }
+    const out: string[] = [];
+    for (const set of byParty.values()) if (set.size >= 2) out.push(...set);
+    return out;
   }
 
   /** Desbloqueio vindo de missão (roupa/addon/título): sistema de conquistas. */
