@@ -11,6 +11,7 @@ const ROWS: { keys: string[]; label: string }[] = [
   { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
   { keys: ["M"], label: "Mapa do mundo" },
   { keys: ["K"], label: "Habilidades" },
+  { keys: ["O"], label: "Roupas e addons" },
   { keys: ["1", "–", "6"], label: "Magias da barra" },
   { keys: ["?"], label: "Esta ajuda" },
 ];

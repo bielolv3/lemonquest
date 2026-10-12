@@ -21,6 +21,9 @@ import { ArenaWindow } from "../arena/ArenaWindow.tsx";
 import { ArenaHud } from "../arena/ArenaHud.tsx";
 import { TrainingWindow } from "../training/TrainingWindow.tsx";
 import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
+import { OutfitWindow } from "../outfit/OutfitWindow.tsx";
+import { ContextMenu } from "../outfit/ContextMenu.tsx";
+import { toggleOutfit } from "../outfit/outfit.ts";
 import "./world.ts";
 import "./hud.css";
 
@@ -41,7 +44,9 @@ export function Hud() {
       <TrainingWindow />
       <LootToasts />
       <SkillsWindow />
+      <OutfitWindow />
       <Sidebar />
+      <ContextMenu />
       <Tooltip />
       <ItemTooltip />
       <DragLayer />
@@ -65,6 +70,7 @@ function useHudKeys() {
       }
       if (e.repeat) return;
       if (e.code === "KeyK") { e.preventDefault(); toggle(skillsOpen); return; }
+      if (e.code === "KeyO") { e.preventDefault(); toggleOutfit(); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); toggle(helpOpen); return; }
       if (e.key === "Escape") {
         if (closeTopOverlay()) return;

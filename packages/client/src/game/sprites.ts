@@ -1,5 +1,8 @@
 // Configuração ÚNICA de sprites de personagem. Trocar o pack de arte = mexer só aqui.
-import type { Facing, Vocation } from "@lemonquest/shared";
+import {
+  ADDON_FRAME, ADDON_OFFSET_Y, OUTFIT_LIST, activeAddons, resolveOutfit,
+  type Facing, type OutfitDef,
+} from "@lemonquest/shared";
 
 export interface CharacterSheet {
   /** Chave da textura no Phaser (uma por arquivo). */
@@ -16,10 +19,20 @@ export interface CharacterSheet {
   stepsPerCycle: number;
 }
 
+/** Overlay de addon desenhado junto da base (mesmo índice de frame), na frente ou atrás dela. */
+export interface AddonLayer {
+  sheet: CharacterSheet;
+  back: boolean;
+}
+
 export interface CharacterLook {
   sheet: CharacterSheet;
   /** Tint multiplicativo (0xffffff = sem tint). */
   tint: number;
+  /** Addons (jogadores). Ordem = ordem de desenho dentro da camada. */
+  addons?: AddonLayer[];
+  /** Px acima do topo da base ocupados pelos addons (nome/barra sobem). */
+  extraTop?: number;
 }
 
 /**
@@ -42,25 +55,47 @@ export function gridSheet(key: string, url: string, frameWidth: number, frameHei
   return { key, url, frameWidth, frameHeight, walk, idle, stepsPerCycle: 2 };
 }
 
-const SHEETS = {
-  knight: ninjaAdventure("chr_knight", "ninja/Actor/Character/Knight/SpriteSheet.png"),
-  hunter: ninjaAdventure("chr_hunter", "ninja/Actor/Character/Hunter/SpriteSheet.png"),
-  sorcerer: ninjaAdventure("chr_sorcerer_black", "ninja/Actor/Character/SorcererBlack/SpriteSheet.png"),
-  shaman: ninjaAdventure("chr_shaman", "ninja/Actor/Character/Shaman/SpriteSheet.png"),
-} satisfies Record<string, CharacterSheet>;
+/** Sheet base de cada roupa (shared/data/outfits.ts). */
+const OUTFIT_SHEETS: Record<string, CharacterSheet> = Object.fromEntries(
+  OUTFIT_LIST.map((o) => [o.id, ninjaAdventure(`outfit_${o.id}`, o.sheet)]),
+);
+/** Overlays (frente/trás) de cada addon. */
+const ADDON_SHEETS: Record<string, { front: CharacterSheet; back?: CharacterSheet }> = Object.fromEntries(
+  OUTFIT_LIST.flatMap((o) => o.addons).map((a) => [a.id, {
+    front: gridSheet(`addon_${a.id}`, a.sheet, ADDON_FRAME, ADDON_FRAME),
+    back: a.backSheet ? gridSheet(`addon_${a.id}_back`, a.backSheet, ADDON_FRAME, ADDON_FRAME) : undefined,
+  }]),
+);
 
-/** Vocação → visual. */
-export const VOCATION_LOOK: Record<Vocation, CharacterLook> = {
-  knight: { sheet: SHEETS.knight, tint: 0xffffff },
-  paladin: { sheet: SHEETS.hunter, tint: 0xffffff },
-  sorcerer: { sheet: SHEETS.sorcerer, tint: 0xffffff },
-  druid: { sheet: SHEETS.shaman, tint: 0xffffff },
-};
+/** Origem Y (0..1) dos overlays: o pé da base (linha 16 do frame base) dentro do frame 32x32. */
+export const ADDON_ORIGIN_Y = (ADDON_OFFSET_Y + 16) / ADDON_FRAME;
 
-export const ALL_SHEETS: CharacterSheet[] = Object.values(SHEETS);
+/** Sheets base das roupas (animações de caminhada são criadas para estas). */
+export const ALL_SHEETS: CharacterSheet[] = Object.values(OUTFIT_SHEETS);
+/** Overlays de addon (só carregados; o frame segue a base). */
+export const ADDON_SHEET_LIST: CharacterSheet[] = Object.values(ADDON_SHEETS).flatMap((s) => (s.back ? [s.front, s.back] : [s.front]));
 
+/** Visual de um jogador: roupa + addons ativos (roupa desconhecida/ausente → padrão da vocação). */
+export function outfitLook(outfit: string | undefined, addons: number, vocation: string): CharacterLook {
+  const o = resolveOutfit(outfit, vocation);
+  const on = activeAddons(o, addons ?? 0);
+  const layers: AddonLayer[] = [];
+  for (const a of on) {
+    const s = ADDON_SHEETS[a.id];
+    if (s.back) layers.push({ sheet: s.back, back: true });
+    layers.push({ sheet: s.front, back: false });
+  }
+  return { sheet: OUTFIT_SHEETS[o.id], tint: 0xffffff, addons: layers, extraTop: Math.max(0, ...on.map((a) => a.extraTop)) };
+}
+
+/** Compatibilidade: visual padrão da vocação, sem addons. */
 export function lookFor(vocation: string): CharacterLook {
-  return VOCATION_LOOK[vocation as Vocation] ?? VOCATION_LOOK.knight;
+  return outfitLook(undefined, 0, vocation);
+}
+
+/** Retrato (Faceset 38x38 do pack) da roupa. */
+export function outfitFaceset(o: OutfitDef): string {
+  return o.sheet.replace(/SpriteSheet\.png$/, "Faceset.png");
 }
 
 /** Nome da animação de caminhada de um sheet para um lado. */

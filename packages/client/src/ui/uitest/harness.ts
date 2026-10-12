@@ -44,7 +44,7 @@ export function startUiTest(): void {
   const voc = (P.get("voc") ?? "knight") as PlayerSnap["vocation"];
   const me: PlayerSnap = {
     id: "me", name: "QA Itens", vocation: voc, level: Number(P.get("lv") ?? 8), x: 10, y: 10, dir: 4, hp: 140, maxHp: 200, mana: 60, maxMana: 100, xp: 400, targetId: "",
-    magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100, stance: "balanced", chase: false,
+    magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100, stance: "balanced", chase: false, outfit: "mago", addons: 3,
   };
   session.myId = "me";
   session.myName = me.name;
@@ -162,6 +162,11 @@ export function startUiTest(): void {
           if (it.count <= 0) backpack[t.index] = null;
         }
         break;
+      }
+      case C2S.SetOutfit: {
+        const o = m as { outfit: string; addons: number };
+        setTimeout(() => { me.outfit = o.outfit; me.addons = o.addons; publishMe(); notice(`roupa: ${o.outfit} (addons ${o.addons})`); }, 60);
+        return;
       }
       case C2S.FightMode: {
         const f = m as { stance: PlayerSnap["stance"]; chase: boolean };

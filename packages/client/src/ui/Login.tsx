@@ -5,6 +5,8 @@ import {
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { VOCATION_META, vocationMeta } from "./hud/vocations.ts";
+import { OutfitCanvas } from "./outfit/OutfitCanvas.tsx";
+import { resolveOutfit } from "@lemonquest/shared";
 
 const VOCS: { id: Vocation; desc: string }[] = [
   { id: "knight", desc: "Resistente, luta de perto com espada." },
@@ -250,7 +252,9 @@ export function Login() {
                 onClick={() => { if (sel === i) play(c); else setSel(i); }}
                 onDblClick={() => play(c)}
               >
-                <img class="char-face" src={m.faceset} alt="" draggable={false} />
+                <span class="char-face char-outfit" aria-hidden="true">
+                  <OutfitCanvas outfit={resolveOutfit(c.outfit, c.vocation)} addons={c.addons ?? 0} scale={2} tight />
+                </span>
                 <div class="char-info">
                   <span class="char-name">{c.name}</span>
                   <span class="char-meta"><span class="char-voc">{m.label}</span> · Nível {c.level}</span>

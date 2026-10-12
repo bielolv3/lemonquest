@@ -9,6 +9,7 @@ import { handleCastResult, setCastTransport } from "../ui/hud/castbar.ts";
 import { playersStore } from "../ui/hud/world.ts";
 import { subscribeTarget } from "../ui/hud/target.ts";
 import { hideDeath } from "../ui/combat/combatUi.ts";
+import { setItemTransport } from "../ui/items/net.ts";
 
 export const FXTEST = import.meta.env.DEV && new URLSearchParams(location.search).has("fxtest");
 
@@ -22,6 +23,7 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     id: ME, name: "QA Combate", vocation: (new URLSearchParams(location.search).get("voc") ?? "sorcerer") as PlayerView["vocation"], level: 8, x: spawn.x, y: spawn.y, dir: 4, stepMs: 280, seq: 0,
     hp: 160, maxHp: 200, mana: 80, maxMana: 100, xp: 400, targetId: "",
     magicLevel: 2, skillMelee: 18, skillDistance: 10, skillShield: 16, magicPct: 30, meleePct: 40, distancePct: 0, shieldPct: 10, speedPct: 100, stance: "balanced", chase: false,
+    outfit: new URLSearchParams(location.search).get("outfit") ?? "", addons: Number(new URLSearchParams(location.search).get("addons") ?? 0),
   };
   (window as unknown as Record<string, unknown>).__scene = scene;
   scene.setLocalId(ME);
@@ -31,6 +33,14 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     playersStore.set(new Map([[ME, snap]]));
   };
   publish();
+  // Troca de roupa (janela O): o "servidor" falso aplica direto.
+  setItemTransport((type, m) => {
+    if (type !== "setOutfit") return;
+    const o = m as { outfit: string; addons: number };
+    me.outfit = o.outfit; me.addons = o.addons;
+    scene.onPlayerChange(ME, me);
+    publish();
+  });
   // O "servidor" falso ecoa o alvo escolhido pelo jogador.
   const offTarget = subscribeTarget((t) => { me.targetId = t?.id ?? ""; });
   scene.events.once("shutdown", offTarget);

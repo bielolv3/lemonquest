@@ -1,5 +1,6 @@
 // Retrato, nome, vocação, level, HP/mana e XP do jogador local.
-import { xpForLevel } from "@lemonquest/shared";
+import { resolveOutfit, xpForLevel } from "@lemonquest/shared";
+import { outfitFaceset } from "../../game/sprites.ts";
 import { session } from "../../session.ts";
 import { Section } from "./Section.tsx";
 import { StatBar } from "./StatBar.tsx";
@@ -19,9 +20,10 @@ export const fmt = (n: number) => n.toLocaleString("pt-BR");
 
 export function Portrait({ me, size = 44 }: { me: PlayerSnap; size?: number }) {
   const v = vocationMeta(me.vocation);
+  const face = `${import.meta.env.BASE_URL}${outfitFaceset(resolveOutfit(me.outfit, me.vocation))}`;
   return (
     <div class="portrait" style={{ "--voc": v.color, width: `${size}px`, height: `${size}px` } as any}>
-      <img src={v.faceset} alt="" draggable={false} />
+      <img src={face} alt="" draggable={false} />
     </div>
   );
 }

@@ -23,7 +23,8 @@ import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
 import { sfx } from "../game/sfx.ts";
 import { SpellEffects } from "../game/spellFx.ts";
-import { ALL_SHEETS, lookFor } from "../game/sprites.ts";
+import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
+import { openCtxMenu, openOutfit } from "../ui/outfit/outfit.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
 import { openNpc } from "../ui/npc/npc.ts";
@@ -62,6 +63,8 @@ export class WorldScene extends Phaser.Scene {
   private myId = "";
   private actors = new Map<string, Actor>();
   private known = new Map<string, Known>();
+  /** Roupa/addons já aplicados por jogador ("outfit|addons"). */
+  private lookSig = new Map<string, string>();
   private creatures = new Map<string, Actor>();
   private creatureKnown = new Map<string, Known>();
   private creatureInfo = new Map<string, CreatureInfo>();
@@ -104,7 +107,7 @@ export class WorldScene extends Phaser.Scene {
 
   preload() {
     preloadWorldMap(this);
-    for (const s of [...ALL_SHEETS, ...allCreatureSheets(), ...allNpcSheets()]) {
+    for (const s of [...ALL_SHEETS, ...ADDON_SHEET_LIST, ...allCreatureSheets(), ...allNpcSheets()]) {
       this.load.spritesheet(s.key, `${import.meta.env.BASE_URL}${s.url}`, { frameWidth: s.frameWidth, frameHeight: s.frameHeight });
     }
     CombatFx.preload(this);
@@ -247,6 +250,7 @@ export class WorldScene extends Phaser.Scene {
     for (const a of this.creatures.values()) a.destroy();
     this.actors.clear();
     this.known.clear();
+    this.lookSig.clear();
     this.creatures.clear();
     this.creatureKnown.clear();
     this.creatureInfo.clear();
@@ -266,7 +270,8 @@ export class WorldScene extends Phaser.Scene {
   addPlayer(id: string, p: PlayerView) {
     if (this.actors.has(id)) return;
     const isMe = id === this.myId;
-    const actor = new Actor(this.actorDeps(), lookFor(p.vocation), p.name, isMe, p.x, p.y, p.dir);
+    const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir);
+    this.lookSig.set(id, `${p.outfit}|${p.addons}`);
     actor.setHp(p.hp, p.maxHp, true);
     this.actors.set(id, actor);
     this.known.set(id, { x: p.x, y: p.y, dir: p.dir, stepMs: p.stepMs });
@@ -286,6 +291,7 @@ export class WorldScene extends Phaser.Scene {
     this.actors.get(id)?.destroy();
     this.actors.delete(id);
     this.known.delete(id);
+    this.lookSig.delete(id);
   }
 
   onPlayerChange(id: string, p: PlayerView) {
@@ -293,6 +299,8 @@ export class WorldScene extends Phaser.Scene {
     const k = this.known.get(id);
     if (!actor || !k) return;
     actor.setHp(p.hp, p.maxHp);
+    const sig = `${p.outfit}|${p.addons}`;
+    if (this.lookSig.get(id) !== sig) { this.lookSig.set(id, sig); actor.setLook(outfitLook(p.outfit, p.addons, p.vocation)); }
     const moved = p.x !== k.x || p.y !== k.y;
     const turned = p.dir !== k.dir;
     k.x = p.x; k.y = p.y; k.dir = p.dir; k.stepMs = p.stepMs;
@@ -465,9 +473,21 @@ export class WorldScene extends Phaser.Scene {
       if (nid) { this.clickNpc(nid); return; }
       const sid = this.statueAtPointer(ptr);
       if (sid) { this.clickStatue(sid); return; }
-      if (!this.room) return;
+      if (!this.room && !FXTEST) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
+      // Botão direito no próprio personagem: menu (Trocar roupa / pegar item do chão).
+      const me = this.actors.get(this.myId);
+      if (right && me && t.x === me.tileX && t.y === me.tileY) {
+        const ev = ptr.event as MouseEvent;
+        const gidHere = this.ground?.topAt(t.x, t.y);
+        openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, [
+          { label: "Trocar roupa", run: openOutfit },
+          ...(gidHere ? [{ label: "Pegar item do chão", run: () => this.pickupGround(gidHere) }] : []),
+        ]);
+        return;
+      }
+      if (!this.room) return;
       // Item no chão: direito / Ctrl+clique / duplo clique = pegar; arrastar até a mochila = pegar; clique = andar.
       const gid = this.ground.topAt(t.x, t.y);
       if (gid) {

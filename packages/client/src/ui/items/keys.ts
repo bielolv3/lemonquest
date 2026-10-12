@@ -8,10 +8,13 @@ import { npcStore, closeNpc } from "../npc/npc.ts";
 import { closeDialog, dialogStore } from "./dialogs.ts";
 import { cancelDrag } from "./dnd.ts";
 import { quickPotion } from "./potions.ts";
+import { closeCtxMenu, closeOutfit, ctxMenuStore, outfitOpen } from "../outfit/outfit.ts";
 
 /** Fecha o overlay de itens mais "alto" (arrasto, diálogo, janela de NPC). Retorna true se fechou algo. */
 export function closeTopOverlay(): boolean {
   if (cancelDrag()) return true;
+  if (ctxMenuStore.get()) { closeCtxMenu(); return true; }
+  if (outfitOpen.get()) { closeOutfit(); return true; }
   if (dialogStore.get()) { closeDialog(); return true; }
   if (npcStore.get()) { closeNpc(); return true; }
   if (arenaResultStore.get()) { arenaResultStore.set(null); return true; }

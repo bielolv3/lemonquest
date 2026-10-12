@@ -69,7 +69,7 @@ describe("auth: contas", () => {
     expect(handleCreateCharacter({ session: "lixo", name: "Zeca", vocation: "druid" })).toEqual({ ok: false, error: "invalid_session" });
     const list = okSession(await handleLogin({ account: "contaA", password: "segredo1" }));
     expect(list.characters.map((c) => c.name)).toEqual(names.slice(0, MAX_CHARACTERS_PER_ACCOUNT));
-    expect(list.characters[0]).toEqual({ name: "Leo", vocation: "knight", level: 1 });
+    expect(list.characters[0]).toEqual({ name: "Leo", vocation: "knight", level: 1, outfit: "cavaleiro", addons: 0 });
   });
 
   it("tentativas de criar personagem limitadas por conta/hora", async () => {
@@ -127,7 +127,7 @@ describe("auth: contas", () => {
     saveCharacter({ ...rec, level: 8, data: { offlineTraining: { skill: "magic", sinceMs: 1234, statueId: "s1" } } });
     claimOnline("Leo", "sid");
     expect(okSession(handleResume({ session: a.session })).characters).toEqual([
-      { name: "Leo", vocation: "druid", level: 8, training: { skill: "magic", sinceMs: 1234 }, online: true },
+      { name: "Leo", vocation: "druid", level: 8, outfit: "druida", addons: 0, training: { skill: "magic", sinceMs: 1234 }, online: true },
     ]);
   });
 

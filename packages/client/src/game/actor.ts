@@ -2,7 +2,7 @@
 import Phaser from "phaser";
 import { BASE_STEP_MS, TILE_SIZE, type Dir, type Facing } from "@lemonquest/shared";
 import { dirToFacing } from "./facing.ts";
-import { walkAnimKey, type CharacterLook } from "./sprites.ts";
+import { ADDON_ORIGIN_Y, walkAnimKey, type CharacterLook } from "./sprites.ts";
 import { TEX } from "./textures.ts";
 
 interface Segment {
@@ -74,6 +74,9 @@ export class Actor {
   private stepMs = BASE_STEP_MS;
   private baseY = 0;
   private contentH: number;
+  /** Overlays de addon (roupas de jogador): seguem o frame da base, na frente ou atrás dela. */
+  private overlays: { spr: Phaser.GameObjects.Sprite; back: boolean }[] = [];
+  private extraTop = 0;
 
   // HP
   private hpTarget = 1;
@@ -91,7 +94,7 @@ export class Actor {
 
   constructor(
     private readonly deps: ActorDeps,
-    private readonly look: CharacterLook,
+    private look: CharacterLook,
     name: string,
     readonly isMe: boolean,
     x: number, y: number, dir: Dir,
@@ -113,6 +116,7 @@ export class Actor {
     if (look.tint !== 0xffffff) this.sprite.setTint(look.tint);
     this.root = scene.add.container(0, 0, [this.shadow, this.sprite]);
     this.shadow.setPosition(0, -1);
+    this.buildOverlays();
     deps.worldLayer.add(this.root);
 
     this.label = scene.add.text(0, 0, name, {
@@ -151,6 +155,46 @@ export class Actor {
   flash(ms = 80) {
     this.flashLeft = ms;
     this.sprite.setTintFill(0xffffff);
+    for (const o of this.overlays) o.spr.setTintFill(0xffffff);
+  }
+
+  /** Troca o visual (roupa/addons) sem recriar o ator. */
+  setLook(look: CharacterLook) {
+    const sig = (l: CharacterLook) => `${l.sheet.key}|${(l.addons ?? []).map((a) => a.sheet.key).join(",")}|${l.tint}`;
+    if (sig(look) === sig(this.look)) return;
+    const frame = Number(this.sprite.frame.name);
+    this.look = look;
+    const walking = this.sprite.anims.isPlaying;
+    if (walking) this.sprite.anims.stop();
+    this.sprite.setTexture(look.sheet.key, Number.isFinite(frame) ? frame : look.sheet.idle[this.facing]);
+    if (walking) this.playWalk();
+    this.buildOverlays();
+    this.restoreTint();
+    this.syncDisplay();
+  }
+
+  private buildOverlays() {
+    for (const o of this.overlays) o.spr.destroy();
+    this.overlays = [];
+    const { scene } = this.deps;
+    const frame = this.sprite.frame.name;
+    for (const layer of this.look.addons ?? []) {
+      if (!scene.textures.exists(layer.sheet.key)) continue;
+      const spr = scene.add.sprite(0, 0, layer.sheet.key, frame).setOrigin(0.5, ADDON_ORIGIN_Y).setScale(this.scale);
+      if (this.look.tint !== 0xffffff) spr.setTint(this.look.tint);
+      // atrás: logo antes da base; frente: depois da base (e dos overlays de frente anteriores)
+      const baseIdx = this.root.getIndex(this.sprite);
+      if (layer.back) this.root.addAt(spr, baseIdx);
+      else this.root.addAt(spr, this.root.length);
+      this.overlays.push({ spr, back: layer.back });
+    }
+    this.extraTop = this.overlays.length ? this.look.extraTop ?? 0 : 0;
+  }
+
+  private restoreTint() {
+    for (const s of [this.sprite, ...this.overlays.map((o) => o.spr)]) {
+      if (this.look.tint !== 0xffffff) s.setTint(this.look.tint); else s.clearTint();
+    }
   }
 
   /** Empurrão de `px` pixels na direção (dx,dy) (normalizada aqui), que volta suavemente. */
@@ -315,9 +359,7 @@ export class Actor {
     // Feedback de combate (sem alocações): flash, hit-stop e retorno do empurrão.
     if (this.flashLeft > 0) {
       this.flashLeft -= dtMs;
-      if (this.flashLeft <= 0) {
-        if (this.look.tint !== 0xffffff) this.sprite.setTint(this.look.tint); else this.sprite.clearTint();
-      }
+      if (this.flashLeft <= 0) this.restoreTint();
     }
     if (this.freezeLeft > 0) {
       this.freezeLeft -= dtMs;
@@ -350,11 +392,18 @@ export class Actor {
     this.root.setPosition(px, py);
     this.root.setDepth(10 + this.ry + TILE_SIZE);
     this.sprite.setPosition(Math.round(this.kbx), Math.round(this.kby) + this.baseY);
+    if (this.overlays.length) {
+      const f = this.sprite.frame.name;
+      for (const o of this.overlays) {
+        o.spr.setPosition(this.sprite.x, this.sprite.y);
+        if (o.spr.frame.name !== f) o.spr.setFrame(f);
+      }
+    }
   }
 
   /** Ponto (mundo) acima da cabeça, para o nome. */
   get headX() { return this.deps.snap(this.rx) + TILE_SIZE / 2; }
-  get headY() { return this.deps.snap(this.ry) + TILE_SIZE - this.contentH * this.scale - 1; }
+  get headY() { return this.deps.snap(this.ry) + TILE_SIZE - (this.contentH + this.extraTop) * this.scale - 1; }
   /** Centro do corpo (px de mundo) — origem/destino de projéteis e efeitos. */
   get bodyX() { return this.rx + TILE_SIZE / 2; }
   get bodyY() { return this.ry + TILE_SIZE - (this.contentH * this.scale) / 2; }
