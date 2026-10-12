@@ -5,6 +5,7 @@ import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";
 import { FEED_COLOR, onFeed, type FeedEntry } from "./items/loot.ts";
 import { rarityColor } from "./items/itemInfo.ts";
+import { partyStore } from "./party/party.ts";
 
 const MAX_LINES = 80;
 
@@ -14,12 +15,21 @@ const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2
 
 const collapsedStore = persistedBool("chatCollapsed", false);
 
+/** Aba do chat: "global" (Geral: global + sistema + feed) ou "party" (Grupo: só o canal do grupo). */
+type Tab = "global" | "party";
+const inTab = (m: Line, tab: Tab) => (tab === "party" ? m.channel === "party" : m.channel !== "party");
+
 export function Chat() {
   const [lines, setLines] = useState<Line[]>([]);
   const collapsed = useStore(collapsedStore);
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState("");
   const [unread, setUnread] = useState(0);
+  const [tab, setTab] = useState<Tab>("global");
+  const [partyUnread, setPartyUnread] = useState(0);
+  const party = useStore(partyStore);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const input = useRef<HTMLInputElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const collapsedRef = useRef(collapsed);
@@ -28,7 +38,9 @@ export function Chat() {
   useEffect(() => session.onRoom((room) => {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
       setLines((l) => [...l, m].slice(-MAX_LINES));
-      if (collapsedRef.current) setUnread((n) => n + 1);
+      if (m.channel === "party") {
+        if (collapsedRef.current || tabRef.current !== "party") setPartyUnread((n) => n + 1);
+      } else if (collapsedRef.current || tabRef.current !== "global") setUnread((n) => n + 1);
     });
     // Respostas de comandos de admin (Notice com log): ficam no chat, copiáveis (ex.: código de recuperação).
     room.onMessage(S2C.Notice, (m: NoticeMsg) => {
@@ -42,7 +54,12 @@ export function Chat() {
     if (collapsedRef.current) setUnread((n) => n + 1);
   }), []);
 
-  useEffect(() => { if (!collapsed) setUnread(0); }, [collapsed]);
+  useEffect(() => {
+    if (collapsed) return;
+    if (tab === "global") setUnread(0); else setPartyUnread(0);
+  }, [collapsed, tab]);
+  // Saiu do grupo: volta para Geral.
+  useEffect(() => { if (!party && tab === "party") setTab("global"); }, [party, tab]);
 
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
@@ -87,7 +104,8 @@ export function Chat() {
       e.preventDefault();
       const t = text.trim();
       if (t) {
-        const msg: ChatSendMsg = { text: t, channel: "global" };
+        // Comandos (/...) e magias sempre funcionam; no Grupo a fala vai só para o grupo.
+        const msg: ChatSendMsg = { text: t, channel: tab };
         session.room?.send(C2S.Chat, msg);
       }
       close();
@@ -98,12 +116,21 @@ export function Chat() {
     <div class={`panel chat${collapsed ? " collapsed" : ""}${typing ? " typing" : ""}`}>
       <div class="chat-head">
         <div class="chat-tabs" role="tablist">
-          <button class="chat-tab active" role="tab" aria-selected="true" onClick={() => collapsedStore.set(false)}>
+          <button class={`chat-tab${tab === "global" ? " active" : ""}`} role="tab" aria-selected={tab === "global"} onClick={() => { setTab("global"); collapsedStore.set(false); }}>
             Geral
-            {collapsed && unread > 0 && <span class="chat-unread">{unread > 9 ? "9+" : unread}</span>}
+            {(collapsed || tab !== "global") && unread > 0 && <span class="chat-unread">{unread > 9 ? "9+" : unread}</span>}
           </button>
-          <button class="chat-tab" role="tab" aria-selected="false" aria-disabled="true" data-tip="Grupo" data-tip-sub="Em breve">
+          <button
+            class={`chat-tab${tab === "party" ? " active" : ""}`}
+            role="tab"
+            aria-selected={tab === "party"}
+            aria-disabled={!party}
+            data-tip="Grupo"
+            data-tip-sub={party ? "Só os membros do grupo leem" : "Convide alguém (botão direito no jogador ou /convidar nome)"}
+            onClick={() => { if (!party) return; setTab("party"); collapsedStore.set(false); }}
+          >
             Grupo
+            {(collapsed || tab !== "party") && partyUnread > 0 && <span class="chat-unread">{partyUnread > 9 ? "9+" : partyUnread}</span>}
           </button>
         </div>
         <span class="chat-hint">{typing ? "Esc fecha" : "Enter para falar"}</span>
@@ -117,15 +144,17 @@ export function Chat() {
         </button>
       </div>
       <div class="chat-log" ref={log}>
-        {lines.length === 0 && <div class="chat-empty">Nenhuma mensagem ainda. Diga oi!</div>}
-        {lines.map((m, i) => (
-          <div key={i} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}`}>
+        {!lines.some((m) => inTab(m, tab)) && (
+          <div class="chat-empty">{tab === "party" ? "Nenhuma mensagem do grupo ainda." : "Nenhuma mensagem ainda. Diga oi!"}</div>
+        )}
+        {lines.map((m, i) => inTab(m, tab) && (
+          <div key={i} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}${m.from ? "" : " sys"}`}>
             <span class="chat-time">{hhmm(m.ts)}</span>
             {m.feed ? (
               <span class="chat-text chat-feed" style={{ color: m.feed.rarity ? rarityColor(m.feed.rarity) : FEED_COLOR[m.feed.kind] }}>
                 <b class="chat-from">[Servidor]</b> {m.text}
               </span>
-            ) : m.channel === "system" ? (
+            ) : m.channel === "system" || (m.channel === "party" && !m.from) ? (
               <span class="chat-text">{m.text}</span>
             ) : (
               <span class="chat-text"><b class="chat-from">{m.from}</b> {m.text}</span>
@@ -140,7 +169,7 @@ export function Chat() {
           value={text}
           maxLength={MAX_CHAT_LEN}
           tabIndex={-1}
-          placeholder="Mensagem para Geral…"
+          placeholder={tab === "party" ? "Mensagem para o Grupo…" : "Mensagem para Geral…"}
           aria-label="Mensagem do chat"
           onInput={(e) => setText((e.target as HTMLInputElement).value)}
           onKeyDown={onKeyDown}

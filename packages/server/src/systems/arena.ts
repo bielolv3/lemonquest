@@ -87,6 +87,10 @@ export interface ArenaOptions {
   /** Recorde do servidor persistido: lido no construtor, gravado quando é batido. */
   loadServerBest?: () => number;
   saveServerBest?: (waves: number) => void;
+  /** Membros do grupo (party) do jogador, sem ele — "Criar grupo do Coliseu com meu grupo". */
+  partyMates?: (id: string) => string[];
+  /** O jogador é o líder do grupo (party)? */
+  isPartyLeader?: (id: string) => boolean;
 }
 
 interface Member {
@@ -188,7 +192,7 @@ export class ArenaSystem {
     if (!msg || typeof msg !== "object" || typeof msg.action !== "string") return;
     switch (msg.action) {
       case "list": return this.openLobbies(p);
-      case "create": return this.create(p);
+      case "create": return this.create(p, msg.withParty === true);
       case "join": return typeof msg.lobbyId === "string" ? this.join(p, msg.lobbyId) : undefined;
       case "leave": return this.leave(p);
       case "start": return this.start(p);
@@ -196,7 +200,7 @@ export class ArenaSystem {
     }
   }
 
-  private create(p: PlayerState): void {
+  private create(p: PlayerState, withParty = false): void {
     if (this.partyOf.has(p.id)) return this.notice(p.id, "Você já está num grupo do Coliseu.", "warn");
     if (!this.arenas.length) return this.notice(p.id, "O Coliseu está fechado.", "warn");
     if (!this.nearMaster(p)) return this.notice(p.id, "Fale com o Mestre do Coliseu.", "warn");
@@ -208,8 +212,32 @@ export class ArenaSystem {
     this.parties.set(party.id, party);
     this.partyOf.set(p.id, party);
     this.watchers.add(p.id);
+    if (withParty) this.bringParty(p, party);
     this.pushState(party);
     this.lobbiesDirty = true;
+  }
+
+  /** Líder do grupo (party) criou o lobby "com meu grupo": entram os membros perto do Mestre, livres e cabendo. */
+  private bringParty(p: PlayerState, party: Party): void {
+    if (this.o.isPartyLeader && !this.o.isPartyLeader(p.id)) {
+      this.notice(p.id, "Só o líder do grupo pode trazer o grupo.", "warn");
+      return;
+    }
+    const left: string[] = [];
+    for (const id of this.o.partyMates?.(p.id) ?? []) {
+      const mate = this.o.getPlayer(id);
+      if (!mate) continue;
+      if (party.members.length >= ARENA_MAX_PARTY || this.partyOf.has(id) || mate.hp <= 0 || !this.nearMaster(mate)) {
+        left.push(mate.name);
+        continue;
+      }
+      party.members.push(this.member(mate));
+      this.partyOf.set(id, party);
+      this.watchers.add(id);
+      this.o.send(id, S2C.ArenaLobbies, this.lobbiesMsg());
+      this.notice(id, `${p.name} te colocou no grupo do Coliseu.`, "info");
+    }
+    if (left.length) this.notice(p.id, `Ficaram de fora (longe do Mestre ou ocupados): ${left.join(", ")}.`, "warn");
   }
 
   private join(p: PlayerState, lobbyId: string): void {

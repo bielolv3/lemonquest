@@ -99,6 +99,10 @@ export interface SpellSystemOptions {
   dealtMult?: (p: PlayerState) => number;
   /** Tile ocupado por algo além de monstros/jogadores (NPCs) — a investida não para em cima. */
   isBlocked?: (x: number, y: number) => boolean;
+  /**
+   * Magias de grupo ("party"): quem conta como aliado do conjurador (ele mesmo + membros do grupo). Ausente = todos.
+   */
+  isAlly?: (caster: PlayerState, other: PlayerState) => boolean;
 }
 
 type Resolved =
@@ -259,7 +263,10 @@ export class SpellSystem {
       allies.push(p);
     } else if (s.target === "party") {
       const rad = s.radius ?? 3;
-      for (const o of this.o.players()) if (o.hp > 0 && cheb(p.x, p.y, o.x, o.y) <= rad) allies.push(o);
+      const ally = this.o.isAlly;
+      for (const o of this.o.players()) {
+        if (o.hp > 0 && cheb(p.x, p.y, o.x, o.y) <= rad && (o.id === p.id || !ally || ally(p, o))) allies.push(o);
+      }
     } else if (tiles) {
       const seen = new Set<string>();
       for (const t of tiles) {

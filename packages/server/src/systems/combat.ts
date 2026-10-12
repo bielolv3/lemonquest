@@ -96,6 +96,10 @@ export interface CombatHooks {
    * penalidade; ele mesmo teletransporta e restaura). Alvos/combate já foram limpos.
    */
   interceptDeath?: (p: PlayerState, killerName: string) => boolean;
+  /** Ajusta a XP de um abate (XP compartilhada do grupo). Recebe as partes pelo dano; retorna as partes finais. */
+  xpShares?: (m: Monster, shares: Map<string, number>, now: number) => Map<string, number>;
+  /** Jogador participou do combate agora (deu dano num monstro selvagem ou curou outro jogador). */
+  onActivity?: (playerId: string, now: number) => void;
 }
 
 export interface CombatOptions {
@@ -108,6 +112,8 @@ export interface CombatOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   rng?: () => number;
+  /** Relógio (curas não recebem `now`). Padrão Date.now. */
+  now?: () => number;
 }
 
 export class CombatSystem {
@@ -223,6 +229,7 @@ export class CombatSystem {
       ranged: o.ranged ? true : undefined,
     });
     this.markCombat(credit, now);
+    if (credit && this.o.getPlayer(credit)) this.hooks.onActivity?.(credit, now);
     this.o.monsters.onDamaged(m, sourceId, dealt, now, credit);
     if (dealt > 0) {
       m.s.hp -= dealt;
@@ -270,6 +277,7 @@ export class CombatSystem {
     const healed = Math.max(0, Math.min(p.maxHp - p.hp, Math.round(amount)));
     p.hp += healed;
     this.push({ sourceId, targetId: p.id, amount: healed, kind: "heal" });
+    if (healed > 0 && sourceId && sourceId !== p.id && this.o.getPlayer(sourceId)) this.hooks.onActivity?.(sourceId, (this.o.now ?? Date.now)());
     return healed;
   }
 
@@ -323,7 +331,8 @@ export class CombatSystem {
     const { id, x, y, defId } = m.s;
     // Invocações e monstros do coliseu (recompensa por onda) não dão XP por abate.
     const online = m.s.ownerId || m.arenaId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
-    const shares = splitXp(m.def.xp, online);
+    const byDamage = splitXp(m.def.xp, online);
+    const shares = this.hooks.xpShares && byDamage.size ? this.hooks.xpShares(m, byDamage, now) : byDamage;
     if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
     this.o.monsters.kill(m, now);
     for (const p of this.o.players()) if (p.targetId === id) p.targetId = "";

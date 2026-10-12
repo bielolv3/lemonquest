@@ -31,6 +31,7 @@ export class PlayerState extends Schema implements PlayerView {
   @type("boolean") chase = false;
   @type("string") outfit = "cavaleiro";
   @type("uint8") addons = 0;
+  @type("string") partyId = "";
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */

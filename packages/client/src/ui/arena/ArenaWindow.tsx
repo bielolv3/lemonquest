@@ -5,12 +5,14 @@ import { useStore } from "../hud/store.ts";
 import { arenaAction, arenaLobbiesStore, arenaStateStore, arenaWindowOpen, closeArenaWindow, phaseRemaining } from "./arena.ts";
 import { useTicker } from "./useTicker.ts";
 import { ArenaQuests } from "../quests/NpcQuests.tsx";
+import { partyStore } from "../party/party.ts";
 import "./arena.css";
 
 export function ArenaWindow() {
   const open = useStore(arenaWindowOpen);
   const list = useStore(arenaLobbiesStore);
   const st = useStore(arenaStateStore);
+  const party = useStore(partyStore);
   useTicker(open && st?.s.phase === "countdown" ? 250 : 0);
   if (!open) return null;
   const mine = st && !st.s.arenaId ? st.s : null;
@@ -49,6 +51,13 @@ export function ArenaWindow() {
         ) : (
           <div class="arena-actions">
             <button class="arena-btn primary" onClick={() => arenaAction({ action: "create" })}>Criar grupo</button>
+            {party && party.leaderId === session.myId && party.members.length > 1 && (
+              <button
+                class="arena-btn"
+                onClick={() => arenaAction({ action: "create", withParty: true })}
+                data-tip="Cria o grupo do Coliseu já com os membros do seu grupo que estão perto do Mestre"
+              >Criar grupo do Coliseu com meu grupo</button>
+            )}
           </div>
         )}
         <div class="arena-sub">Grupos abertos</div>

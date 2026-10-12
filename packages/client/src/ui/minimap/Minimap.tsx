@@ -1,4 +1,5 @@
 // Minimapa com fog of war, mapa-múndi em tela cheia (tecla M) e banner de zona.
+import { isPartyMember } from "../party/party.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { C2S, type WalkToMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
@@ -68,10 +69,13 @@ export function Minimap() {
       ctx.strokeStyle = "rgba(0,0,0,.7)";
       ctx.lineWidth = dpr;
       const rOther = Math.max(1.5 * dpr, ppt * 0.45);
-      for (const o of store.others.values()) {
-        if (!store.mask?.has(o.x, o.y)) continue;
+      for (const [id, o] of store.others) {
+        // Membros do grupo: pontos verdes (sempre visíveis, mesmo fora do explorado).
+        const mate = isPartyMember(id);
+        if (!mate && !store.mask?.has(o.x, o.y)) continue;
         const x = (o.x + 0.5 - sx) * ppt, y = (o.y + 0.5 - sy) * ppt;
         if (x < 0 || y < 0 || x > S || y > S) continue;
+        ctx.fillStyle = mate ? "#7ee06d" : "#ffd447";
         ctx.beginPath(); ctx.arc(x, y, rOther, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       // Jogador local: ponto branco com pulso discreto.

@@ -12,6 +12,7 @@ import { setHudInsets } from "./layout.ts";
 import { panelOrderStore, panelPinsStore, type PanelId } from "./panels.ts";
 import { usePanelDrag } from "./reorder.ts";
 import { PinButton } from "./Section.tsx";
+import { PartyPanel } from "../party/PartyPanel.tsx";
 import { StatBar } from "./StatBar.tsx";
 import { Portrait, StatusPanel } from "./StatusPanel.tsx";
 import { useStore } from "./store.ts";
@@ -123,6 +124,7 @@ const PANELS: Record<PanelId, ComponentChild> = {
   equipment: <EquipmentPanel key="equipment" />,
   battle: <BattleList key="battle" />,
   backpack: <Backpack key="backpack" />,
+  party: <PartyPanel key="party" />,
 };
 
 /** O mapa-múndi (ui/minimap) alterna com a tecla M num listener de window; reutilizamos o mesmo caminho. */

@@ -2,9 +2,10 @@ import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, ty
 import {
   C2S, CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
-  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
+  type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, findObjects,
+  PARTY_SHARE_RANGE,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -32,6 +33,7 @@ import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.
 import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
 import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
 import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
+import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv } from "../persistence/db.ts";
@@ -50,7 +52,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Quest]: 10, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Quest]: 10, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.Party]: 5,
 };
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
@@ -89,6 +91,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private arena!: ArenaSystem;
   private training!: TrainingSystem;
   private quests!: QuestSystem;
+  private party!: PartySystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
@@ -137,6 +140,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const broadcast = (type: string, msg: unknown) => this.broadcast(type, msg);
     const getPlayer = (id: string) => this.state.players.get(id);
 
+    this.party = new PartySystem({ getPlayer, players: () => this.state.players.values(), send });
     this.monsters = new MonsterManager({
       grid: this.map.grid,
       groundSpeed: this.map.groundSpeed,
@@ -225,6 +229,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       magicBonus: (p) => this.inventory.stat(p.id, "magic"),
       dealtMult: stanceDealt,
       isBlocked: (x, y) => this.npcs.isNpcAt(x, y),
+      isAlly: (a, b) => this.party.sameParty(a.id, b.id),
     });
     this.training = new TrainingSystem({
       statues: parseStatues(this.map.tiled), skills: this.skills,
@@ -264,6 +269,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.combat.later(() => this.loot.onKill(m));
       },
       interceptDeath: (p) => this.arena.interceptDeath(p),
+      xpShares: (m, shares, now) => this.party.shareXp(shares, m.s.x, m.s.y, now),
+      onActivity: (id, now) => this.party.markActive(id, now),
     };
     this.arena = new ArenaSystem({
       layout: parseArenas(this.map.tiled),
@@ -286,6 +293,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       },
       closeNpc: (id) => this.npcs.close(id, "arena_shop_"),
       onWaveCleared: (p, wave) => this.quests.onArenaWave(p.id, wave),
+      partyMates: (id) => this.party.membersOf(id).filter((m) => m !== id),
+      isPartyLeader: (id) => this.party.partyFor(id)?.leaderId === id,
       send, broadcast,
     });
     this.monsters.spawnAll();
@@ -299,7 +308,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     // Comandos com "/": de ADMIN (LEMONQUEST_ADMINS, também em produção) e de DEV (só com LEMONQUEST_DEV_COMMANDS=1,
     // fora de produção). Quem não pode → "Comando desconhecido." (chat.ts).
-    const command = (p: PlayerState, text: string) => handleAdminCommand(p, text, {
+    const command = (p: PlayerState, text: string) => this.party.command(p, text) || handleAdminCommand(p, text, {
       send, broadcast,
       players: () => this.state.players.values(),
       record: (id) => this.records.get(id),
@@ -317,7 +326,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       quest: (pl, args) => this.quests.devCommand(pl, args),
     });
     const muted = (p: PlayerState) => muteRemaining(this.records.get(p.id));
-    this.chatHooks = { castWords: (pl, text) => this.spells.castWords(pl, text), command, muted };
+    this.chatHooks = {
+      castWords: (pl, text) => this.spells.castWords(pl, text), command, muted,
+      partyChat: (pl, text) => this.party.chat(pl, text),
+    };
     this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); this.movement.onMove(p, m); });
     this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.movement.onWalkTo(p, m); });
     this.on<TurnMsg>(C2S.Turn, (p, m) => this.movement.onTurn(p, m));
@@ -342,6 +354,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
     this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
+    this.on<PartyActionMsg>(C2S.Party, (p, m) => this.party.onAction(p, m));
     this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
 
     const players = () => this.state.players.values();
@@ -358,6 +371,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["food", () => this.food.tick(this.tickNow, players())],
       ["npcs", () => this.npcs.tick(this.tickNow)],
       ["quests", () => this.quests.tick(this.tickNow, players())],
+      ["party", () => this.party.sync(this.tickNow)],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
       ["combat.flush", () => this.combat.flush()],
       ["ground", () => this.ground.tick(this.tickNow)],
@@ -496,6 +510,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   get spawnPoint() { return this.map.spawn; }
 
+  /**
+   * Membros do grupo de `playerId` (incluindo ele) vivos a até `range` tiles de (x,y); sem grupo, só ele (se perto).
+   * Para quests/bounties creditarem abates ao grupo.
+   */
+  partyMembersNear(playerId: string, x: number, y: number, range: number): PlayerState[] {
+    return this.party.partyMembersNear(playerId, x, y, range);
+  }
+
   /** Tile livre para chegar por portal (andável, sem monstro/NPC/portal/outro jogador). */
   private isFreeTile(x: number, y: number, selfId: string): boolean {
     if (!this.map.grid.isWalkable(x, y) || this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y) || this.portals.isPortalTile(x, y)) return false;
@@ -565,6 +587,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.conditions.refreshPlayer(sid);
     this.arena.resend(sid);
     this.quests.resend(sid);
+    this.party.resend(sid);
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);
   }
 
@@ -602,6 +625,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["quests", () => this.quests.removePlayer(sid)],
         ["fight", () => this.fight.removePlayer(sid)],
         ["chat", () => clearChatState(sid)],
+        ["party", () => this.party.removePlayer(sid)],
       ];
       for (const [k, fn] of steps) runSafe(`saída/${k}`, fn, this.errors);
       this.throttle.clearPrefix(`${sid}:`);
@@ -665,11 +689,18 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /**
    * Quem recebe crédito de missão por um abate: jogadores online que causaram dano (monstros selvagens; nem
-   * invocações nem ondas do coliseu). O sistema de grupo pode ampliar esta lista (membros próximos).
+   * invocações nem ondas do coliseu) + membros do grupo vivos a até PARTY_SHARE_RANGE tiles do monstro.
    */
   questCredit(m: Monster): string[] {
     if (m.s.ownerId || m.arenaId) return [];
-    return [...m.damageBy.keys()].filter((id) => this.state.players.has(id));
+    const out = new Set<string>();
+    for (const id of m.damageBy.keys()) {
+      if (!this.state.players.has(id)) continue;
+      out.add(id);
+      // Grupo: membros vivos perto do monstro também recebem o crédito.
+      for (const mate of this.partyMembersNear(id, m.s.x, m.s.y, PARTY_SHARE_RANGE)) out.add(mate.id);
+    }
+    return [...out];
   }
 
   /** Desbloqueio vindo de missão (roupa/addon/título). Gancho para o sistema de conquistas; padrão: nada. */
