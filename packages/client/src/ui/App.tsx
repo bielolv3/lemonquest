@@ -6,6 +6,7 @@ import { Toasts } from "./Toasts.tsx";
 import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { CombatOverlays } from "./combat/CombatOverlays.tsx";
+import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { FXTEST } from "../game/fxtest.ts";
 import { UITEST } from "./uitest/flag.ts";
 import { WorldMapOverlay, ZoneBanner } from "./minimap/Minimap.tsx";
@@ -26,6 +27,7 @@ export function App() {
       <ZoneBanner />
       <TeleportFade />
       <CombatOverlays />
+      <ConnectionStatus />
     </>
   );
 }

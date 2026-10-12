@@ -8,3 +8,11 @@ assets/_download/
 .DS_Store
 .claude/
 /data/
+/data/backups/
+
+# Pasta de assets curada gerada no build (tools/build-public.mjs)
+packages/client/.public/
+
+# Logs
+*.log
+logs/
