@@ -4,6 +4,7 @@ import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
 import { arenaAction, arenaLobbiesStore, arenaStateStore, arenaWindowOpen, closeArenaWindow, phaseRemaining } from "./arena.ts";
 import { useTicker } from "./useTicker.ts";
+import { ArenaQuests } from "../quests/NpcQuests.tsx";
 import "./arena.css";
 
 export function ArenaWindow() {
@@ -27,6 +28,7 @@ export function ArenaWindow() {
           Arenas livres: <b>{list?.freeArenas ?? "?"}/{ARENA_COUNT}</b> · Fila: <b>{list?.queue ?? 0}</b>
         </div>
         <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (até {ARENA_MAX_PARTY}). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade.</div>
+        <ArenaQuests />
         {mine ? (
           <div class="arena-mine">
             <div class="arena-mine-title">

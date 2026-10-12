@@ -1,10 +1,10 @@
 // Estado da janela de NPC (diálogo/loja/depot). O mundo (Phaser) chama openNpc(npcId) ao clicar num NPC.
-import { C2S, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg } from "@lemonquest/shared";
+import { BOUNTY_NPC, C2S, QUEST_LIST, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { send } from "../items/net.ts";
 import { closeArenaWindow, openArenaWindow } from "../arena/arena.ts";
 
-export type NpcTab = "buy" | "sell" | "depot";
+export type NpcTab = "quests" | "bounties" | "buy" | "sell" | "depot";
 export interface NpcState { msg: NpcOpenMsg; tab: NpcTab; /** muda a cada nova abertura (reinicia a digitação). */ nonce: number }
 
 export const npcStore = createStore<NpcState | null>(null);
@@ -20,6 +20,8 @@ export function closeNpc(): void { npcStore.set(null); }
 
 export const npcTabs = (m: NpcOpenMsg): NpcTab[] => {
   const t: NpcTab[] = [];
+  if (m.npcId === BOUNTY_NPC) t.push("bounties");
+  if (QUEST_LIST.some((q) => q.giver === m.npcId)) t.push("quests");
   if (m.shop?.sells.length) t.push("buy");
   if (m.shop?.buys?.length) t.push("sell");
   if (m.depot) t.push("depot");

@@ -1,8 +1,18 @@
 // NPCs no mundo: sprites parados (olham em volta / viram para o jogador), nome com selos, balões de fala e acerto de clique.
 import Phaser from "phaser";
-import { NPCS, TILE_SIZE, findObjects, objectTile, type Facing, type TiledMap } from "@lemonquest/shared";
+import { NPCS, TILE_SIZE, findObjects, npcMarker, objectTile, type Facing, type NpcMarker, type TiledMap } from "@lemonquest/shared";
 import { Actor, type ActorDeps } from "./actor.ts";
 import { gridSheet, type CharacterSheet } from "./sprites.ts";
+import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
+import { inventoryStore } from "../ui/items/inventory.ts";
+import { playersStore, selectMe } from "../ui/hud/world.ts";
+
+/** Cor do marcador de missão: "!" disponível e "?" pronta em amarelo; "?" em andamento em cinza. */
+const MARKER_STYLE: Record<Exclude<NpcMarker, null>, { text: string; color: string }> = {
+  available: { text: "!", color: "#ffd447" },
+  ready: { text: "?", color: "#ffd447" },
+  progress: { text: "?", color: "#a9adba" },
+};
 
 const FALLBACK_URL = "ninja/Actor/Character/Villager/SpriteSheet.png";
 const NAME_COLOR = "#8fe6d6";
@@ -66,6 +76,8 @@ interface Npc {
   tx: number; ty: number;
   badges: Phaser.GameObjects.Image[];
   bubble?: Bubble;
+  marker?: Phaser.GameObjects.Text;
+  markerKind: NpcMarker;
   face: Facing;
   nextLook: number;
   lookLeft: number;
@@ -76,6 +88,8 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 export class NpcManager {
   private npcs = new Map<string, Npc>();
   private readonly res = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
+  private readonly offs: (() => void)[] = [];
+  private markerTime = 0;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -83,7 +97,32 @@ export class NpcManager {
     private readonly uiLayer: Phaser.GameObjects.Layer,
   ) {
     createBadgeTextures(scene);
+    const refresh = () => this.refreshMarkers();
+    this.offs.push(questStore.subscribe(refresh), inventoryStore.subscribe(refresh), playersStore.subscribe(refresh));
   }
+
+  /** Recalcula os marcadores de missão (! / ?) de todos os NPCs. */
+  refreshMarkers() {
+    const st = questStore.get();
+    const me = selectMe(playersStore.get());
+    const count = inventoryCounter();
+    for (const n of this.npcs.values()) {
+      const kind = st && me ? npcMarker(n.id, st, me.level, count) : null;
+      if (kind === n.markerKind) continue;
+      n.markerKind = kind;
+      n.marker?.destroy();
+      n.marker = undefined;
+      if (!kind) continue;
+      const m = MARKER_STYLE[kind];
+      n.marker = this.scene.add.text(0, 0, m.text, {
+        fontFamily: FONT, fontSize: "16px", fontStyle: "bold", color: m.color, stroke: "#10131c", strokeThickness: 4, resolution: this.res,
+      }).setOrigin(0.5, 1);
+      this.uiLayer.add(n.marker);
+    }
+  }
+
+  /** Marcador atual de um NPC (testes E2E). */
+  markerOf(id: string): NpcMarker { return this.npcs.get(id)?.markerKind ?? null; }
 
   /** Cria NPCs a partir dos objetos "npc" do mapa Tiled. */
   addFromMap(tiled: TiledMap) {
@@ -108,7 +147,8 @@ export class NpcManager {
     if (def?.shop) badges.push(this.scene.add.image(0, 0, BADGE_COIN));
     if (def?.depot) badges.push(this.scene.add.image(0, 0, BADGE_CHEST));
     for (const b of badges) this.uiLayer.add(b.setOrigin(0.5, 0.5));
-    this.npcs.set(id, { id, actor, tx: x, ty: y, badges, face: "down", nextLook: rnd(4000, 8000), lookLeft: 0 });
+    this.npcs.set(id, { id, actor, tx: x, ty: y, badges, face: "down", nextLook: rnd(4000, 8000), lookLeft: 0, markerKind: null });
+    this.refreshMarkers();
   }
 
   isNpcTile(x: number, y: number): boolean {
@@ -178,6 +218,8 @@ export class NpcManager {
   /** Nome, selos e balões na câmera de UI (zoom 1). */
   placeUi(zoom: number, dt: number, toScreenX: (wx: number) => number, toScreenY: (wy: number) => number) {
     const bs = zoom >= 3 ? 2 : 1;
+    this.markerTime += dt;
+    const bob = Math.round(Math.sin(this.markerTime / 260) * 1.5);
     for (const n of this.npcs.values()) {
       const a = n.actor;
       a.placeUi(toScreenX(a.headX), toScreenY(a.headY), zoom, dt);
@@ -189,13 +231,16 @@ export class NpcManager {
         b.setPosition(Math.round(x), Math.round(ly));
         x -= (b.width * bs) / 2 + 2;
       }
+      if (n.marker) {
+        n.marker.setVisible(a.label.visible).setPosition(Math.round(lx), Math.round(a.label.y - a.label.height / 2 - 1 + bob));
+      }
       const bub = n.bubble;
       if (bub) {
         bub.age += dt;
         if (bub.age >= BUBBLE_MS) { bub.box.destroy(); n.bubble = undefined; continue; }
         const left = BUBBLE_MS - bub.age;
         bub.box.setAlpha(left < BUBBLE_FADE_MS ? left / BUBBLE_FADE_MS : 1);
-        bub.box.setPosition(Math.round(lx), Math.round(a.label.y - a.label.height - 2));
+        bub.box.setPosition(Math.round(lx), Math.round(a.label.y - a.label.height - 2 - (n.marker ? 16 : 0)));
       }
     }
   }
@@ -205,7 +250,9 @@ export class NpcManager {
       n.actor.destroy();
       n.bubble?.box.destroy();
       for (const b of n.badges) b.destroy();
+      n.marker?.destroy();
     }
+    for (const off of this.offs.splice(0)) off();
     this.npcs.clear();
   }
 }

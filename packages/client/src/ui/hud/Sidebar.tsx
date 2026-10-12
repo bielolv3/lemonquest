@@ -16,6 +16,7 @@ import { StatBar } from "./StatBar.tsx";
 import { Portrait, StatusPanel } from "./StatusPanel.tsx";
 import { useStore } from "./store.ts";
 import { outfitOpen, toggleOutfit } from "../outfit/outfit.ts";
+import { questLogOpen, toggleQuestLog } from "../quests/quests.ts";
 import { helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, toggle } from "./uiState.ts";
 import { playersStore, selectMe } from "./world.ts";
 
@@ -25,6 +26,7 @@ export function Sidebar() {
   const help = useStore(helpOpen);
   const muted = useStore(mutedStore);
   const outfit = useStore(outfitOpen);
+  const questLog = useStore(questLogOpen);
 
   const order = useStore(panelOrderStore);
   const pins = useStore(panelPinsStore);
@@ -70,6 +72,9 @@ export function Sidebar() {
         </button>
         <button class={`rail-btn${outfit ? " active" : ""}`} onClick={toggleOutfit} data-tip="Roupas" data-tip-sub="Tecla O">
           <PixelIcon name="shirt" size={14} />
+        </button>
+        <button class={`rail-btn${questLog ? " active" : ""}`} onClick={toggleQuestLog} data-tip="Diário de missões" data-tip-sub="Tecla L">
+          <PixelIcon name="scroll" size={14} />
         </button>
         <button class="rail-btn" onClick={openWorldMap} data-tip="Mapa do mundo" data-tip-sub="Tecla M">
           <PixelIcon name="map" size={14} />

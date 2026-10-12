@@ -122,6 +122,7 @@ export function kindText(def: ItemDef): string {
 /** Efeito de uso (poções). */
 export function useText(def: ItemDef): string | null {
   if (!def.use) return null;
+  if (def.use.chest) return "Use para abrir (clique direito)";
   const f = def.use.food;
   if (f) {
     const r: string[] = [];

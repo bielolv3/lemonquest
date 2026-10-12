@@ -126,3 +126,11 @@ export function BountyBoard() {
     </div>
   );
 }
+
+/** Missões do Mestre do Coliseu dentro da janela do Coliseu (só aparece se houver alguma). */
+export function ArenaQuests() {
+  const st = useStore(questStore);
+  const me = selectMe(useStore(playersStore));
+  if (!st || !me || questsForNpc("arena_master", st, me.level, inventoryCounter()).length === 0) return null;
+  return <NpcQuestList npcId="arena_master" />;
+}

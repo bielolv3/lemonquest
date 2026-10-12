@@ -10,9 +10,10 @@ import { ItemIcon } from "../items/ItemIcon.tsx";
 import { ItemSlot } from "../items/ItemSlot.tsx";
 import { itemTipStore, shopInstance } from "../items/tipStore.ts";
 import { buyItem, closeNpc, npcStore, npcTabs, sellItem, setNpcTab, type NpcTab } from "./npc.ts";
+import { BountyBoard, NpcQuestList } from "../quests/NpcQuests.tsx";
 import "./npc.css";
 
-const TAB_LABEL: Record<NpcTab, string> = { buy: "Comprar", sell: "Vender", depot: "Depot" };
+const TAB_LABEL: Record<NpcTab, string> = { quests: "Missões", bounties: "Recompensas", buy: "Comprar", sell: "Vender", depot: "Depot" };
 const TYPE_MS = 25;
 
 export function NpcWindow() {
@@ -40,6 +41,8 @@ export function NpcWindow() {
             ))}
           </div>
         )}
+        {st.tab === "quests" && <NpcQuestList npcId={m.npcId} />}
+        {st.tab === "bounties" && <BountyBoard />}
         {st.tab === "buy" && m.shop && <BuyList m={m} gold={inv?.gold ?? 0} />}
         {st.tab === "sell" && m.shop && <SellList m={m} />}
         {st.tab === "depot" && m.depot && <DepotGrid />}

@@ -703,6 +703,8 @@ export class WorldScene extends Phaser.Scene {
       walkable: (x: number, y: number) => this.world.grid.isWalkable(x, y),
       statues: () => this.statues.list.map((s) => ({ id: s.id, x: s.x, y: s.y })),
       npcTile: (id: string) => this.npcs.tileOf(id),
+      /** Marcador de missão sobre o NPC ("available" | "progress" | "ready" | null). */
+      npcMarker: (id: string) => this.npcs.markerOf(id),
       /** Centro do tile (x,y) em coordenadas de página (px CSS). */
       tileToClient: (x: number, y: number, fy = 0.5) => {
         const r = canvasRect();

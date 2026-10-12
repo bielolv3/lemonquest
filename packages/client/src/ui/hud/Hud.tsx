@@ -24,6 +24,9 @@ import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
 import { OutfitWindow } from "../outfit/OutfitWindow.tsx";
 import { ContextMenu } from "../outfit/ContextMenu.tsx";
 import { toggleOutfit } from "../outfit/outfit.ts";
+import { QuestTracker, QuestDoneCard } from "../quests/QuestTracker.tsx";
+import { QuestLog } from "../quests/QuestLog.tsx";
+import { toggleQuestLog } from "../quests/quests.ts";
 import "./world.ts";
 import "./hud.css";
 
@@ -36,6 +39,8 @@ export function Hud() {
     <>
       <LowHpVignette />
       <ConditionsStrip />
+      <QuestTracker />
+      <QuestDoneCard />
       {/* Barra de magias + poções num bloco só: nunca se sobrepõem, qualquer que seja o número de slots. */}
       <div class="bottom-dock">
         <ActionBar />
@@ -48,6 +53,7 @@ export function Hud() {
       <LootToasts />
       <SkillsWindow />
       <OutfitWindow />
+      <QuestLog />
       <Sidebar />
       <ContextMenu />
       <Tooltip />
@@ -74,6 +80,7 @@ function useHudKeys() {
       if (e.repeat) return;
       if (e.code === "KeyK") { e.preventDefault(); toggle(skillsOpen); return; }
       if (e.code === "KeyO") { e.preventDefault(); toggleOutfit(); return; }
+      if (e.code === "KeyL") { e.preventDefault(); toggleQuestLog(); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); toggle(helpOpen); return; }
       if (e.key === "Escape") {
         if (closeTopOverlay()) return;
