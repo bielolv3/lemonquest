@@ -22,6 +22,8 @@ export interface CharacterData {
   /** Treino offline em andamento (personagem deslogado numa estátua; ao entrar recebe o progresso). */
   offlineTraining?: { skill: "melee" | "distance" | "magic" | "shield"; sinceMs: number; statueId?: string };
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
+  /** Coliseu: recorde pessoal de ondas vencidas. */
+  arenaBest?: number;
 }
 
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */

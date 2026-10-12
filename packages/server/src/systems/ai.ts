@@ -24,13 +24,13 @@ export function updateMonster(m: Monster, w: MonsterManager, now: number): void 
   if (m.def.stationary) return; // boneco de treino: nunca pensa, anda, foge, volta nem ataca
   // Provocação (taunt): enquanto durar, o alvo é forçado a ser quem provocou.
   if (m.tauntBy && now < (m.tauntUntil ?? 0)) {
-    const t = w.validTarget(m.tauntBy);
+    const t = validFor(m, w, m.tauntBy);
     if (t && (m.s.targetId !== t.id || m.mode !== "chase")) { engage(m, t); m.sleeping = false; m.nextThinkAt = now; }
   }
   if (now >= m.nextThinkAt) {
     m.nextThinkAt = now + THINK_MS;
     if (m.mode === "idle") {
-      m.sleeping = w.nearestPlayerDist(m.s.x, m.s.y) > SLEEP_DIST;
+      m.sleeping = !m.bounds && w.nearestPlayerDist(m.s.x, m.s.y) > SLEEP_DIST;
       if (!m.sleeping) thinkIdle(m, w, now);
     } else {
       think(m, w, now);
@@ -45,12 +45,20 @@ export function updateMonster(m: Monster, w: MonsterManager, now: number): void 
 
 // --- pensar -------------------------------------------------------------------
 
+/** Alvo válido para ESTE monstro (coliseu: só membros da partida e suas invocações). */
+function validFor(m: Monster, w: MonsterManager, id: string): CreatureState | undefined {
+  const t = w.validTarget(id);
+  return t && (!m.allow || w.allowedFor(m, id)) ? t : undefined;
+}
+
 function nearestAggroTarget(m: Monster, w: MonsterManager): PlayerState | undefined {
-  const range = m.def.aggroRange;
+  // Monstro de arena: percebe a arena inteira (inclusive os passivos).
+  const range = m.bounds ? Infinity : m.def.aggroRange;
   if (range <= 0) return undefined;
   let best: PlayerState | undefined, bestD = Infinity;
   for (const p of w.playerList) {
     if (p.hp <= 0 || w.inPz(p.x, p.y)) continue;
+    if (m.allow && !m.allow(p)) continue;
     const d = cheb(m.s.x, m.s.y, p.x, p.y);
     if (d <= range && d < bestD) { best = p; bestD = d; }
   }
@@ -65,7 +73,7 @@ function engage(m: Monster, p: CreatureState) {
 }
 
 function thinkIdle(m: Monster, w: MonsterManager, _now: number) {
-  const t = nearestAggroTarget(m, w) ?? w.validTarget(m.lastAttackerId);
+  const t = nearestAggroTarget(m, w) ?? validFor(m, w, m.lastAttackerId);
   if (t) engage(m, t);
 }
 
@@ -101,14 +109,16 @@ function think(m: Monster, w: MonsterManager, now: number) {
   }
 
   // chase / flee
-  if (cheb(s.x, s.y, m.spawn.x, m.spawn.y) > LEASH_DIST) { startReturn(m, now); return; }
-  let target = w.validTarget(s.targetId);
+  if (!m.bounds && cheb(s.x, s.y, m.spawn.x, m.spawn.y) > LEASH_DIST) { startReturn(m, now); return; }
+  let target = validFor(m, w, s.targetId);
   if (!target) {
-    target = nearestAggroTarget(m, w) ?? w.validTarget(m.lastAttackerId);
+    target = nearestAggroTarget(m, w) ?? validFor(m, w, m.lastAttackerId);
     if (target) engage(m, target);
     else {
       s.targetId = "";
       m.path = null;
+      // Arena: sem volta ao spawn (nem cura); fica ocioso até achar outro membro.
+      if (m.bounds) { m.mode = "idle"; m.lostSince = 0; return; }
       if (!m.lostSince) m.lostSince = now;
       else if (now - m.lostSince >= LOST_TARGET_MS) startReturn(m, now);
       return;
@@ -144,7 +154,7 @@ function act(m: Monster, w: MonsterManager, now: number) {
     if (now >= m.stepEndsAt && !followPath(m, w, now)) greedyStep(m, w, m.spawn, now, true);
     return;
   }
-  const target = w.validTarget(s.targetId);
+  const target = validFor(m, w, s.targetId);
   if (!target) return;
   const d = cheb(s.x, s.y, target.x, target.y);
   const range = Math.max(1, m.def.attackRange);
@@ -204,7 +214,7 @@ function stepAway(m: Monster, w: MonsterManager, from: Point, now: number, stric
     const { dx, dy } = DIR_DELTA[dir];
     const nx = s.x + dx, ny = s.y + dy;
     return { dir, d: cheb(nx, ny, from.x, from.y), e: (nx - from.x) ** 2 + (ny - from.y) ** 2, nx, ny };
-  }).filter((o) => (strict ? o.d > cur : o.d >= cur) && cheb(o.nx, o.ny, m.spawn.x, m.spawn.y) <= LEASH_DIST)
+  }).filter((o) => (strict ? o.d > cur : o.d >= cur) && (!!m.bounds || cheb(o.nx, o.ny, m.spawn.x, m.spawn.y) <= LEASH_DIST))
     .sort((a, b) => b.d - a.d || b.e - a.e);
   for (const o of options) if (w.tryStep(m, o.dir, now)) return true;
   return false;

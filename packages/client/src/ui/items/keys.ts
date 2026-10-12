@@ -1,4 +1,5 @@
 // Atalhos de itens/batalha: Q/E poções, F5–F7 posturas, F8 seguir, I recolhe/expande Equipamento+Mochila, Esc fecha overlays.
+import { arenaResultStore, arenaWindowOpen, closeArenaWindow } from "../arena/arena.ts";
 import { useEffect } from "preact/hooks";
 import { isTyping } from "../focus.ts";
 import { setFightMode, STANCES, toggleChase } from "../hud/FightMode.tsx";
@@ -13,6 +14,8 @@ export function closeTopOverlay(): boolean {
   if (cancelDrag()) return true;
   if (dialogStore.get()) { closeDialog(); return true; }
   if (npcStore.get()) { closeNpc(); return true; }
+  if (arenaResultStore.get()) { arenaResultStore.set(null); return true; }
+  if (arenaWindowOpen.get()) { closeArenaWindow(); return true; }
   return false;
 }
 
