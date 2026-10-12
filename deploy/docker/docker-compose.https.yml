@@ -1,0 +1,40 @@
+# HTTPS opcional: Caddy na frente do jogo (portas 80/443). Use como override do compose principal:
+#
+#   SITE_ADDRESS=192.168.1.50 docker compose -f docker-compose.yml -f deploy/docker/docker-compose.https.yml up -d --build
+#
+# Variáveis (ambiente ou arquivo .env ao lado do docker-compose.yml):
+#   SITE_ADDRESS   IP/host da LAN (padrão: localhost) ou domínio público
+#   CADDYFILE      Caddyfile (LAN, "tls internal" — padrão) ou Caddyfile.domain (Let's Encrypt)
+#   ACME_EMAIL     e-mail do Let's Encrypt (só com Caddyfile.domain)
+#   HTTP_PORT / HTTPS_PORT   portas publicadas (padrão 80 / 443; use 8080 / 8443 para testar)
+# Guia: deploy/docker/README.md, seção "HTTPS".
+
+# A porta 2567 do compose principal continua aberta (HTTP direto) até você validar o HTTPS. Depois, para fechá-la,
+# acrescente neste arquivo, no serviço lemonquest:   ports: !override []
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: lemonquest-caddy
+    restart: unless-stopped
+    depends_on:
+      - lemonquest
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    environment:
+      SITE_ADDRESS: "${SITE_ADDRESS:-localhost}"
+      ACME_EMAIL: "${ACME_EMAIL:-}"
+    volumes:
+      - ./deploy/docker/${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # CA local e certificados (guarde: trocar a CA obriga a reinstalar nos clientes)
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

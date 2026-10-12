@@ -45,6 +45,8 @@ if (-not (Test-Path (Join-Path $RepoPath "packages\client\dist\index.html"))) {
 $logs = Join-Path $RepoPath "logs"
 New-Item -ItemType Directory -Force $logs | Out-Null
 
+# Nota: o servico continua rodando o TypeScript direto com tsx (src/index.ts). Alternativa sem tsx: `npm run build:server`
+# e usar AppParameters "dist/server.mjs" (a pasta de trabalho continua packages/server; NODE_ENV=production).
 # --- instala / atualiza ---
 # Daqui em diante o nssm.exe pode escrever mensagens normais no stderr; no Windows PowerShell 5.1 isso,
 # com ErrorActionPreference=Stop, vira erro fatal. Por isso relaxamos para Continue e checamos $LASTEXITCODE.
