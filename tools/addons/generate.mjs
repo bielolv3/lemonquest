@@ -641,6 +641,8 @@ const BASES = {
     belt: ["#f1c471", "#d78b4a"],
     faceRecolorFromY: 26,
     faceBody: { "#d14b34": "#5560b8" },
+    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#d78b4a" },
+    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#cf736d" },
     // barba longa no retrato (abaixo do bigode do Master)
     faceDraw(px, w, h) {
       const set = (x, y, c) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; const v = hex(c); px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255; };
@@ -659,6 +661,18 @@ const BASES = {
 MATS.beard = { c: ["#f2eaf1", "#d6d8dc", "#9ba7aa"] };
 MAT_NAMES.push("beard"); MAT_ID.beard = MAT_NAMES.length; MAT_RGB.push(MATS.beard.c.map(hex));
 
+/** Algum vizinho (8 direções) da imagem ORIGINAL tem uma destas cores? */
+function whiteNear(png, x, y, colors) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const X = x + dx, Y = y + dy;
+    if (X < 0 || Y < 0 || X >= png.width || Y >= png.height) continue;
+    const i = (Y * png.width + X) * 4;
+    if (png.data[i + 3] >= 128 && colors.includes(rgbHex(png.data[i], png.data[i + 1], png.data[i + 2]))) return true;
+  }
+  return false;
+}
+
 function generateBases() {
   for (const o of OUTFIT_LIST) {
     const spec = BASES[o.id];
@@ -675,6 +689,8 @@ function generateBases() {
         let to = spec.recolor[h] ?? (y > a.neck || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
         // faixa dourada na cintura (só sobre a túnica)
         if (spec.belt && y === a.bottom - 2 && (to || Object.values(spec.recolor).includes(h))) to = spec.belt[(x + row) % 3 === 0 ? 1 : 0];
+        // rosto: riscos vermelhos → sobrancelhas grisalhas (encostadas no cabelo branco) ou sombra de pele
+        if (!to && spec.faceFix && y < a.neck && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
         if (to) { const c = hex(to); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
       }
       // 2) detalhes permanentes (contorno não risca o cabelo/barba brancos da base)
@@ -697,7 +713,9 @@ function generateBases() {
       for (let y = 0; y < face.height; y++) for (let x = 0; x < face.width; x++) {
         const i = (y * face.width + x) * 4; if (fo[i + 3] < 128) continue;
         const h = rgbHex(fo[i], fo[i + 1], fo[i + 2]);
-        const to = y >= spec.faceRecolorFromY ? spec.recolor[h] ?? spec.faceBody[h] : undefined;
+        let to = y >= spec.faceRecolorFromY ? spec.recolor[h] ?? spec.faceBody[h] : undefined;
+        const ff = spec.faceFixPortrait;
+        if (!to && ff && h === ff.red) to = whiteNear(face, x, y, ff.whites) ? ff.brow : ff.skin;
         if (to) { const c = hex(to); fo[i] = c[0]; fo[i + 1] = c[1]; fo[i + 2] = c[2]; }
       }
       spec.faceDraw?.(fo, face.width, face.height);
