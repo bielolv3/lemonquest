@@ -23,3 +23,4 @@ docker-data/
 # Playwright (E2E)
 playwright-report/
 test-results/
+tools/mapgen/_v/

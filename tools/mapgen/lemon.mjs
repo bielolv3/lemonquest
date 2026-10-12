@@ -412,7 +412,7 @@ export function createLemon(ts) {
   const set = new LemonSet();
   const t = ts.addDynamic('TilesetLemon', 'lemon-terrain.png', set);
   const gidOf = (id) => t.firstgid + id;
-  const L = { set, ts, t };
+  const L = { set, ts, t, Cv };
   const tile = (key, draw, props) => gidOf(set.add(key, draw, props));
   L.tile = tile;
   const sheet = (key, cv, wt, ht, props) => { const rows = []; for (let j = 0; j < ht; j++) { const row = []; for (let i = 0; i < wt; i++) { const sl = cv.slice(i, j); let any = false; for (let k = 3; k < sl.d.length; k += 4) if (sl.d[k] > 0) { any = true; break; } row.push(any ? tile(`${key}:${i},${j}`, () => sl, props) : 0); } rows.push(row); } return rows; };

@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Tilesets, GameMap, mulberry32, noise2, fbm, blobTable, blobMask, bfs, renderPreview, MAPS_DIR, here } from './lib.mjs';
 import { S } from './stamps.mjs';
+import { createLemon } from './lemon.mjs';
+import { polish } from './polish.mjs';
+import { PNG } from 'pngjs';
 
 const SEED = 20260611;
 // Overworld = rows 0..OW_H-1. Dungeons live far below (>= 26 tiles of solid void between them and any overworld tile).
@@ -18,6 +21,7 @@ const pickW = (pairs) => { let t = pairs.reduce((s, p) => s + p[1], 0), r = rng(
 
 const ts = new Tilesets();
 const map = new GameMap(W, H, ts);
+const LEMON = createLemon(ts); // generated art tileset, appended last (gids of the pack tilesets stay stable)
 const blob = blobTable();
 const idx = (x, y) => y * W + x;
 const inb = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
@@ -638,6 +642,22 @@ const portals = [
   [106, 16, 131, 109 + DY], [131, 107 + DY, 106, 17],
 ];
 const portalMap = new Map(portals.map(([x, y, tx, ty]) => [x + ',' + y, [tx, ty]]));
+// ===================================================================== POLISH (swamp / ruins / seams / dungeon dressing + light objects)
+const lights = [];
+const protect = new Uint8Array(W * H);
+{
+  const pr = (x, y, r = 1) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (inb(x + i, y + j)) protect[idx(x + i, y + j)] = 1; };
+  pr(79, 92, 2);
+  for (const [, , , , x, y] of spawns) pr(x, y, 1);
+  for (const [, x, y] of npcs) pr(x, y, 1);
+  for (const [x, y, tx, ty] of portals) { pr(x, y, 2); pr(tx, ty, 2); }
+  for (const [x, y] of TRAIN_DUMMIES) pr(x, y, 0);
+  pr(ARENA_MASTER[0], ARENA_MASTER[1], 1); pr(ARENA_EXIT[0], ARENA_EXIT[1], 1);
+  for (const a of ARENAS) { pr(a.rx + A_ENTRY[0], a.ry + A_ENTRY[1], 1); pr(a.rx + A_SHOP[0], a.ry + A_SHOP[1], 1); for (const [sx, sy] of A_SPAWNS) pr(a.rx + sx, a.ry + sy, 1); }
+}
+const polishInfo = polish({ map, ts, L: LEMON, W, H, idx, inb, reg, dirt, water, pave, mud, band, floorG, isFloor, isWall, S, place, CAVE, CRYPT, ARENA, MAUS, DY, lights, protect, ARENAS, isAF, spawns });
+console.log('polish', JSON.stringify(polishInfo.stats));
+
 // guard captain stands beside the north gate: make sure tile is free
 for (const [id, x, y] of npcs) map.tileObj('npc', x, y, { npcId: id }, id);
 for (const [x, y, tx, ty] of portals) map.tileObj('portal', x, y, { toX: tx, toY: ty }, 'portal');
@@ -668,6 +688,9 @@ for (const a of ARENAS) {
   map.tileObj('npc', a.rx + A_SHOP[0], a.ry + A_SHOP[1], { npcId: `arena_shop_${a.id}` }, `arena_shop_${a.id}`);
   map.addObject({ type: 'zone', name: 'Coliseu', x: a.bx * 16, y: a.by * 16, width: 30 * 16, height: 26 * 16, rect: true, props: { music: '17 - Fight.ogg', pz: false } });
 }
+
+// light objects (read by the day/night + lighting system; convention documented in packages/shared/src/map.ts). Appended last: older object ids stay stable.
+for (const [x, y, radius, color, flicker] of lights) map.tileObj('light', x, y, { radius, color, flicker }, 'light');
 
 // ===================================================================== VALIDATION
 function fail(msg) { try { renderPreview(map, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true }); } catch {} console.error('\nMAP VALIDATION FAILED: ' + msg); process.exit(1); }
@@ -737,6 +760,7 @@ console.log(`BFS ok: ${reached} reachable tiles of ${walk} walkable (${((reached
 // ===================================================================== OUTPUT
 fs.mkdirSync(MAPS_DIR, { recursive: true });
 fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(map.toTiled()));
+{ const cp = LEMON.set.croppedPng(); const out = new PNG({ width: cp.width, height: cp.height }); out.data = Buffer.from(cp.data); const dir = path.join(MAPS_DIR, '../tiles'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'lemon-terrain.png'), PNG.sync.write(out)); }
 const a = renderPreview(map, path.join(MAPS_DIR, 'preview.png'));
 const b = renderPreview(map, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
 if (process.argv.includes('--debug')) {
