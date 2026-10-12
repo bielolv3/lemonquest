@@ -25,6 +25,8 @@ async function dropToTile(page: Page, defId: string, x: number, y: number): Prom
 }
 
 test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, duplo clique, arrastar)", async ({ browser }) => {
+  // Dois navegadores e muitos passos: no CI (sem GPU) passa de 2 min.
+  test.setTimeout(240_000);
   const ca = await browser.newContext(), cb = await browser.newContext();
   const a = await ca.newPage(), b = await cb.newPage();
   try {

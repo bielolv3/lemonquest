@@ -65,9 +65,12 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     await b.keyboard.press("F8");
     await expect.poll(async () => (await monsters(b)).length, { timeout: 15_000 }).toBeGreaterThan(0);
     const xpB0 = await xpOf(b);
-    const first = await targetNearest(b);
-    await expect.poll(async () => (await monsters(b)).some((m) => m.id === first), { timeout: 45_000 }).toBe(false);
-    await expect.poll(() => xpOf(b), { timeout: 10_000 }).toBeGreaterThan(xpB0);
+    await targetNearest(b);
+    // Até ganhar XP; se o alvo sumir de vista sem morrer, mira no mais próximo de novo.
+    await expect.poll(async () => {
+      if (!(await b.evaluate(() => (window as any).__lq.target())) && (await monsters(b)).length) await targetNearest(b);
+      return xpOf(b);
+    }, { timeout: 60_000 }).toBeGreaterThan(xpB0);
     // B sem alvo daqui em diante (Esc limpa o alvo; tira o seguir).
     await b.keyboard.press("F8");
     await b.keyboard.press("Escape");
