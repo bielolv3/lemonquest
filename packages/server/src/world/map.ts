@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { CollisionGrid, DEFAULT_SPAWN, GroundSpeedGrid, findObjects, objectTile, type TiledMap } from "@lemonquest/shared";
+import { ROOT_DIR } from "../paths.ts";
 
-const assetsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../assets");
+const assetsDir = path.join(ROOT_DIR, "assets");
 
 export interface LoadedMap {
   tiled: TiledMap;

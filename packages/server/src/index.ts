@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
+import { ROOT_DIR } from "./paths.ts";
 import { WorldRoom } from "./rooms/WorldRoom.ts";
 import { authRouter } from "./persistence/auth.ts";
 import { checkpoint, closeDb, initDb } from "./persistence/db.ts";
@@ -13,7 +13,7 @@ import { devAdmins, devCommandsEnabled } from "./systems/devcommands.ts";
 
 const PORT = Number(process.env.PORT ?? 2567);
 const PROD = process.env.NODE_ENV === "production";
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const root = ROOT_DIR;
 const CHECKPOINT_MS = 5 * 60_000;
 
 // --- falhas no nível do processo ----------------------------------------------------------------------------------

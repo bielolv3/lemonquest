@@ -22,3 +22,4 @@ assets/maps/preview*.png
 assets/addons/preview*.png
 assets/icons/*-preview.png
 assets/CATALOG.md
+packages/server/dist

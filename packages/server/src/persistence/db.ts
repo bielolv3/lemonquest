@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { ROOT_DIR } from "../paths.ts";
 import { defaultOutfit, type Vocation } from "@lemonquest/shared";
 import type { CharacterData, CharacterRecord } from "./types.ts";
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 /** Pasta padrão de dados (base + backups). */
-export const DATA_DIR = path.join(rootDir, "data");
+export const DATA_DIR = path.join(ROOT_DIR, "data");
 
 /** Chave de unicidade/lookup do nome: NFC + minúsculas (case-insensitive inclusive para acentos: "ÁNA" = "ána"). */
 export const nameKey = (name: string): string => name.normalize("NFC").toLowerCase();
