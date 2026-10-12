@@ -145,7 +145,7 @@ export function arenaWaveSpawns(wave: number, n: number, avgLevel: number): Aren
   const out: ArenaSpawnSpec[] = [];
   for (const e of w.monsters) {
     const def = monsterDef(e.id);
-    if (!def) continue;
+    if (!def || def.stationary || def.invulnerable) continue; // nunca bonecos de treino
     if (e.elite !== undefined) {
       const hpMult = e.elite * arenaEliteHpMult(n, !!def.boss) * lv.hp;
       const dmgMult = (e.eliteDmg ?? 1) * party * lv.dmg;

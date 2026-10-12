@@ -21,6 +21,7 @@ export const RETURN_STUCK_MS = 15_000;
 const ALL_DIRS: Dir[] = [Dir.N, Dir.NE, Dir.E, Dir.SE, Dir.S, Dir.SW, Dir.W, Dir.NW];
 
 export function updateMonster(m: Monster, w: MonsterManager, now: number): void {
+  if (m.def.stationary) return; // boneco de treino: nunca pensa, anda, foge, volta nem ataca
   // Provocação (taunt): enquanto durar, o alvo é forçado a ser quem provocou.
   if (m.tauntBy && now < (m.tauntUntil ?? 0)) {
     const t = validFor(m, w, m.tauntBy);

@@ -52,6 +52,13 @@ export interface MonsterDef {
   /** Respawn após morrer (ms). */
   respawnMs: number;
   boss?: boolean;
+  /** Nunca anda, persegue, foge nem ataca (boneco de treino, estátuas). */
+  stationary?: boolean;
+  /**
+   * Não perde vida (o dano aparece como números), não dá XP nem loot e não respawna. Pode ser atacado dentro de
+   * zona de proteção (centro de treinamento); invocações e provocação (taunt) o ignoram.
+   */
+  invulnerable?: boolean;
   /** Ouro por abate [min, max] (0 = nenhum). */
   gold?: [number, number];
   /** Tabela de loot (ids de ITEMS). */
@@ -288,6 +295,12 @@ export const MONSTERS: Record<string, MonsterDef> = {
       { itemId: "mithril_armor", chance: 0.2 },
     ],
     sprite: strip(B + "DemonCyclop2/Walk.png", 50, 6, { scale: 1.5 }),
+  },
+  training_dummy: {
+    id: "training_dummy", name: "Boneco de Treino", level: 1, hp: 1_000_000, xp: 0, damage: [0, 0], damageKind: "physical", armor: 0,
+    attackMs: 2000, attackRange: 1, stepMs: 900, aggroRange: 0, fleeAtHpPct: 0, respawnMs: 5_000,
+    stationary: true, invulnerable: true,
+    sprite: grid4(M + "BambooYellow/SpriteSheet.png"),
   },
   swamp_lich: {
     id: "swamp_lich", name: "Lich do Pântano", level: 25, hp: 3500, xp: 2500, damage: [30, 70], damageKind: "death", armor: 8,

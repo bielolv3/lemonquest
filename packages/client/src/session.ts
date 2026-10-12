@@ -1,5 +1,5 @@
 import type { Room } from "@colyseus/sdk";
-import { JoinOptions, LoginRequest, LoginResponse } from "@lemonquest/shared";
+import { CLOSE_TRAINING, JoinOptions, LoginRequest, LoginResponse } from "@lemonquest/shared";
 import { client, endpoint } from "./net.ts";
 
 /**
@@ -25,7 +25,8 @@ export function closeMessage(code: number, reason?: string): string {
     return "Sua conta entrou em outro lugar.";
   }
   if (code === 4001 && !/reconnect/.test(r)) return "O servidor foi reiniciado ou desligado.";
-  if (code === 4101 || /kick|expuls/.test(r)) return "Você foi expulso do servidor.";
+  if (code === CLOSE_TRAINING) return "Seu personagem está treinando offline.";
+  if (/kick|expuls/.test(r)) return "Você foi expulso do servidor.";
   if (code === 4003 || /reconnect/.test(r) || code === 1006 || code === 1001) {
     return "Não foi possível reconectar ao servidor. Ele pode ter sido reiniciado ou a rede caiu.";
   }

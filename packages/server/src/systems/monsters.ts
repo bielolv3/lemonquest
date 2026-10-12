@@ -279,10 +279,14 @@ export class MonsterManager {
   }
 
   /** Tile livre aleatório no raio do spawn; `awayFromPlayers` exige nenhum jogador a RESPAWN_PLAYER_DIST. */
-  findSpawnTile(sp: SpawnPoint, awayFromPlayers: boolean): Point | null {
+  findSpawnTile(sp: SpawnPoint, awayFromPlayers: boolean, def?: MonsterDef): Point | null {
     const r = sp.radius;
+    // Bonecos de treino nascem dentro da PZ do centro de treinamento (os demais monstros nunca).
+    const blocked = (x: number, y: number) => def?.stationary
+      ? (this.mask[y * this.W + x] & MASK_PORTAL) !== 0 || this.isMonsterAt(x, y) || this.playerAt(x, y) !== undefined
+      : this.blockedForMonster(x, y);
     const ok = (x: number, y: number) =>
-      this.grid.isWalkable(x, y) && !this.blockedForMonster(x, y) &&
+      this.grid.isWalkable(x, y) && this.inBounds(x, y) && !blocked(x, y) &&
       (!awayFromPlayers || this.nearestPlayerDist(x, y) > RESPAWN_PLAYER_DIST);
     for (let i = 0; i < 40; i++) {
       const x = sp.x + Math.floor(this.rng() * (2 * r + 1)) - r;
@@ -295,7 +299,7 @@ export class MonsterManager {
   }
 
   private spawnOne(sp: SpawnPoint, def: MonsterDef, now: number): Monster | null {
-    const t = this.findSpawnTile(sp, true);
+    const t = this.findSpawnTile(sp, true, def);
     if (!t) return null;
     const s = new MonsterState();
     s.id = `m${this.nextId++}`;
@@ -408,6 +412,7 @@ export class MonsterManager {
    * `creditId` = quem recebe o crédito de XP (o dono, no caso de invocação; "" = ninguém).
    */
   onDamaged(m: Monster, attackerId: string, amount: number, now: number, creditId = attackerId): void {
+    if (m.def.stationary) return; // boneco de treino: não revida, não dá crédito
     if (amount > 0 && creditId) m.damageBy.set(creditId, (m.damageBy.get(creditId) ?? 0) + amount);
     m.lastAttackerId = attackerId;
     m.sleeping = false;

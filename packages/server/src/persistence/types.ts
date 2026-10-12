@@ -19,6 +19,8 @@ export interface CharacterData {
   gold?: number;
   /** Estado "alimentado" (comida): tempo restante (o tempo não passa offline) e regen por tique. */
   fed?: { remainingMs: number; hpPerTick: number; manaPerTick: number };
+  /** Treino offline em andamento (personagem deslogado numa estátua; ao entrar recebe o progresso). */
+  offlineTraining?: { skill: "melee" | "distance" | "magic" | "shield"; sinceMs: number; statueId?: string };
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
   /** Coliseu: recorde pessoal de ondas vencidas. */
   arenaBest?: number;

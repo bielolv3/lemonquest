@@ -42,6 +42,7 @@ export const isValidDir = (d: unknown): d is Dir => Number.isInteger(d) && (d as
 
 import type { FightStance, Vocation } from "./types.ts";
 import type { Rarity } from "./data/items.ts";
+import type { SkillId } from "./skills.ts";
 
 /** XP total necessária para ATINGIR o level (level 1 = 0). Curva rápida no início, como no plano. */
 export function xpForLevel(level: number): number {
@@ -252,4 +253,41 @@ export const RARITY_PRICE_MULT: Record<Rarity, number> = { common: 1, uncommon: 
 export function npcBuyPrice(value: number, rarity: Rarity = "common"): number {
   if (!(value > 0)) return 0;
   return Math.max(1, Math.floor(NPC_BUY_RATIO * value * (RARITY_PRICE_MULT[rarity] ?? 1)));
+}
+
+// ---------------------------------------------------------------------------
+// Treino offline (estátuas do centro de treinamento)
+// ---------------------------------------------------------------------------
+
+/** Máximo de minutos offline que contam (12 h). */
+export const OFFLINE_TRAINING_MAX_MIN = 720;
+/** Abaixo disto (minutos) o treino não rende nada. */
+export const OFFLINE_TRAINING_MIN_MIN = 1;
+/** Rendimento do treino offline em relação ao treino online contínuo num boneco (estilo Tibia: 50%). */
+export const OFFLINE_TRAINING_FACTOR = 0.5;
+
+/**
+ * "Tentativas" de skill ganhas por `minutes` de treino offline (inteiro, arredondado para baixo).
+ * Online num boneco: melee/distance/shield = 1 tentativa por ataque (PLAYER_ATTACK_MS) → 30/min; magic = mana gasta,
+ * limitada pela regeneração de mana → manaRegenAmount(maxMana, level, fora de combate) por REGEN_INTERVAL_MS.
+ * Offline = 50% disso. Os minutos são limitados a [0, 12 h]; menos de 1 min = 0.
+ */
+export function offlineTrainingTries(skill: SkillId, minutes: number, vocation: Vocation, level: number): number {
+  if (!Number.isFinite(minutes) || minutes < OFFLINE_TRAINING_MIN_MIN) return 0;
+  const m = Math.min(OFFLINE_TRAINING_MAX_MIN, minutes);
+  let perMin: number;
+  if (skill === "magic") {
+    const lv = Math.max(1, Math.floor(level));
+    const regen = manaRegenAmount(baseStats(vocation, lv).maxMana, lv, false, false);
+    perMin = (regen * 60_000) / REGEN_INTERVAL_MS;
+  } else {
+    perMin = 60_000 / PLAYER_ATTACK_MS;
+  }
+  return Math.floor(m * perMin * OFFLINE_TRAINING_FACTOR);
+}
+
+/** Minutos de treino offline entre `sinceMs` e `nowMs`, limitados a [0, 12 h] (fração preservada). */
+export function offlineTrainingMinutes(sinceMs: number, nowMs: number): number {
+  if (!Number.isFinite(sinceMs) || !Number.isFinite(nowMs)) return 0;
+  return Math.max(0, Math.min(OFFLINE_TRAINING_MAX_MIN, (nowMs - sinceMs) / 60_000));
 }

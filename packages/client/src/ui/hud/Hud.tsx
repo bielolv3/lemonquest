@@ -19,6 +19,7 @@ import { QuickPotions } from "../items/QuickPotions.tsx";
 import { NpcWindow } from "../npc/NpcWindow.tsx";
 import { ArenaWindow } from "../arena/ArenaWindow.tsx";
 import { ArenaHud } from "../arena/ArenaHud.tsx";
+import { TrainingWindow } from "../training/TrainingWindow.tsx";
 import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
 import "./world.ts";
 import "./hud.css";
@@ -37,6 +38,7 @@ export function Hud() {
       <NpcWindow />
       <ArenaWindow />
       <ArenaHud />
+      <TrainingWindow />
       <LootToasts />
       <SkillsWindow />
       <Sidebar />
