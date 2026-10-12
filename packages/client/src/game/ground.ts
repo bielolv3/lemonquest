@@ -58,6 +58,9 @@ export class GroundItems {
 
   get(id: string): GroundItemView | undefined { return this.items.get(id); }
 
+  /** Todos os itens conhecidos (cópias). */
+  all(): GroundItemView[] { return [...this.items.values()].map((v) => ({ ...v })); }
+
   /** Id do item do topo no tile (ou null). */
   topAt(x: number, y: number): string | null {
     const ids = this.tiles.get(tileKey(x, y));

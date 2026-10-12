@@ -34,6 +34,8 @@ import { showDeath, showLevelBanner } from "../ui/combat/combatUi.ts";
 import { setConditions } from "../ui/hud/conditions.ts";
 import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
 import { pushToast } from "../ui/toasts.ts";
+import { playersStore, selectMe } from "../ui/hud/world.ts";
+import { inventoryStore } from "../ui/items/inventory.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -50,6 +52,8 @@ const SPLASHY = new Set(["mud", "swamp"]);
 
 /** Criaturas mais longe que isto (tiles) do jogador ficam escondidas (não destruídas). */
 const CULL_TILES = 25;
+/** Testes E2E (Playwright): expõe window.__lq (ver installE2EProbe). */
+const E2E_PROBE = typeof location !== "undefined" && new URLSearchParams(location.search).has("e2e");
 const PROJECTILE_MS = 180;
 const BATTLE_PUBLISH_MS = 200;
 
@@ -200,6 +204,7 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
 
     if (FXTEST) startFxTest(this, this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+    if (E2E_PROBE) this.installE2EProbe();
 
     // Mapa montado: avisa a tela de carregamento depois do 1º frame realmente desenhado.
     loading.report("create", 1, "Preparando o mundo…");
@@ -655,6 +660,45 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (!me.isMoving && chebyshev(me.tileX, me.tileY, t.x, t.y) <= NPC_RANGE) { this.pendingNpc = null; openNpc(p.id); }
+  }
+
+  /**
+   * Sonda dos testes E2E (só com ?e2e na URL): leitura do estado já sincronizado e conversão tile → pixel da página,
+   * para o Playwright clicar/arrastar no mundo como um jogador. Não envia nada ao servidor.
+   */
+  private installE2EProbe() {
+    const canvasRect = () => this.game.canvas.getBoundingClientRect();
+    let lastScroll = "", stableFrames = 0;
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, () => {
+      const c = this.cameras.main, sig = `${c.scrollX.toFixed(2)},${c.scrollY.toFixed(2)}`;
+      stableFrames = sig === lastScroll ? stableFrames + 1 : 0;
+      lastScroll = sig;
+    });
+    (window as unknown as Record<string, unknown>).__lq = {
+      myId: () => this.myId,
+      me: () => {
+        const a = this.actors.get(this.myId), k = this.known.get(this.myId);
+        return a && k ? { x: k.x, y: k.y, tileX: a.tileX, tileY: a.tileY, moving: a.isMoving } : null;
+      },
+      /** Câmera parada há alguns frames e jogador parado: coordenadas de tela confiáveis. */
+      /** Snapshot completo do jogador local (level, hp, outfit, skills…). */
+      meState: () => selectMe(playersStore.get()),
+      inventory: () => inventoryStore.get(),
+      settled: () => stableFrames >= 3 && !this.actors.get(this.myId)?.isMoving,
+      players: () => [...this.known].map(([id, k]) => ({ id, x: k.x, y: k.y })),
+      monsters: () => [...this.creatureKnown].filter(([id]) => !this.dying.has(id))
+        .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),
+      ground: () => this.ground?.all() ?? [],
+      target: () => this.curTarget,
+      walkable: (x: number, y: number) => this.world.grid.isWalkable(x, y),
+      statues: () => this.statues.list.map((s) => ({ id: s.id, x: s.x, y: s.y })),
+      npcTile: (id: string) => this.npcs.tileOf(id),
+      /** Centro do tile (x,y) em coordenadas de página (px CSS). */
+      tileToClient: (x: number, y: number, fy = 0.5) => {
+        const r = canvasRect();
+        return { x: r.left + this.pcam.toScreenX((x + 0.5) * TILE_SIZE), y: r.top + this.pcam.toScreenY((y + fy) * TILE_SIZE) };
+      },
+    };
   }
 
   private pointerTile(ptr: Phaser.Input.Pointer): { x: number; y: number } | null {

@@ -19,3 +19,7 @@ logs/
 
 # Dados do container Docker (banco e backups)
 docker-data/
+
+# Playwright (E2E)
+e2e-report/
+e2e-results/

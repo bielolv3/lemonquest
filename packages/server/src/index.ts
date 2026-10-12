@@ -10,9 +10,13 @@ import { authRouter } from "./persistence/auth.ts";
 import { checkpoint, closeDb, initDb } from "./persistence/db.ts";
 import { backupDir, startBackups } from "./persistence/backup.ts";
 import { devAdmins, devCommandsEnabled } from "./systems/devcommands.ts";
+import { e2eMode } from "./e2e.ts";
 
 const PORT = Number(process.env.PORT ?? 2567);
 const PROD = process.env.NODE_ENV === "production";
+/** Modo E2E (Playwright): serve o cliente buildado fora de produção, para os comandos de dev funcionarem (ver e2e.ts). */
+const E2E = e2eMode();
+const SERVE_CLIENT = PROD || E2E;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const CHECKPOINT_MS = 5 * 60_000;
 
@@ -37,11 +41,12 @@ process.on("unhandledRejection", (reason) => {
 
 // --- checagens de boot -------------------------------------------------------------------------------------------
 const dist = path.join(root, "packages/client/dist");
-if (PROD && !fs.existsSync(path.join(dist, "index.html"))) {
+if (SERVE_CLIENT && !fs.existsSync(path.join(dist, "index.html"))) {
   console.error(`[lemonquest] cliente não encontrado em ${dist}. Rode \`npm run build\` primeiro.`);
   process.exit(1);
 }
 initDb();
+if (E2E) console.warn("[lemonquest] MODO E2E (LEMONQUEST_E2E=1): cliente buildado servido e limites de criação de conta desligados.");
 if (devCommandsEnabled()) {
   const admins = [...devAdmins()];
   console.warn("!".repeat(72));
@@ -66,8 +71,8 @@ app.use(express.json({ limit: "16kb" }));
 app.use("/api", authRouter);
 app.get("/health", (_req, res) => { res.json({ ok: true }); });
 
-// Em produção o próprio servidor entrega o cliente buildado (uma porta só no escritório).
-if (PROD) {
+// Em produção (e no modo E2E) o próprio servidor entrega o cliente buildado (uma porta só no escritório).
+if (SERVE_CLIENT) {
   // O mapa vem de assets/maps (o MESMO arquivo que o servidor carrega) — cliente e servidor nunca dessincronizam.
   app.use("/maps", express.static(path.join(root, "assets/maps"), { fallthrough: false }));
   app.use(express.static(dist));

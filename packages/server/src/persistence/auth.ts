@@ -12,6 +12,7 @@ import {
 import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 import type { CharacterRecord } from "./types.ts";
 import { loadOutfit } from "../systems/outfit.ts";
+import { e2eMode } from "../e2e.ts";
 
 /** Validade do token de entrada no mundo (uso único, emitido pelo /api/play). */
 export const TOKEN_TTL_MS = 60_000;
@@ -191,7 +192,7 @@ export async function handleLogin(req: LoginRequest, ctx: LoginContext = {}): Pr
     if (req.password.length < MIN_PASSWORD_LEN) {
       return fail("weak_password", `A senha precisa ter pelo menos ${MIN_PASSWORD_LEN} caracteres.`);
     }
-    const cw = creations.waitFor(ip, now());
+    const cw = e2eMode() ? 0 : creations.waitFor(ip, now());
     if (cw > 0) return limited(cw);
     creations.record(ip, now());
     const salt = crypto.randomBytes(16).toString("hex");
@@ -242,7 +243,7 @@ export function handleCreateCharacter(req: CreateCharacterRequest, ctx: LoginCon
   if (countCharacters(s.accountId) >= MAX_CHARACTERS_PER_ACCOUNT) return fail("too_many_characters");
   // Toda tentativa conta (inclusive nome inválido/ocupado): freia spam e varredura de nomes.
   const ck = String(s.accountId);
-  const cw = charCreations.waitFor(ck, now);
+  const cw = e2eMode() ? 0 : charCreations.waitFor(ck, now);
   if (cw > 0) return limited(cw);
   charCreations.record(ck, now);
   const name = normalizeName(req.name);
