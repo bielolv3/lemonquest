@@ -33,7 +33,8 @@ export function phaseRemaining(st: { s: ArenaState; offset: number } | null): nu
 
 let nonce = 0;
 export function handleArenaState(m: ArenaStateMsg): void {
-  if (!m.state) { arenaStateStore.set(null); return; }
+  // Fora da partida: some também a faixa "Onda N!" (senão ela cruzava com o banner da zona ao sair da arena).
+  if (!m.state) { arenaStateStore.set(null); arenaBannerStore.set(null); return; }
   const prev = arenaStateStore.get()?.s;
   const offset = m.state.serverNow !== undefined ? m.state.serverNow - Date.now() : 0;
   arenaStateStore.set({ s: m.state, offset });
@@ -47,5 +48,5 @@ export function handleArenaState(m: ArenaStateMsg): void {
 session.onRoom((room) => {
   room.onMessage(S2C.ArenaLobbies, (m: ArenaLobbiesMsg) => arenaLobbiesStore.set(m));
   room.onMessage(S2C.ArenaState, (m: ArenaStateMsg) => handleArenaState(m));
-  room.onMessage(S2C.ArenaResult, (m: ArenaResultMsg) => { arenaResultStore.set(m); arenaWindowOpen.set(false); });
+  room.onMessage(S2C.ArenaResult, (m: ArenaResultMsg) => { arenaResultStore.set(m); arenaBannerStore.set(null); arenaWindowOpen.set(false); });
 });

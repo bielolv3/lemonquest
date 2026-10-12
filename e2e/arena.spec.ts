@@ -1,7 +1,7 @@
 // Coliseu: janela do Mestre (lobbies), partida solo (ondas, pausa com vendedor, Pronto, desistir → resultado) e grupo
 // com dois navegadores.
 import { expect, test, type Page } from "@playwright/test";
-import { clickTile, enterGame, me, meState, monsters, setLevel, snap, targetNearest, teleport, walkableNear } from "./helpers.ts";
+import { clickTile, enterGame, me, meState, monsters, setLevel, snap, targetNearest, teleport, tileToClient, walkableNear } from "./helpers.ts";
 
 const MASTER = { x: 87, y: 108 };
 
@@ -52,6 +52,11 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
   // Pausa: botão Pronto, ganho acumulado e o vendedor do coliseu abre a loja.
   await expect(bar(page)).toContainText("Vendedor do Coliseu aberto");
   await snap(page, "arena-pause");
+  // O aviso da onda vencida aparece ABAIXO da barra (antes ficava escondido atrás dela).
+  const toast = page.locator(".toast", { hasText: "vencida" });
+  await expect(toast).toBeVisible();
+  const tb = (await toast.boundingBox())!, bb = (await bar(page).boundingBox())!;
+  expect(tb.y).toBeGreaterThanOrEqual(bb.y + bb.height);
   const pos = (await me(page))!;
   const shop = await page.evaluate(([x, y]) => {
     const lq = (window as any).__lq;
@@ -67,7 +72,15 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
   const npcWin = page.locator(".npc-window");
   await expect.poll(async () => {
     if (await npcWin.isVisible()) return true;
-    await clickTile(page, shop!.x, shop!.y, { fy: 0.3 });
+    const c = await tileToClient(page, shop!.x, shop!.y, 0.3);
+    if (c.y > 140 && c.y < 820 && c.x > 360 && c.x < 1150) { // fora da barra do coliseu, do chat e do painel
+      await clickTile(page, shop!.x, shop!.y, { fy: 0.3 }); // na tela: clique no NPC (anda até ele se longe)
+    } else {
+      // Fora da tela: anda na direção dele primeiro.
+      const m = (await me(page))!;
+      const step = (await walkableNear(page, m.x + Math.sign(shop!.x - m.x) * 4, m.y + Math.sign(shop!.y - m.y) * 4, 2))[0];
+      if (step) await clickTile(page, step.x, step.y);
+    }
     await page.waitForTimeout(600);
     return npcWin.isVisible();
   }, { timeout: 20_000, intervals: [800] }).toBe(true);
@@ -89,6 +102,12 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
   await expect(card).toContainText("Você saiu do Coliseu");
   await expect(card).toContainText("1 onda vencida");
   await snap(page, "arena-result");
+  // Centralizado na tela (a animação de entrada não pode deslocar o cartão) e sem a faixa "Onda N!" por cima.
+  await expect(page.locator(".arena-banner")).toHaveCount(0);
+  await page.waitForTimeout(300);
+  const cb = (await card.boundingBox())!;
+  expect(Math.abs(cb.x + cb.width / 2 - 720)).toBeLessThan(3);
+  expect(Math.abs(cb.y + cb.height / 2 - 450)).toBeLessThan(3);
   await card.getByRole("button", { name: "Fechar" }).click();
   await expect(card).toBeHidden();
   await expect(bar(page)).toHaveCount(0);

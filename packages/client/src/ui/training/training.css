@@ -17,6 +17,6 @@
 .train-result {
   position: fixed; left: 50%; top: 84px; transform: translateX(-50%); z-index: 30; width: min(380px, 92vw);
   display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.4; text-align: center;
-  background: rgba(17, 20, 28, 0.95); border-color: rgba(217, 164, 65, 0.6); animation: hud-pop 160ms var(--hud-ease);
+  background: rgba(17, 20, 28, 0.95); border-color: rgba(217, 164, 65, 0.6); animation: hud-pop-x 160ms var(--hud-ease);
 }
 .train-result-title { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--hud-gold); }
