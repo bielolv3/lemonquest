@@ -44,7 +44,7 @@
       "name": "Cajado arcano",
       "front": "addons/mago_cajado.png",
       "back": null,
-      "extraTop": 1
+      "extraTop": 2
     },
     "cavaleiro_pluma": {
       "outfit": "cavaleiro",

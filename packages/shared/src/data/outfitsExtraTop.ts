@@ -5,7 +5,7 @@ export const ADDON_EXTRA_TOP: Record<string, number> = {
   cacador_chapeu: 4,
   cacador_aljava: 0,
   mago_chapeu: 8,
-  mago_cajado: 1,
+  mago_cajado: 2,
   cavaleiro_pluma: 6,
   cavaleiro_escudo: 0,
   nobre_capa: 0,

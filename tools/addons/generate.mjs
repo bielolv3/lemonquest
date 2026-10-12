@@ -587,6 +587,143 @@ function cape(F, B, a, { mat, trim, collar }) {
   }
 }
 
+// ---------------------------------------------------------------- bases geradas (roupa com sheet própria)
+// Algumas roupas usam uma sheet do pack recolorida + detalhes PERMANENTES (não são addons), gravados
+// numa sheet 64x112 no mesmo layout do pack. Ex.: Mago = Master com túnica azul-violeta e barba longa.
+const rgbHex = (r, g, b) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+const HAIR_WHITE = "#f2eaf1";
+
+/** Barba longa do mago (desenhada sobre a base, segue as âncoras de cada frame). */
+function drawBeard(L, a) {
+  const n = a.neck, b = a.bottom, c2 = a.c2, sway = a.row % 2 === 1 ? 1 : 0;
+  // fios verticais: borda clara à esquerda, escura à direita, mechas médias a cada 3 colunas
+  const strand = (x, y, l, r) => (x === l ? 1 : x === r ? 3 : (x - l) % 3 === 2 ? 2 : 1);
+  if (a.facing === "down") {
+    const widths = [9, 9, 8, 7, 5, 3];
+    widths.forEach((w, i) => {
+      const y = n - 2 + i; if (y > b) return;
+      const [l, r] = spanC(c2, w);
+      for (let x = l; x <= r; x++) L.set(x, y, "beard", strand(x, y, l, r));
+    });
+    // ponta dupla ondulando com o passo
+    const [l, r] = spanC(c2, 3);
+    L.set(l + (sway ? 1 : 0), n + 4, "beard", 2);
+    L.set(r - (sway ? 0 : 1), n + 4, "beard", 3);
+  } else if (a.facing === "up") {
+    // de costas: só as pontas da barba aparecem dos lados do pescoço
+    const e = a.ext[n] ?? [a.bodyL, a.bodyR];
+    for (const [x, d] of [[e[0] - 1, -1], [e[1] + 1, 1]]) {
+      L.set(x, n - 1, "beard", 2); L.set(x, n, "beard", 2); L.set(x + d * 0, n + 1, "beard", 3);
+    }
+  } else {
+    const f = front(a);
+    const e = a.ext[n - 2] ?? [a.headL, a.headR];
+    const fx = f < 0 ? e[0] + 1 : e[1] - 1; // queixo (frente do rosto)
+    const widths = [6, 6, 6, 5, 4, 3];
+    widths.forEach((w, i) => {
+      const y = n - 2 + i; if (y > b) return;
+      const shift = i >= 4 ? sway : 0;
+      const lead = i >= 1 && i <= 3 ? 1 : 0; // barriga da barba sai um pouco à frente do rosto
+      const x0 = fx + f * (lead - shift), x1 = fx - f * (w - 1 - lead + shift);
+      const l = Math.min(x0, x1), r = Math.max(x0, x1);
+      for (let x = l; x <= r; x++) L.set(x, y, "beard", strand(x, y, l, r));
+    });
+  }
+}
+
+const BASES = {
+  mago: {
+    src: "ninja/Actor/Character/Master",
+    // vermelho da túnica → azul-violeta do mago do Tibia (o vermelho-escuro do rosto fica)
+    recolor: { "#e0394c": "#7b86dc", "#8f3e56": "#3b3f80" },
+    // abaixo do pescoço: túnica longa (mangas e barra cobrem mãos/pernas)
+    recolorBody: { "#d14b34": "#5560b8", "#ef914f": "#5560b8", "#f2eaf1": "#7b86dc" },
+    belt: ["#f1c471", "#d78b4a"],
+    faceRecolorFromY: 26,
+    faceBody: { "#d14b34": "#5560b8" },
+    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#d78b4a" },
+    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#cf736d" },
+    // barba longa no retrato (abaixo do bigode do Master)
+    faceDraw(px, w, h) {
+      const set = (x, y, c) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; const v = hex(c); px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255; };
+      const B = MATS.beard.c;
+      for (let y = 25; y < h; y++) {
+        const k = Math.floor((y - 25) / 3);
+        const l = 8 + k, r = 19 - k;
+        if (r - l < 2) break;
+        set(l - 1, y, "#141b1b"); set(r + 1, y, "#141b1b");
+        for (let x = l; x <= r; x++) set(x, y, x === l ? B[0] : x === r ? B[2] : (x - l) % 3 === 2 ? B[1] : B[0]);
+      }
+    },
+    draw: drawBeard,
+  },
+};
+MATS.beard = { c: ["#f2eaf1", "#d6d8dc", "#9ba7aa"] };
+MAT_NAMES.push("beard"); MAT_ID.beard = MAT_NAMES.length; MAT_RGB.push(MATS.beard.c.map(hex));
+
+/** Algum vizinho (8 direções) da imagem ORIGINAL tem uma destas cores? */
+function whiteNear(png, x, y, colors) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const X = x + dx, Y = y + dy;
+    if (X < 0 || Y < 0 || X >= png.width || Y >= png.height) continue;
+    const i = (Y * png.width + X) * 4;
+    if (png.data[i + 3] >= 128 && colors.includes(rgbHex(png.data[i], png.data[i + 1], png.data[i + 2]))) return true;
+  }
+  return false;
+}
+
+function generateBases() {
+  for (const o of OUTFIT_LIST) {
+    const spec = BASES[o.id];
+    if (!spec) continue;
+    const src = readSheet(join(root, "assets", spec.src, "SpriteSheet.png"));
+    const out = new Uint8Array(src.data);
+    for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) {
+      const a = { ...computeAnchors(src, col, row), facing: FACINGS[col], row };
+      const px = (x, y) => ((row * 16 + y) * src.width + col * 16 + x) * 4;
+      // 1) recolor
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const i = px(x, y); if (out[i + 3] < 128) continue;
+        const h = rgbHex(out[i], out[i + 1], out[i + 2]);
+        let to = spec.recolor[h] ?? (y > a.neck || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
+        // faixa dourada na cintura (só sobre a túnica)
+        if (spec.belt && y === a.bottom - 2 && (to || Object.values(spec.recolor).includes(h))) to = spec.belt[(x + row) % 3 === 0 ? 1 : 0];
+        // rosto: riscos vermelhos → sobrancelhas grisalhas (encostadas no cabelo branco) ou sombra de pele
+        if (!to && spec.faceFix && y < a.neck && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
+        if (to) { const c = hex(to); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
+      }
+      // 2) detalhes permanentes (contorno não risca o cabelo/barba brancos da base)
+      const L = new Layer();
+      spec.draw(L, a);
+      const rgba = renderLayer(L);
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const si = ((y + OY) * FW + x + OX) * 4; if (!rgba[si + 3]) continue;
+        const i = px(x, y);
+        const isOutline = rgba[si] === OUTLINE[0] && rgba[si + 1] === OUTLINE[1] && rgba[si + 2] === OUTLINE[2];
+        if (isOutline && out[i + 3] >= 128 && rgbHex(out[i], out[i + 1], out[i + 2]) === HAIR_WHITE) continue;
+        out[i] = rgba[si]; out[i + 1] = rgba[si + 1]; out[i + 2] = rgba[si + 2]; out[i + 3] = 255;
+      }
+    }
+    writePng(join(root, "assets", o.sheet), src.width, src.height, out);
+    // retrato: mesmo recolor (túnica), a partir de faceRecolorFromY
+    if (o.faceset) {
+      const face = readSheet(join(root, "assets", spec.src, "Faceset.png"));
+      const fo = new Uint8Array(face.data);
+      for (let y = 0; y < face.height; y++) for (let x = 0; x < face.width; x++) {
+        const i = (y * face.width + x) * 4; if (fo[i + 3] < 128) continue;
+        const h = rgbHex(fo[i], fo[i + 1], fo[i + 2]);
+        let to = y >= spec.faceRecolorFromY ? spec.recolor[h] ?? spec.faceBody[h] : undefined;
+        const ff = spec.faceFixPortrait;
+        if (!to && ff && h === ff.red) to = whiteNear(face, x, y, ff.whites) ? ff.brow : ff.skin;
+        if (to) { const c = hex(to); fo[i] = c[0]; fo[i + 1] = c[1]; fo[i + 2] = c[2]; }
+      }
+      spec.faceDraw?.(fo, face.width, face.height);
+      writePng(join(root, "assets", o.faceset), face.width, face.height, fo);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- geração
 function frameAnchors(base, col, row) {
   const a = computeAnchors(base, col, row);
@@ -612,6 +749,7 @@ export function generateAll() {
   const extraTop = {};
   const results = [];
   const mismatches = [];
+  generateBases();
   for (const o of OUTFIT_LIST) {
     const base = readSheet(join(root, "assets", o.sheet));
     const outfitRes = { outfit: o, base, addons: [] };
@@ -648,10 +786,36 @@ export function generateAll() {
   writeFileSync(join(root, "packages/shared/src/data/outfitsExtraTop.ts"), ts);
   writePreview(results, false);
   writePreview(results, true);
+  writeOutfitPreview(results.find((r) => r.outfit.id === "mago"), "preview_mago.png");
   return results;
 }
 
 // ---------------------------------------------------------------- preview
+/** Uma roupa em 6x: linha 1 = base/+a1/+a2/+ambos parados nos 4 lados; linha 2 = caminhada completa com os 2 addons. */
+function writeOutfitPreview(r, file) {
+  if (!r) return;
+  const S = 6, CW = 28, CH = 30, cx0 = OX - 6, cy0 = OY - 12, GAP = 2;
+  const W = (16 * CW + 3 * GAP) * S, H = 2 * CH * S;
+  const out = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, k = ((x / (S * 8) | 0) + (y / (S * 8) | 0)) % 2;
+    out[i] = k ? 92 : 84; out[i + 1] = k ? 138 : 128; out[i + 2] = k ? 84 : 78; out[i + 3] = 255;
+  }
+  const put = (X, Y, c) => { for (let a = 0; a < S; a++) for (let b = 0; b < S; b++) { const i = ((Y * S + a) * W + X * S + b) * 4; out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; } };
+  const blit = (src, sw, sx, sy, w, h, dx, dy) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((sy + y) * sw + sx + x) * 4; if (src[i + 3] >= 128) put(dx + x, dy + y, [src[i], src[i + 1], src[i + 2]]); }
+  };
+  const cell = (st, col, row, dx, dy) => {
+    const on = r.addons.filter((_, i) => st & (1 << i));
+    for (const ad of on) if (ad.back) blit(ad.back, ad.SW, col * FW + cx0, row * FH + cy0, CW, CH, dx, dy);
+    blit(r.base.data, r.base.width, col * 16, row * 16, 16, 16, dx + (OX - cx0), dy + (OY - cy0));
+    for (const ad of on) blit(ad.front, ad.SW, col * FW + cx0, row * FH + cy0, CW, CH, dx, dy);
+  };
+  for (let st = 0; st < 4; st++) for (let col = 0; col < 4; col++) cell(st, col, 0, (st * 4 + col) * CW + st * GAP, 0);
+  for (let col = 0; col < 4; col++) for (let row = 0; row < 4; row++) cell(3, col, row, (col * 4 + row) * CW + col * GAP, CH);
+  writePng(join(OUT_DIR, file), W, H, out);
+}
+
 function writePreview(results, walk) {
   const S = 4, CW = 28, CH = 30;   // célula (px de base) — corta a folga do overlay
   const cx0 = OX - 6, cy0 = OY - 12;

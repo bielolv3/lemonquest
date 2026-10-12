@@ -44,11 +44,20 @@ describe("OUTFITS", () => {
     }
   });
 
-  it("toda vocação tem roupa padrão existente (as de antes: Knight/Hunter/SorcererBlack/Shaman)", () => {
+  it("retratos existem (Faceset do pack ou gerado) com 38x38", () => {
+    for (const o of OUTFIT_LIST) {
+      const face = o.faceset ?? o.sheet.replace(/SpriteSheet\.png$/, "Faceset.png");
+      expect(existsSync(asset(face)), face).toBe(true);
+      const png = readSheet(asset(face));
+      expect([png.width, png.height], face).toEqual([38, 38]);
+    }
+  });
+
+  it("toda vocação tem roupa padrão existente (Mago = sheet gerada com barba longa)", () => {
     for (const v of VOCATIONS) expect(OUTFITS[DEFAULT_OUTFIT[v]], v).toBeDefined();
     expect(OUTFITS[DEFAULT_OUTFIT.knight].sheet).toContain("/Knight/");
     expect(OUTFITS[DEFAULT_OUTFIT.paladin].sheet).toContain("/Hunter/");
-    expect(OUTFITS[DEFAULT_OUTFIT.sorcerer].sheet).toContain("/SorcererBlack/");
+    expect(OUTFITS[DEFAULT_OUTFIT.sorcerer].sheet).toBe("addons/base_mago.png");
     expect(OUTFITS[DEFAULT_OUTFIT.druid].sheet).toContain("/Shaman/");
     expect(resolveOutfit(undefined, "druid").id).toBe(DEFAULT_OUTFIT.druid);
     expect(resolveOutfit("pirata", "druid").id).toBe("pirata");

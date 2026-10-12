@@ -95,7 +95,7 @@ export function lookFor(vocation: string): CharacterLook {
 
 /** Retrato (Faceset 38x38 do pack) da roupa. */
 export function outfitFaceset(o: OutfitDef): string {
-  return o.sheet.replace(/SpriteSheet\.png$/, "Faceset.png");
+  return o.faceset ?? o.sheet.replace(/SpriteSheet\.png$/, "Faceset.png");
 }
 
 /** Nome da animação de caminhada de um sheet para um lado. */
