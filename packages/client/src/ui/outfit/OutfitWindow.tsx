@@ -1,9 +1,12 @@
 // Janela de roupas estilo Tibia: prévia animada grande, grade de roupas, 2 addons, OK/Cancelar.
 import { useEffect, useState } from "preact/hooks";
-import { OUTFIT_LIST, resolveOutfit, type Facing } from "@lemonquest/shared";
+import { OUTFIT_LIST, resolveOutfit, unlockRequirement, type Facing } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
 import { playersStore, selectMe } from "../hud/world.ts";
 import { OutfitCanvas } from "./OutfitCanvas.tsx";
+import { PixelIcon } from "../hud/icons.tsx";
+import { achievementsStore, outfitUnlockedFor } from "../achievements/achievements.ts";
+import "../achievements/achievements.css";
 import { closeOutfit, outfitOpen, sendOutfit } from "./outfit.ts";
 import "./outfit.css";
 
@@ -30,6 +33,15 @@ function OutfitDialog() {
   const [row, setRow] = useState(0);
   const [walk, setWalk] = useState(true);
   const outfit = resolveOutfit(sel, me?.vocation ?? "knight");
+  const ach = useStore(achievementsStore);
+  // Liberado = conquista/roupa padrão/o que já veste. Sem o estado do servidor ainda, só o que veste.
+  const voc = me?.vocation ?? "knight";
+  const open = (id: string, bit: 0 | 1 | 2) => outfitUnlockedFor(ach, voc, current.id, me?.addons ?? 0, id, bit);
+  const outfitOk = open(outfit.id, 0);
+  const addonOk = (bit: 1 | 2) => outfitOk && open(outfit.id, bit);
+  const effAddons = addons & ((addonOk(1) ? 1 : 0) | (addonOk(2) ? 2 : 0));
+  const lockedMsg = !outfitOk ? unlockRequirement(outfit.id, 0)
+    : ([1, 2] as const).filter((b) => (addons & b) && !addonOk(b)).map((b) => unlockRequirement(outfit.id, b))[0];
 
   useEffect(() => {
     const t = window.setInterval(() => setRow((r) => (r + 1) % 4), WALK_MS);
@@ -42,7 +54,7 @@ function OutfitDialog() {
   }, [auto]);
 
   const rotate = (d: number) => { setAuto(false); setFace((f) => (f + d + 4) % 4); };
-  const ok = () => { sendOutfit(outfit.id, addons); closeOutfit(); };
+  const ok = () => { if (!outfitOk) return; sendOutfit(outfit.id, effAddons); closeOutfit(); };
 
   // Esc fecha; Enter confirma; setas giram (sem roubar teclas do jogo quando fechada).
   useEffect(() => {
@@ -70,7 +82,7 @@ function OutfitDialog() {
         <div class="outfit-body">
           <div class="outfit-stage">
             <div class="outfit-preview" onClick={() => setWalk((w) => !w)} data-tip={walk ? "Parar" : "Andar"}>
-              <OutfitCanvas outfit={outfit} addons={addons} facing={facing} row={walk ? row : 0} scale={6} />
+              <OutfitCanvas outfit={outfit} addons={effAddons} facing={facing} row={walk ? row : 0} scale={6} />
             </div>
             <div class="outfit-rotate">
               <button class="outfit-arrow" onClick={() => rotate(-1)} aria-label="Girar para a esquerda" data-tip="Girar" data-tip-sub="Seta ←"><span class="outfit-tri left" aria-hidden="true" /></button>
@@ -81,39 +93,51 @@ function OutfitDialog() {
             <div class="outfit-addons">
               {outfit.addons.map((a, i) => {
                 const bit = 1 << i;
+                const okA = addonOk((bit as 1 | 2));
                 return (
-                  <label key={a.id} class={`outfit-addon${addons & bit ? " on" : ""}`}>
-                    <input type="checkbox" checked={(addons & bit) !== 0} onChange={() => toggleAddon(bit)} />
+                  <label
+                    key={a.id}
+                    class={`outfit-addon${effAddons & bit ? " on" : ""}${okA ? "" : " locked"}`}
+                    data-tip={okA ? undefined : a.name}
+                    data-tip-sub={okA ? undefined : unlockRequirement(outfit.id, bit as 1 | 2)}
+                  >
+                    <input type="checkbox" checked={(effAddons & bit) !== 0} disabled={!okA} onChange={() => toggleAddon(bit)} />
                     <span class="outfit-check" aria-hidden="true" />
                     <span class="outfit-addon-name"><small>Addon {i + 1}</small>{a.name}</span>
+                    {!okA && <span class="outfit-lock" style={{ position: "static", marginLeft: "auto" }}><PixelIcon name="lock" size={14} /></span>}
                   </label>
                 );
               })}
             </div>
           </div>
           <ul class="outfit-grid" role="listbox" aria-label="Roupas disponíveis">
-            {OUTFIT_LIST.map((o) => (
+            {OUTFIT_LIST.map((o) => {
+              const locked = !open(o.id, 0);
+              return (
               <li key={o.id}>
                 <button
-                  class={`outfit-cell${o.id === outfit.id ? " sel" : ""}${o.id === current.id ? " cur" : ""}`}
+                  class={`outfit-cell${o.id === outfit.id ? " sel" : ""}${o.id === current.id ? " cur" : ""}${locked ? " locked" : ""}`}
                   role="option"
                   aria-selected={o.id === outfit.id}
                   onClick={() => { if (o.id !== sel) { setSel(o.id); setAddons(o.id === current.id ? me?.addons ?? 0 : addons); } }}
-                  onDblClick={() => { sendOutfit(o.id, addons); closeOutfit(); }}
+                  onDblClick={() => { if (!locked) { sendOutfit(o.id, o.id === outfit.id ? effAddons : 0); closeOutfit(); } }}
                   data-tip={o.name}
-                  data-tip-sub={o.id === current.id ? "Roupa atual" : "Clique para ver · duplo clique veste"}
+                  data-tip-sub={locked ? unlockRequirement(o.id, 0) : o.id === current.id ? "Roupa atual" : "Clique para ver · duplo clique veste"}
+                  data-locked={locked ? "true" : undefined}
                 >
-                  <OutfitCanvas outfit={o} addons={o.id === outfit.id ? addons : 0} scale={2} tight />
+                  <OutfitCanvas outfit={o} addons={o.id === outfit.id ? effAddons : 0} scale={2} tight />
                   <span>{o.name}</span>
+                  {locked && <span class="outfit-lock" aria-label="Bloqueada"><PixelIcon name="lock" size={12} /></span>}
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
         <div class="outfit-foot">
-          <span class="outfit-hint">Todas as roupas e addons estão liberados por enquanto.</span>
+          <span class={`outfit-hint${lockedMsg ? " outfit-req" : ""}`}>{lockedMsg ?? "Conquistas (J) desbloqueiam novas roupas e addons."}</span>
           <button class="outfit-btn" onClick={closeOutfit}>Cancelar</button>
-          <button class="outfit-btn primary" onClick={ok}>OK</button>
+          <button class="outfit-btn primary" onClick={ok} disabled={!outfitOk}>OK</button>
         </div>
       </div>
     </div>

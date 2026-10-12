@@ -168,6 +168,13 @@ export function isFreeOutfit(outfitId: string, vocation: string): boolean {
   return outfitId === "cidadao" || outfitId === defaultOutfit(vocation);
 }
 
+/** A roupa (bit 0) ou o addon (1|2) está liberado para quem tem estes desbloqueios? (mesma regra no servidor e no cliente) */
+export function isUnlockedIn(unlocks: readonly string[], vocation: string, outfitId: string, bit: 0 | 1 | 2): boolean {
+  if (!Object.hasOwn(OUTFITS, outfitId)) return false;
+  if (bit === 0) return isFreeOutfit(outfitId, vocation) || unlocks.includes(outfitUnlockId(outfitId));
+  return unlocks.includes(addonUnlockId(outfitId, bit));
+}
+
 /** Conquista que concede esta roupa/addon/título; undefined se é de graça. */
 export function achievementForUnlock(unlockId: string): AchievementDef | undefined {
   return ACHIEVEMENTS.find((x) => x.rewards?.includes(unlockId));

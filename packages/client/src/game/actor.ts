@@ -137,6 +137,13 @@ export class Actor {
     this.syncDisplay();
   }
 
+  /** Título (conquistas) numa 2ª linha logo acima da barra, abaixo do nome. "" remove. */
+  setTitle(title: string) {
+    const name = this.label.text.split("\n")[0]!;
+    const t = title ? `${name}\n${title}` : name;
+    if (this.label.text !== t) this.label.setText(t);
+  }
+
   setName(name: string, color?: string) {
     if (this.label.text !== name) this.label.setText(name);
     if (color && this.label.style.color !== color) this.label.setColor(color);

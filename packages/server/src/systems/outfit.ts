@@ -1,6 +1,5 @@
 // Roupas (outfits) e addons: validação, carga/gravação no registro e troca (C2S.SetOutfit).
-import { ADDON_BITS, OUTFITS, addonUnlockId, isFreeOutfit, outfitUnlockId, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
-import { hasUnlock } from "./achievements.ts";
+import { ADDON_BITS, OUTFITS, isUnlockedIn, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 
@@ -10,9 +9,8 @@ import type { CharacterRecord } from "../persistence/types.ts";
  * (rec.data.unlocks, ver systems/achievements.ts) ou do comando de admin /desbloquear. Sem registro = só o que existe.
  */
 export function isOutfitUnlocked(rec: CharacterRecord | undefined, outfitId: string, addonBit: 0 | 1 | 2): boolean {
-  if (!Object.hasOwn(OUTFITS, outfitId) || !rec) return false;
-  if (addonBit === 0) return isFreeOutfit(outfitId, rec.vocation) || hasUnlock(rec, outfitUnlockId(outfitId));
-  return hasUnlock(rec, addonUnlockId(outfitId, addonBit));
+  if (!rec) return false;
+  return isUnlockedIn(rec.data.unlocks ?? [], rec.vocation, outfitId, addonBit);
 }
 
 /** Máscara de addons válida (só bits 1|2). */
