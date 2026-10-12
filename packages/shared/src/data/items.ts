@@ -112,6 +112,11 @@ export function gearFrame(shape: GearShape | "ring" | "amulet", tier: GearTier):
 const gear = (shape: GearShape | "ring" | "amulet", tier: GearTier): ItemIcon =>
   ({ url: "icons/gear.png", frame: gearFrame(shape, tier), frameWidth: 16, frameHeight: 16 });
 
+/** Ícones de materiais: atlas tools/icons/materials.mjs (assets/icons/materials.png, 16x16, 8 colunas; ordem = esta lista). */
+export const MATERIAL_ICONS = ["cheese","slime_goo","herb","bee_sting","wolf_pelt","wolf_fang","snake_skin","spider_silk","spider_eye","bat_wing","bone","goblin_tooth","ectoplasm","lizard_scale","ember"] as const;
+const matIcon = (name: (typeof MATERIAL_ICONS)[number]): ItemIcon =>
+  ({ url: "icons/materials.png", frame: MATERIAL_ICONS.indexOf(name), frameWidth: 16, frameHeight: 16 });
+
 const N = "ninja/Items/";
 const img = (path: string, tint?: number): ItemIcon => (tint === undefined ? { url: N + path } : { url: N + path, tint });
 
@@ -165,23 +170,23 @@ food("sushi", "Banquete de Sushi", img("Food/Sushi.png"), 200, 20, 8, 8, 10, "Re
 // ---------------------------------------------------------------------------
 const mat = (id: string, name: string, icon: ItemIcon, value: number, description: string, maxStack = 100): void =>
   add({ id, name, kind: "material", stackable: true, maxStack, value, icon, description });
-mat("cheese", "Queijo", img("Food/FortuneCookie.png", 0xffe070), 10, "Um pedaço de queijo mordiscado. Ratos adoram.");
-mat("slime_goo", "Gosma", img("Resource/Water.png", 0x70d070), 12, "Gosma verde e viscosa.");
-mat("herb", "Erva Medicinal", img("Resource/Grass.png"), 15, "Erva usada em poções e unguentos.");
+mat("cheese", "Queijo", matIcon("cheese"), 10, "Um pedaço de queijo mordiscado. Ratos adoram.");
+mat("slime_goo", "Gosma", matIcon("slime_goo"), 12, "Gosma verde e viscosa.");
+mat("herb", "Erva Medicinal", matIcon("herb"), 15, "Erva usada em poções e unguentos.");
 mat("branch", "Galho Seco", img("Resource/Branch.png"), 5, "Um galho seco. Serve de lenha.");
-mat("bee_sting", "Ferrão de Abelha", img("Resource/feather.png", 0xffd040), 15, "Pequeno, afiado e irritante.");
-mat("wolf_pelt", "Couro de Lobo", img("Scroll/Scroll.png", 0xa07040), 40, "Pele grossa de lobo. Curtumes pagam bem.");
-mat("wolf_fang", "Presa de Lobo", img("Weapons/Bone/Sprite.png", 0xe8e0c8), 30, "Presa afiada de lobo.");
-mat("snake_skin", "Pele de Cobra", img("Scroll/Scroll.png", 0x60a060), 55, "Pele escamosa de cobra.");
-mat("spider_silk", "Seda de Aranha", img("Resource/Grass.png", 0xe8e8f4), 70, "Fios resistentes de seda.");
-mat("spider_eye", "Olho de Aranha", img("Resource/GemPurple.png"), 90, "Brilha no escuro. Ingrediente de poções.");
-mat("bat_wing", "Asa de Morcego", img("Resource/feather.png", 0x6a6aa8), 85, "Asa membranosa de morcego.");
-mat("bone", "Osso", img("Weapons/Bone/Sprite.png"), 50, "Osso antigo de um esqueleto.");
-mat("goblin_tooth", "Dente de Goblin", img("Weapons/Bone/Sprite.png", 0x90d070), 110, "Dente amarelado de goblin.");
+mat("bee_sting", "Ferrão de Abelha", matIcon("bee_sting"), 15, "Pequeno, afiado e irritante.");
+mat("wolf_pelt", "Couro de Lobo", matIcon("wolf_pelt"), 40, "Pele grossa de lobo. Curtumes pagam bem.");
+mat("wolf_fang", "Presa de Lobo", matIcon("wolf_fang"), 30, "Presa afiada de lobo.");
+mat("snake_skin", "Pele de Cobra", matIcon("snake_skin"), 55, "Pele escamosa de cobra.");
+mat("spider_silk", "Seda de Aranha", matIcon("spider_silk"), 70, "Fios resistentes de seda.");
+mat("spider_eye", "Olho de Aranha", matIcon("spider_eye"), 90, "Brilha no escuro. Ingrediente de poções.");
+mat("bat_wing", "Asa de Morcego", matIcon("bat_wing"), 85, "Asa membranosa de morcego.");
+mat("bone", "Osso", matIcon("bone"), 50, "Osso antigo de um esqueleto.");
+mat("goblin_tooth", "Dente de Goblin", matIcon("goblin_tooth"), 110, "Dente amarelado de goblin.");
 mat("iron_bar", "Barra de Ferro", img("Resource/BarIron.png"), 200, "Ferro bruto. Ferreiros compram.");
-mat("ectoplasm", "Ectoplasma", img("Resource/Water.png", 0xa0ffe0), 180, "Resíduo gelado deixado por fantasmas.");
-mat("lizard_scale", "Escama de Lagarto", img("Resource/GemGreen.png", 0xb0ff90), 250, "Escama dura e esverdeada.");
-mat("ember", "Brasa Eterna", img("Resource/GemRed.png"), 300, "Brasa que nunca se apaga.");
+mat("ectoplasm", "Ectoplasma", matIcon("ectoplasm"), 180, "Resíduo gelado deixado por fantasmas.");
+mat("lizard_scale", "Escama de Lagarto", matIcon("lizard_scale"), 250, "Escama dura e esverdeada.");
+mat("ember", "Brasa Eterna", matIcon("ember"), 300, "Brasa que nunca se apaga.");
 mat("gem_green", "Esmeralda", img("Resource/GemGreen.png"), 400, "Gema verde lapidada.", 50);
 mat("gem_yellow", "Topázio", img("Resource/GemYellow.png"), 600, "Gema amarela lapidada.", 50);
 mat("gem_purple", "Ametista", img("Resource/GemPurple.png"), 900, "Gema roxa lapidada.", 50);

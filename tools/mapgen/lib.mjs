@@ -75,7 +75,22 @@ export class Tilesets {
       this.byName[name] = ts;
       gid += tilecount;
     }
-    this.short = { F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor', C: 'TilesetCaveFloor', T: 'TilesetDesert', A: 'TilesetArenaFloor' };
+    this.short = { X: 'TilesetLemon', F: 'TilesetFloor', W: 'TilesetWater', N: 'TilesetNature', H: 'TilesetHouse', R: 'TilesetRelief', D: 'TilesetReliefDetail', O: 'TilesetHole', FD: 'TilesetFloorDetail', V: 'TilesetVillageAbandoned', G: 'TilesetDungeon', E: 'TilesetElement', I: 'TilesetInteriorFloor', C: 'TilesetCaveFloor', T: 'TilesetDesert', A: 'TilesetArenaFloor' };
+  }
+  /**
+   * Append a generated tileset (tools/mapgen/lemon.mjs). `set` = { png:{width,height,data}, columns, used (tiles), props: Map(idx -> {speed,terrain}) }.
+   * Appended LAST so every other gid stays stable. Image is written to assets/tiles/<file> by the generator.
+   */
+  addDynamic(name, file, set) {
+    const last = this.list[this.list.length - 1];
+    const firstgid = last.firstgid + last.tilecount;
+    const self = this;
+    const t = {
+      name, file, dynamic: true, set, png: set.png, firstgid, columns: set.columns,
+      get tilecount() { return set.capacity; }, get imagewidth() { return set.png.width; }, get imageheight() { return set.png.height; },
+    };
+    this.list.push(t); this.byName[name] = t;
+    return t;
   }
   gid(ts, col, row) {
     const t = this.byName[this.short[ts] ?? ts];
@@ -102,6 +117,19 @@ export class Tilesets {
   }
   json() {
     return this.list.map((t) => {
+      if (t.dynamic) {
+        const rows = Math.ceil(t.set.used / t.columns);
+        const ts = {
+          firstgid: t.firstgid, name: t.name, image: '../tiles/' + t.file,
+          imagewidth: t.png.width, imageheight: rows * 16, tilewidth: 16, tileheight: 16,
+          columns: t.columns, tilecount: rows * t.columns, margin: 0, spacing: 0,
+        };
+        const tiles = [...t.set.props.entries()].sort((a, b) => a[0] - b[0]).map(([id, { speed, terrain }]) => ({
+          id, properties: [{ name: 'speed', type: 'int', value: speed }, ...(terrain ? [{ name: 'terrain', type: 'string', value: terrain }] : [])],
+        }));
+        if (tiles.length) ts.tiles = tiles;
+        return ts;
+      }
       const ts = {
         firstgid: t.firstgid, name: t.name, image: '../ninja/Backgrounds/Tilesets/' + t.file,
         imagewidth: t.imagewidth, imageheight: t.imageheight, tilewidth: 16, tileheight: 16,

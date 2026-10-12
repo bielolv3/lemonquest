@@ -9,6 +9,9 @@
  *   - Coliseu: "arena" (RETÂNGULO; props `arenaId` 1..ARENA_COUNT) = área de luta da instância;
  *     "arena_entry" (ponto; prop `arenaId`) = onde o grupo nasce; "arena_spawn" (ponto; prop `arenaId`) = pontos
  *     de spawn de monstros (vários por arena); "arena_exit" (ponto) = para onde volta quem sai (na vila, perto do NPC).
+ *   - "light" (ponto, tile = x/16,y/16; gerado pelo mapgen em postes, tochas, braseiros, cristais/cogumelos brilhantes, velas da cripta,
+ *     rachaduras de lava das ruínas e janelas da vila): props { radius: int (tiles), color: string "#rrggbb", flicker: bool }.
+ *     Lido por client/game/lightSources.ts (dia/noite). Os postes de lampião (tile Element 6,4) também viram luz sem objeto.
  *     NPCs: "arena_master" na vila (lobbies) e "arena_shop_<n>" dentro de cada arena (loja das pausas).
  */
 /** Quantidade de arenas (instâncias paralelas do coliseu). */

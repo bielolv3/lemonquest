@@ -1,0 +1,23 @@
+{
+ "frameWidth": 16,
+ "frameHeight": 16,
+ "columns": 8,
+ "count": 15,
+ "frames": {
+  "cheese": 0,
+  "slime_goo": 1,
+  "herb": 2,
+  "bee_sting": 3,
+  "wolf_pelt": 4,
+  "wolf_fang": 5,
+  "snake_skin": 6,
+  "spider_silk": 7,
+  "spider_eye": 8,
+  "bat_wing": 9,
+  "bone": 10,
+  "goblin_tooth": 11,
+  "ectoplasm": 12,
+  "lizard_scale": 13,
+  "ember": 14
+ }
+}

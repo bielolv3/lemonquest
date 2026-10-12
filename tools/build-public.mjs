@@ -32,6 +32,7 @@ export function buildPublic() {
 
   copy("ninja", (src) => !NINJA_SKIP.some((re) => re.test(src)));
   copy("icons", (src) => !/preview/i.test(basename(src)));
+  copy("tiles", (src) => !/preview/i.test(basename(src))); // tileset gerado pelo mapgen (lemon-terrain.png)
   copy("addons", (src) => !/preview/i.test(basename(src)));
   copy("favicon", (src) => !/preview/i.test(basename(src))); // favicons + manifest.webmanifest
   // Só o mapa; os previews .png ficam de fora.
