@@ -8,7 +8,8 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 3,
+  // CI (2 vCPUs, sem GPU): com 2 workers os testes de 2 navegadores ficam sem CPU e o personagem não "assenta".
+  workers: process.env.CI ? 1 : 3,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   outputDir: "test-results",
