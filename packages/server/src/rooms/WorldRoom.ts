@@ -1,6 +1,6 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
-  C2S, S2C, TICK_MS, baseStats,
+  C2S, CLOSE_REPLACED, S2C, TICK_MS, baseStats,
   type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type QuickPotionMsg, type TurnMsg,
   type UseItemMsg, type WalkToMsg,
@@ -34,8 +34,7 @@ import { isValidStart, reachableFrom } from "../world/tiles.ts";
 export const AUTOSAVE_MS = 15_000;
 /** Segundos que um jogador que caiu (Wi-Fi) continua no mundo esperando a reconexão automática do SDK. */
 export const RECONNECT_S = 20;
-/** Fechamento da sessão antiga quando o mesmo personagem entra em outro lugar (contrato com o cliente). */
-export const CLOSE_REPLACED = 4100;
+/** Fechamento da sessão antiga quando o mesmo personagem entra em outro lugar: CLOSE_REPLACED (shared). */
 export const REPLACED_REASON = "Sua conta entrou em outro lugar";
 /** Limite global por cliente (Colyseus 0.18: excedeu → desconecta o cliente com WITH_ERROR). */
 export const MAX_MESSAGES_PER_SECOND = 60;

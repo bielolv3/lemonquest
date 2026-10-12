@@ -20,9 +20,11 @@ export interface CharacterData {
   /** Estado "alimentado" (comida): tempo restante (o tempo não passa offline) e regen por tique. */
   fed?: { remainingMs: number; hpPerTick: number; manaPerTick: number };
   skills?: Partial<Record<"melee" | "distance" | "magic" | "shield", { level: number; tries: number }>>;
+  /** Treino offline em andamento (estátua de treino): skill treinada e início (ms epoch). Aparece na lista de personagens. */
+  offlineTraining?: { skill: "melee" | "distance" | "magic" | "shield"; sinceMs: number; statueId?: string };
 }
 
-/** Registro persistido de um personagem (1 personagem por conta; nome da conta = nome do personagem). */
+/** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */
 export interface CharacterRecord {
   id: number;
   name: string;

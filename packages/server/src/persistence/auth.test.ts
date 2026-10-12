@@ -1,11 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { initDb } from "./db.ts";
+import { MAX_CHARACTERS_PER_ACCOUNT, type AccountSession } from "@lemonquest/shared";
+import { getCharacterByName, initDb, saveCharacter } from "./db.ts";
 import {
-  CREATE_MAX_PER_HOUR, LOGIN_LOCK_MS, LOGIN_MAX_FAILS, claimOnline, consumeToken, handleLogin, normalizeName, onlineOwner,
+  CHAR_CREATE_MAX_PER_HOUR, CREATE_MAX_PER_HOUR, LOGIN_LOCK_MS, LOGIN_MAX_FAILS, SESSION_IDLE_MS, claimOnline, consumeToken,
+  handleCreateCharacter, handleLogin, handleLogout, handlePlay, handleResume, normalizeAccount, normalizeName, onlineOwner,
   releaseOnline, resetAuthState,
 } from "./auth.ts";
 
-describe("auth", () => {
+function okSession(r: AccountSession): Extract<AccountSession, { ok: true }> {
+  if (!r.ok) throw new Error(`esperava sucesso, veio ${r.error}`);
+  return r;
+}
+
+const create = async (account: string, password = "segredo1", ip?: string, now?: () => number) =>
+  handleLogin({ account, password, create: true }, { ip, now });
+
+describe("auth: contas", () => {
   beforeEach(() => {
     initDb(":memory:");
     resetAuthState();
@@ -13,63 +23,139 @@ describe("auth", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
-  it("valida nomes (NFC, só alfabeto latino, espaços simples)", async () => {
+  it("valida nomes de personagem (NFC, só alfabeto latino, espaços simples)", () => {
     for (const name of ["ab", "a".repeat(17), "Leo123", "Leo!", "", "  ", "Лео", "Λεων", "Leo_X", "Le​o"]) {
       expect(normalizeName(name), name).toBeNull();
     }
     expect(normalizeName("  José  da Silva ")).toBe("José da Silva");
-    expect(normalizeName("José")).toBe("José"); // NFD → NFC
-    expect(await handleLogin({ name: "Leo123", password: "segredo1", vocation: "knight" })).toEqual({ ok: false, error: "invalid_name" });
+    expect(normalizeName("José")).toBe("José"); // NFD → NFC
   });
 
-  it("fluxo: need_vocation, senha fraca, criar, senha errada, login existente", async () => {
-    expect(await handleLogin({ name: "Leo", password: "segredo1" })).toEqual({ ok: false, error: "need_vocation" });
-    expect(await handleLogin({ name: "Leo", password: "abc", vocation: "knight" })).toMatchObject({ ok: false, error: "weak_password" });
-    const created = await handleLogin({ name: "Leo", password: "segredo1", vocation: "knight" });
-    expect(created).toMatchObject({ ok: true, isNew: true, vocation: "knight", name: "Leo" });
-    expect(await handleLogin({ name: "leo", password: "errada" })).toEqual({ ok: false, error: "wrong_password" });
-    expect(await handleLogin({ name: "LEO", password: "segredo1" })).toMatchObject({ ok: true, isNew: false, name: "Leo" });
+  it("valida nomes de conta (3–20, letras latinas/dígitos/._-)", () => {
+    for (const n of ["ab", "a".repeat(21), "leo!", "Лео", "le@o", "", "a​bc"]) expect(normalizeAccount(n), n).toBeNull();
+    expect(normalizeAccount(" leo.silva_99 ")).toBe("leo.silva_99");
+    expect(normalizeAccount("Time  Azul-2")).toBe("Time Azul-2");
+    expect(normalizeAccount("José")).toBe("José");
   });
 
-  it("acentos/caixa: Ána e ÁNA são o mesmo personagem", async () => {
-    await handleLogin({ name: "Ána", password: "segredo1", vocation: "druid" });
-    expect(await handleLogin({ name: "ÁNA", password: "segredo1" })).toMatchObject({ ok: true, name: "Ána" });
-    expect(await handleLogin({ name: "Ána", password: "segredo1" })).toMatchObject({ ok: true, name: "Ána" });
+  it("criar conta, duplicada, inexistente, senha fraca, senha errada, login", async () => {
+    expect(await handleLogin({ account: "leo", password: "segredo1" })).toEqual({ ok: false, error: "no_account" });
+    expect(await create("leo", "abc")).toMatchObject({ ok: false, error: "weak_password" });
+    expect(await handleLogin({ account: "le!", password: "segredo1", create: true })).toEqual({ ok: false, error: "invalid_account" });
+    const a = okSession(await create("Leo.1"));
+    expect(a).toMatchObject({ account: "Leo.1", characters: [] });
+    expect(a.session).toMatch(/^[A-Za-z0-9_-]{43}$/); // 32 bytes base64url
+    expect(await create("leo.1")).toEqual({ ok: false, error: "account_taken" });
+    expect(await handleLogin({ account: "leo.1", password: "errada" })).toEqual({ ok: false, error: "wrong_password" });
+    const b = okSession(await handleLogin({ account: "LEO.1", password: "segredo1" }));
+    expect(b.account).toBe("Leo.1");
+    expect(b.session).not.toBe(a.session);
   });
 
-  it("token é de uso único e traz o aviso de senha fraca", async () => {
-    const r = await handleLogin({ name: "Leo", password: "segredo1", vocation: "sorcerer" });
-    if (!r.ok) throw new Error("login falhou");
-    expect(consumeToken(r.token)).toEqual({ name: "Leo", key: "leo", weakPassword: false });
-    expect(() => consumeToken(r.token)).toThrow();
-    expect(() => consumeToken("lixo")).toThrow();
+  it("personagens: cria até o máximo; nome único entre TODAS as contas; vocação/nome validados", async () => {
+    const a = okSession(await create("contaA"));
+    const b = okSession(await create("contaB"));
+    const names = ["Leo", "Ana", "Bia", "Caio", "Davi", "Eva"];
+    for (let i = 0; i < MAX_CHARACTERS_PER_ACCOUNT; i++) {
+      const r = okSession(handleCreateCharacter({ session: a.session, name: names[i]!, vocation: "knight" }));
+      expect(r.characters).toHaveLength(i + 1);
+      expect(r.session).toBe(a.session);
+    }
+    expect(handleCreateCharacter({ session: a.session, name: names[MAX_CHARACTERS_PER_ACCOUNT]!, vocation: "druid" }))
+      .toEqual({ ok: false, error: "too_many_characters" });
+    expect(handleCreateCharacter({ session: b.session, name: "LEO", vocation: "druid" })).toEqual({ ok: false, error: "name_taken" });
+    expect(handleCreateCharacter({ session: b.session, name: "Leo1", vocation: "druid" })).toEqual({ ok: false, error: "invalid_name" });
+    expect(handleCreateCharacter({ session: b.session, name: "Zeca", vocation: "pirata" as any })).toEqual({ ok: false, error: "invalid_request" });
+    expect(handleCreateCharacter({ session: "lixo", name: "Zeca", vocation: "druid" })).toEqual({ ok: false, error: "invalid_session" });
+    const list = okSession(await handleLogin({ account: "contaA", password: "segredo1" }));
+    expect(list.characters.map((c) => c.name)).toEqual(names.slice(0, MAX_CHARACTERS_PER_ACCOUNT));
+    expect(list.characters[0]).toEqual({ name: "Leo", vocation: "knight", level: 1 });
   });
 
-  it("token expira", async () => {
-    const r = await handleLogin({ name: "Leo", password: "segredo1", vocation: "sorcerer" });
-    if (!r.ok) throw new Error("login falhou");
-    expect(() => consumeToken(r.token, Date.now() + 61_000)).toThrow();
-  });
-
-  it("brute force: 5 falhas → bloqueio (por nome e por IP) que expira", async () => {
+  it("tentativas de criar personagem limitadas por conta/hora", async () => {
     let t = 1_000_000;
     const now = () => t;
-    await handleLogin({ name: "Leo", password: "segredo1", vocation: "knight" }, { ip: "1.1.1.1", now });
-    for (let i = 0; i < LOGIN_MAX_FAILS; i++) {
-      expect(await handleLogin({ name: "Leo", password: "errada" + i }, { ip: "6.6.6.6", now })).toMatchObject({ error: "wrong_password" });
+    const a = okSession(await create("spam", "segredo1", "1.1.1.1", now));
+    const b = okSession(await create("outra", "segredo1", "1.1.1.1", now));
+    handleCreateCharacter({ session: b.session, name: "Ocupado", vocation: "druid" }, { now });
+    for (let i = 0; i < CHAR_CREATE_MAX_PER_HOUR; i++) {
+      expect(handleCreateCharacter({ session: a.session, name: "Ocupado", vocation: "druid" }, { now })).toMatchObject({ error: "name_taken" });
     }
-    // Bloqueado mesmo com a senha certa, de outro IP (por nome) e para outro nome a partir do IP atacante.
-    expect(await handleLogin({ name: "Leo", password: "segredo1" }, { ip: "6.6.6.6", now })).toMatchObject({ error: "too_many_attempts" });
-    expect(await handleLogin({ name: "Leo", password: "segredo1" }, { ip: "2.2.2.2", now })).toMatchObject({ error: "too_many_attempts" });
-    expect(await handleLogin({ name: "Outro", password: "x".repeat(8), vocation: "knight" }, { ip: "6.6.6.6", now }))
-      .toMatchObject({ error: "too_many_attempts", retryAfterSec: LOGIN_LOCK_MS / 1000 });
+    expect(handleCreateCharacter({ session: a.session, name: "Livre", vocation: "druid" }, { now })).toMatchObject({ error: "too_many_attempts" });
+    t += 3600_001; // a sessão expirou (30 min): entra de novo
+    const a2 = okSession(await handleLogin({ account: "spam", password: "segredo1" }, { ip: "1.1.1.1", now }));
+    expect(handleCreateCharacter({ session: a2.session, name: "Livre", vocation: "druid" }, { now })).toMatchObject({ ok: true });
+  });
+
+  it("play: token de uso único só para personagem da própria conta; carrega aviso de senha fraca", async () => {
+    const a = okSession(await create("contaA"));
+    const b = okSession(await create("contaB"));
+    handleCreateCharacter({ session: a.session, name: "Leo", vocation: "sorcerer" });
+    handleCreateCharacter({ session: b.session, name: "Bia", vocation: "paladin" });
+    expect(handlePlay({ session: a.session, name: "Bia" })).toEqual({ ok: false, error: "no_character" });
+    expect(handlePlay({ session: "x", name: "Leo" })).toEqual({ ok: false, error: "invalid_session" });
+    const p = handlePlay({ session: a.session, name: "leo" });
+    expect(p).toMatchObject({ ok: true, name: "Leo", vocation: "sorcerer" });
+    if (!p.ok) return;
+    expect(consumeToken(p.token)).toEqual({ name: "Leo", key: "leo", weakPassword: false });
+    expect(() => consumeToken(p.token)).toThrow();
+    expect(() => consumeToken("lixo")).toThrow();
+    const p2 = handlePlay({ session: a.session, name: "Leo" });
+    if (!p2.ok) throw new Error();
+    expect(() => consumeToken(p2.token, Date.now() + 61_000)).toThrow();
+  });
+
+  it("sessão: expira após 30 min sem uso (uso renova); logout invalida", async () => {
+    let t = 10_000_000;
+    const now = () => t;
+    const a = okSession(await create("conta", "segredo1", "1.1.1.1", now));
+    t += SESSION_IDLE_MS - 1000;
+    expect(handleResume({ session: a.session }, { now })).toMatchObject({ ok: true, account: "conta" }); // renova
+    t += SESSION_IDLE_MS - 1000;
+    expect(handleCreateCharacter({ session: a.session, name: "Leo", vocation: "knight" }, { now })).toMatchObject({ ok: true });
+    t += SESSION_IDLE_MS + 1;
+    expect(handlePlay({ session: a.session, name: "Leo" }, { now })).toEqual({ ok: false, error: "invalid_session" });
+    const b = okSession(await handleLogin({ account: "conta", password: "segredo1" }, { now }));
+    expect(handleLogout({ session: b.session })).toEqual({ ok: true });
+    expect(handleResume({ session: b.session }, { now })).toEqual({ ok: false, error: "invalid_session" });
+  });
+
+  it("resumo traz treino offline e online", async () => {
+    const a = okSession(await create("conta"));
+    handleCreateCharacter({ session: a.session, name: "Leo", vocation: "druid" });
+    const rec = getCharacterByName("Leo")!;
+    saveCharacter({ ...rec, level: 8, data: { offlineTraining: { skill: "magic", sinceMs: 1234, statueId: "s1" } } });
+    claimOnline("Leo", "sid");
+    expect(okSession(handleResume({ session: a.session })).characters).toEqual([
+      { name: "Leo", vocation: "druid", level: 8, training: { skill: "magic", sinceMs: 1234 }, online: true },
+    ]);
+  });
+
+  it("brute force: 5 falhas → bloqueio (por conta e por IP) que expira", async () => {
+    let t = 1_000_000;
+    const now = () => t;
+    await create("Leo", "segredo1", "1.1.1.1", now);
+    for (let i = 0; i < LOGIN_MAX_FAILS; i++) {
+      expect(await handleLogin({ account: "Leo", password: "errada" + i }, { ip: "6.6.6.6", now })).toMatchObject({ error: "wrong_password" });
+    }
+    // Bloqueado mesmo com a senha certa, de outro IP (por conta) e para outra conta a partir do IP atacante.
+    expect(await handleLogin({ account: "Leo", password: "segredo1" }, { ip: "6.6.6.6", now })).toMatchObject({ error: "too_many_attempts" });
+    expect(await handleLogin({ account: "Leo", password: "segredo1" }, { ip: "2.2.2.2", now })).toMatchObject({ error: "too_many_attempts" });
+    expect(await create("Outro", "x".repeat(8), "6.6.6.6", now)).toMatchObject({ error: "too_many_attempts", retryAfterSec: LOGIN_LOCK_MS / 1000 });
     t += LOGIN_LOCK_MS + 1;
-    expect(await handleLogin({ name: "Leo", password: "segredo1" }, { ip: "6.6.6.6", now })).toMatchObject({ ok: true });
+    expect(await handleLogin({ account: "Leo", password: "segredo1" }, { ip: "6.6.6.6", now })).toMatchObject({ ok: true });
+  });
+
+  it("varredura de contas inexistentes também bloqueia o IP", async () => {
+    for (let i = 0; i < LOGIN_MAX_FAILS; i++) {
+      expect(await handleLogin({ account: `nada${i}`, password: "segredo1" }, { ip: "7.7.7.7" })).toMatchObject({ error: "no_account" });
+    }
+    expect(await handleLogin({ account: "nada9", password: "segredo1" }, { ip: "7.7.7.7" })).toMatchObject({ error: "too_many_attempts" });
   });
 
   it("rajada paralela não passa do limite", async () => {
-    await handleLogin({ name: "Leo", password: "segredo1", vocation: "knight" });
-    const rs = await Promise.all(Array.from({ length: 20 }, (_, i) => handleLogin({ name: "Leo", password: "x" + i }, { ip: "9.9.9.9" })));
+    await create("Leo");
+    const rs = await Promise.all(Array.from({ length: 20 }, (_, i) => handleLogin({ account: "Leo", password: "x" + i }, { ip: "9.9.9.9" })));
     expect(rs.filter((r) => !r.ok && r.error === "wrong_password").length).toBeLessThanOrEqual(LOGIN_MAX_FAILS);
   });
 
@@ -78,12 +164,12 @@ describe("auth", () => {
     const now = () => t;
     const names = ["Aaa", "Bbb", "Ccc", "Ddd"];
     for (let i = 0; i < CREATE_MAX_PER_HOUR; i++) {
-      expect(await handleLogin({ name: names[i]!, password: "segredo1", vocation: "knight" }, { ip: "3.3.3.3", now })).toMatchObject({ ok: true });
+      expect(await create(names[i]!, "segredo1", "3.3.3.3", now)).toMatchObject({ ok: true });
     }
-    expect(await handleLogin({ name: "Ddd", password: "segredo1", vocation: "knight" }, { ip: "3.3.3.3", now })).toMatchObject({ error: "too_many_attempts" });
-    expect(await handleLogin({ name: "Ddd", password: "segredo1", vocation: "knight" }, { ip: "4.4.4.4", now })).toMatchObject({ ok: true });
+    expect(await create("Ddd", "segredo1", "3.3.3.3", now)).toMatchObject({ error: "too_many_attempts" });
+    expect(await create("Ddd", "segredo1", "4.4.4.4", now)).toMatchObject({ ok: true });
     t += 3600_001;
-    expect(await handleLogin({ name: "Eee", password: "segredo1", vocation: "knight" }, { ip: "3.3.3.3", now })).toMatchObject({ ok: true });
+    expect(await create("Eee", "segredo1", "3.3.3.3", now)).toMatchObject({ ok: true });
   });
 
   it("online: só o dono atual libera o nome", () => {
