@@ -2,13 +2,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { GEAR_SHAPES, GEAR_TIERS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
+import { GEAR_SHAPES, GEAR_TIERS, MATERIAL_ICONS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
 import { MONSTERS } from "./monsters.ts";
 import { playerDamageRange } from "../formulas.ts";
 import { VOCATIONS, type Vocation } from "../types.ts";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const gear = JSON.parse(readFileSync(root + "assets/icons/gear.json", "utf8")) as { count: number; frames: Record<string, number> };
+const mats = JSON.parse(readFileSync(root + "assets/icons/materials.json", "utf8")) as { count: number; frames: Record<string, number> };
 const all = Object.values(ITEMS);
 const weapons = all.filter((d) => d.kind === "weapon");
 
@@ -30,9 +31,10 @@ describe("ITEMS", () => {
     for (const d of all) {
       expect(existsSync(root + "assets/" + d.icon.url), `${d.id}: ${d.icon.url}`).toBe(true);
       if (d.icon.frame !== undefined) {
-        expect(d.icon.url).toBe("icons/gear.png");
+        expect(["icons/gear.png", "icons/materials.png"]).toContain(d.icon.url);
+        const atlas = d.icon.url === "icons/gear.png" ? gear : mats;
         expect(d.icon.frame, d.id).toBeGreaterThanOrEqual(0);
-        expect(d.icon.frame, d.id).toBeLessThan(gear.count);
+        expect(d.icon.frame, d.id).toBeLessThan(atlas.count);
         expect(d.icon.frameWidth).toBe(16);
         expect(d.icon.frameHeight).toBe(16);
       }
@@ -170,5 +172,12 @@ describe("uso dos itens por vocação", () => {
   });
   it("itens de dois-mãos são armas", () => {
     for (const d of all.filter((x: ItemDef) => x.twoHanded)) expect(d.kind).toBe("weapon");
+  });
+});
+
+describe("ícones de materiais", () => {
+  it("MATERIAL_ICONS bate com materials.json e cada material usa seu frame", () => {
+    MATERIAL_ICONS.forEach((n, i) => expect(mats.frames[n], n).toBe(i));
+    for (const n of MATERIAL_ICONS) expect(ITEMS[n]?.icon.frame, n).toBe(mats.frames[n]);
   });
 });
