@@ -144,3 +144,29 @@ export async function walkableNear(page: Page, x: number, y: number, r = 3): Pro
     return out;
   }, [x, y, r] as const);
 }
+
+/** Clica no monstro mais perto até virar o alvo. */
+export async function targetNearest(page: Page, filter?: (defId: string) => boolean): Promise<string> {
+  let id = "";
+  await expect.poll(async () => {
+    const m = (await me(page))!;
+    const list = (await monsters(page)).filter((x) => !filter || filter(x.defId ?? ""))
+      .sort((a, b) => Math.max(Math.abs(a.x - m.x), Math.abs(a.y - m.y)) - Math.max(Math.abs(b.x - m.x), Math.abs(b.y - m.y)));
+    const t = list[0];
+    if (!t) return "";
+    const cur = await page.evaluate(() => (window as any).__lq.target());
+    if (cur && list.some((x) => x.id === cur)) { id = cur; return cur; }
+    await clickTile(page, t.x, t.y, { fy: 0.6 });
+    await page.waitForTimeout(150);
+    id = await page.evaluate(() => (window as any).__lq.target());
+    return id;
+  }, { timeout: 30_000, intervals: [300] }).not.toBe("");
+  return id;
+}
+
+
+/** Captura para revisão visual (só com E2E_SNAPS=1): e2e-results/snaps/<nome>.png. */
+export async function snap(page: Page, name: string): Promise<void> {
+  if (process.env.E2E_SNAPS !== "1") return;
+  await page.screenshot({ path: `e2e-results/snaps/${name}.png` });
+}
