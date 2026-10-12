@@ -7,7 +7,7 @@
 // - Baú de Recompensa: usar sorteia poções/comida/ouro e às vezes um equipamento incomum+ da faixa do personagem.
 import {
   BOUNTIES_PER_DAY, BOUNTY_CHEST_ID, BOUNTY_NPC, ITEMS, MAX_TRACKED_QUESTS, QUEST_LIST, RARITIES, S2C,
-  bountyBand, isEquipable, monsterDef, questAvailable, questDef, questReady, rollInt,
+  bountyBand, bountyTitle, isEquipable, questAvailable, questDef, questReady, rollInt,
   type BountyStatus, type BountyView, type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type NoticeMsg,
   type QuestActionMsg, type QuestCompleteMsg, type QuestDef, type QuestReward, type QuestsMsg, type Rarity, type Vocation,
 } from "@lemonquest/shared";
@@ -416,24 +416,6 @@ export class QuestSystem {
   private notice(id: string, text: string, kind: NoticeMsg["kind"]): void {
     this.o.send(id, S2C.Notice, { text, kind } satisfies NoticeMsg);
   }
-}
-
-/** "Mate 20 Lobos" (nome do monstro no plural simples). */
-export function bountyTitle(d: { monster: string; count: number }): string {
-  const name = monsterDef(d.monster)?.name ?? d.monster;
-  return `Mate ${d.count} ${pluralPt(name)}`;
-}
-
-/** Plural simples em PT-BR da 1ª palavra ("Lobo" → "Lobos", "Homem-Lagarto" → "Homens-Lagarto", "Espírito de Chama" → "Espíritos de Chama"). */
-export function pluralPt(name: string): string {
-  const parts = name.split(" ");
-  const head = parts[0]!;
-  const h = head.includes("-") ? head.split("-") : [head];
-  const w = h[0]!;
-  const pl = /ão$/.test(w) ? w.replace(/ão$/, "ões") : /m$/.test(w) ? w.replace(/m$/, "ns") : /[rsz]$/.test(w) ? w + "es" : /l$/.test(w) ? w.replace(/l$/, "is") : w + "s";
-  h[0] = pl;
-  parts[0] = h.join("-");
-  return parts.join(" ");
 }
 
 // ---------------------------------------------------------------------------

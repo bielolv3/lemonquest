@@ -1,3 +1,5 @@
+import { monsterDef } from "./monsters.ts";
+
 // Missões (quests) encadeadas e recompensas diárias do Quadro de Recompensas. Dados + regras puras (servidor e cliente).
 // O servidor (packages/server/src/systems/quests.ts) é a autoridade; o cliente usa estas funções para os marcadores
 // "!"/"?" sobre os NPCs, o rastreador e o diário de missões.
@@ -367,3 +369,22 @@ export function bountyBand(level: number): number {
   for (let i = 0; i < BOUNTY_BANDS.length; i++) if (level >= BOUNTY_BANDS[i]!.minLevel) b = i;
   return b;
 }
+
+/** "Mate 20 Lobos" (nome do monstro no plural simples). */
+export function bountyTitle(d: { monster: string; count: number }): string {
+  const name = monsterDef(d.monster)?.name ?? d.monster;
+  return `Mate ${d.count} ${pluralPt(name)}`;
+}
+
+/** Plural simples em PT-BR da 1ª palavra ("Lobo" → "Lobos", "Homem-Lagarto" → "Homens-Lagarto", "Espírito de Chama" → "Espíritos de Chama"). */
+export function pluralPt(name: string): string {
+  const parts = name.split(" ");
+  const head = parts[0]!;
+  const h = head.includes("-") ? head.split("-") : [head];
+  const w = h[0]!;
+  const pl = /ão$/.test(w) ? w.replace(/ão$/, "ões") : /m$/.test(w) ? w.replace(/m$/, "ns") : /[rsz]$/.test(w) ? w + "es" : /l$/.test(w) ? w.replace(/l$/, "is") : w + "s";
+  h[0] = pl;
+  parts[0] = h.join("-");
+  return parts.join(" ");
+}
+
