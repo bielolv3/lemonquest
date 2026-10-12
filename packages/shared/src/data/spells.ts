@@ -218,15 +218,20 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Gerada pelo console.table do spells.test.ts. dmg/heal = média por alvo, sem variância.
  *
  * magia                voc       lvl  mana  cd(s)  esperado
+ * CURAS (todas as vocações; cura em % da vida máx. no level; ML = mago 0.75*lvl, pal lvl/4, cav lvl/7)
+ * Cura Leve (exura)      todas   1    20     1    lv1 ~23 (15% HP cav/pal/mago); lv20 mago ~71 (29%), cav ~42 (10%)
+ * Cura Intensa (exura gran) todas 10   70     1    lv10 cav ~78 (27%), pal ~81 (34%), mago ~96 (49%)
+ * Cura Vital (exura vita) druid  20   160     2    cura ~160 (65% HP) — a maior cura do jogo
+ * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida]
+ * Removidas: Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico), redundantes com as curas comuns.
+ *
  * Golpe Giratório      knight     1     8     4    dmg 17 (área r1, 2.3x auto)
  * Provocar             knight     5    15    20    taunt r3, 5 s
  * Investida            knight    10    20     8    dmg 43 (dash 4)
  * Pele de Ferro        knight    15    20    30    -30% dano, 10 s
- * Tratar Ferimentos    knight    20    30     4    cura 66 (15% HP)
- * Golpe Brutal         knight    30    45     8    dmg 176 (3.3x auto)
+ *  * Golpe Brutal         knight    30    45     8    dmg 176 (3.3x auto)
  * Flecha Perfurante    paladin    1     8     2    dmg 14 (2.3x auto)
  * Pés Ligeiros         paladin    5    20    30    haste +30%, 8 s
- * Cura Sagrada Leve    paladin   10    25     3    cura 36 (15% HP)
  * Chuva de Flechas     paladin   15    35     6    dmg 47 (área r2)
  * Flecha Sagrada       paladin   20    30     4    dmg 103 (holy)
  * Onda Sagrada         paladin   30    90     8    dmg 131 (área r3)
@@ -236,10 +241,8 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Escudo de Mana       sorcerer  15    30    30    manashield 20 s
  * Raio de Energia      sorcerer  20    45     4    dmg 100 (alvo único)
  * Inferno              sorcerer  30   160     8    dmg 208 (área r3 + burn)
- * Cura Leve            druid      1    15     2    cura 25 (17% HP)
  * Raiz                 druid      5    20    15    dmg 17 + root 3 s
  * Chuva de Gelo        druid     10    40     6    dmg 39 (área r2 + slow); lvl 15: 55, lvl 20: 72
- * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)
  * Invocar Lobo         druid     20    90    60    1 lobo espiritual, 60 s
  * Nevasca              druid     30   150     8    dmg 199 (área r3 + slow)
  */
