@@ -362,11 +362,6 @@ export function replaceGroundRows(rows: readonly GroundRow[]): void {
     throw e;
   }
 }
-  } catch (e) {
-    d.exec("ROLLBACK");
-    throw e;
-  }
-}
 
 export interface DeletedCharacterRow {
   id: number; char_id: number; account_id: number; account_name: string; name: string; vocation: string;
