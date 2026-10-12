@@ -36,8 +36,11 @@ export function Hud() {
     <>
       <LowHpVignette />
       <ConditionsStrip />
-      <ActionBar />
-      <QuickPotions />
+      {/* Barra de magias + poções num bloco só: nunca se sobrepõem, qualquer que seja o número de slots. */}
+      <div class="bottom-dock">
+        <ActionBar />
+        <QuickPotions />
+      </div>
       <NpcWindow />
       <ArenaWindow />
       <ArenaHud />

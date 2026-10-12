@@ -146,11 +146,11 @@ body.item-dragging, body.item-dragging * { cursor: grabbing !important; user-sel
 
 /* ---------- Poções rápidas ---------- */
 .quick-slots {
-  position: fixed; bottom: 10px; left: calc((100vw - var(--hud-right)) / 2 + 152px); z-index: 10;
+  position: relative;
   display: flex; gap: 5px; padding: 5px;
   background: var(--hud-bg-soft); border: 1px solid var(--hud-line); border-radius: var(--hud-radius);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28); backdrop-filter: blur(3px);
-  transition: left 220ms var(--hud-ease), background-color 150ms;
+  transition: background-color 150ms;
 }
 .quick-slots:hover { background: var(--hud-bg); }
 .quick-slot { width: 42px; height: 42px; padding: 0; cursor: pointer; overflow: hidden; }

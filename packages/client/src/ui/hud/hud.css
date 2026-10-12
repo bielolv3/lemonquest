@@ -277,12 +277,17 @@
 .bag-empty .px-icon { color: var(--hud-faint); }
 
 /* ---------- Barra de ações ---------- */
-.action-bar {
+.bottom-dock {
   position: fixed; bottom: 10px; left: calc((100vw - var(--hud-right)) / 2); transform: translateX(-50%); z-index: 10;
+  display: flex; align-items: flex-end; gap: 8px;
+  transition: left 220ms var(--hud-ease);
+}
+.action-bar {
+  position: relative;
   display: flex; gap: 5px; padding: 5px;
   background: var(--hud-bg-soft); border: 1px solid var(--hud-line); border-radius: var(--hud-radius);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28); backdrop-filter: blur(3px);
-  transition: left 220ms var(--hud-ease), background-color 150ms;
+  transition: background-color 150ms;
 }
 .action-bar:hover { background: var(--hud-bg); }
 .action-slot { width: 42px; height: 42px; padding: 0; cursor: pointer; overflow: hidden; }
@@ -420,6 +425,6 @@ kbd {
 @keyframes hud-pop { from { opacity: 0; transform: translateY(3px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-panel, .conditions, .hud-panel.reordering > [data-panel-id], .hud-rail, .action-bar, .stat-fill, .stat-ghost { transition: none !important; }
+  .hud-panel, .conditions, .hud-panel.reordering > [data-panel-id], .hud-rail, .bottom-dock, .action-bar, .stat-fill, .stat-ghost { transition: none !important; }
   .vignette.low, .vignette.critical, .stat-bar.hp.low .stat-fill { animation: none !important; }
 }
