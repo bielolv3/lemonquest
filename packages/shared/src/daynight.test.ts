@@ -78,7 +78,7 @@ describe("regras por zona", () => {
     const arena = darknessOf(ambientForZone(night, "Coliseu"));
     expect(town).toBeLessThan(field);
     expect(arena).toBeLessThan(town);
-    expect(town).toBeLessThan(0.55);
+    expect(town).toBeLessThan(0.62);
     expect(darknessOf(ambientForZone(5 * MIN, "Vila de Pedra Clara"))).toBeCloseTo(0, 6);
     expect(darknessOf(ambientForZone(5 * MIN, null))).toBeCloseTo(0, 6);
     expect(zoneLightMode(null)).toBe("outdoor");

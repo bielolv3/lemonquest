@@ -61,7 +61,7 @@ export function extractMapLights(tiled: TiledMap): StaticLight[] {
     for (let i = 0; i < deco.data.length; i++) {
       if ((deco.data[i] & 0x1fffffff) !== gid) continue;
       const tx = i % W, ty = Math.floor(i / W);
-      out.push({ x: (tx + 0.5) * T, y: (ty - 0.55) * T, r: 5.2 * T, color: LAMP_COLOR, strength: 0.95, flicker: 0.55, glow: 0.42, kind: "lamp" });
+      out.push({ x: (tx + 0.5) * T, y: (ty - 0.55) * T, r: 4.4 * T, color: LAMP_COLOR, strength: 0.9, flicker: 0.55, glow: 0.15, kind: "lamp" });
     }
   }
 

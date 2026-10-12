@@ -2,7 +2,7 @@
 // recortados (ERASE) para cada luz e um brilho aditivo colorido por cima. Fica numa Layer própria desenhada pela câmera
 // de UI (zoom 1), entre o mundo e os nomes/barras — então só o mundo escurece, o HUD (DOM) e os nomes não.
 import Phaser from "phaser";
-import { TILE_SIZE, ambientForZone, darknessOf, needsLights, zoneAt, type Rgb, type TiledMap, type TiledObject, type ZoneRect } from "@lemonquest/shared";
+import { TILE_SIZE, ambientForZone, darknessOf, needsLights, zoneAt, zoneLightMode, type Rgb, type TiledMap, type TiledObject, type ZoneRect } from "@lemonquest/shared";
 import { createStore, useStore, type Store } from "../ui/hud/store.ts";
 import { worldClock } from "./daynight.ts";
 import { cullLights, extractMapLights, flickerWave, type StaticLight } from "./lightSources.ts";
@@ -71,7 +71,7 @@ function ensureBrush(scene: Phaser.Scene) {
   for (let y = 0; y < BRUSH_SIZE; y++) for (let x = 0; x < BRUSH_SIZE; x++) {
     const d = Math.hypot(x - c, y - c) / c;
     // núcleo pleno até ~25% do raio e queda suave (smoothstep) até 100%
-    const t = Math.min(1, Math.max(0, (d - 0.22) / 0.78));
+    const t = Math.min(1, Math.max(0, (d - 0.34) / 0.66));
     const a = 1 - t * t * (3 - 2 * t);
     const o = (y * BRUSH_SIZE + x) * 4;
     img.data[o] = img.data[o + 1] = img.data[o + 2] = 255;
@@ -95,7 +95,8 @@ interface Draw { sx: number; sy: number; r: number; color: number; strength: num
 const RT_DIV = { high: 4, low: 6 } as const;
 const MAX_LIGHTS = { high: 40, low: 14 } as const;
 /** Multiplicação do raio do jogador local (tiles). */
-const ME_RADIUS_TILES = 4.8;
+const ME_RADIUS_TILES = 3.7;
+const ME_RADIUS_CAVE_TILES = 7.4;
 const OTHER_RADIUS_TILES = 2.4;
 
 function parseZones(tiled: TiledMap): ZoneRect[] {
@@ -217,7 +218,9 @@ export class LightField {
     // Jogador local: luz pessoal quente, levemente maior à noite fechada (respira devagar).
     if (me) {
       const breathe = flicker ? 1 + 0.025 * Math.sin(timeMs / 700) : 1;
-      push(me.x, me.y - 2, ME_RADIUS_TILES * TILE_SIZE * breathe, 0xffe2b4, 0.95, 0.12);
+      // Em cavernas/cripta (escuras o tempo todo) a luz pessoal é maior e mais forte: é ela que mostra o caminho.
+      const cave = zoneLightMode(this.zoneName) === "dark";
+      push(me.x, me.y - 2, (cave ? ME_RADIUS_CAVE_TILES : ME_RADIUS_TILES) * TILE_SIZE * breathe, 0xffe2b4, cave ? 0.97 : 0.85, cave ? 0.1 : 0.05);
     }
     for (const o of this.actors.others()) {
       if (o.x < view.x0 - 48 || o.x > view.x1 + 48 || o.y < view.y0 - 48 || o.y > view.y1 + 48) continue;
@@ -258,7 +261,7 @@ export class LightField {
       b.setPosition(d.sx / div, d.sy / div).setScale((d.r * 2) / div / BRUSH_SIZE).setAlpha(d.strength);
       brushes.push(b);
     }
-    if (brushes.length) rt.erase(brushes, 0, 0);
+    if (brushes.length) rt.erase(brushes);
 
     // 3) brilho aditivo colorido (só se ainda há noite de verdade).
     const glowK = Math.min(1, dark * 1.8);
@@ -268,7 +271,7 @@ export class LightField {
         if (d.glow <= 0.01) continue;
         const g = this.glow(gi++);
         const a = d.glow * glowK;
-        g.setVisible(true).setPosition(d.sx, d.sy).setTint(d.color).setAlpha(Math.min(0.6, a)).setDisplaySize(d.r * 1.7, d.r * 1.7);
+        g.setVisible(true).setPosition(d.sx, d.sy).setTint(d.color).setAlpha(Math.min(0.6, a)).setDisplaySize(d.r * 1.3, d.r * 1.3);
       }
     }
     for (let i = gi; i < this.glows.length; i++) this.glows[i].setVisible(false);

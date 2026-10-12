@@ -53,10 +53,10 @@ const KEYS: readonly (readonly [number, number, number, number])[] = [
   [24, 255, 238, 214], // começa a esquentar
   [26, 255, 168, 112], // pôr do sol alaranjado
   [28, 112, 106, 156], // anoitece (roxo azulado)
-  [30, 86, 100, 152],
-  [32, 78, 94, 148], // meia-noite
-  [34, 86, 100, 152],
-  [36, 104, 108, 156],
+  [30, 80, 95, 150],
+  [32, 70, 86, 142], // meia-noite
+  [34, 80, 95, 150],
+  [36, 100, 106, 156],
   [37.5, 196, 142, 142], // aurora rosada
   [39, 255, 214, 170],
   [40, 255, 255, 255],
@@ -89,9 +89,9 @@ export function darknessOf(rgb: Rgb): number {
 export type ZoneLightMode = "outdoor" | "town" | "lit" | "dark";
 
 /** Quanto do ambiente do ciclo vale em cada tipo de zona (mix 0..1). `dark` ignora o ciclo (sempre escuro). */
-export const ZONE_MIX: Record<Exclude<ZoneLightMode, "dark">, number> = { outdoor: 1, town: 0.78, lit: 0.4 };
+export const ZONE_MIX: Record<Exclude<ZoneLightMode, "dark">, number> = { outdoor: 1, town: 0.92, lit: 0.45 };
 /** Cor ambiente das zonas escuras (cavernas, cripta): ~85% de escuridão, levemente azulada. */
-export const DARK_ZONE_RGB: Rgb = [0.12, 0.14, 0.2];
+export const DARK_ZONE_RGB: Rgb = [0.15, 0.17, 0.26];
 
 const ZONE_MODES: Record<string, ZoneLightMode> = {
   "Cavernas": "dark",
