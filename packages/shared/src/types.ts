@@ -83,6 +83,19 @@ export interface MonsterView {
   ownerId: string;
 }
 
+/**
+ * Espelho de GroundItemState (packages/server/src/state.ts): item no chão, visto por todos.
+ * Bônus ficam só no servidor. Só em memória (some ao reiniciar o servidor).
+ */
+export interface GroundItemView {
+  id: string;
+  defId: string;
+  count: number;
+  rarity: string;   // Rarity (shared/data/items.ts)
+  x: number;
+  y: number;
+}
+
 export type DamageKind = "physical" | "fire" | "ice" | "energy" | "earth" | "holy" | "death" | "heal" | "mana";
 
 /** Um acontecimento de combate para o cliente animar (número flutuante, flash, projétil...). */

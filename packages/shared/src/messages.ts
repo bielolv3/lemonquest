@@ -23,8 +23,12 @@ export const C2S = {
   UseItem: "useItem",
   /** Usar a primeira poção de vida/mana da mochila (atalhos Q/E). */
   QuickPotion: "quickPotion",
-  /** Jogar fora (destrói) um item da mochila. */
+  /** Compatibilidade: larga o item da mochila no próprio tile (= DropItem no tile do jogador). */
   DiscardItem: "discardItem",
+  /** Largar item (mochila/equipamento) no chão: tile alvo (≤ 3 tiles, linha livre) ou o próprio tile. */
+  DropItem: "dropItem",
+  /** Pegar item do chão (alcance 1) para a mochila (ou um slot específico). */
+  PickupItem: "pickupItem",
   /** Falar com NPC (abre diálogo/loja/depot). */
   NpcInteract: "npcInteract",
   /** Comprar/vender com NPC aberto. */
@@ -59,6 +63,11 @@ export interface MoveItemMsg { from: ItemLocation; to: ItemLocation; count?: num
 export interface UseItemMsg { index: number }
 export interface QuickPotionMsg { kind: "hp" | "mana" }
 export interface DiscardItemMsg { index: number }
+/** De onde sai o item largado no chão (depot não). */
+export type DropFrom = { where: "backpack"; index: number } | { where: "equip"; slot: EquipSlot };
+export interface DropItemMsg { from: DropFrom; x: number; y: number; count?: number }
+export type PickupTo = { where: "backpack"; index: number } | { where: "equip"; slot: EquipSlot };
+export interface PickupItemMsg { groundId: string; to?: PickupTo }
 export interface NpcInteractMsg { npcId: string }
 export type NpcTradeMsg =
   | { npcId: string; action: "buy"; itemId: string; count: number }
