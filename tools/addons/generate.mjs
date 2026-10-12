@@ -390,8 +390,8 @@ const DRAW = {
       fan(F, c - d * 0, t + 1, d, [[6, 1], [7, -2], [6, -5]]);
       fan(B, c - d * 0, t, d, [[4, -4], [5, -6]]);
     } else {
-      fan(F, a.headR - 1, t + 2, 1, [[4, 0], [4, -3], [2, -6]]);
-      fan(F, a.headL + 1, t + 2, -1, [[4, 0], [4, -3], [2, -6]]);
+      fan(F, a.headR - 1, t + 2, 1, [[5, 1], [5, -2], [4, -5]]);
+      fan(F, a.headL + 1, t + 2, -1, [[5, 1], [5, -2], [4, -5]]);
     }
   },
   guerreiro_machado(F, B, a) {
@@ -648,9 +648,11 @@ const BASES = {
     recolorBody: { "#d14b34": "#5560b8", "#ef914f": "#5560b8", "#f2eaf1": "#7b86dc" },
     belt: ["#f1c471", "#d78b4a"],
     faceRecolorFromY: 26,
+    faceClean: { y0: 8, y1: 11, xL: 3, xR: 12, skin: "#ef914f" },
+    faceMaxY: 10, // abaixo disso, vermelho = manga/túnica (não rosto)
     faceBody: { "#d14b34": "#5560b8" },
-    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#d78b4a" },
-    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#cf736d" },
+    faceFix: { red: "#d14b34", whites: ["#f2eaf1"], brow: "#d6d8dc", skin: "#ef914f" },
+    faceFixPortrait: { red: "#d1513b", whites: ["#f2eaf1", "#8d977f"], brow: "#d6d8dc", skin: "#f2ad7d" },
     // barba longa no retrato (abaixo do bigode do Master)
     faceDraw(px, w, h) {
       const set = (x, y, c) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; const v = hex(c); px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255; };
@@ -694,11 +696,11 @@ function generateBases() {
       for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
         const i = px(x, y); if (out[i + 3] < 128) continue;
         const h = rgbHex(out[i], out[i + 1], out[i + 2]);
-        let to = spec.recolor[h] ?? (y > a.neck || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
+        let to = spec.recolor[h] ?? (y > a.neck || (spec.faceMaxY !== undefined && y > spec.faceMaxY) || ((y === a.neck || a.facing === "up") && h === "#d14b34") ? spec.recolorBody[h] : undefined);
         // faixa dourada na cintura (só sobre a túnica)
         if (spec.belt && y === a.bottom - 2 && (to || Object.values(spec.recolor).includes(h))) to = spec.belt[(x + row) % 3 === 0 ? 1 : 0];
         // rosto: riscos vermelhos → sobrancelhas grisalhas (encostadas no cabelo branco) ou sombra de pele
-        if (!to && spec.faceFix && y < a.neck && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
+        if (!to && spec.faceFix && y < a.neck && y <= (spec.faceMaxY ?? 15) && h === spec.faceFix.red) to = whiteNear(src, col * 16 + x, row * 16 + y, spec.faceFix.whites) ? spec.faceFix.brow : spec.faceFix.skin;
         if (to) { const c = hex(to); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
       }
       // 2) detalhes permanentes (contorno não risca o cabelo/barba brancos da base)
@@ -711,6 +713,14 @@ function generateBases() {
         const isOutline = rgba[si] === OUTLINE[0] && rgba[si + 1] === OUTLINE[1] && rgba[si + 2] === OUTLINE[2];
         if (isOutline && out[i + 3] >= 128 && rgbHex(out[i], out[i + 1], out[i + 2]) === HAIR_WHITE) continue;
         out[i] = rgba[si]; out[i + 1] = rgba[si + 1]; out[i + 2] = rgba[si + 2]; out[i + 3] = 255;
+      }
+      // 3) limpeza do rosto de frente: sobra de pele laranja nas laterais (fora das sobrancelhas/olhos) vira capuz branco
+      if (spec.faceClean && a.facing === "down") {
+        for (let y = spec.faceClean.y0; y <= spec.faceClean.y1; y++) for (let x = 0; x < 16; x++) {
+          if (x > spec.faceClean.xL && x < spec.faceClean.xR) continue;
+          const i = px(x, y);
+          if (out[i + 3] >= 128 && rgbHex(out[i], out[i + 1], out[i + 2]) === spec.faceClean.skin) { const c = hex(HAIR_WHITE); out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; }
+        }
       }
     }
     writePng(join(root, "assets", o.sheet), src.width, src.height, out);
