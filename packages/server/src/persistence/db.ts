@@ -363,6 +363,15 @@ export function replaceGroundRows(rows: readonly GroundRow[]): void {
   }
 }
 
+export interface RankingRow { name: string; vocation: string; level: number; xp: number; data: CharacterData }
+
+/** Todos os personagens (campos mínimos) para o ranking público. Nunca inclui a conta. */
+export function listRankingRows(): RankingRow[] {
+  const rows = getDb().prepare("SELECT name, vocation, level, xp, data FROM characters").all() as unknown as
+    { name: string; vocation: string; level: number; xp: number; data: string | null }[];
+  return rows.map((r) => ({ name: r.name, vocation: r.vocation, level: r.level, xp: r.xp, data: parseData(r.data) }));
+}
+
 export interface DeletedCharacterRow {
   id: number; char_id: number; account_id: number; account_name: string; name: string; vocation: string;
   level: number; xp: number; x: number | null; y: number | null; dir: number; data: string; updated_at: number; deleted_at: number;

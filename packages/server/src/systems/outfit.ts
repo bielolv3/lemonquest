@@ -1,14 +1,18 @@
 // Roupas (outfits) e addons: validação, carga/gravação no registro e troca (C2S.SetOutfit).
-import { ADDON_BITS, OUTFITS, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
+import { ADDON_BITS, OUTFITS, addonUnlockId, isFreeOutfit, outfitUnlockId, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
+import { hasUnlock } from "./achievements.ts";
 import type { PlayerState } from "../state.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 
 /**
- * Gancho das conquistas: a roupa `outfitId` (addonBit = 0) ou o addon (addonBit = 1 | 2) está liberado para o personagem?
- * Hoje TUDO é liberado para todos. Quando houver conquistas, consulte `rec.data` / `OUTFITS[id].unlock` aqui.
+ * A roupa `outfitId` (addonBit = 0) ou o addon (addonBit = 1 | 2) está liberado para o personagem?
+ * Liberados de saída: a roupa padrão da vocação e o Cidadão (addons nunca). O resto vem das conquistas
+ * (rec.data.unlocks, ver systems/achievements.ts) ou do comando de admin /desbloquear. Sem registro = só o que existe.
  */
-export function isOutfitUnlocked(_rec: CharacterRecord | undefined, outfitId: string, _addonBit: 0 | 1 | 2): boolean {
-  return outfitId in OUTFITS;
+export function isOutfitUnlocked(rec: CharacterRecord | undefined, outfitId: string, addonBit: 0 | 1 | 2): boolean {
+  if (!Object.hasOwn(OUTFITS, outfitId) || !rec) return false;
+  if (addonBit === 0) return isFreeOutfit(outfitId, rec.vocation) || hasUnlock(rec, outfitUnlockId(outfitId));
+  return hasUnlock(rec, addonUnlockId(outfitId, addonBit));
 }
 
 /** Máscara de addons válida (só bits 1|2). */

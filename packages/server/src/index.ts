@@ -4,6 +4,8 @@ import path from "node:path";
 import express from "express";
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
+import { RANKING_CACHE_S } from "@lemonquest/shared";
+import { rankingJson } from "./persistence/ranking.ts";
 import { ROOT_DIR } from "./paths.ts";
 import { WorldRoom } from "./rooms/WorldRoom.ts";
 import { authRouter } from "./persistence/auth.ts";
@@ -72,6 +74,16 @@ if (!PROD) {
   });
 }
 app.use(express.json({ limit: "16kb" }));
+// Ranking público (cache de 30 s no servidor e no navegador); só nomes de personagens.
+app.get("/api/ranking", (_req, res) => {
+  try {
+    res.setHeader("Cache-Control", `public, max-age=${RANKING_CACHE_S}`);
+    res.type("application/json").send(rankingJson());
+  } catch (e) {
+    console.error("[ranking] falhou:", e);
+    res.status(500).json({ ok: false });
+  }
+});
 app.use("/api", authRouter);
 app.get("/health", (_req, res) => { res.json({ ok: true }); });
 
@@ -79,6 +91,7 @@ app.get("/health", (_req, res) => { res.json({ ok: true }); });
 if (SERVE_CLIENT) {
   // O mapa vem de assets/maps (o MESMO arquivo que o servidor carrega) — cliente e servidor nunca dessincronizam.
   app.use("/maps", express.static(path.join(root, "assets/maps"), { fallthrough: false }));
+  app.get("/ranking", (_req, res) => { res.sendFile(path.join(dist, "ranking.html")); });
   app.use(express.static(dist));
 }
 

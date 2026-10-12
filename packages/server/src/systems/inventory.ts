@@ -113,6 +113,8 @@ export interface InventoryOptions {
   eat?: (p: PlayerState, food: NonNullable<NonNullable<ItemDef["use"]>["food"]>, now: number) => boolean;
   /** Equipamento mudou (velocidade etc.). */
   onStatsChanged?: (p: PlayerState) => void;
+  /** Ouro recebido (conquistas). */
+  onGold?: (p: PlayerState, n: number) => void;
 }
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);
@@ -254,6 +256,12 @@ export class InventorySystem {
     if (!inv || !(n > 0)) return;
     inv.gold = Math.min(Number.MAX_SAFE_INTEGER, inv.gold + Math.floor(n));
     this.dirty.add(p.id);
+    this.o.onGold?.(p, Math.floor(n));
+  }
+
+  /** Quantos espaços de equipamento estão ocupados (conquistas). */
+  equippedCount(id: string): number {
+    return Object.keys(this.inv.get(id)?.equipment ?? {}).length;
   }
 
   gold(id: string): number { return this.inv.get(id)?.gold ?? 0; }

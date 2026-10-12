@@ -2,7 +2,7 @@ import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, ty
 import {
   C2S, CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
-  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
+  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -28,7 +28,9 @@ import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
 import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
+import { grantUnlock } from "../systems/achievements.ts";
 import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
+import { AchievementSystem, setActiveAchievements } from "../systems/achievements.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv } from "../persistence/db.ts";
@@ -47,7 +49,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2,
 };
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
@@ -85,6 +87,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private fight!: FightModeSystem;
   private arena!: ArenaSystem;
   private training!: TrainingSystem;
+  private ach!: AchievementSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
@@ -159,7 +162,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       depotOpen: (id) => this.npcs.depotOpen(id),
       heal: (p, n) => this.combat.healPlayer(p, p.id, n),
       restoreMana: (p, n) => this.combat.restoreMana(p, n),
-      eat: (p, f, now) => this.food.eat(p, f, now),
+      eat: (p, f, now) => {
+        const ok = this.food.eat(p, f, now);
+        if (ok) this.ach?.event(p.id, "eat");
+        return ok;
+      },
+      onGold: (p, n) => this.ach?.event(p.id, "gold", { n }),
       onStatsChanged: (p) => this.conditions.refreshPlayer(p.id),
     });
     this.food = new FoodSystem({
@@ -185,6 +193,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         }))),
       },
       inventory: this.inventory, collection: this.state.groundItems, send,
+      onDropped: (p) => this.ach?.event(p.id, "drop"),
+      onPickedUp: (p) => this.ach?.event(p.id, "pickup"),
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });
@@ -234,6 +244,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.conditions.clear(p.id);
         this.summons.despawnOwner(p.id);
         this.loot.feed(`💀 ${p.name} foi derrotado por ${killer}`, "death");
+        this.ach?.event(p.id, "death");
       },
       armor: (p) => playerArmor(p) + this.inventory.stat(p.id, "armor"),
       attack: (p) => attackProfile(p, this.inventory.weaponDef(p.id), (s) => this.inventory.stat(p.id, s)),
@@ -247,6 +258,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         }
       },
       onMonsterKilled: (m) => this.combat.later(() => this.loot.onKill(m)),
+      onKillCredit: (pid, m, shared) => {
+        this.ach?.event(pid, "kill", { defId: m.def.id, boss: !!m.def.boss });
+        if (shared) this.ach?.event(pid, "party_kill");
+      },
       interceptDeath: (p) => this.arena.interceptDeath(p),
     };
     this.arena = new ArenaSystem({
@@ -262,6 +277,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       saveServerBest: (n) => setKv("arena.serverBest", String(n)),
       getBest: (id) => this.records.get(id)?.data.arenaBest ?? 0,
       setBest: (id, n) => { const rec = this.records.get(id); if (rec) rec.data.arenaBest = n; },
+      onWaveCleared: (p, wave) => this.ach?.event(p.id, "arena", { wave }),
       onEnter: (p) => this.npcs.close(p.id),
       onExit: (p) => {
         this.npcs.close(p.id);
@@ -271,6 +287,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       closeNpc: (id) => this.npcs.close(id, "arena_shop_"),
       send, broadcast,
     });
+    this.ach = new AchievementSystem({
+      record: (id) => this.records.get(id), getPlayer, players: () => this.state.players.values(), send, broadcast,
+      explorePct: (id) => this.exploration.percent(id, this.reachable),
+      equippedCount: (id) => this.inventory.equippedCount(id),
+    });
+    setActiveAchievements(this.ach);
     this.monsters.spawnAll();
     console.log(`[lemonquest] ${this.monsters.size} monstros em ${parseSpawns(this.map.tiled).length} spawns, ${this.npcs.list.length} NPCs`);
 
@@ -292,6 +314,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       teleportNear: (admin, target) => this.teleportNear(admin, target),
       resetCode: (account, by) => createResetCode(account, by),
       devTp: (pl) => isDevAdmin(pl.name),
+      grantUnlock: (rec, id, online) => (online ? this.ach.grantTo(online, rec, id, true) : grantUnlock(rec, id)),
     }) || handleDevCommand(p, text, {
       inventory: this.inventory, send,
       teleport: (pl, x, y) => this.movement.teleport(pl, x, y),
@@ -323,6 +346,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
     this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
     this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
+    this.on<SetTitleMsg>(C2S.SetTitle, (p, m) => { this.ach.onSetTitle(p, m); });
+    this.on<unknown>(C2S.AchievementsRequest, (p) => { this.ach.sendState(p.id); });
 
     const players = () => this.state.players.values();
     this.steps = [
@@ -330,6 +355,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["movement", () => this.movement.tick(this.tickNow, players())],
       ["portals", () => { for (const p of players()) this.portals.check(p); }],
       ["exploration", () => { for (const p of players()) this.exploration.onPosition(p.id, p.x, p.y); }],
+      ["achievements", () => this.ach.tick(this.tickNow)],
       ["monsters", () => this.monsters.tick(this.tickNow)],
       ["combat", () => this.combat.tick(this.tickNow)],
       ["conditions", () => this.conditions.tick(this.tickNow)],
@@ -415,6 +441,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.records.set(sid, rec);
     this.state.players.set(sid, p);
     this.conditions.refreshPlayer(p.id); // velocidade do equipamento
+    this.ach.load(p, rec);
+    { const st = this.ach.state(sid); if (st) client.send(S2C.Achievements, st); }
+    if (trained) this.ach.event(p.id, "offline", { minutes: trained.minutes });
     this.movement.addPlayer(p);
     client.send(S2C.Explored, this.exploration.addPlayer(sid, rec, p.x, p.y));
     const inv = this.inventory.inventoryMsg(p.id);
@@ -542,6 +571,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     if (inv) client.send(S2C.Inventory, inv);
     this.conditions.refreshPlayer(sid);
     this.arena.resend(sid);
+    this.ach.sendState(sid);
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);
   }
 
@@ -578,6 +608,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["npcs", () => this.npcs.removePlayer(sid)],
         ["fight", () => this.fight.removePlayer(sid)],
         ["chat", () => clearChatState(sid)],
+        ["achievements", () => this.ach.removePlayer(sid)],
       ];
       for (const [k, fn] of steps) runSafe(`saída/${k}`, fn, this.errors);
       this.throttle.clearPrefix(`${sid}:`);
@@ -599,7 +630,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onDispose() {
     this.saveAll();
     this.ground.flush();
-    if (liveWorld === this) liveWorld = null;
+    if (liveWorld === this) { liveWorld = null; setActiveAchievements(null); }
   }
 
   /** Registra um handler: só para quem tem personagem; aplica o limite por tipo (excesso descartado). */

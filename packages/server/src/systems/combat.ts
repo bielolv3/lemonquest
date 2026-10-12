@@ -91,6 +91,8 @@ export interface CombatHooks {
   onLevelUp?: (p: PlayerState) => void;
   /** Monstro selvagem morto (antes de sair da lista; damageBy intacto) — loot. */
   onMonsterKilled?: (m: Monster) => void;
+  /** Um jogador teve parte no abate de um monstro (todos que causaram dano, inclusive no coliseu); `shared` = mais de um jogador. */
+  onKillCredit?: (playerId: string, m: Monster, shared: boolean) => void;
   /**
    * Antes da morte normal (penalidade + templo): retorna true se outro sistema assumiu a morte (coliseu: sem
    * penalidade; ele mesmo teletransporta e restaura). Alvos/combate já foram limpos.
@@ -325,6 +327,10 @@ export class CombatSystem {
     const online = m.s.ownerId || m.arenaId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
     const shares = splitXp(m.def.xp, online);
     if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
+    if (!m.s.ownerId && this.hooks.onKillCredit) {
+      const credited = [...m.damageBy.keys()].filter((pid) => this.o.getPlayer(pid));
+      for (const pid of credited) this.hooks.onKillCredit(pid, m, credited.length > 1);
+    }
     this.o.monsters.kill(m, now);
     for (const p of this.o.players()) if (p.targetId === id) p.targetId = "";
     this.after.push(() => this.o.broadcast(S2C.CreatureDied, { id, x, y, defId } satisfies CreatureDiedMsg));

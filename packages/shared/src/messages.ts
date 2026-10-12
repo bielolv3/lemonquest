@@ -43,6 +43,10 @@ export const C2S = {
   Arena: "arena",
   /** Trocar roupa/addons (janela de roupas). */
   SetOutfit: "setOutfit",
+  /** Escolher o título ativo (conquistas). */
+  SetTitle: "setTitle",
+  /** Pedir o estado das conquistas (ao abrir a janela). */
+  AchievementsRequest: "achievementsRequest",
 } as const;
 
 export interface SetOutfitMsg { outfit: string; addons: number }
@@ -136,6 +140,10 @@ export const S2C = {
   Teleported: "teleported",
   /** Anúncio de um administrador (faixa grande no centro da tela, para todos). */
   Announce: "announce",
+  /** Conquista desbloqueada (toast). */
+  AchievementUnlocked: "achievementUnlocked",
+  /** Estado completo das conquistas (ao entrar e a cada mudança). */
+  Achievements: "achievements",
 } as const;
 
 export interface AnnounceMsg { text: string; from: string }
