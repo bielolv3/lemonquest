@@ -195,15 +195,11 @@ O servidor gera backups do banco automaticamente em `data\backups` (ou em `LEMON
 Para restaurar:
 
 ```powershell
-C:
-ssmwin64
-ssm.exe stop LemonQuest
+C:\nssm\win64\nssm.exe stop LemonQuest
 cd C:\lemonquest\data
 copy backups\<ARQUIVO-DE-BACKUP>.db lemonquest.db
 del lemonquest.db-wal, lemonquest.db-shm
-C:
-ssmwin64
-ssm.exe start LemonQuest
+C:\nssm\win64\nssm.exe start LemonQuest
 ```
 
 (Se o `del` reclamar que os arquivos não existem, tudo bem. Guarde uma cópia do `lemonquest.db` antigo antes de sobrescrever.)
