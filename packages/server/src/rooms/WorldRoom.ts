@@ -1,6 +1,6 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
-  C2S, CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
+  C2S, CLOSE_KICKED, CYCLE_START_MS, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
@@ -44,6 +44,8 @@ import type { CharacterRecord } from "../persistence/types.ts";
 import { isValidStart, reachableFrom } from "../world/tiles.ts";
 
 export const AUTOSAVE_MS = 15_000;
+/** Intervalo de sincronização do relógio do mundo (ciclo dia/noite). */
+export const WORLD_TIME_SYNC_MS = 5_000;
 /** Segundos que um jogador que caiu (Wi-Fi) continua no mundo esperando a reconexão automática do SDK. */
 export const RECONNECT_S = 20;
 /** Fechamento da sessão antiga quando o mesmo personagem entra em outro lugar: CLOSE_REPLACED (shared). */
@@ -406,6 +408,15 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     this.setSimulationInterval(() => this.tick(), TICK_MS);
     this.clock.setInterval(() => this.saveAll(), AUTOSAVE_MS);
+    // Ciclo dia/noite: todos veem a mesma hora (o cliente extrapola entre as atualizações).
+    this.cycleOriginMs = Date.now() - CYCLE_START_MS;
+    this.updateWorldTime();
+    this.clock.setInterval(() => this.updateWorldTime(), WORLD_TIME_SYNC_MS);
+  }
+
+  private cycleOriginMs = 0;
+  private updateWorldTime() {
+    this.state.worldTimeMs = Math.floor(wrapCycle(Date.now() - this.cycleOriginMs));
   }
 
   /** Passos do tick (testes podem trocar para verificar o isolamento). */
