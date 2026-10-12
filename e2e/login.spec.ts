@@ -37,7 +37,7 @@ test("login completo pela UI: criar conta → criar personagem → jogar (canvas
   await expect(page.getByRole("heading", { name: "Novo personagem" })).toBeVisible();
   // Nome livre da lista de admins.
   let name = "";
-  for (const n of E2E_NAMES.slice(600)) {
+  for (const n of E2E_NAMES.slice(180)) {
     const r = await page.request.get(`/health`);
     expect(r.ok()).toBe(true);
     name = n;
@@ -64,7 +64,7 @@ test("conta com vários personagens: escolher o segundo e voltar à lista após 
   const a = await createPlayer(page.request, "knight");
   // Segundo personagem na mesma conta.
   let second = "";
-  for (const n of E2E_NAMES.slice(500)) {
+  for (const n of E2E_NAMES.slice(150)) {
     const r = await (await page.request.post("/api/characters", { data: { session: a.session, name: n, vocation: "sorcerer" } })).json();
     if (r.ok) { second = n; break; }
   }
