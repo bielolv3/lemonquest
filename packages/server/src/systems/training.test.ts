@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CLOSE_TRAINING, MONSTERS, OFFLINE_TRAINING_MAX_MIN, PLAYER_ATTACK_MS, S2C, offlineTrainingMinutes, offlineTrainingTries,
-  skillTriesFor, statueDistance, type MonsterDef, type SpellDef,
+  SKILL_START, skillTriesFor, statueDistance, type MonsterDef, type SkillId, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
 import { ConditionSystem } from "./conditions.ts";
 import { SkillSystem } from "./skills.ts";
@@ -203,17 +203,32 @@ describe("treino offline: fórmula", () => {
     }
   });
 
-  it("melee/distance/shield: 50% de 1 ataque a cada 2 s = 15 por minuto", () => {
-    expect(offlineTrainingTries("melee", 60, "knight", 1)).toBe(900);
-    expect(offlineTrainingTries("shield", 720, "paladin", 50)).toBe(10_800);
-    expect(offlineTrainingTries("distance", 1, "paladin", 1)).toBe(15);
+  it("melee/distance/shield: 12% de 1 ataque a cada 2 s = 3,6 por minuto", () => {
+    expect(offlineTrainingTries("melee", 60, "knight", 1)).toBe(216);
+    expect(offlineTrainingTries("shield", 720, "paladin", 50)).toBe(2592);
+    expect(offlineTrainingTries("distance", 1, "paladin", 1)).toBe(3);
   });
 
-  it("magic: 50% da regeneração de mana por minuto (cresce com o level)", () => {
-    // druid lv20: maxMana 620, regen/tique = round(12.4 + 10) = 22 → 22 × 30 tiques × 0,5 = 330/min
-    expect(offlineTrainingTries("magic", 1, "druid", 20)).toBe(330);
-    expect(offlineTrainingTries("magic", 60, "druid", 20)).toBe(19_800);
+  it("magic: 3% da regeneração de mana por minuto (cresce com o level)", () => {
+    // druid lv20: maxMana 620, regen/tique = round(12.4 + 10) = 22 → 22 × 30 tiques × 0,03 = 19,8/min
+    expect(offlineTrainingTries("magic", 1, "druid", 20)).toBe(19);
+    expect(offlineTrainingTries("magic", 60, "druid", 20)).toBe(1188);
     expect(offlineTrainingTries("magic", 60, "druid", 50)).toBeGreaterThan(offlineTrainingTries("magic", 60, "druid", 20));
+  });
+
+  it("balanço (estilo Tibia): 1 h em skill baixa ≈ +3 a +5 níveis; 12 h é o teto", () => {
+    const gained = (skill: SkillId, voc: Vocation, level: number, minutes: number) => {
+      let t = offlineTrainingTries(skill, minutes, voc, level), l = SKILL_START[skill];
+      while (t >= skillTriesFor(skill, l, voc)) { t -= skillTriesFor(skill, l, voc); l++; }
+      return l - SKILL_START[skill];
+    };
+    for (const [skill, voc, lv] of [["melee", "knight", 8], ["distance", "paladin", 8], ["shield", "knight", 8], ["magic", "druid", 8], ["magic", "sorcerer", 20]] as const) {
+      const h1 = gained(skill, voc, lv, 60);
+      expect(h1, `${voc} ${skill}`).toBeGreaterThanOrEqual(3);
+      expect(h1, `${voc} ${skill}`).toBeLessThanOrEqual(5);
+    }
+    expect(gained("melee", "knight", 8, 720)).toBe(13);
+    expect(gained("magic", "druid", 20, 720)).toBe(14);
   });
 
   it("minutos entre dois instantes: clamp [0, 720]", () => {
@@ -294,16 +309,16 @@ describe("treino offline: estátuas e validação", () => {
   it("applyOffline: aplica tentativas, sobe vários níveis, reporta resultado", () => {
     const t = tsetup();
     const p = t.mk(10, 11);
-    const r = t.training.applyOffline(p, { skill: "melee", sinceMs: 0 }, 60 * 60_000); // 1 h = 900 tentativas
+    const r = t.training.applyOffline(p, { skill: "melee", sinceMs: 0 }, 60 * 60_000); // 1 h = 216 tentativas
     expect(r.minutes).toBe(60);
     expect(r.levelsGained).toBeGreaterThan(1);
     expect(r.newLevel).toBe(10 + r.levelsGained);
     expect(t.sent.filter((s) => s.type === S2C.SkillUp)).toHaveLength(r.levelsGained);
     const s = t.skills.get("p", "melee")!;
     expect(r.pct).toBe(Math.floor((s.tries * 100) / skillTriesFor("melee", s.level, "knight")));
-    let spent = s.tries; // conservação: gastas + restantes = 900
+    let spent = s.tries; // conservação: gastas + restantes = 216
     for (let l = 10; l < s.level; l++) spent += skillTriesFor("melee", l, "knight");
-    expect(spent).toBe(900);
+    expect(spent).toBe(216);
   });
 
   it("applyOffline: login em < 1 min não rende nada; 12 h é o teto", () => {

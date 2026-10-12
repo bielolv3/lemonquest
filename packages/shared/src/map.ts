@@ -223,3 +223,43 @@ export function canStepTerrain(grid: CollisionGrid, x: number, y: number, dx: nu
   if (dx !== 0 && dy !== 0) return grid.isWalkable(x + dx, y) && grid.isWalkable(x, y + dy);
   return true;
 }
+
+// ---------------------------------------------------------------------------
+// Linha de visão (estilo Tibia). Servidor (autoridade) e cliente usam a MESMA regra.
+// ---------------------------------------------------------------------------
+
+/**
+ * Linha "supercover" entre os CENTROS de (ax,ay) e (bx,by): true se todos os tiles que o segmento toca
+ * ENTRE os dois (exclusive) deixam passar. Quando o segmento cruza exatamente a quina entre dois tiles
+ * (passo diagonal), só bloqueia se OS DOIS tiles laterais bloquearem (passar "espremido" entre duas
+ * paredes em diagonal é bloqueado; uma parede só de um lado, não). Simétrica: (a→b) === (b→a).
+ * Adjacentes (inclusive em diagonal com uma quina livre) e o mesmo tile sempre têm linha livre.
+ */
+export function lineOfSight(ax: number, ay: number, bx: number, by: number, pass: (x: number, y: number) => boolean): boolean {
+  const nx = Math.abs(bx - ax), ny = Math.abs(by - ay);
+  const sx = bx > ax ? 1 : -1, sy = by > ay ? 1 : -1;
+  let x = ax, y = ay, ix = 0, iy = 0;
+  while (ix < nx || iy < ny) {
+    // Compara onde o segmento cruza a próxima borda vertical × horizontal (inteiros, sem ponto flutuante).
+    const d = (1 + 2 * ix) * ny - (1 + 2 * iy) * nx;
+    if (d === 0) {
+      // Exatamente na quina: bloqueado só se os dois vizinhos laterais bloquearem.
+      if (!pass(x + sx, y) && !pass(x, y + sy)) return false;
+      x += sx; y += sy; ix++; iy++;
+    } else if (d < 0) { x += sx; ix++; }
+    else { y += sy; iy++; }
+    if ((x !== bx || y !== by) && !pass(x, y)) return false;
+  }
+  return true;
+}
+
+/** O que a linha de visão precisa de uma grade (CollisionGrid satisfaz). */
+export interface SightGrid { isWalkable(x: number, y: number): boolean }
+
+/**
+ * Linha de visão entre dois tiles na grade de colisão: paredes (tiles bloqueados) entre eles cortam a visão;
+ * criaturas e NPCs (que não estão na grade) não. Os próprios tiles de origem/destino não contam.
+ */
+export function hasLineOfSight(grid: SightGrid, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  return lineOfSight(from.x, from.y, to.x, to.y, (x, y) => grid.isWalkable(x, y));
+}
