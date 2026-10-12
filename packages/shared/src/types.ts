@@ -70,6 +70,10 @@ export interface PlayerView {
   outfit: string;
   /** Addons ativos da roupa: bit 1 = addon 1, bit 2 = addon 2. */
   addons: number;
+  /** Título ativo (texto exibido ao lado do nome; "" = nenhum). Conquistas. */
+  title: string;
+  /** Grupo (party) atual ("" = nenhum). Mesmo valor = mesmo grupo (nomes verdes, pontos no minimapa). */
+  partyId?: string;
 }
 
 /** Espelho de MonsterState (packages/server/src/state.ts). */

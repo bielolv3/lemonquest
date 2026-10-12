@@ -31,6 +31,9 @@ export class PlayerState extends Schema implements PlayerView {
   @type("boolean") chase = false;
   @type("string") outfit = "cavaleiro";
   @type("uint8") addons = 0;
+  /** Título ativo (texto). Conquistas. */
+  @type("string") title = "";
+  @type("string") partyId = "";
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */
@@ -61,4 +64,6 @@ export class WorldState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
   @type({ map: MonsterState }) monsters = new MapSchema<MonsterState>();
   @type({ map: GroundItemState }) groundItems = new MapSchema<GroundItemState>();
+  /** Relógio do mundo (ms desde o início do ciclo dia/noite, 0..CYCLE_MS). Atualizado a cada poucos segundos; o cliente extrapola. */
+  @type("uint32") worldTimeMs = 0;
 }

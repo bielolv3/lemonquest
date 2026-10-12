@@ -44,6 +44,23 @@ export interface ActorOpts {
 }
 
 const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
+/** Membros do seu grupo: nome verde-claro + escudinho ao lado. */
+export const PARTY_NAME_COLOR = "#9dff8a";
+const PARTY_SHIELD_TEX = "party-shield";
+
+/** Escudinho 7×8 (gerado uma vez). */
+function ensurePartyShield(scene: Phaser.Scene) {
+  if (scene.textures.exists(PARTY_SHIELD_TEX)) return;
+  const tex = scene.textures.createCanvas(PARTY_SHIELD_TEX, 7, 8)!;
+  const c = tex.getContext();
+  const rows = ["0111110", "1222221", "1222221", "1222221", "1222221", "0122210", "0012100", "0001000"];
+  rows.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (ch === "0") return;
+    c.fillStyle = ch === "1" ? "#0f2a12" : "#7ee06d";
+    c.fillRect(x, y, 1, 1);
+  }));
+  tex.refresh();
+}
 const BAR_COLORS_SELF = { hi: 0x5be06a, mid: 0xffd447, low: 0xff5a52 };
 
 export class Actor {
@@ -77,6 +94,9 @@ export class Actor {
   /** Overlays de addon (roupas de jogador): seguem o frame da base, na frente ou atrás dela. */
   private overlays: { spr: Phaser.GameObjects.Sprite; back: boolean }[] = [];
   private extraTop = 0;
+  /** Marca de grupo (escudinho) e cor original do nome. */
+  private partyIcon: Phaser.GameObjects.Image | null = null;
+  private baseNameColor = "#ffffff";
 
   // HP
   private hpTarget = 1;
@@ -123,7 +143,7 @@ export class Actor {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif",
       fontSize: `${opts.fontSize ?? 11}px`,
       fontStyle: "bold",
-      color: opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff"),
+      color: (this.baseNameColor = opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff")),
       stroke: "#101018",
       strokeThickness: opts.fontSize && opts.fontSize < 11 ? 2 : 3,
       resolution: Math.max(1, Math.ceil(window.devicePixelRatio || 1)),
@@ -135,6 +155,37 @@ export class Actor {
     this.barFill = scene.add.image(0, 0, TEX.px).setOrigin(0, 0);
     deps.uiLayer.add([this.barBg, this.barGhost, this.barFill]);
     this.syncDisplay();
+  }
+
+  /** Título (conquistas) numa 2ª linha logo acima da barra, abaixo do nome. "" remove. */
+  setTitle(title: string) {
+    const name = this.label.text.split("\n")[0]!;
+    const t = title ? `${name}\n${title}` : name;
+    if (this.label.text !== t) this.label.setText(t);
+  }
+
+  /** Membro do meu grupo: escudinho ao lado do nome e (para os outros) nome verde-claro. */
+  setParty(on: boolean) {
+    if (on === !!this.partyIcon) return;
+    if (on) {
+      ensurePartyShield(this.deps.scene);
+      this.partyIcon = this.deps.scene.add.image(0, 0, PARTY_SHIELD_TEX).setOrigin(1, 0.5).setScale(2);
+      this.deps.uiLayer.add(this.partyIcon);
+      if (!this.isMe) this.label.setColor(PARTY_NAME_COLOR);
+      this.placePartyIcon();
+      this.applyVisible();
+    } else {
+      this.partyIcon?.destroy();
+      this.partyIcon = null;
+      this.label.setColor(this.baseNameColor);
+    }
+  }
+
+  get inParty(): boolean { return !!this.partyIcon; }
+
+  private placePartyIcon() {
+    if (!this.partyIcon) return;
+    this.partyIcon.setPosition(Math.round(this.label.x - this.label.displayWidth / 2 - 2), Math.round(this.label.y - this.label.displayHeight / 2));
   }
 
   setName(name: string, color?: string) {
@@ -232,6 +283,7 @@ export class Actor {
     const v = !this.culled && !this.ghosted;
     this.root.setVisible(v);
     this.label.setVisible(v);
+    this.partyIcon?.setVisible(v);
     this.barBg.setVisible(v && !this.noBar);
     this.barGhost.setVisible(v && !this.noBar);
     this.barFill.setVisible(v && !this.noBar);
@@ -245,6 +297,7 @@ export class Actor {
     if (this.noBar) {
       this.barBg.setVisible(false); this.barGhost.setVisible(false); this.barFill.setVisible(false);
       this.label.setPosition(Math.round(sx), Math.round(sy) - 1);
+      this.placePartyIcon();
       return;
     }
     // Barra: anima largura e fantasma de dano.
@@ -267,6 +320,7 @@ export class Actor {
     const col = this.hpTarget > 0.6 ? this.colors.hi : this.hpTarget > 0.3 ? this.colors.mid : this.colors.low;
     if (col !== this.lastBarColor) { this.lastBarColor = col; this.barFill.setTint(col); }
     this.label.setPosition(Math.round(sx), y0 - 1);
+    this.placePartyIcon();
   }
 
   /** Último tile da fila (para onde o ator está indo). */
@@ -432,6 +486,7 @@ export class Actor {
   destroy() {
     this.root.destroy();
     this.label.destroy();
+    this.partyIcon?.destroy();
     this.barBg.destroy();
     this.barGhost.destroy();
     this.barFill.destroy();

@@ -13,6 +13,8 @@ import { allCreatureSheets, creatureVisual, levelColor, sheetTrim } from "../gam
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
+import { LightField } from "../game/lighting.ts";
+import { worldClock } from "../game/daynight.ts";
 import { GroundItems } from "../game/ground.ts";
 import { beginGroundPress } from "../ui/items/dnd.ts";
 import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
@@ -24,7 +26,8 @@ import { Predictor } from "../game/predictor.ts";
 import { sfx } from "../game/sfx.ts";
 import { SpellEffects } from "../game/spellFx.ts";
 import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
-import { openCtxMenu, openOutfit } from "../ui/outfit/outfit.ts";
+import { openCtxMenu, openOutfit, type CtxMenuItem } from "../ui/outfit/outfit.ts";
+import { amLeader, isPartyMember, partyAction, partyStore } from "../ui/party/party.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { MAP_KEY, buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
 import { loading } from "../ui/loading.ts";
@@ -95,6 +98,8 @@ export class WorldScene extends Phaser.Scene {
   /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
   private groundWalkTimer = 0;
   private butterflies!: Butterflies;
+  /** Escuridão do ciclo dia/noite + luzes dinâmicas (game/lighting.ts). */
+  private lightField!: LightField;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
   private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
   private statues!: StatueIndex;
@@ -146,6 +151,9 @@ export class WorldScene extends Phaser.Scene {
     // Fonte pixel dos números flutuantes (a CSS é carregada pelo styles.css; garante antes do 1º uso).
     void document.fonts?.load('600 16px "Pixelify Sans"');
     this.input.mouse?.disableContextMenu();
+    // Grupo: nomes verdes + escudinho nos membros.
+    const offParty = partyStore.subscribe(() => this.refreshPartyCues());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offParty);
 
     // Duas "camadas" de render: mundo (câmera principal, com zoom) e UI (nomes nítidos, zoom 1).
     this.worldLayer = this.add.layer().setDepth(0);
@@ -159,7 +167,14 @@ export class WorldScene extends Phaser.Scene {
     this.uiLayer.cameraFilter |= main.id;
     this.worldLayer.cameraFilter |= this.uiCam.id;
 
+    // Camada de luz: só a câmera de UI a desenha (zoom 1), entre o mundo e os nomes/barras.
+    const lightLayer = this.add.layer().setDepth(0.5);
+    lightLayer.cameraFilter |= main.id;
     this.pcam = new PixelCamera(main, this.world.widthPx, this.world.heightPx);
+    this.lightField = new LightField(this, lightLayer, this.pcam, this.world.tiled, {
+      me: () => { const a = this.actors.get(this.myId); return a ? { x: a.bodyX, y: a.bodyY, tileX: a.tileX, tileY: a.tileY } : null; },
+      others: () => this.otherBodies(),
+    });
     this.pcam.jumpTo((this.world.spawn.x + 0.5) * TILE_SIZE, (this.world.spawn.y + 0.5) * TILE_SIZE);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
 
@@ -207,7 +222,11 @@ export class WorldScene extends Phaser.Scene {
     this.disposers.push(session.onRoom((room) => this.bindRoom(room)));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
 
-    if (FXTEST) startFxTest(this, this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+    if (FXTEST) {
+      // ?at=x,y põe o personagem de teste noutro lugar do mapa (ex.: cavernas) para checar iluminação.
+      const at = /^(\d+),(\d+)$/.exec(new URLSearchParams(location.search).get("at") ?? "");
+      startFxTest(this, at ? { x: Number(at[1]), y: Number(at[2]) } : this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+    }
     if (E2E_PROBE) this.installE2EProbe();
 
     // Mapa montado: avisa a tela de carregamento depois do 1º frame realmente desenhado.
@@ -256,6 +275,13 @@ export class WorldScene extends Phaser.Scene {
       console.warn("[chão] state.groundItems indisponível", e);
     }
 
+    try {
+      // Relógio do mundo (ciclo dia/noite): o estado traz worldTimeMs; o cliente extrapola.
+      this.disposers.push($.listen("worldTimeMs", (v: number) => worldClock.setServerTime(v)));
+    } catch (e) {
+      console.warn("[dia/noite] state.worldTimeMs indisponível", e);
+    }
+
     const msg = <T>(type: string, fn: (m: T) => void) => {
       const off = room.onMessage(type, fn) as unknown;
       if (typeof off === "function") this.disposers.push(off as () => void);
@@ -292,6 +318,11 @@ export class WorldScene extends Phaser.Scene {
     this.room = null;
   }
 
+  /** Corpos dos outros jogadores (para a luz pessoal deles). */
+  private *otherBodies() {
+    for (const [id, a] of this.actors) if (id !== this.myId) yield { x: a.bodyX, y: a.bodyY };
+  }
+
   private actorDeps(): ActorDeps {
     return { scene: this, worldLayer: this.worldLayer, uiLayer: this.uiLayer, snap: this.pcam.snap, onStepStart: (x, y) => this.footstep(x, y) };
   }
@@ -301,8 +332,10 @@ export class WorldScene extends Phaser.Scene {
     const isMe = id === this.myId;
     const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir);
     this.lookSig.set(id, `${p.outfit}|${p.addons}`);
+    actor.setTitle(p.title ?? "");
     actor.setHp(p.hp, p.maxHp, true);
     this.actors.set(id, actor);
+    if (isPartyMember(id)) actor.setParty(true);
     this.known.set(id, { x: p.x, y: p.y, dir: p.dir, stepMs: p.stepMs });
     if (isMe) {
       this.predictor.level = p.level;
@@ -329,6 +362,7 @@ export class WorldScene extends Phaser.Scene {
     const k = this.known.get(id);
     if (!actor || !k) return;
     actor.setHp(p.hp, p.maxHp);
+    actor.setTitle(p.title ?? "");
     const sig = `${p.outfit}|${p.addons}`;
     if (this.lookSig.get(id) !== sig) { this.lookSig.set(id, sig); actor.setLook(outfitLook(p.outfit, p.addons, p.vocation)); }
     const moved = p.x !== k.x || p.y !== k.y;
@@ -506,7 +540,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.room && !FXTEST) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
-      // Botão direito no próprio personagem: menu (Trocar roupa / pegar item do chão).
+      // Botão direito no próprio personagem: menu (Trocar roupa / pegar item do chão / sair do grupo).
       const me = this.actors.get(this.myId);
       if (right && me && t.x === me.tileX && t.y === me.tileY) {
         const ev = ptr.event as MouseEvent;
@@ -514,7 +548,16 @@ export class WorldScene extends Phaser.Scene {
         openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, [
           { label: "Trocar roupa", run: openOutfit },
           ...(gidHere ? [{ label: "Pegar item do chão", run: () => this.pickupGround(gidHere) }] : []),
+          ...(partyStore.get() ? [{ label: "Sair do grupo", run: () => partyAction({ action: "leave" }) }] : []),
         ]);
+        return;
+      }
+      // Botão direito em outro jogador: menu do grupo (convidar / expulsar / passar liderança).
+      const other = right ? this.playerAtTile(t.x, t.y) : null;
+      if (other) {
+        const ev = ptr.event as MouseEvent;
+        const items = this.partyMenu(other);
+        if (items.length) openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, items);
         return;
       }
       if (!this.room) return;
@@ -539,6 +582,31 @@ export class WorldScene extends Phaser.Scene {
       this.walkToTile(t.x, t.y);
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
+  }
+
+  /** Outro jogador (não eu) parado no tile. */
+  private playerAtTile(x: number, y: number): string | null {
+    for (const [id, a] of this.actors) if (id !== this.myId && a.tileX === x && a.tileY === y) return id;
+    return null;
+  }
+
+  /** Itens do menu de contexto de outro jogador (grupo). */
+  private partyMenu(id: string): CtxMenuItem[] {
+    const inParty = !!partyStore.get();
+    const leader = amLeader();
+    if (isPartyMember(id, true)) {
+      return leader ? [
+        { label: "Passar liderança", run: () => partyAction({ action: "lead", targetId: id }) },
+        { label: "Expulsar do grupo", run: () => partyAction({ action: "kick", targetId: id }) },
+      ] : [];
+    }
+    if (inParty && !leader) return [];
+    return [{ label: "Convidar para o grupo", run: () => partyAction({ action: "invite", targetId: id }) }];
+  }
+
+  /** Escudinho/nome verde nos membros do meu grupo. */
+  private refreshPartyCues() {
+    for (const [id, a] of this.actors) a.setParty(isPartyMember(id));
   }
 
   /** Clique para andar até um tile (cancela NPC/pegar pendentes). */
@@ -751,6 +819,7 @@ export class WorldScene extends Phaser.Scene {
     this.loot.update(dt);
     this.fx.update(dt);
     this.spells.update(dt, time);
+    this.lightField.update(dt, time);
     this.updateHover();
     this.updateTargetMark(time);
 
@@ -1065,6 +1134,7 @@ export class WorldScene extends Phaser.Scene {
     this.loot?.destroy();
     this.ground?.destroy();
     this.butterflies?.destroy();
+    this.lightField?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();
   }

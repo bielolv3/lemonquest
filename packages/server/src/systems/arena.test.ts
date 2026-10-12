@@ -24,7 +24,7 @@ function layout(n: number): ArenaLayout {
   };
 }
 
-function setup(nArenas = 1) {
+function setup(nArenas = 1, extra: Partial<ConstructorParameters<typeof ArenaSystem>[0]> = {}) {
   const w = world({ grid: openGrid(20 + nArenas * 20 + 5, 25), spawns: [] });
   const gold = new Map<string, number>();
   const best = new Map<string, number>();
@@ -41,7 +41,7 @@ function setup(nArenas = 1) {
     onExit: (p) => exited.push(p.id),
     send: (to, type, msg) => w.sent.push({ to, type, msg }),
     broadcast: (type, msg) => w.sent.push({ to: "*", type, msg }),
-    now: w.now, rng: () => 0.5,
+    now: w.now, rng: () => 0.5, ...extra,
   });
   w.combat.hooks.interceptDeath = (p) => arena.interceptDeath(p);
   const run = (ms: number) => w.run(ms, () => arena.tick(w.now()));
@@ -88,6 +88,22 @@ describe("coliseu: mapa", () => {
 });
 
 describe("coliseu: lobbies", () => {
+  it("criar com o grupo (party): membros perto do Mestre entram juntos; longe/ocupado fica de fora", () => {
+    const mates: Record<string, string[]> = { a: ["b", "c", "d"] };
+    const k = setup(1, { partyMates: (id) => mates[id] ?? [], isPartyLeader: (id) => id === "a" });
+    const a = k.add("a"), b = k.add("b"), c = k.add("c");
+    k.add("d", { x: 19, y: 19 }); // longe do Mestre
+    k.arena.onAction(c, { action: "create" }); // c já está em outro lobby
+    k.arena.onAction(a, { action: "create", withParty: true });
+    expect(k.arena.partyFor("a")!.members.map((m) => m.id)).toEqual(["a", "b"]);
+    expect(k.notices("b")).toContain("a te colocou no grupo do Coliseu.");
+    expect(k.notices("a").pop()).toMatch(/Ficaram de fora.*c, d/);
+    // Quem não é líder do grupo não traz ninguém.
+    k.arena.onAction(b, { action: "leave" });
+    k.arena.onAction(b, { action: "create", withParty: true });
+    expect(k.arena.partyFor("b")!.members.map((m) => m.id)).toEqual(["b"]);
+  });
+
   it("criar, entrar, sair; líder passa adiante; máximo de 4", () => {
     const k = setup();
     const [a, b, c, d, e] = ["a", "b", "c", "d", "e"].map((id) => k.add(id));

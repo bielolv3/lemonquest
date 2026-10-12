@@ -36,3 +36,16 @@
   75% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ---------- Dia/noite ---------- */
+.minimap-night { position: absolute; inset: 0; pointer-events: none; background: #0a1030; mix-blend-mode: multiply; transition: opacity 1s; }
+.daynight { position: relative; display: flex; justify-content: center; }
+.daynight-btn { display: flex; align-items: center; gap: 6px; background: none; border: 0; color: #c4c6cf; font: inherit; font-size: 12px; cursor: pointer; padding: 1px 6px; border-radius: 3px; }
+.daynight-btn:hover { background: rgba(255, 255, 255, .06); }
+.dn-icon { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dn-icon.sun { background: #ffd447; box-shadow: 0 0 6px 1px rgba(255, 212, 71, .7); }
+.dn-icon.moon { background: transparent; box-shadow: inset -3px -1px 0 0 #cfd8ff; }
+.dn-time { font-variant-numeric: tabular-nums; color: #8a8fa0; }
+.daynight-pop { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 150px; padding: 8px; z-index: 40; display: flex; flex-direction: column; gap: 4px; }
+.dn-opt { background: #1b2030; border: 1px solid #343b4e; color: #c4c6cf; border-radius: 3px; padding: 3px 6px; font: inherit; font-size: 12px; cursor: pointer; }
+.dn-opt.active { border-color: #d9a441; color: #f3e6b8; }

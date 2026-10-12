@@ -32,11 +32,14 @@ export interface ChatHooks {
   command?: (p: PlayerState, text: string) => boolean;
   /** Silenciado por admin: ms restantes (0 = pode falar). Magias e comandos continuam funcionando. */
   muted?: (p: PlayerState) => number;
+  /** Canal "party": entrega só aos membros do grupo (false = sem grupo; o gancho já avisou). Ausente = canal recusado. */
+  partyChat?: (p: PlayerState, text: string) => boolean;
 }
 
 export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg, hooks: ChatHooks = {}): void {
   if (!msg || typeof msg.text !== "string") return;
-  if (msg.channel !== "global") return; // party virá depois
+  if (msg.channel !== "global" && msg.channel !== "party") return;
+  if (msg.channel === "party" && !hooks.partyChat) return;
   const text = sanitizeText(msg.text.slice(0, MAX_CHAT_LEN * 4)).trim().slice(0, MAX_CHAT_LEN).trim();
   if (!text) return;
   if (text.startsWith("/")) {
@@ -56,6 +59,11 @@ export function handleChat(room: Room, client: Client, from: PlayerState, msg: C
   if (!checkRate(client.sessionId)) {
     const notice: NoticeMsg = { text: "Calma! Você está falando rápido demais.", kind: "warn" };
     client.send(S2C.Notice, notice);
+    return;
+  }
+
+  if (msg.channel === "party") {
+    if (hooks.partyChat?.(from, text)) console.log(`[grupo] ${from.name}: ${text}`);
     return;
   }
 

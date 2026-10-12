@@ -1,10 +1,42 @@
 // Minimapa com fog of war, mapa-múndi em tela cheia (tecla M) e banner de zona.
+import { isPartyMember } from "../party/party.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { C2S, type WalkToMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { isTyping } from "../focus.ts";
 import { minimapStore as store } from "./store.ts";
+import { clockLabel, phaseAt, ambientForZone, darknessOf, PHASE_LABEL } from "@lemonquest/shared";
+import { worldClock } from "../../game/daynight.ts";
+import { LIGHT_LEVELS, lightLevelStore, useLightLevel } from "../../game/lighting.ts";
 import "./minimap.css";
+
+/** Hora do mundo + ícone sol/lua + seletor "Efeitos de luz" (alto/baixo/desligado). */
+function DayClock() {
+  const [, tick] = useState(0);
+  const [open, setOpen] = useState(false);
+  const level = useLightLevel();
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  const now = worldClock.now();
+  const { phase } = phaseAt(now);
+  const night = phase === "night" || phase === "dusk";
+  return (
+    <div class="daynight">
+      <button class="daynight-btn" onClick={() => setOpen((o) => !o)} title="Efeitos de luz" data-testid="daynight">
+        <span class={`dn-icon ${night ? "moon" : "sun"}`} aria-hidden="true" />
+        <span class="dn-label">{PHASE_LABEL[phase]}</span>
+        <span class="dn-time">{clockLabel(now)}</span>
+      </button>
+      {open && (
+        <div class="daynight-pop hud-card" role="dialog" aria-label="Efeitos de luz">
+          <div class="help-title">Efeitos de luz</div>
+          {LIGHT_LEVELS.map((l) => (
+            <button key={l.id} class={`dn-opt${level === l.id ? " active" : ""}`} onClick={() => lightLevelStore.set(l.id)} title={l.hint}>{l.label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const BG = "#07080c";
 const FRAME_MS = 66; // ~15 fps
@@ -32,6 +64,12 @@ export function Minimap() {
   const viewRef = useRef<View>({ sx: 0, sy: 0, tiles: 1 });
   const [zoom, setZoom] = useState(zoomRef.current);
   const zone = useZoneName();
+  const [nightK, setNightK] = useState(0);
+  const lvl = useLightLevel();
+  useEffect(() => {
+    const f = () => setNightK(lvl === "off" ? 0 : darknessOf(ambientForZone(worldClock.now(), store.zoneName)) * 0.5);
+    f(); const t = setInterval(f, 2000); return () => clearInterval(t);
+  }, [lvl]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -68,10 +106,13 @@ export function Minimap() {
       ctx.strokeStyle = "rgba(0,0,0,.7)";
       ctx.lineWidth = dpr;
       const rOther = Math.max(1.5 * dpr, ppt * 0.45);
-      for (const o of store.others.values()) {
-        if (!store.mask?.has(o.x, o.y)) continue;
+      for (const [id, o] of store.others) {
+        // Membros do grupo: pontos verdes (sempre visíveis, mesmo fora do explorado).
+        const mate = isPartyMember(id);
+        if (!mate && !store.mask?.has(o.x, o.y)) continue;
         const x = (o.x + 0.5 - sx) * ppt, y = (o.y + 0.5 - sy) * ppt;
         if (x < 0 || y < 0 || x > S || y > S) continue;
+        ctx.fillStyle = mate ? "#7ee06d" : "#ffd447";
         ctx.beginPath(); ctx.arc(x, y, rOther, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       // Jogador local: ponto branco com pulso discreto.
@@ -121,8 +162,10 @@ export function Minimap() {
       <div class="minimap-box panel">
         <canvas ref={canvasRef} class="minimap-canvas" onClick={onClick} title="Clique para andar até lá" />
         <span class="minimap-zoom">{zoom}x</span>
+        <div class="minimap-night" style={{ opacity: nightK }} />
       </div>
       <div class="minimap-zone">{zone && <span key={zone} class="minimap-zone-name">{zone}</span>}</div>
+      <DayClock />
     </div>
   );
 }
