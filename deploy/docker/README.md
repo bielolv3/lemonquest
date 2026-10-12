@@ -177,8 +177,8 @@ chat: `/online`, `/kick <nome> [motivo]`, `/mute <nome> <minutos>`, `/unmute <no
 é `/app/packages/server` e o banco é o de `LEMONQUEST_DB=/app/data/lemonquest.db`):
 
 ```bash
-docker compose exec -u node lemonquest node --import tsx scripts/admin.ts reset-password <conta>
-docker compose exec -u node lemonquest node --import tsx scripts/admin.ts deleted     # personagens excluídos
+docker compose exec -u node lemonquest node packages/server/dist/admin.mjs reset-password <conta>
+docker compose exec -u node lemonquest node packages/server/dist/admin.mjs deleted     # personagens excluídos
 ```
 
 Conta com espaço no nome: use aspas (`reset-password "Time Azul"`). O `-u node` evita criar arquivos do banco como root.

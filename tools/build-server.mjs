@@ -1,4 +1,5 @@
 // Empacota o servidor (+ @lemonquest/shared + dependências) num único arquivo ESM: packages/server/dist/server.mjs.
+// Também gera dist/admin.mjs (CLI de administração: reset de senha, personagens excluídos...).
 // O esbuild lê tsconfig.base.json (experimentalDecorators + useDefineForClassFields:false) — os decorators do
 // @colyseus/schema são compilados do mesmo jeito que no tsx. Uso: `npm run build:server`.
 import { build } from "esbuild";
@@ -10,8 +11,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "packages/server/dist/server.mjs");
 
 const result = await build({
-  entryPoints: [path.join(root, "packages/server/src/index.ts")],
-  outfile: out,
+  entryPoints: { server: path.join(root, "packages/server/src/index.ts"), admin: path.join(root, "packages/server/scripts/admin.ts") },
+  outdir: path.join(root, "packages/server/dist"),
+  outExtension: { ".js": ".mjs" },
   bundle: true,
   platform: "node",
   target: "node24",

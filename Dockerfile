@@ -46,7 +46,7 @@ RUN addgroup -g 1000 node && adduser -u 1000 -G node -s /bin/sh -D node
 # O mapa (o servidor e o cliente leem o MESMO arquivo), o cliente compilado e o servidor empacotado.
 COPY assets/maps/world.json assets/maps/world.json
 COPY --from=build /app/packages/client/dist packages/client/dist
-COPY --from=build /app/packages/server/dist/server.mjs packages/server/dist/server.mjs
+COPY --from=build /app/packages/server/dist/server.mjs /app/packages/server/dist/admin.mjs packages/server/dist/
 
 # Banco e backups ficam num volume (sobrevivem a recriar o container).
 RUN mkdir -p /app/data/backups && chown -R node:node /app/data
