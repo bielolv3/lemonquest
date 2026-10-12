@@ -32,6 +32,7 @@ export function buildPublic() {
 
   copy("ninja", (src) => !NINJA_SKIP.some((re) => re.test(src)));
   copy("icons", (src) => !/preview/i.test(basename(src)));
+  copy("addons", (src) => !/preview/i.test(basename(src)));
   // Só o mapa; os previews .png ficam de fora.
   mkdirSync(join(PUBLIC_DIR, "maps"), { recursive: true });
   cpSync(join(assets, "maps", "world.json"), join(PUBLIC_DIR, "maps", "world.json"));

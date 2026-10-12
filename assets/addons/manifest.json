@@ -1,0 +1,190 @@
+{
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "offsetX": 8,
+  "offsetY": 12,
+  "addons": {
+    "cidadao_chapeu": {
+      "outfit": "cidadao",
+      "name": "Chapéu com pena",
+      "front": "addons/cidadao_chapeu.png",
+      "back": null,
+      "extraTop": 3
+    },
+    "cidadao_mochila": {
+      "outfit": "cidadao",
+      "name": "Mochila de viagem",
+      "front": "addons/cidadao_mochila.png",
+      "back": "addons/cidadao_mochila_back.png",
+      "extraTop": 0
+    },
+    "cacador_chapeu": {
+      "outfit": "cacador",
+      "name": "Chapéu de caçador",
+      "front": "addons/cacador_chapeu.png",
+      "back": null,
+      "extraTop": 4
+    },
+    "cacador_aljava": {
+      "outfit": "cacador",
+      "name": "Aljava",
+      "front": "addons/cacador_aljava.png",
+      "back": "addons/cacador_aljava_back.png",
+      "extraTop": 0
+    },
+    "mago_chapeu": {
+      "outfit": "mago",
+      "name": "Chapéu de mago",
+      "front": "addons/mago_chapeu.png",
+      "back": null,
+      "extraTop": 8
+    },
+    "mago_cajado": {
+      "outfit": "mago",
+      "name": "Cajado arcano",
+      "front": "addons/mago_cajado.png",
+      "back": null,
+      "extraTop": 1
+    },
+    "cavaleiro_pluma": {
+      "outfit": "cavaleiro",
+      "name": "Pluma do elmo",
+      "front": "addons/cavaleiro_pluma.png",
+      "back": null,
+      "extraTop": 6
+    },
+    "cavaleiro_escudo": {
+      "outfit": "cavaleiro",
+      "name": "Escudo nas costas",
+      "front": "addons/cavaleiro_escudo.png",
+      "back": "addons/cavaleiro_escudo_back.png",
+      "extraTop": 0
+    },
+    "nobre_capa": {
+      "outfit": "nobre",
+      "name": "Capa de nobre",
+      "front": "addons/nobre_capa.png",
+      "back": "addons/nobre_capa_back.png",
+      "extraTop": 0
+    },
+    "nobre_pena": {
+      "outfit": "nobre",
+      "name": "Pena no chapéu",
+      "front": "addons/nobre_pena.png",
+      "back": null,
+      "extraTop": 5
+    },
+    "invocador_diadema": {
+      "outfit": "invocador",
+      "name": "Diadema",
+      "front": "addons/invocador_diadema.png",
+      "back": null,
+      "extraTop": 2
+    },
+    "invocador_orbe": {
+      "outfit": "invocador",
+      "name": "Orbe flutuante",
+      "front": "addons/invocador_orbe.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "guerreiro_asas": {
+      "outfit": "guerreiro",
+      "name": "Elmo alado",
+      "front": "addons/guerreiro_asas.png",
+      "back": "addons/guerreiro_asas_back.png",
+      "extraTop": 4
+    },
+    "guerreiro_machado": {
+      "outfit": "guerreiro",
+      "name": "Machado de guerra",
+      "front": "addons/guerreiro_machado.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "barbaro_elmo": {
+      "outfit": "barbaro",
+      "name": "Elmo de chifres",
+      "front": "addons/barbaro_elmo.png",
+      "back": "addons/barbaro_elmo_back.png",
+      "extraTop": 3
+    },
+    "barbaro_clava": {
+      "outfit": "barbaro",
+      "name": "Clava cravejada",
+      "front": "addons/barbaro_clava.png",
+      "back": null,
+      "extraTop": 2
+    },
+    "druida_coroa": {
+      "outfit": "druida",
+      "name": "Coroa de folhas",
+      "front": "addons/druida_coroa.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "druida_cajado": {
+      "outfit": "druida",
+      "name": "Cajado de galho",
+      "front": "addons/druida_cajado.png",
+      "back": null,
+      "extraTop": 2
+    },
+    "bruxo_manto": {
+      "outfit": "bruxo",
+      "name": "Manto sombrio",
+      "front": "addons/bruxo_manto.png",
+      "back": "addons/bruxo_manto_back.png",
+      "extraTop": 0
+    },
+    "bruxo_cajado": {
+      "outfit": "bruxo",
+      "name": "Cajado de caveira",
+      "front": "addons/bruxo_cajado.png",
+      "back": null,
+      "extraTop": 2
+    },
+    "oriental_joia": {
+      "outfit": "oriental",
+      "name": "Joia do turbante",
+      "front": "addons/oriental_joia.png",
+      "back": null,
+      "extraTop": 4
+    },
+    "oriental_cimitarra": {
+      "outfit": "oriental",
+      "name": "Cimitarra",
+      "front": "addons/oriental_cimitarra.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "pirata_chapeu": {
+      "outfit": "pirata",
+      "name": "Chapéu de pirata",
+      "front": "addons/pirata_chapeu.png",
+      "back": null,
+      "extraTop": 2
+    },
+    "pirata_papagaio": {
+      "outfit": "pirata",
+      "name": "Papagaio",
+      "front": "addons/pirata_papagaio.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "assassino_cachecol": {
+      "outfit": "assassino",
+      "name": "Cachecol",
+      "front": "addons/assassino_cachecol.png",
+      "back": "addons/assassino_cachecol_back.png",
+      "extraTop": 0
+    },
+    "assassino_katana": {
+      "outfit": "assassino",
+      "name": "Katana nas costas",
+      "front": "addons/assassino_katana.png",
+      "back": "addons/assassino_katana_back.png",
+      "extraTop": 0
+    }
+  }
+}
