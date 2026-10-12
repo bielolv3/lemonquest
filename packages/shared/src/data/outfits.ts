@@ -30,8 +30,10 @@ export interface AddonDef {
 export interface OutfitDef {
   id: string;
   name: string;
-  /** Sheet base (relativo a assets/), 64x112. */
+  /** Sheet base (relativo a assets/), 64x112. Pode ser gerada (tools/addons) a partir de uma sheet do pack. */
   sheet: string;
+  /** Retrato 38x38 (ausente = Faceset.png ao lado da sheet). */
+  faceset?: string;
   /** Addon 1 (bit 1) e addon 2 (bit 2). */
   addons: [AddonDef, AddonDef];
   /**
@@ -56,7 +58,9 @@ function outfit(id: string, name: string, sheetName: string, a1: AddonDef, a2: A
 export const OUTFIT_LIST: OutfitDef[] = [
   outfit("cidadao", "Cidadão", "Villager4", addon("cidadao_chapeu", "Chapéu com pena"), addon("cidadao_mochila", "Mochila de viagem", true)),
   outfit("cacador", "Caçador", "Hunter", addon("cacador_chapeu", "Chapéu de caçador"), addon("cacador_aljava", "Aljava", true)),
-  outfit("mago", "Mago", "SorcererBlack", addon("mago_chapeu", "Chapéu de mago"), addon("mago_cajado", "Cajado arcano")),
+  // Mago: sheet gerada (Master com túnica azul-violeta e barba longa permanente) — tools/addons/generate.mjs
+  { ...outfit("mago", "Mago", "Master", addon("mago_chapeu", "Chapéu de mago"), addon("mago_cajado", "Cajado arcano")),
+    sheet: `${A}base_mago.png`, faceset: `${A}base_mago_face.png` },
   outfit("cavaleiro", "Cavaleiro", "Knight", addon("cavaleiro_pluma", "Pluma do elmo"), addon("cavaleiro_escudo", "Escudo nas costas", true)),
   outfit("nobre", "Nobre", "Noble", addon("nobre_capa", "Capa de nobre", true), addon("nobre_pena", "Pena no chapéu")),
   outfit("invocador", "Invocador", "SorcererOrange", addon("invocador_diadema", "Diadema"), addon("invocador_orbe", "Orbe flutuante")),
