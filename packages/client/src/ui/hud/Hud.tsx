@@ -58,7 +58,7 @@ function useHudKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping() || e.ctrlKey || e.altKey || e.metaKey) return;
-      // Teclas 1–6 (linha de cima; o numpad é movimento).
+      // Teclas 1–8 (linha de cima; o numpad é movimento).
       const m = /^Digit([1-9])$/.exec(e.code);
       if (m) {
         const slot = Number(m[1]) - 1;

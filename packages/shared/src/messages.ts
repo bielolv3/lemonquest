@@ -15,7 +15,7 @@ export const C2S = {
   Chat: "chat",
   /** Selecionar/limpar alvo de ataque automático (estilo Tibia). */
   Attack: "attack",
-  /** Conjurar magia (hotkey 1–6 ou palavras no chat). */
+  /** Conjurar magia (hotkey 1–8 ou palavras no chat). */
   Cast: "cast",
   /** Mover item entre mochila/equipamento/depot (arrastar e soltar). */
   MoveItem: "moveItem",

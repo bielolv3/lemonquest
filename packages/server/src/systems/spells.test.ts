@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   BASE_STEP_MS, Dir, evalSpellFormula, mitigateSpell, playerDamageRange, GLOBAL_SPELL_COOLDOWN_MS, S2C, SKILL_START, TICK_MS, skillTriesFor, stepDuration,
-  type MonsterDef, type SpellDef,
+  SPELLS, spellsFor, type MonsterDef, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
 import { ConditionSystem } from "./conditions.ts";
 import { SkillSystem } from "./skills.ts";
@@ -16,24 +16,27 @@ import type { PlayerState } from "../state.ts";
 const F = (base: number) => ({ base, perLevel: 0, perMagic: 0, variance: 0 });
 
 const SP: Record<string, SpellDef> = {
-  heal: { id: "heal", name: "h", words: "exura", vocation: "druid", level: 1, mana: 20, cooldownMs: 2000, target: "self", heal: F(30), fx: "heal", description: "" },
-  bolt: { id: "bolt", name: "b", words: "exori", vocation: "druid", level: 1, mana: 10, cooldownMs: 3000, target: "target", range: 4, damage: { ...F(20), kind: "ice" }, fx: "ice", description: "" },
-  big: { id: "big", name: "g", words: "exori gran", vocation: "druid", level: 20, mana: 10, cooldownMs: 1000, target: "self", heal: F(1), fx: "heal", description: "" },
-  free: { id: "free", name: "f", words: "utani", vocation: "druid", level: 1, mana: 0, cooldownMs: 500, global: false, target: "self", condition: { id: "haste", durationMs: 4000, value: 100 }, fx: "buff", description: "" },
-  ring: { id: "ring", name: "r", words: "exevo", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "area_self", radius: 1, damage: { ...F(10), kind: "fire" }, condition: { id: "burn", durationMs: 4000, value: 3 }, fx: "fire", description: "" },
-  wave: { id: "wave", name: "w", words: "exevo vis", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "wave", length: 4, width: 3, damage: { ...F(10), kind: "energy" }, fx: "energy", description: "" },
-  root: { id: "root", name: "rt", words: "exori tera", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "target", range: 4, condition: { id: "rooted", durationMs: 3000 }, fx: "root", description: "" },
-  shield: { id: "shield", name: "ms", words: "utamo vita", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "manashield", durationMs: 10_000 }, fx: "buff", description: "" },
-  prot: { id: "prot", name: "pr", words: "utamo tempo", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "protect", durationMs: 10_000, value: 50 }, fx: "buff", description: "" },
-  regen: { id: "regen", name: "rg", words: "utura", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "regen", durationMs: 3000, value: 5 }, fx: "heal", description: "" },
-  party: { id: "party", name: "pt", words: "exura mas sio", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "party", radius: 3, heal: F(10), fx: "heal", description: "" },
-  summon: { id: "summon", name: "s", words: "utevo res", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, target: "self", summon: { monsterId: "pet", count: 1, durationMs: 20_000 }, fx: "summon", description: "" },
-  taunt: { id: "taunt", name: "t", words: "exeta res", vocation: "knight", level: 1, mana: 0, cooldownMs: 0, target: "area_self", radius: 3, taunt: true, condition: { id: "taunted", durationMs: 5000 }, fx: "taunt", description: "" },
-  dash: { id: "dash", name: "d", words: "exori hur", vocation: "knight", level: 1, mana: 0, cooldownMs: 0, target: "target", range: 4, dash: true, damage: { ...F(5), kind: "physical" }, fx: "charge", description: "" },
+  heal: { id: "heal", name: "h", words: "exura", vocations: ["druid"], level: 1, mana: 20, cooldownMs: 2000, target: "self", heal: F(30), fx: "heal", description: "" },
+  bolt: { id: "bolt", name: "b", words: "exori", vocations: ["druid"], level: 1, mana: 10, cooldownMs: 3000, target: "target", range: 4, damage: { ...F(20), kind: "ice" }, fx: "ice", description: "" },
+  big: { id: "big", name: "g", words: "exori gran", vocations: ["druid"], level: 20, mana: 10, cooldownMs: 1000, target: "self", heal: F(1), fx: "heal", description: "" },
+  free: { id: "free", name: "f", words: "utani", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 500, global: false, target: "self", condition: { id: "haste", durationMs: 4000, value: 100 }, fx: "buff", description: "" },
+  ring: { id: "ring", name: "r", words: "exevo", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "area_self", radius: 1, damage: { ...F(10), kind: "fire" }, condition: { id: "burn", durationMs: 4000, value: 3 }, fx: "fire", description: "" },
+  wave: { id: "wave", name: "w", words: "exevo vis", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "wave", length: 4, width: 3, damage: { ...F(10), kind: "energy" }, fx: "energy", description: "" },
+  root: { id: "root", name: "rt", words: "exori tera", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "target", range: 4, condition: { id: "rooted", durationMs: 3000 }, fx: "root", description: "" },
+  shield: { id: "shield", name: "ms", words: "utamo vita", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "manashield", durationMs: 10_000 }, fx: "buff", description: "" },
+  prot: { id: "prot", name: "pr", words: "utamo tempo", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "protect", durationMs: 10_000, value: 50 }, fx: "buff", description: "" },
+  regen: { id: "regen", name: "rg", words: "utura", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "self", condition: { id: "regen", durationMs: 3000, value: 5 }, fx: "heal", description: "" },
+  party: { id: "party", name: "pt", words: "exura mas sio", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "party", radius: 3, heal: F(10), fx: "heal", description: "" },
+  summon: { id: "summon", name: "s", words: "utevo res", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, target: "self", summon: { monsterId: "pet", count: 1, durationMs: 20_000 }, fx: "summon", description: "" },
+  taunt: { id: "taunt", name: "t", words: "exeta res", vocations: ["knight"], level: 1, mana: 0, cooldownMs: 0, target: "area_self", radius: 3, taunt: true, condition: { id: "taunted", durationMs: 5000 }, fx: "taunt", description: "" },
+  dash: { id: "dash", name: "d", words: "exori hur", vocations: ["knight"], level: 1, mana: 0, cooldownMs: 0, target: "target", range: 4, dash: true, damage: { ...F(5), kind: "physical" }, fx: "charge", description: "" },
 };
 
+// Curas reais do catálogo (ids não colidem com as fixtures).
+Object.assign(SP, { light_heal: SPELLS.light_heal, great_heal: SPELLS.great_heal, vital_heal: SPELLS.vital_heal });
+
 // Fixtures fora do cooldown global (exceto heal/bolt/big/free), para os testes de efeito.
-for (const s of Object.values(SP)) if (!["heal", "bolt", "big", "free"].includes(s.id)) s.global = false;
+for (const s of Object.values(SP)) if (!["heal", "bolt", "big", "free", "light_heal", "great_heal", "vital_heal"].includes(s.id)) s.global = false;
 
 interface SetupOpts { grid?: CollisionGrid; monsters?: { x: number; y: number; def?: Partial<MonsterDef> }[]; safeZones?: { x0: number; y0: number; x1: number; y1: number }[] }
 
@@ -425,5 +428,60 @@ describe("chat incantations", () => {
     const w = setup();
     const p = w.addP("p", 20, 20);
     expect(w.spells.castWords(p, "nao e magia")).toBe(false);
+  });
+});
+
+describe("curas de todas as vocações (catálogo real)", () => {
+  const VOCS: Vocation[] = ["knight", "paladin", "sorcerer", "druid"];
+  const rangeOf = (id: string, lvl: number, ml: number) => {
+    const f = SPELLS[id]!.heal!;
+    const avg = f.base + lvl * f.perLevel + ml * f.perMagic;
+    return [Math.floor(avg * (1 - f.variance)), Math.ceil(avg * (1 + f.variance))] as const;
+  };
+
+  it.each(VOCS)("%s conjura exura (lv1) e exura gran (lv10): gasta mana, cura e respeita cooldown", (voc) => {
+    const w = setup();
+    const p = w.addP("p", 11, 10, { vocation: voc, level: 10, magicLevel: 3, mana: 500, maxMana: 500, hp: 100, maxHp: 1000 });
+    // exura
+    expect(w.spells.castWords(p, "exura")).toBe(true);
+    expect(w.results("p").at(-1)).toMatchObject({ ok: true, spellId: "light_heal" });
+    expect(p.mana).toBe(500 - SPELLS.light_heal.mana);
+    const [lo1, hi1] = rangeOf("light_heal", 10, 3);
+    expect(p.hp - 100).toBeGreaterThanOrEqual(lo1);
+    expect(p.hp - 100).toBeLessThanOrEqual(hi1);
+    // cooldown global: segunda conjuração imediata falha
+    expect(w.spells.castWords(p, "exura gran")).toBe(true);
+    expect(w.results("p").at(-1)).toMatchObject({ ok: false });
+    expect(p.mana).toBe(500 - SPELLS.light_heal.mana);
+    w.run(GLOBAL_SPELL_COOLDOWN_MS + 100);
+    const hp0 = p.hp;
+    expect(w.spells.castWords(p, "exura gran")).toBe(true);
+    expect(w.results("p").at(-1)).toMatchObject({ ok: true, spellId: "great_heal" });
+    expect(p.mana).toBe(500 - SPELLS.light_heal.mana - SPELLS.great_heal.mana);
+    const [lo2, hi2] = rangeOf("great_heal", 10, 3);
+    expect(p.hp - hp0).toBeGreaterThanOrEqual(lo2);
+    expect(p.hp - hp0).toBeLessThanOrEqual(hi2);
+  });
+
+  it("exura gran exige level 10; sem mana falha", () => {
+    const w = setup();
+    const p = w.addP("p", 11, 10, { vocation: "sorcerer", level: 9, hp: 100, maxHp: 1000 });
+    expect(w.spells.cast(p, "great_heal")).toMatchObject({ ok: false, reason: "level" });
+    p.level = 10; p.mana = 10;
+    expect(w.spells.cast(p, "great_heal")).toMatchObject({ ok: false, reason: "mana" });
+  });
+
+  it("exura vita (Cura Vital) é só de druida", () => {
+    const w = setup();
+    for (const v of ["knight", "paladin", "sorcerer"] as const) {
+      const p = w.addP(`p-${v}`, 11, 10, { vocation: v, level: 30 });
+      expect(w.spells.cast(p, "vital_heal"), v).toMatchObject({ ok: false, reason: "vocation" });
+    }
+    const d = w.addP("d", 12, 10, { vocation: "druid", level: 20, hp: 100, maxHp: 1000 });
+    expect(w.spells.cast(d, "vital_heal")).toMatchObject({ ok: true });
+  });
+
+  it("barra de 8 slots comporta todas as magias de cada vocação", () => {
+    for (const v of VOCS) expect(spellsFor(v).length, v).toBeLessThanOrEqual(8);
   });
 });

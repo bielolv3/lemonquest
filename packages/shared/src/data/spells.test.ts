@@ -21,23 +21,38 @@ function mlEstimate(voc: Vocation, level: number): number {
 }
 
 const avg = (f: SpellFormula, voc: Vocation, level: number) => f.base + level * f.perLevel + mlEstimate(voc, level) * f.perMagic;
-const value = (s: SpellDef, level = s.level) => {
+/** Valor esperado da magia para uma vocação (padrão: a primeira que a conjura). */
+const value = (s: SpellDef, level = s.level, voc: Vocation = s.vocations[0]!) => {
   const f = s.damage ?? s.heal;
-  return f ? avg(f, s.vocation, level) : 0;
+  return f ? avg(f, voc, level) : 0;
 };
 const autoAvg = (voc: Vocation, level: number) => {
   const [a, b] = playerDamageRange(voc, level);
   return (a + b) / 2;
 };
+const healPct = (id: string, voc: Vocation, level: number) => value(SPELLS[id]!, level, voc) / baseStats(voc, level).maxHp;
+const HEALS = ["light_heal", "great_heal"];
 
 describe("SPELLS", () => {
-  it("6 magias por vocação, levels 1/5/10/15/20/30", () => {
+  it("cada vocação tem 7-8 magias (cabem na barra de 8), com curas", () => {
     for (const v of VOCS) {
       const list = spellsFor(v);
-      expect(list.length, v).toBe(6);
-      expect(list.map((s) => s.level), v).toEqual(LEVELS);
+      expect(list.length, v).toBeGreaterThanOrEqual(7);
+      expect(list.length, v).toBeLessThanOrEqual(8);
+      expect(list.map((s) => s.level), v).toEqual([...list.map((s) => s.level)].sort((a, b) => a - b));
+      expect(list.some((s) => s.id === "light_heal"), v).toBe(true);
+      expect(list.some((s) => s.id === "great_heal"), v).toBe(true);
+      expect(list.every((s) => s.vocations.includes(v))).toBe(true);
     }
     expect(Object.keys(SPELLS).length).toBe(24);
+  });
+
+  it("curas comuns: exura (lv1) e exura gran (lv10) para todas as vocações; exura vita só druida", () => {
+    expect(spellByWords("exura")).toMatchObject({ id: "light_heal", level: 1, vocations: VOCS });
+    expect(spellByWords("exura gran")).toMatchObject({ id: "great_heal", level: 10, vocations: VOCS });
+    expect(spellByWords("exura vita")?.vocations).toEqual(["druid"]);
+    expect(spellByWords("exura mas sio")?.vocations).toEqual(["druid"]);
+    expect(spellsFor("knight").map((s) => s.words)).not.toContain("exura vita");
   });
 
   it("ids batem com a chave, palavras únicas e minúsculas", () => {
@@ -85,28 +100,27 @@ describe("SPELLS", () => {
   });
 
   it("tabela de balanceamento (valor esperado no level de desbloqueio)", () => {
-    const rows = Object.values(SPELLS)
-      .sort((a, b) => VOCS.indexOf(a.vocation) - VOCS.indexOf(b.vocation) || a.level - b.level)
-      .map((s) => {
-        const { maxHp, maxMana } = baseStats(s.vocation, s.level);
+    const rows = VOCS.flatMap((v) => spellsFor(v).map((s) => ({ s, v })))
+      .map(({ s, v }) => {
+        const { maxHp, maxMana } = baseStats(v, s.level);
         return {
-          voc: s.vocation, lvl: s.level, spell: s.name, words: s.words, ML: mlEstimate(s.vocation, s.level),
+          voc: v, lvl: s.level, spell: s.name, words: s.words, ML: mlEstimate(v, s.level),
           mana: s.mana, "mana%": Math.round((s.mana / maxMana) * 100), cd: s.cooldownMs / 1000,
-          dmg: s.damage ? Math.round(avg(s.damage, s.vocation, s.level)) : "",
-          heal: s.heal ? Math.round(avg(s.heal, s.vocation, s.level)) : "",
-          "heal%hp": s.heal ? Math.round((avg(s.heal, s.vocation, s.level) / maxHp) * 100) : "",
-          "x auto": s.damage ? +(avg(s.damage, s.vocation, s.level) / autoAvg(s.vocation, s.level)).toFixed(1) : "",
+          dmg: s.damage ? Math.round(avg(s.damage, v, s.level)) : "",
+          heal: s.heal ? Math.round(avg(s.heal, v, s.level)) : "",
+          "heal%hp": s.heal ? Math.round((avg(s.heal, v, s.level) / maxHp) * 100) : "",
+          "x auto": s.damage ? +(avg(s.damage, v, s.level) / autoAvg(v, s.level)).toFixed(1) : "",
         };
       });
     console.table(rows);
-    expect(rows.length).toBe(24);
+    expect(rows.length).toBe(VOCS.flatMap((v) => spellsFor(v)).length);
   });
 
   describe("metas de balanceamento", () => {
     it("magia de ataque do level 1 vale 2-3x o auto-ataque, mana 10-20% de 50", () => {
       for (const [v, id] of [["sorcerer", "fireball"], ["paladin", "piercing_arrow"], ["knight", "spin_strike"]] as const) {
         const s = SPELLS[id];
-        expect(s.vocation).toBe(v);
+        expect(s.vocations).toEqual([v]);
         const ratio = value(s) / autoAvg(v, 1);
         expect(ratio, id).toBeGreaterThanOrEqual(2);
         expect(ratio, id).toBeLessThanOrEqual(3);
@@ -118,17 +132,38 @@ describe("SPELLS", () => {
       expect(SPELLS.piercing_arrow.cooldownMs).toBe(2000);
     });
 
-    it("cura leve ~15-20% da vida máxima no level de desbloqueio", () => {
-      for (const id of ["light_heal", "paladin_heal", "wound_care"]) {
-        const s = SPELLS[id];
-        const pct = value(s) / baseStats(s.vocation, s.level).maxHp;
-        expect(pct, id).toBeGreaterThanOrEqual(0.13);
-        expect(pct, id).toBeLessThanOrEqual(0.22);
+    it("Cura Leve (exura) ~13-22% da vida no level 1; magos curam proporcionalmente mais ao subir", () => {
+      for (const v of VOCS) {
+        expect(healPct("light_heal", v, 1), v).toBeGreaterThanOrEqual(0.13);
+        expect(healPct("light_heal", v, 1), v).toBeLessThanOrEqual(0.22);
+      }
+      expect(healPct("light_heal", "druid", 20)).toBeGreaterThan(healPct("light_heal", "knight", 20));
+      expect(SPELLS.light_heal.mana).toBe(20);
+    });
+
+    it("Cura Intensa (exura gran) ~25-55% da vida no level 10, mana 70", () => {
+      for (const v of VOCS) {
+        expect(healPct("great_heal", v, 10), v).toBeGreaterThanOrEqual(0.25);
+        expect(healPct("great_heal", v, 10), v).toBeLessThanOrEqual(0.55);
+      }
+      expect(SPELLS.great_heal.mana).toBe(70);
+    });
+
+    it("druida é o melhor curador: Cura Vital ~55-75% da vida no level 20 e supera as curas comuns", () => {
+      expect(healPct("vital_heal", "druid", 20)).toBeGreaterThanOrEqual(0.55);
+      expect(healPct("vital_heal", "druid", 20)).toBeLessThanOrEqual(0.75);
+      expect(value(SPELLS.vital_heal)).toBeGreaterThan(value(SPELLS.great_heal, 20, "druid"));
+      for (const v of ["knight", "paladin"] as const) {
+        expect(value(SPELLS.great_heal, 30, v)).toBeLessThan(value(SPELLS.great_heal, 30, "druid"));
       }
     });
 
+    it("curas custam mais mana por PV que ataques de nível 1 e respeitam cooldown >= 1 s", () => {
+      for (const id of HEALS) expect(SPELLS[id]!.cooldownMs).toBeGreaterThanOrEqual(1000);
+    });
+
     it("cura em grupo cura menos por alvo que a cura leve do mesmo level", () => {
-      expect(value(SPELLS.group_heal)).toBeLessThan(value(SPELLS.light_heal, SPELLS.group_heal.level));
+      expect(value(SPELLS.group_heal)).toBeLessThan(value(SPELLS.light_heal, SPELLS.group_heal.level, "druid"));
     });
 
     it("AoE de mago nos levels 15-20 mata um bando (~175 HP) em 3-4 casts", () => {
@@ -147,8 +182,10 @@ describe("SPELLS", () => {
     });
 
     it("mana limita os magos, mas nenhuma magia custa mais de 35% da mana máxima", () => {
-      for (const s of Object.values(SPELLS)) {
-        expect(s.mana / baseStats(s.vocation, s.level).maxMana, s.id).toBeLessThanOrEqual(0.35);
+      for (const v of VOCS) for (const s of spellsFor(v)) {
+        // Curas são caras de propósito (20 / 70 de mana): quem tem pouca mana dá poucos casts (mana potions!).
+        if (HEALS.includes(s.id)) continue;
+        expect(s.mana / baseStats(v, s.level).maxMana, `${s.id}/${v}`).toBeLessThanOrEqual(0.35);
       }
       // Só AoE no level 20: gasto por segundo é da ordem do regen (2% + 0.5*lvl por 2 s), não muito menor nem maior.
       const { maxMana } = baseStats("sorcerer", 20);

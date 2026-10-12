@@ -115,7 +115,7 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
   const params = new URLSearchParams(location.search);
   const quiet = params.has("fxquiet");
   const synth = (id: string, target: SpellDef["target"], fx: SpellFx, extra: Partial<SpellDef> = {}): SpellDef => ({
-    id, name: id, words: id.replace(/_/g, " "), vocation: "sorcerer", level: 1, mana: 10, cooldownMs: 2000, target, fx,
+    id, name: id, words: id.replace(/_/g, " "), vocations: ["sorcerer"], level: 1, mana: 10, cooldownMs: 2000, target, fx,
     radius: 2, length: 5, width: 3, range: 7, description: "Magia de teste.", ...extra,
   });
   // Cobre todas as combinações (alvo, fx) que o catálogo real não cobre.

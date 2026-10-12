@@ -136,9 +136,9 @@ describe("boneco de treino (servidor)", () => {
 
 const F = (base: number) => ({ base, perLevel: 0, perMagic: 0, variance: 0 });
 const SP: Record<string, SpellDef> = {
-  bolt: { id: "bolt", name: "b", words: "exori", vocation: "druid", level: 1, mana: 10, cooldownMs: 0, global: false, target: "target", range: 4, damage: { ...F(20), kind: "ice" }, fx: "ice", description: "" },
-  ring: { id: "ring", name: "r", words: "exevo", vocation: "druid", level: 1, mana: 5, cooldownMs: 0, global: false, target: "area_self", radius: 2, damage: { ...F(10), kind: "fire" }, fx: "fire", description: "" },
-  taunt: { id: "taunt", name: "t", words: "exeta", vocation: "druid", level: 1, mana: 0, cooldownMs: 0, global: false, target: "area_self", radius: 5, taunt: true, fx: "taunt", description: "" },
+  bolt: { id: "bolt", name: "b", words: "exori", vocations: ["druid"], level: 1, mana: 10, cooldownMs: 0, global: false, target: "target", range: 4, damage: { ...F(20), kind: "ice" }, fx: "ice", description: "" },
+  ring: { id: "ring", name: "r", words: "exevo", vocations: ["druid"], level: 1, mana: 5, cooldownMs: 0, global: false, target: "area_self", radius: 2, damage: { ...F(10), kind: "fire" }, fx: "fire", description: "" },
+  taunt: { id: "taunt", name: "t", words: "exeta", vocations: ["druid"], level: 1, mana: 0, cooldownMs: 0, global: false, target: "area_self", radius: 5, taunt: true, fx: "taunt", description: "" },
 };
 
 describe("magias no boneco de treino", () => {

@@ -1,8 +1,8 @@
-// Barra de ações (teclas 1–6). Magias chegam no M3: preenchem slots, recebem ativações e disparam cooldowns.
+// Barra de ações (teclas 1–8). Magias chegam no M3: preenchem slots, recebem ativações e disparam cooldowns.
 // Slots são 0-based na API (tecla "1" = slot 0).
 import { createStore, type Unsubscribe } from "./store.ts";
 
-export const ACTION_SLOTS = 6;
+export const ACTION_SLOTS = 8;
 
 export interface SlotAction {
   /** Nome exibido no tooltip. */
@@ -68,7 +68,7 @@ export function flashSlot(slot: number): void {
 type ActivateHandler = (slot: number) => void;
 const handlers = new Set<ActivateHandler>();
 
-/** Assina ativações (tecla 1–6 ou clique no slot). */
+/** Assina ativações (tecla 1–8 ou clique no slot). */
 export function onSlotActivate(fn: ActivateHandler): Unsubscribe {
   handlers.add(fn);
   return () => { handlers.delete(fn); };

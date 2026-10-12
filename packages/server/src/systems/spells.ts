@@ -158,7 +158,7 @@ export class SpellSystem {
     const s = (this.o.spells ?? spellDef)(spellId);
     if (!s) return this.fail(spellId, "unknown");
     if (p.hp <= 0) return this.fail(s.id, "dead");
-    if (s.vocation !== p.vocation) return this.fail(s.id, "vocation");
+    if (!s.vocations.includes(p.vocation as never)) return this.fail(s.id, "vocation");
     if (p.level < s.level) return this.fail(s.id, "level");
     const mm = this.o.monsters;
     const aggressive = isAggressive(s);

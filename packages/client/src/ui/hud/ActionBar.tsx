@@ -1,4 +1,4 @@
-// Barra de ações (1–6) centralizada na área visível, com overlay radial de cooldown.
+// Barra de ações (1–8) centralizada na área visível, com overlay radial de cooldown.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { activateSlot, ACTION_SLOTS, cooldownStore, flashStore, shakeStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
 import { useStore } from "./store.ts";
