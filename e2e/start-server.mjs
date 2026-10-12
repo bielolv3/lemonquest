@@ -1,6 +1,6 @@
 // Sobe o servidor dos testes E2E: banco/backup temporários (apagados a cada execução), modo E2E (cliente buildado +
 // comandos de dev para os nomes de teste). Usado pelo webServer do playwright.config.ts.
-//   E2E_SKIP_BUILD=1  pula o `npm run build` (cliente já buildado)
+//   E2E_SKIP_BUILD=1  pula o `npm run build:client` (cliente já buildado)
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -16,7 +16,7 @@ fs.rmSync(tmp, { recursive: true, force: true });
 fs.mkdirSync(path.join(tmp, "backups"), { recursive: true });
 
 if (process.env.E2E_SKIP_BUILD !== "1") {
-  const b = spawnSync(win ? "npm.cmd" : "npm", ["run", "build"], { cwd: root, stdio: "inherit", shell: win });
+  const b = spawnSync(win ? "npm.cmd" : "npm", ["run", "build:client"], { cwd: root, stdio: "inherit", shell: win });
   if (b.status !== 0) process.exit(b.status ?? 1);
 }
 

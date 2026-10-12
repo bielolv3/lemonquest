@@ -1,7 +1,7 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
   C2S, CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
-  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
+  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
@@ -31,7 +31,7 @@ import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
 import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
-import { getCharacterByName, saveCharacter } from "../persistence/db.ts";
+import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import { isValidStart, reachableFrom } from "../world/tiles.ts";
@@ -172,12 +172,23 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende nas pausas entre as ondas." : null),
     });
     this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y));
-    // Itens no chão (só em memória; somem ao reiniciar o servidor).
+    // Itens no chão (persistidos no SQLite: sobrevivem a reinícios; o que expirou nesse meio-tempo some).
     this.ground = new GroundSystem({
+      store: {
+        load: () => loadGroundRows().flatMap((r) => {
+          try {
+            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt, owner: r.owner ?? undefined, ownerUntil: r.ownerUntil ?? undefined }];
+          } catch { return []; }
+        }),
+        save: (rows) => replaceGroundRows(rows.map((r) => ({
+          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, owner: r.owner ?? null, ownerUntil: r.ownerUntil ?? null,
+        }))),
+      },
       inventory: this.inventory, collection: this.state.groundItems, send,
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });
+    console.log(`[world] itens no chão restaurados: ${this.ground.restore()}`);
     this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground });
     this.regen = new RegenSystem({
       inCombat: (id, now) => this.combat.inCombat(id, now),
@@ -247,6 +258,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       teleport: (p, x, y) => this.movement.teleport(p, x, y),
       isFree: (x, y, self) => this.isFreeTile(x, y, self),
       addGold: (p, n) => this.inventory.addGold(p, n),
+      loadServerBest: () => Number(getKv("arena.serverBest") ?? 0),
+      saveServerBest: (n) => setKv("arena.serverBest", String(n)),
       getBest: (id) => this.records.get(id)?.data.arenaBest ?? 0,
       setBest: (id, n) => { const rec = this.records.get(id); if (rec) rec.data.arenaBest = n; },
       onEnter: (p) => this.npcs.close(p.id),
@@ -578,12 +591,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onBeforeShutdown() {
     this.shuttingDown = true;
     const n = this.saveAll();
+    this.ground.flush();
     console.log(`[world] desligando: ${n} personagem(ns) salvo(s)`);
     super.onBeforeShutdown();
   }
 
   onDispose() {
     this.saveAll();
+    this.ground.flush();
     if (liveWorld === this) liveWorld = null;
   }
 

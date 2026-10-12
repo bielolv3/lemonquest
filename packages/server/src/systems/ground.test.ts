@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BACKPACK_SIZE, S2C } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
-import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, LOOT_PROTECT_MS, MAX_GROUND_ITEMS, MAX_PER_TILE, lineClear } from "./ground.ts";
+import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, LOOT_PROTECT_MS, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
 import { LootSystem } from "./loot.ts";
 import { def, grid } from "./testkit.ts";
 import { invWorld } from "./m4kit.ts";
@@ -321,5 +321,91 @@ describe("ground: loot overflow", () => {
     const id = t.ground.place(makeItem("vest"), 4, 4, { name: "Kiko", ms: LOOT_PROTECT_MS })!;
     t.ground.onPickup(k, { groundId: id });
     expect(t.bp("k")[0]?.defId).toBe("vest");
+  });
+});
+
+describe("ground: persistência", () => {
+  type Rec = Parameters<NonNullable<ConstructorParameters<typeof GroundSystem>[0]["store"]>["save"]>[0];
+  const memStore = () => {
+    let rows: Rec = [];
+    return {
+      load: () => structuredClone(rows),
+      save: (r: Rec) => { rows = structuredClone(r); },
+      get rows() { return rows; },
+      set rows(r: Rec) { rows = r; },
+    };
+  };
+  const make = (w: ReturnType<typeof invWorld>, store: ReturnType<typeof memStore>) => new GroundSystem({
+    inventory: w.inv, collection: new Map<string, GroundItemState>(), now: w.now, log: () => {}, store,
+    canHold: (x, y) => MAP.isWalkable(x, y) && !(x === 2 && y === 2),
+    seeThrough: (x, y) => MAP.isWalkable(x, y),
+    send: () => {},
+  });
+
+  it("flush grava só quando mudou; restore recarrega itens, ordem da pilha e dono", () => {
+    const w = invWorld();
+    const store = memStore();
+    const g1 = make(w, store);
+    g1.place(makeItem("bone", 5), 4, 4);
+    g1.place(makeItem("sword", 1, "rare", [{ stat: "attack", value: 3 }]), 4, 4);
+    g1.place(makeItem("vest"), 5, 5, { name: "Kiko", ms: LOOT_PROTECT_MS });
+    g1.flush();
+    expect(store.rows).toHaveLength(3);
+    const g2 = make(w, store);
+    expect(g2.restore()).toBe(3);
+    const ids = g2.at(4, 4);
+    expect(ids.map((i) => g2.get(i)!.item.defId)).toEqual(["bone", "sword"]);
+    expect(g2.get(ids[1]!)!.item.bonuses).toEqual([{ stat: "attack", value: 3 }]);
+    const vest = g2.get(g2.at(5, 5)[0]!)!;
+    expect(vest.owner).toBe("kiko");
+    expect(vest.ownerUntil).toBeGreaterThan(w.now());
+  });
+
+  it("restore descarta o que expirou durante o 'servidor desligado' e dono vencido", () => {
+    const w = invWorld();
+    const store = memStore();
+    const g1 = make(w, store);
+    g1.place(makeItem("bone", 1), 4, 4);                                      // 10 min
+    g1.place(makeItem("sword", 1, "rare"), 5, 5);                             // 20 min
+    g1.place(makeItem("vest", 1, "rare"), 6, 6, { name: "Kiko", ms: LOOT_PROTECT_MS });  // dono 60 s
+    g1.flush();
+    w.advance(DECAY_MS.common + 1000);
+    const g2 = make(w, store);
+    expect(g2.restore()).toBe(2);
+    expect(g2.at(4, 4)).toHaveLength(0);
+    expect(g2.get(g2.at(6, 6)[0]!)!.owner).toBeUndefined();
+    g2.flush();
+    expect(store.rows).toHaveLength(2); // lista limpa regravada
+  });
+
+  it("tick grava com debounce; remover também marca como alterado", () => {
+    const w = invWorld();
+    const store = memStore();
+    const g = make(w, store);
+    w.advance(10_000);
+    const id = g.place(makeItem("bone", 1), 4, 4)!;
+    g.tick(w.now());
+    expect(store.rows).toHaveLength(1);
+    g.remove(id);
+    w.advance(1000);
+    g.tick(w.now());
+    expect(store.rows).toHaveLength(1); // dentro do debounce
+    w.advance(SAVE_DEBOUNCE_MS);
+    g.tick(w.now());
+    expect(store.rows).toHaveLength(0);
+  });
+
+  it("ignora tiles inválidos e itens de definição desconhecida", () => {
+    const w = invWorld();
+    const store = memStore();
+    const g1 = make(w, store);
+    g1.place(makeItem("bone", 1), 4, 4);
+    g1.flush();
+    store.rows = [
+      ...store.rows,
+      { x: 7, y: 4, item: makeItem("bone", 1), expiresAt: w.now() + 1e6 },
+      { x: 3, y: 3, item: makeItem("nao_existe", 1), expiresAt: w.now() + 1e6 },
+    ];
+    expect(make(w, store).restore()).toBe(1);
   });
 });

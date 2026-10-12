@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { ROOT_DIR } from "../paths.ts";
 import { defaultOutfit, type Vocation } from "@lemonquest/shared";
 import type { CharacterData, CharacterRecord } from "./types.ts";
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 /** Pasta padrão de dados (base + backups). */
-export const DATA_DIR = path.join(rootDir, "data");
+export const DATA_DIR = path.join(ROOT_DIR, "data");
 
 /** Chave de unicidade/lookup do nome: NFC + minúsculas (case-insensitive inclusive para acentos: "ÁNA" = "ána"). */
 export const nameKey = (name: string): string => name.normalize("NFC").toLowerCase();
@@ -119,6 +118,20 @@ const MIGRATIONS: Migration[] = [
      deleted_at INTEGER NOT NULL
    );
    CREATE INDEX deleted_characters_name ON deleted_characters(name);`,
+  // v5: estado do mundo que sobrevive a reinícios — pares chave/valor (recorde do Coliseu...) e itens no chão.
+  `CREATE TABLE kv (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );
+   CREATE TABLE ground_items (
+     seq INTEGER PRIMARY KEY,          -- ordem de inserção (o último de cada tile é o topo da pilha)
+     x INTEGER NOT NULL,
+     y INTEGER NOT NULL,
+     item TEXT NOT NULL,               -- ItemInstance em JSON
+     expires_at INTEGER NOT NULL,      -- epoch ms
+     owner TEXT,                       -- nome (minúsculo) com prioridade...
+     owner_until INTEGER               -- ...até este epoch ms
+   );`,
 ];
 
 export interface AccountRow {
@@ -302,6 +315,48 @@ export function deleteCharacterArchived(charId: number, accountId: number, accou
     d.prepare("DELETE FROM characters WHERE id = ?").run(charId);
     d.exec("COMMIT");
     return true;
+  } catch (e) {
+    d.exec("ROLLBACK");
+    throw e;
+  }
+}
+
+// --- estado do mundo (kv + itens no chão) ---------------------------------------------------------------------------
+
+export function getKv(key: string): string | undefined {
+  const r = getDb().prepare("SELECT value FROM kv WHERE key = ?").get(key) as { value: string } | undefined;
+  return r?.value;
+}
+
+export function setKv(key: string, value: string): void {
+  getDb().prepare("INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+export interface GroundRow {
+  x: number;
+  y: number;
+  item: string;
+  expiresAt: number;
+  owner: string | null;
+  ownerUntil: number | null;
+}
+
+/** Itens no chão, na ordem de inserção. */
+export function loadGroundRows(): GroundRow[] {
+  const rows = getDb().prepare("SELECT x, y, item, expires_at, owner, owner_until FROM ground_items ORDER BY seq").all() as
+    { x: number; y: number; item: string; expires_at: number; owner: string | null; owner_until: number | null }[];
+  return rows.map((r) => ({ x: r.x, y: r.y, item: r.item, expiresAt: r.expires_at, owner: r.owner, ownerUntil: r.owner_until }));
+}
+
+/** Substitui TODOS os itens no chão (uma transação). */
+export function replaceGroundRows(rows: readonly GroundRow[]): void {
+  const d = getDb();
+  d.exec("BEGIN");
+  try {
+    d.exec("DELETE FROM ground_items");
+    const ins = d.prepare("INSERT INTO ground_items (x, y, item, expires_at, owner, owner_until) VALUES (?, ?, ?, ?, ?, ?)");
+    for (const r of rows) ins.run(r.x, r.y, r.item, r.expiresAt, r.owner, r.ownerUntil);
+    d.exec("COMMIT");
   } catch (e) {
     d.exec("ROLLBACK");
     throw e;

@@ -10,8 +10,8 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,
   retries: process.env.CI ? 1 : 0,
-  reporter: [["list"], ["html", { open: "never", outputFolder: "e2e-report" }]],
-  outputDir: "e2e-results",
+  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
+  outputDir: "test-results",
   use: {
     ...devices["Desktop Chrome"],
     baseURL: `http://127.0.0.1:${E2E_PORT}`,

@@ -1,0 +1,8 @@
+# Proxy HTTPS do The Lemon Quest para IP/host da LAN (veja deploy/docker/README.md, seção "HTTPS").
+# SITE_ADDRESS = IP ou nome da LAN (ex.: 192.168.1.50 ou lemon.local). O certificado vem da CA interna do Caddy
+# ("tls internal"). O Caddy já faz proxy de WebSocket (o Colyseus usa ws no mesmo host) sem configuração extra.
+{$SITE_ADDRESS:localhost} {
+	tls internal
+	encode zstd gzip
+	reverse_proxy lemonquest:2567
+}

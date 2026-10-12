@@ -1,0 +1,10 @@
+# Proxy HTTPS com domínio público real (Let's Encrypt automático). Exige DNS apontando para o servidor e as
+# portas 80/443 acessíveis da internet. Use com: CADDYFILE=Caddyfile.domain SITE_ADDRESS=jogo.empresa.com.br
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy lemonquest:2567
+}

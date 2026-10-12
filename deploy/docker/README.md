@@ -161,7 +161,8 @@ O código fica em `github.com/leocsd/lemonquest` (privado). No servidor:
 
 ## 8. Como a imagem é montada
 
-- `Dockerfile` em duas etapas: a primeira instala tudo e gera o build do cliente; a final (`node:24-bookworm-slim`, ~500 MB) leva só o servidor, as dependências de produção, o mapa e o cliente compilado.
+- `Dockerfile` em duas etapas: a primeira instala tudo e gera o cliente e o **servidor empacotado com esbuild** (`packages/server/dist/server.mjs`, um arquivo só com todas as dependências; `admin.mjs` é o CLI de administração); a final é um Alpine com só o binário do Node (strip), o bundle, o mapa e o cliente compilado — sem `node_modules`, `tsx` nem npm (~180 MB em camadas, contra ~500 MB antes). `LEMONQUEST_ROOT` (padrão `/app`) diz onde ficam `assets/`, `packages/client/dist` e `data/`.
+- Os itens no chão e o recorde do Coliseu ficam no banco (`ground_items`/`kv`) e sobrevivem a reinícios.
 - O processo roda como o usuário `node` (sem privilégios). Na partida o container acerta o dono da pasta `/app/data`, para funcionar também com pastas montadas no Linux.
 - `docker stop` manda SIGTERM: o servidor salva todos os jogadores e fecha o banco antes de sair (até 30 s, `stop_grace_period`).
 - Healthcheck em `/health` a cada 30 s.
@@ -177,8 +178,8 @@ chat: `/online`, `/kick <nome> [motivo]`, `/mute <nome> <minutos>`, `/unmute <no
 é `/app/packages/server` e o banco é o de `LEMONQUEST_DB=/app/data/lemonquest.db`):
 
 ```bash
-docker compose exec -u node lemonquest node --import tsx scripts/admin.ts reset-password <conta>
-docker compose exec -u node lemonquest node --import tsx scripts/admin.ts deleted     # personagens excluídos
+docker compose exec -u node lemonquest node packages/server/dist/admin.mjs reset-password <conta>
+docker compose exec -u node lemonquest node packages/server/dist/admin.mjs deleted     # personagens excluídos
 ```
 
 Conta com espaço no nome: use aspas (`reset-password "Time Azul"`). O `-u node` evita criar arquivos do banco como root.
@@ -187,6 +188,44 @@ O código aparece no terminal (vale 24 h, uso único); a pessoa usa em "Esqueci 
 **Personagens excluídos** pelos jogadores ficam guardados na tabela `deleted_characters` (linha inteira: level, itens,
 depot, posição). Para restaurar à mão: pare o jogo, abra o banco com `sqlite3` e copie a linha de volta para `characters`
 (o nome precisa estar livre).
+
+## 10. HTTPS (opcional)
+
+Sem HTTPS o jogo funciona normalmente na LAN (`http://IP:2567`). Se quiser HTTPS (cadeado, senhas não trafegam em
+claro, necessário se publicar na internet), há um proxy [Caddy](https://caddyserver.com) pronto como override do compose.
+Ele também faz o proxy do WebSocket do jogo (`wss://`) sem configuração extra.
+
+**LAN (IP ou nome interno, certificado da CA local do Caddy):**
+
+```bash
+SITE_ADDRESS=192.168.1.50 docker compose -f docker-compose.yml -f deploy/docker/docker-compose.https.yml up -d --build
+# jogo em https://192.168.1.50  (portas 80/443 do servidor; a 80 redireciona para a 443)
+```
+
+Guarde as variáveis num arquivo `.env` ao lado do `docker-compose.yml` (`SITE_ADDRESS=192.168.1.50`) para não digitar
+sempre. `HTTP_PORT`/`HTTPS_PORT` mudam as portas publicadas (ex.: `8080`/`8443` para testar sem mexer no 80/443).
+
+**Confiar no certificado nos PCs dos jogadores** (senão o navegador mostra um aviso, que dá para aceitar em cada PC):
+
+```bash
+docker cp lemonquest-caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+```
+
+Distribua o `caddy-root.crt` e instale em "Autoridades de Certificação Raiz Confiáveis" (Windows: duplo clique >
+Instalar certificado > Computador local; macOS: Keychain > Sempre confiar; o Firefox tem repositório próprio:
+Configurações > Certificados > Importar). O certificado fica no volume `caddy_data` — não o apague, ou a CA muda e
+todos precisam reinstalar. Se o IP do servidor mudar, mude `SITE_ADDRESS` (o certificado é emitido para o novo IP).
+
+**Domínio público real (Let's Encrypt automático):** DNS apontando para o servidor e portas 80/443 acessíveis da internet:
+
+```bash
+CADDYFILE=Caddyfile.domain SITE_ADDRESS=jogo.empresa.com.br ACME_EMAIL=ti@empresa.com.br \
+  docker compose -f docker-compose.yml -f deploy/docker/docker-compose.https.yml up -d --build
+```
+
+**Fechar a 2567:** com o HTTPS validado, os jogadores usam só `https://...`. Para não expor mais o HTTP direto,
+acrescente no `docker-compose.https.yml`, no serviço `lemonquest`, `ports: !override []` (e feche a 2567 no firewall).
+O Caddy alcança o jogo pela rede interna do compose.
 
 ## Problemas comuns
 

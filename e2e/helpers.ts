@@ -165,8 +165,8 @@ export async function targetNearest(page: Page, filter?: (defId: string) => bool
 }
 
 
-/** Captura para revisão visual (só com E2E_SNAPS=1): e2e-results/snaps/<nome>.png. */
+/** Captura para revisão visual (só com E2E_SNAPS=1): test-results/snaps/<nome>.png. */
 export async function snap(page: Page, name: string): Promise<void> {
   if (process.env.E2E_SNAPS !== "1") return;
-  await page.screenshot({ path: `e2e-results/snaps/${name}.png` });
+  await page.screenshot({ path: `test-results/snaps/${name}.png` });
 }
