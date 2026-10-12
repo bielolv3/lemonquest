@@ -12,9 +12,10 @@ export function polish(c) {
   const g = (tsn, col, row) => ts.gid(tsn, col, row);
   const light = (x, y, radius, color, flicker) => lights.push([x, y, radius, color, flicker]);
   const empty = (x, y) => inb(x, y) && !map.layers.deco[idx(x, y)] && !map.layers.above[idx(x, y)] && !map.layers.collision[idx(x, y)];
-  const free = (x, y) => empty(x, y) && !map.occ[idx(x, y)] && !protect[idx(x, y)];
+  const free = (x, y) => empty(x, y) && !protect[idx(x, y)];
   // landDec: ground decoration that never blocks (may sit in reserved halos); landFree: blocking props, kept clear of roads
-  const landDec = (x, y) => empty(x, y) && !protect[idx(x, y)] && !water[idx(x, y)] && !dirt[idx(x, y)] && !pave[idx(x, y)] && !band[idx(x, y)];
+  const fdOnly = (x, y) => { const gd = map.layers.deco[idx(x, y)]; if (!gd) return true; const lc = ts.locate(gd); return !!lc && lc.t.name === "TilesetFloorDetail" && lc.row >= 2 && lc.row <= 3; };
+  const landDec = (x, y) => inb(x, y) && fdOnly(x, y) && !map.layers.above[idx(x, y)] && !map.layers.collision[idx(x, y)] && !protect[idx(x, y)] && !water[idx(x, y)] && !dirt[idx(x, y)] && !pave[idx(x, y)] && !band[idx(x, y)];
   const nearDirt = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (dirt[idx(x + i, y + j)] || pave[idx(x + i, y + j)]) return true; return false; };
   const landFree = (x, y) => landDec(x, y) && !nearDirt(x, y);
   const dec = (x, y, gid, block = false) => { map.layers.deco[idx(x, y)] = gid; if (block) map.block(x, y); };
@@ -45,6 +46,11 @@ export function polish(c) {
     else if (mine === 'swamp') t = o === 'forest' ? (r3() < 0.55 ? FOR : DRK) : DRK;
     else t = o === 'forest' ? FOR : (r3() < 0.4 ? SOIL : DRK);
     map.put('ground', x, y, 'F', t[0] + (r3() < 0.14 ? 1 + ri(0, 3) : 0), t[1]);
+  }
+  // swamp: dark grass patches (fog-friendly variation) in noise blobs
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (reg(x, y) !== 'swamp' || dirt[idx(x, y)] || water[idx(x, y)] || band[idx(x, y)] || dist[idx(x, y)] <= 5) continue;
+    const n = noise2(x, y, 6, 201); if (n > 0.6 && r3() < 0.85) map.put('ground', x, y, 'F', DRK[0] + (r3() < 0.15 ? 1 + ri(0, 3) : 0), DRK[1]);
   }
   // seam dressing: bushes / tufts / small rocks / mushrooms / a few trees, thinning away from the border
   let seamN = 0;
@@ -103,14 +109,14 @@ export function polish(c) {
   // ruined huts (mossy ruined houses; solid blocks)
   const hutSpots = [];
   for (let tries = 0; tries < 40000 && hutSpots.length < 5; tries++) {
-    const big = hutSpots.length < 2, name = big ? 'swampHutBig' : pick(['swampHutA', 'swampHutB']);
+    const big = hutSpots.length < 1 && tries < 15000, name = big ? 'swampHutBig' : pick(['swampHutA', 'swampHutB']);
     const [, , , w, h] = S[name]; const x = ri(108, 152), y = ri(44, 90);
     if (!inSwamp(x, y)) continue;
     let ok = true; for (let j = 0; j < h && ok; j++) for (let i = 0; i < w; i++) { if (!landDec(x + i, y + j) || !inSwamp(x + i, y + j)) { ok = false; break; } }
     if (!ok) continue;
-    if (hutSpots.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
+    if (hutSpots.some(([a, b]) => Math.hypot(a - x, b - y) < 10)) continue;
     // keep monster spawns clear
-    if (c.spawns.some((s) => Math.hypot(s[4] - x, s[5] - y) < 6)) continue;
+    if (c.spawns.some((s) => Math.hypot(s[4] - x - w / 2, s[5] - y - h / 2) < 4)) continue;
     place(name, x, y, { check: false }); hutSpots.push([x, y]); stats.huts++;
     // a lantern-ish glow shroom + stump beside it
     if (landFree(x - 1, y + h)) { dec(x - 1, y + h, S_.glow.amber[0]); light(x - 1, y + h, 3, '#ffc060', true); }
@@ -193,7 +199,7 @@ export function polish(c) {
   for (let tries = 0; tries < 3000 && yards.length < 7; tries++) {
     const w = ri(7, 11), h = ri(5, 8), x = ri(88, 148), y = ri(4, 33);
     if (!inRuins(x, y) || !inRuins(x + w, y + h)) continue;
-    let ok = true; for (let j = -1; j <= h && ok; j++) for (let i = -1; i <= w; i++) { const a = x + i, b = y + j; if (!inb(a, b) || !inRuins(a, b) || dirt[idx(a, b)] || map.occ[idx(a, b)] || protect[idx(a, b)] || map.layers.collision[idx(a, b)] || map.layers.deco[idx(a, b)] || map.layers.above[idx(a, b)] || band[idx(a, b)]) { ok = false; break; } }
+    let ok = true; for (let j = -1; j <= h && ok; j++) for (let i = -1; i <= w; i++) { const a = x + i, b = y + j; if (!inb(a, b) || !inRuins(a, b) || dirt[idx(a, b)] || protect[idx(a, b)] || map.layers.collision[idx(a, b)] || map.layers.deco[idx(a, b)] || map.layers.above[idx(a, b)] || band[idx(a, b)]) { ok = false; break; } }
     if (!ok || yards.some(([a, b]) => Math.abs(a - x) < 12 && Math.abs(b - y) < 10)) continue;
     yards.push([x, y, w, h]);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -318,8 +324,6 @@ export function polish(c) {
   for (const [x, y] of cavernCells) { const wy = y - 1; if (isWall(x, wy) && isFloor(x, y) && r3() < 0.08) { const gid = map.layers.deco[idx(x, wy)]; if (gid) { const key = 'crk' + gid; if (!wallOv.has(key)) wallOv.set(key, L.overlay(gid, 'crackWall', 1, L.draw.crackWall)); map.layers.deco[idx(x, wy)] = wallOv.get(key); } } }
 
   // ------------------------------------------------------------------ lights on existing props (lamp posts, arena torches, town windows)
-  const lampGid = g('E', 6, 4);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (map.layers.deco[idx(x, y)] === lampGid) light(x, y, 5, '#ffd27a', true);
   for (const [x, y] of [[79, 85], [65, 95], [96, 95], [63, 84], [92, 84], [65, 105], [95, 105], [79, 106]]) light(x, y, 3, '#ffe0a0', false); // house windows / doors
   for (const a of ARENAS) {
     for (const [lx, ly] of [[4, 7], [4, 16], [19, 17], [19, 10], [7, 5], [16, 5]]) { const x = a.rx + lx, y = a.ry + ly; if (isAF(x, y) && free(x, y)) { dec(x, y, S_.brazier, true); light(x, y, 6, '#ff9a3c', true); } }
