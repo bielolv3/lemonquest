@@ -339,8 +339,10 @@ const DRAW = {
     const t = a.top, d = a.facing === "down" ? 1 : a.facing === "up" ? -1 : -front(a);
     const e = a.ext[t + 3] ?? [a.headL, a.headR];
     const bx = d > 0 ? e[1] - 3 : e[0] + 3, y = t + 3;
-    feather(F, bx, y - 1, d, 7, "white", "ruby", true);
-    F.set(bx, y, "ruby", 1);
+    // pluma macia: sobe, faz arco para trás (d) e cai; vermelha com brilho claro, ponta branca, afinando
+    const M = { L: ["ruby", 1], R: ["ruby", 2], D: ["ruby", 3], W: ["white", 1] };
+    const plume = ["..LLRL...", ".LRRRRRL.", "LRRRRDRRL", "RRDDDDDRD", "RDDRRRDRW", ".D...RDRW", "......DW.", "RD......."];
+    F.stamp(d > 0 ? bx : bx - 8, y - plume.length + 2, plume, M, d < 0);
   },
 
   // ---------- Invocador
@@ -373,17 +375,23 @@ const DRAW = {
   // ---------- Guerreiro
   guerreiro_asas(F, B, a) {
     const t = a.top;
-    const M = { w: ["white", 1], s: ["white", 2], d: ["white", 3] };
-    // asa direita (aponta para +x); espelhada para a esquerda
-    const wing = ["....w", "...ww", "..wws", ".wwsd", "wwsd.", "wsd.."];
+    // Asa em leque: 3 penas (de baixo para cima, a de cima sobrepõe), cada uma = 3 linhas
+    // (claro / médio / escuro) para ler como pena e não como chifre.
+    const fan = (L, rx, ry, d, tips) => {
+      for (const [dx, dy] of tips) {
+        L.line(rx, ry + 2, rx + d * dx, ry + dy + 2, "white", 3);
+        L.line(rx, ry + 1, rx + d * dx, ry + dy + 1, "white", 2);
+        L.line(rx, ry, rx + d * dx, ry + dy, "white", 1);
+      }
+    };
     if (side(a)) {
-      const f = front(a), c = a.c2 >> 1;
-      // asa do lado de cá, abrindo para trás
-      F.stamp(f < 0 ? c - 1 : c - 4, t - 2, wing, M, f > 0);
-      B.stamp(f < 0 ? c + 1 : c - 6, t - 3, ["....w", "...ww", "..ww."], M, f > 0);
+      const d = -front(a), c = a.c2 >> 1;
+      // asa varrida para trás: pena baixa mais curta, pena alta mais longa e mais erguida
+      fan(F, c - d * 0, t + 1, d, [[6, 1], [7, -2], [6, -5]]);
+      fan(B, c - d * 0, t, d, [[4, -4], [5, -6]]);
     } else {
-      F.stamp(a.headR - 2, t - 2, wing, M);
-      F.stamp(a.headL - 2, t - 2, wing, M, true);
+      fan(F, a.headR - 1, t + 2, 1, [[4, 0], [4, -3], [2, -6]]);
+      fan(F, a.headL + 1, t + 2, -1, [[4, 0], [4, -3], [2, -6]]);
     }
   },
   guerreiro_machado(F, B, a) {
