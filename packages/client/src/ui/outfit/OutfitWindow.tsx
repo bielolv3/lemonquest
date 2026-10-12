@@ -73,9 +73,9 @@ function OutfitDialog() {
               <OutfitCanvas outfit={outfit} addons={addons} facing={facing} row={walk ? row : 0} scale={6} />
             </div>
             <div class="outfit-rotate">
-              <button class="outfit-arrow" onClick={() => rotate(-1)} aria-label="Girar para a esquerda" data-tip="Girar" data-tip-sub="Seta ←">◀</button>
+              <button class="outfit-arrow" onClick={() => rotate(-1)} aria-label="Girar para a esquerda" data-tip="Girar" data-tip-sub="Seta ←"><span class="outfit-tri left" aria-hidden="true" /></button>
               <span class="outfit-facing">{FACING_LABEL[facing]}</span>
-              <button class="outfit-arrow" onClick={() => rotate(1)} aria-label="Girar para a direita" data-tip="Girar" data-tip-sub="Seta →">▶</button>
+              <button class="outfit-arrow" onClick={() => rotate(1)} aria-label="Girar para a direita" data-tip="Girar" data-tip-sub="Seta →"><span class="outfit-tri" aria-hidden="true" /></button>
             </div>
             <div class="outfit-name">{outfit.name}</div>
             <div class="outfit-addons">

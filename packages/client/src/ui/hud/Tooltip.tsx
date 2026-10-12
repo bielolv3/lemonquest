@@ -38,10 +38,13 @@ export function Tooltip() {
     const hide = () => { current = null; clearTimeout(timer); setTip(null); };
     document.addEventListener("mouseover", over);
     document.addEventListener("mousedown", hide);
+    // Teclas (Esc/O...) podem fechar a janela sob o mouse: o elemento some sem "mouseover".
+    document.addEventListener("keydown", hide);
     window.addEventListener("blur", hide);
     return () => {
       document.removeEventListener("mouseover", over);
       document.removeEventListener("mousedown", hide);
+      document.removeEventListener("keydown", hide);
       window.removeEventListener("blur", hide);
       clearTimeout(timer);
     };
