@@ -290,7 +290,7 @@ describe("conditions", () => {
 });
 
 describe("dash", () => {
-  it("moves the knight next to the target, stopping at walls", () => {
+  it("moves the knight next to the target; a wall in the line blocks the cast (no_los)", () => {
     const w = setup({ monsters: [{ x: 14, y: 10 }] });
     const k = w.addP("k", 10, 10, { vocation: "knight" });
     expect(w.spells.cast(k, "dash", w.ms[0].s.id)).toMatchObject({ ok: true });
@@ -300,8 +300,8 @@ describe("dash", () => {
     const g = grid(["..........", "..........", "....#.....", ".........."]);
     const v = setup({ grid: g, monsters: [{ x: 6, y: 2 }] });
     const k2 = v.addP("k", 2, 2, { vocation: "knight" });
-    v.spells.cast(k2, "dash", v.ms[0].s.id);
-    expect([k2.x, k2.y]).toEqual([3, 2]);
+    expect(v.spells.cast(k2, "dash", v.ms[0].s.id)).toMatchObject({ ok: false, reason: "no_los" });
+    expect([k2.x, k2.y]).toEqual([2, 2]);
   });
 });
 
