@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   BASE_STEP_MS, Dir, evalSpellFormula, mitigateSpell, playerDamageRange, GLOBAL_SPELL_COOLDOWN_MS, S2C, SKILL_START, TICK_MS, skillTriesFor, stepDuration,
-  SPELLS, spellsFor, type MonsterDef, type SpellDef, type Vocation,
+  SPELLS, spellMana, spellsFor, type MonsterDef, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
 import { ConditionSystem } from "./conditions.ts";
 import { SkillSystem } from "./skills.ts";
@@ -33,10 +33,10 @@ const SP: Record<string, SpellDef> = {
 };
 
 // Curas reais do catálogo (ids não colidem com as fixtures).
-Object.assign(SP, { light_heal: SPELLS.light_heal, great_heal: SPELLS.great_heal, vital_heal: SPELLS.vital_heal });
+Object.assign(SP, { light_heal: SPELLS.light_heal });
 
 // Fixtures fora do cooldown global (exceto heal/bolt/big/free), para os testes de efeito.
-for (const s of Object.values(SP)) if (!["heal", "bolt", "big", "free", "light_heal", "great_heal", "vital_heal"].includes(s.id)) s.global = false;
+for (const s of Object.values(SP)) if (!["heal", "bolt", "big", "free", "light_heal"].includes(s.id)) s.global = false;
 
 interface SetupOpts { grid?: CollisionGrid; monsters?: { x: number; y: number; def?: Partial<MonsterDef> }[]; safeZones?: { x0: number; y0: number; x1: number; y1: number }[] }
 
@@ -439,46 +439,38 @@ describe("curas de todas as vocações (catálogo real)", () => {
     return [Math.floor(avg * (1 - f.variance)), Math.ceil(avg * (1 + f.variance))] as const;
   };
 
-  it.each(VOCS)("%s conjura exura (lv1) e exura gran (lv10): gasta mana, cura e respeita cooldown", (voc) => {
+  it.each(VOCS)("%s conjura exura: gasta mana (cresce com o level), cura e respeita cooldown", (voc) => {
     const w = setup();
     const p = w.addP("p", 11, 10, { vocation: voc, level: 10, magicLevel: 3, mana: 500, maxMana: 500, hp: 100, maxHp: 1000 });
-    // exura
+    const cost = spellMana(SPELLS.light_heal!, 10);
+    expect(cost).toBeGreaterThan(SPELLS.light_heal!.mana);
     expect(w.spells.castWords(p, "exura")).toBe(true);
     expect(w.results("p").at(-1)).toMatchObject({ ok: true, spellId: "light_heal" });
-    expect(p.mana).toBe(500 - SPELLS.light_heal.mana);
+    expect(p.mana).toBe(500 - cost);
     const [lo1, hi1] = rangeOf("light_heal", 10, 3);
     expect(p.hp - 100).toBeGreaterThanOrEqual(lo1);
     expect(p.hp - 100).toBeLessThanOrEqual(hi1);
-    // cooldown global: segunda conjuração imediata falha
-    expect(w.spells.castWords(p, "exura gran")).toBe(true);
+    // cooldown: segunda conjuração imediata falha e não gasta mana
+    expect(w.spells.castWords(p, "exura")).toBe(true);
     expect(w.results("p").at(-1)).toMatchObject({ ok: false });
-    expect(p.mana).toBe(500 - SPELLS.light_heal.mana);
+    expect(p.mana).toBe(500 - cost);
     w.run(GLOBAL_SPELL_COOLDOWN_MS + 100);
-    const hp0 = p.hp;
-    expect(w.spells.castWords(p, "exura gran")).toBe(true);
-    expect(w.results("p").at(-1)).toMatchObject({ ok: true, spellId: "great_heal" });
-    expect(p.mana).toBe(500 - SPELLS.light_heal.mana - SPELLS.great_heal.mana);
-    const [lo2, hi2] = rangeOf("great_heal", 10, 3);
-    expect(p.hp - hp0).toBeGreaterThanOrEqual(lo2);
-    expect(p.hp - hp0).toBeLessThanOrEqual(hi2);
+    expect(w.spells.castWords(p, "exura")).toBe(true);
+    expect(w.results("p").at(-1)).toMatchObject({ ok: true });
+    expect(p.mana).toBe(500 - 2 * cost);
   });
 
-  it("exura gran exige level 10; sem mana falha", () => {
+  it("Cura: sem mana suficiente (custo do level) falha; exura gran/vita não existem mais", () => {
     const w = setup();
-    const p = w.addP("p", 11, 10, { vocation: "sorcerer", level: 9, hp: 100, maxHp: 1000 });
-    expect(w.spells.cast(p, "great_heal")).toMatchObject({ ok: false, reason: "level" });
-    p.level = 10; p.mana = 10;
-    expect(w.spells.cast(p, "great_heal")).toMatchObject({ ok: false, reason: "mana" });
-  });
-
-  it("exura vita (Cura Vital) é só de druida", () => {
-    const w = setup();
-    for (const v of ["knight", "paladin", "sorcerer"] as const) {
-      const p = w.addP(`p-${v}`, 11, 10, { vocation: v, level: 30 });
-      expect(w.spells.cast(p, "vital_heal"), v).toMatchObject({ ok: false, reason: "vocation" });
-    }
-    const d = w.addP("d", 12, 10, { vocation: "druid", level: 20, hp: 100, maxHp: 1000 });
-    expect(w.spells.cast(d, "vital_heal")).toMatchObject({ ok: true });
+    const p = w.addP("p", 11, 10, { vocation: "sorcerer", level: 30, hp: 100, maxHp: 1000, mana: 64, maxMana: 500 });
+    expect(spellMana(SPELLS.light_heal!, 30)).toBe(65);
+    expect(w.spells.cast(p, "light_heal")).toMatchObject({ ok: false, reason: "mana" });
+    p.mana = 65;
+    expect(w.spells.cast(p, "light_heal")).toMatchObject({ ok: true });
+    expect(p.mana).toBe(0);
+    expect(w.spells.cast(p, "great_heal")).toMatchObject({ ok: false });
+    expect(w.spells.cast(p, "vital_heal")).toMatchObject({ ok: false });
+    expect(w.spells.castWords(p, "exura gran")).toBe(false);
   });
 
   it("barra de 8 slots comporta todas as magias de cada vocação", () => {

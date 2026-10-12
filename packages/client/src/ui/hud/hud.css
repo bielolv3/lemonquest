@@ -156,7 +156,7 @@
 .compact-bars .stat-text { justify-content: flex-end; font-size: 10px; }
 
 /* Seções dobráveis */
-.hud-section { flex: none; }
+.hud-section { flex: none; position: relative; }
 .hud-section-head {
   width: 100%; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; cursor: pointer;
   background: none; border: 0; text-align: left;
@@ -244,7 +244,7 @@
 .equip-stat-v small { font-size: 9px; color: var(--hud-faint); }
 
 /* ---------- Batalha ---------- */
-.battle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent; }
+.battle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .battle-row {
   width: 100%; display: flex; align-items: center; gap: 7px; padding: 4px 6px 4px 4px; cursor: pointer; text-align: left;
   background: transparent; border: 1px solid transparent; border-radius: 4px;
@@ -261,15 +261,39 @@
 .battle-hp > span { display: block; height: 100%; transition: width 200ms var(--hud-ease), background-color 200ms; }
 .battle-dist { flex: none; font-size: 10px; color: var(--hud-faint); font-variant-numeric: tabular-nums; }
 .battle-empty { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.sized-body > .battle-empty { height: 100%; box-sizing: border-box; padding: 0 4px; }
 .battle-empty-dot { width: 6px; height: 6px; border-radius: 50%; background: #4f9d5d; box-shadow: 0 0 0 3px rgba(79, 157, 93, 0.15); animation: soft-blink 2.4s ease-in-out infinite; }
 @keyframes soft-blink { 50% { opacity: 0.35; } }
 
+/* ---------- Corpo de altura fixa (Batalha/Mochila): rolagem interna + alça de redimensionar ---------- */
+.sized-body {
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; box-sizing: border-box;
+  scrollbar-width: thin; scrollbar-color: var(--hud-line-hi) transparent;
+}
+.sized-body::-webkit-scrollbar { width: 6px; }
+.sized-body::-webkit-scrollbar-track { background: transparent; }
+.sized-body::-webkit-scrollbar-thumb { background: var(--hud-line-hi); border-radius: 3px; }
+.sized-body::-webkit-scrollbar-thumb:hover { background: var(--hud-muted); }
+.sized-backpack { padding: 0; }
+.size-grip {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize; touch-action: none; z-index: 1;
+  display: grid; place-items: center; border-radius: 0 0 var(--hud-radius) var(--hud-radius);
+}
+.size-grip-dots {
+  width: 18px; height: 5px; opacity: 0.35; transition: opacity 120ms;
+  background: radial-gradient(circle, var(--hud-muted) 0.9px, transparent 1.2px) 0 0 / 3px 3px;
+}
+.size-grip:hover .size-grip-dots, .panel-resizing .size-grip-dots { opacity: 0.95; }
+.size-grip:hover { background: rgba(255, 255, 255, 0.03); }
+.panel-resizing, .panel-resizing * { cursor: ns-resize !important; user-select: none; -webkit-user-select: none; }
+.panel-resizing .hud-tooltip { display: none; }
+
 /* ---------- Mochila ---------- */
-.bag-grid { position: relative; display: grid; grid-template-columns: repeat(4, 40px); gap: 5px; justify-content: center; padding-top: 2px; }
+.bag-grid { position: relative; display: grid; grid-template-columns: repeat(4, 40px); gap: 5px; justify-content: center; padding: 2px 0; }
 .bag-slot { width: 40px; height: 40px; }
 .bag-grid.empty .bag-slot { opacity: 0.7; }
 .bag-empty {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: calc(var(--view-h, 100px) / 2); transform: translate(-50%, -50%);
   display: flex; align-items: center; gap: 6px; padding: 5px 10px; white-space: nowrap;
   font-size: 12px; color: var(--hud-muted); pointer-events: none;
   background: rgba(11, 13, 19, 0.92); border: 1px solid var(--hud-line); border-radius: 999px;

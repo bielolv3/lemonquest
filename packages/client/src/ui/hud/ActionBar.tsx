@@ -1,4 +1,5 @@
 // Barra de ações (1–8) centralizada na área visível, com overlay radial de cooldown.
+import { spellDef, spellMana } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { activateSlot, ACTION_SLOTS, cooldownStore, flashStore, shakeStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
 import { useStore } from "./store.ts";
@@ -72,10 +73,12 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
   const frac = active ? remain / (cd.end - cd.start) : 0;
   const key = String(index + 1);
   const locked = !!action?.level && level < action.level;
-  const noMana = !!action && !locked && action.mana != null && mana < action.mana;
+  const def = action?.spellId ? spellDef(action.spellId) : undefined;
+  const cost = def ? spellMana(def, level) : action?.mana;
+  const noMana = !!action && !locked && cost != null && mana < cost;
   const sub = action?.spellId
-    ? [`Mana ${action.mana}`, `Recarga ${fmtCd(action.cooldownMs ?? 0)}`, `Level ${action.level}`].join(" · ")
-    : action?.mana ? `${action.mana} de mana` : undefined;
+    ? [`Mana ${cost}`, `Recarga ${fmtCd(action.cooldownMs ?? 0)}`, `Level ${action.level}`].join(" · ")
+    : cost ? `${cost} de mana` : undefined;
 
   return (
     <button
@@ -92,7 +95,7 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
       <span class="action-key">{key}</span>
       {action?.icon && <img src={action.icon} alt="" draggable={false} />}
       {action && !action.icon && <span class="action-abbr">{action.label.slice(0, 2)}</span>}
-      {action?.mana != null && !locked && <span class="action-mana">{action.mana}</span>}
+      {cost != null && !locked && <span class="action-mana">{cost}</span>}
       {locked && (
         <span class="action-lock">
           <svg width="9" height="10" viewBox="0 0 9 10" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 4V3a2.5 2.5 0 0 1 5 0v1h1v6H1V4zm1 0h3V3a1.5 1.5 0 0 0-3 0z" fill="currentColor" fill-rule="evenodd" /></svg>

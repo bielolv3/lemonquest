@@ -35,7 +35,12 @@ export interface SpellDef {
   /** Vocações que podem conjurar (várias nas curas comuns). */
   vocations: Vocation[];
   level: number;           // level mínimo
+  /** Mana base (no level 1). O custo real no level L é `spellMana(def, L)`. */
   mana: number;
+  /** Mana extra por level do conjurador (opcional; padrão 0 = custo fixo). */
+  manaPerLevel?: number;
+  /** Teto do custo de mana quando há `manaPerLevel`. */
+  manaMax?: number;
   cooldownMs: number;
   /** Também dispara o cooldown global de magias (GLOBAL_SPELL_COOLDOWN_MS). Padrão true. */
   global?: boolean;
@@ -60,21 +65,22 @@ export interface SpellDef {
 
 export const GLOBAL_SPELL_COOLDOWN_MS = 1000;
 
+/** Custo de mana da magia para um conjurador de `level` (base + manaPerLevel*level, arredondado, limitado a manaMax). */
+export function spellMana(s: Pick<SpellDef, "mana" | "manaPerLevel" | "manaMax">, level: number): number {
+  const raw = s.mana + (s.manaPerLevel ?? 0) * Math.max(0, level);
+  return Math.round(s.manaMax != null ? Math.min(raw, s.manaMax) : raw);
+}
+
 /**
- * Catálogo: 7-8 magias por vocação (curas comuns "exura"/"exura gran" para todas; druida ganha "exura vita"). Palavras únicas (ver tabela no fim do arquivo).
+ * Catálogo: 6-7 magias por vocação (uma única cura própria "exura" para todas; druida ainda tem a cura em grupo "exura mas sio"). Palavras únicas (ver tabela no fim do arquivo).
  * Valor esperado = base + level*perLevel + magicLevel*perMagic (magicLevel estimado no spells.test.ts).
  */
 export const SPELLS: Record<string, SpellDef> = {
-  // ------------------------------------------------------------------ CURAS COMUNS (todas as vocações)
+  // ------------------------------------------------------------------ CURA ÚNICA (todas as vocações)
   light_heal: {
-    id: "light_heal", name: "Cura Leve", words: "exura", vocations: ["knight", "paladin", "sorcerer", "druid"], level: 1, mana: 20, cooldownMs: 1000,
-    target: "self", heal: { base: 22, perLevel: 0.8, perMagic: 2.2, variance: 0.2 }, fx: "heal",
-    description: "Cura uma parte da sua vida. Quanto maior o magic level, mais cura.",
-  },
-  great_heal: {
-    id: "great_heal", name: "Cura Intensa", words: "exura gran", vocations: ["knight", "paladin", "sorcerer", "druid"], level: 10, mana: 70, cooldownMs: 1000,
-    target: "self", heal: { base: 55, perLevel: 2, perMagic: 3, variance: 0.2 }, fx: "heal",
-    description: "Uma cura poderosa: recupera boa parte da sua vida de uma vez.",
+    id: "light_heal", name: "Cura", words: "exura", vocations: ["knight", "paladin", "sorcerer", "druid"], level: 1, mana: 20, manaPerLevel: 1.5, manaMax: 70, cooldownMs: 1000,
+    target: "self", heal: { base: 22, perLevel: 2, perMagic: 1.8, variance: 0.15 }, fx: "heal",
+    description: "Cura uma parte da sua vida. Cresce com o level e, principalmente para magos, com o magic level. O custo de mana sobe com o level.",
   },
 
   // ------------------------------------------------------------------ CAVALEIRO (tank corpo a corpo)
@@ -183,11 +189,6 @@ export const SPELLS: Record<string, SpellDef> = {
     target: "party", radius: 4, heal: { base: 15, perLevel: 1, perMagic: 2, variance: 0.2 }, fx: "heal",
     description: "Cura você e os aliados num raio de 4 tiles.",
   },
-  vital_heal: {
-    id: "vital_heal", name: "Cura Vital", words: "exura vita", vocations: ["druid"], level: 20, mana: 160, cooldownMs: 2000,
-    target: "self", heal: { base: 60, perLevel: 2, perMagic: 4, variance: 0.15 }, fx: "heal",
-    description: "A cura mais forte do jogo: só druidas a dominam.",
-  },
   summon_wolf: {
     id: "summon_wolf", name: "Invocar Lobo", words: "utevo res lupo", vocations: ["druid"], level: 20, mana: 90, cooldownMs: 60_000,
     target: "self", summon: { monsterId: "summoned_wolf", count: 1, durationMs: 60_000 }, fx: "summon",
@@ -218,12 +219,13 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Gerada pelo console.table do spells.test.ts. dmg/heal = média por alvo, sem variância.
  *
  * magia                voc       lvl  mana  cd(s)  esperado
- * CURAS (todas as vocações; cura em % da vida máx. no level; ML = mago 0.75*lvl, pal lvl/4, cav lvl/7)
- * Cura Leve (exura)      todas   1    20     1    lv1 ~23 (15% HP cav/pal/mago); lv20 mago ~71 (29%), cav ~42 (10%)
- * Cura Intensa (exura gran) todas 10   70     1    lv10 cav ~78 (27%), pal ~81 (34%), mago ~96 (49%)
- * Cura Vital (exura vita) druid  20   160     2    cura ~160 (65% HP) — a maior cura do jogo
- * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida]
- * Removidas: Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico), redundantes com as curas comuns.
+ * CURA (todas as vocações; mana = 20 + 1.5*level, máx. 70; cd 1 s; fórmula 22 + 2*level + 1.8*ML, ±15%)
+ * Cura (exura)          todas    1   ~22     1    lv1 ~24 (16% HP); lv10 mago ~55 (28%) pal ~46 (19%) cav ~44 (15%)
+ *                                 lv20 (mana 50): mago ~89 (36%), pal ~71 (21%), cav ~66 (15%)
+ *                                 lv30 (mana 65): mago ~122 (41%), pal ~95 (22%), cav ~89 (15%)
+ * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida; cura aliados]
+ * Removidas: Cura Intensa (exura gran), Cura Vital (exura vita), Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico):
+ * cada vocação tem exatamente UMA cura própria.
  *
  * Golpe Giratório      knight     1     8     4    dmg 17 (área r1, 2.3x auto)
  * Provocar             knight     5    15    20    taunt r3, 5 s

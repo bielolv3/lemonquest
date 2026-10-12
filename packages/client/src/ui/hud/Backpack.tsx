@@ -17,6 +17,7 @@ export function Backpack() {
     <Section
       id="backpack"
       title="Mochila"
+      size="backpack"
       aside={
         <span class="bag-aside">
           <GoldLabel gold={inv?.gold ?? 0} />

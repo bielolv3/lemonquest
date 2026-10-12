@@ -3,7 +3,7 @@
 // Os números de dano/cura saem no lote de CombatEvent do CombatSystem.
 import {
   DIR_DELTA, Dir, GLOBAL_SPELL_COOLDOWN_MS, S2C, canStepTerrain, dirFromDelta, evalSpellFormula, mitigateSpell,
-  spellByWords, spellDef,
+  spellByWords, spellDef, spellMana,
   type CastFailReason, type CastMsg, type CastResultMsg, type CollisionGrid, type SpellCastMsg, type SpellDef,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -174,7 +174,8 @@ export class SpellSystem {
     const cdLeft = Math.max(0, (this.cd.get(p.id)?.get(s.id) ?? 0) - now);
     const gLeft = usesGlobal ? Math.max(0, (this.globalCd.get(p.id) ?? 0) - now) : 0;
     if (cdLeft > 0 || gLeft > 0) return this.fail(s.id, "cooldown", { cooldownMs: cdLeft, globalMs: gLeft });
-    if (p.mana < s.mana) return this.fail(s.id, "mana");
+    const manaCost = spellMana(s, p.level);
+    if (p.mana < manaCost) return this.fail(s.id, "mana");
 
     const r = this.resolveTarget(p, s, targetId);
     if (!r.ok) return this.fail(s.id, r.reason);
@@ -184,8 +185,8 @@ export class SpellSystem {
     }
 
     // --- sucesso ---
-    p.mana -= s.mana;
-    if (s.mana > 0) this.o.skills?.addTries(p, "magic", s.mana);
+    p.mana -= manaCost;
+    if (manaCost > 0) this.o.skills?.addTries(p, "magic", manaCost);
     let map = this.cd.get(p.id);
     if (!map) { map = new Map(); this.cd.set(p.id, map); }
     map.set(s.id, now + s.cooldownMs);

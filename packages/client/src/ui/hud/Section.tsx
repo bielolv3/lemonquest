@@ -1,7 +1,10 @@
 // Seção dobrável da barra lateral (estado lembrado em localStorage). O cabeçalho é a alça de arrastar (ver Sidebar/reorder.ts)
 // e leva o botão de fixar (pin) — fixados continuam visíveis com a barra recolhida.
 import type { ComponentChildren } from "preact";
+import { useRef } from "preact/hooks";
+import { itemTipStore } from "../items/tipStore.ts";
 import { PixelIcon } from "./icons.tsx";
+import { panelSizesStore, resetPanelRows, rowsFromDrag, rowsToPx, setPanelRows, type SizableId } from "./panelSize.ts";
 import { panelPinsStore, togglePin, type PanelId } from "./panels.ts";
 import { persistedJson, useStore } from "./store.ts";
 
@@ -40,11 +43,13 @@ interface Props {
   aside?: ComponentChildren;
   /** Controles junto ao cabeçalho (não dobram a seção ao clicar). */
   controls?: ComponentChildren;
+  /** Corpo de altura fixa (em linhas), com rolagem e alça de redimensionar (Batalha/Mochila). */
+  size?: SizableId;
   class?: string;
   children: ComponentChildren;
 }
 
-export function Section({ id, title, aside, controls, class: cls, children }: Props) {
+export function Section({ id, title, aside, controls, size, class: cls, children }: Props) {
   const open = useStore(sectionsStore)[id];
   const pinned = useStore(panelPinsStore)[id];
   const toggle = () => sectionsStore.set((s) => ({ ...s, [id]: !s[id] }));
@@ -61,8 +66,58 @@ export function Section({ id, title, aside, controls, class: cls, children }: Pr
         <PinButton id={id} />
       </div>
       <div class="hud-section-body">
-        <div class="hud-section-inner"><div class="hud-section-pad">{children}</div></div>
+        <div class="hud-section-inner">
+          <div class="hud-section-pad">
+            {size ? <SizedBody id={size}>{children}</SizedBody> : children}
+          </div>
+        </div>
       </div>
+      {size && open && <SizeGrip id={size} />}
     </section>
+  );
+}
+
+/** Corpo com altura fixa (rows * linha) e rolagem interna (a roda do mouse rola a lista). */
+function SizedBody({ id, children }: { id: SizableId; children: ComponentChildren }) {
+  const rows = useStore(panelSizesStore)[id];
+  return (
+    <div class={`sized-body sized-${id}`} style={{ height: `${rowsToPx(id, rows)}px`, "--view-h": `${rowsToPx(id, rows)}px` } as any} data-sized-body onScroll={hideTips}>
+      {children}
+    </div>
+  );
+}
+
+/** A rolagem move o conteúdo sob um tooltip já aberto: esconde-o. */
+function hideTips() { itemTipStore.set(null); }
+
+/** Alça na borda inferior: arrastar muda a altura em linhas inteiras; duplo clique volta ao padrão. */
+function SizeGrip({ id }: { id: SizableId }) {
+  const drag = useRef<{ y: number; rows: number } | null>(null);
+  const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { y: e.clientY, rows: panelSizesStore.get()[id] };
+    document.documentElement.classList.add("panel-resizing");
+  };
+  const onMove = (e: PointerEvent) => {
+    const d = drag.current;
+    if (d) setPanelRows(id, rowsFromDrag(id, d.rows, e.clientY - d.y));
+  };
+  const end = () => { drag.current = null; document.documentElement.classList.remove("panel-resizing"); };
+  return (
+    <div
+      class="size-grip"
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onDblClick={() => resetPanelRows(id)}
+      data-tip="Arraste para redimensionar"
+      data-tip-sub="Duplo clique: tamanho padrão"
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Redimensionar painel"
+    ><span class="size-grip-dots" aria-hidden="true" /></div>
   );
 }

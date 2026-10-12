@@ -110,6 +110,33 @@ function startPress(sx: number, sy: number, shiftDown: boolean, from: DragFrom, 
   cancelDrag();
   let shift = shiftDown;
   let dragging = false;
+  let px = sx, py = sy;
+  let raf = 0;
+
+  /** Arrastando perto da borda de cima/baixo de uma lista rolável (Mochila/Batalha): rola sozinha. */
+  const autoScroll = () => {
+    raf = 0;
+    if (!dragging) return;
+    let moved = false;
+    for (const sc of document.querySelectorAll<HTMLElement>("[data-sized-body]")) {
+      if (sc.scrollHeight <= sc.clientHeight) continue;
+      const r = sc.getBoundingClientRect();
+      if (px < r.left || px > r.right || py < r.top - 6 || py > r.bottom + 6) continue;
+      const edge = 22;
+      const v = py < r.top + edge ? -Math.min(10, (r.top + edge - py) / 2 + 1) : py > r.bottom - edge ? Math.min(10, (py - (r.bottom - edge)) / 2 + 1) : 0;
+      if (v) { const before = sc.scrollTop; sc.scrollTop += v; moved = moved || sc.scrollTop !== before; }
+    }
+    if (moved) hoverAt(px, py);
+    raf = requestAnimationFrame(autoScroll);
+  };
+  const hoverAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest("[data-loc]") ?? null;
+    setHover(el);
+    const d = dragStore.get();
+    const key = (el as HTMLElement | null)?.dataset.loc;
+    const reason = d && key && !d.valid.has(key) ? d.reasons.get(key) ?? "" : "";
+    ghostMove?.(x, y, reason);
+  };
 
   const move = (ev: PointerEvent) => {
     shift = shift || ev.shiftKey;
@@ -119,12 +146,9 @@ function startPress(sx: number, sy: number, shiftDown: boolean, from: DragFrom, 
       itemTipStore.set(null);
       dragStore.set({ from, inst, def: defOf(inst), ...computeValid(from, inst) });
     }
-    const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("[data-loc]") ?? null;
-    setHover(el);
-    const d = dragStore.get();
-    const key = (el as HTMLElement | null)?.dataset.loc;
-    const reason = d && key && !d.valid.has(key) ? d.reasons.get(key) ?? "" : "";
-    ghostMove?.(ev.clientX, ev.clientY, reason);
+    px = ev.clientX; py = ev.clientY;
+    hoverAt(px, py);
+    if (!raf) raf = requestAnimationFrame(autoScroll);
   };
   const up = (ev: PointerEvent) => {
     const was = dragging;
@@ -136,6 +160,8 @@ function startPress(sx: number, sy: number, shiftDown: boolean, from: DragFrom, 
   };
 
   const off = () => {
+    cancelAnimationFrame(raf);
+    raf = 0;
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", off);

@@ -1,7 +1,7 @@
 // Barra de ações = magias da vocação. Preenche os slots, envia C2S.Cast, aplica cooldown otimista e reconcilia
 // com S2C.CastResult (falhas: tremida no slot + toast + piscada na barra de mana).
 import {
-  C2S, GLOBAL_SPELL_COOLDOWN_MS, S2C, spellsFor,
+  C2S, GLOBAL_SPELL_COOLDOWN_MS, S2C, spellMana, spellsFor,
   type CastFailReason, type CastMsg, type CastResultMsg, type SpellDef,
 } from "@lemonquest/shared";
 import { cssColor, PAL } from "../../game/spellPalette.ts";
@@ -68,7 +68,7 @@ function activate(slot: number) {
   if (me && me.level < spell.level) return fail(slot, "level");
   const cd = cooldownStore.get()[slot];
   if (cd && cd.end > now + 30) return fail(slot, "cooldown");
-  if (me && me.mana < spell.mana) return fail(slot, "mana");
+  if (me && me.mana < spellMana(spell, me.level)) return fail(slot, "mana");
 
   // Cooldown otimista: o do próprio slot + o global nos demais.
   const prev = cooldownStore.get().slice();

@@ -67,7 +67,7 @@ export function BattleList() {
   }, [players, target]);
 
   return (
-    <Section id="battle" title="Batalha" aside={<span class="count-chip">{entries.length}</span>} class="battle-section" controls={<FightModeControls />}>
+    <Section id="battle" title="Batalha" aside={<span class="count-chip">{entries.length}</span>} size="battle" class="battle-section" controls={<FightModeControls />}>
       <BattleRows entries={entries} />
     </Section>
   );

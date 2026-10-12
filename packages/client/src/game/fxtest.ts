@@ -1,7 +1,7 @@
 // Harness de desenvolvimento (?fxtest, só em modo dev): cria criaturas falsas e dispara eventos de combate
 // a cada segundo para validar visualmente barras de HP, números, projéteis, mortes e level-up sem servidor.
 import {
-  DIR_DELTA, ITEMS, MONSTERS, NPCS, RARITIES, SPELLS, spellDef, type ItemInstance, type Rarity,
+  DIR_DELTA, ITEMS, MONSTERS, NPCS, RARITIES, SPELLS, spellDef, spellMana, type ItemInstance, type Rarity,
   type CombatEvent, type ConditionId, type DamageKind, type MonsterView, type PlayerView, type SpellCastMsg, type SpellDef, type SpellFx,
 } from "@lemonquest/shared";
 import type { WorldScene } from "../scenes/WorldScene.ts";
@@ -168,9 +168,10 @@ export function startFxTest(scene: WorldScene, spawn: { x: number; y: number }, 
     const def = defOf(m.spellId);
     if (!def) return;
     setTimeout(() => {
-      if (me.mana < def.mana) { handleCastResult({ spellId: def.id, ok: false, reason: "mana" }); return; }
+      const cost = spellMana(def, me.level);
+      if (me.mana < cost) { handleCastResult({ spellId: def.id, ok: false, reason: "mana" }); return; }
       if (def.target === "target" && !m.targetId) { handleCastResult({ spellId: def.id, ok: false, reason: "target" }); return; }
-      me.mana -= def.mana; scene.onPlayerChange(ME, me); publish();
+      me.mana -= cost; scene.onPlayerChange(ME, me); publish();
       fire(def);
       handleCastResult({ spellId: def.id, ok: true, cooldownMs: def.cooldownMs, globalMs: 1000 });
     }, 60);

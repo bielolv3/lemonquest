@@ -7,6 +7,7 @@ import {
   type EquipSlot, type FeedMsg, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation, type LootMsg, type NpcOpenMsg, type NpcTradeMsg, type Rarity, type StatId,
 } from "@lemonquest/shared";
 import { session } from "../../session.ts";
+import { setBattleEntries } from "../hud/battle.ts";
 import { playersStore, type PlayerSnap } from "../hud/world.ts";
 import { depotStore, inventoryStore } from "../items/inventory.ts";
 import { handleFeed, handleLoot } from "../items/loot.ts";
@@ -50,6 +51,9 @@ export function startUiTest(): void {
   session.myName = me.name;
   const publishMe = () => playersStore.set(new Map([["me", { ...me }]]));
   publishMe();
+  // ?mobs=N: N criaturas falsas na lista de batalha (testar altura fixa/rolagem).
+  const mobs = Number(P.get("mobs") ?? 0);
+  if (mobs > 0) setBattleEntries("uitest", Array.from({ length: mobs }, (_, i) => ({ id: `m${i}`, name: `Criatura ${i + 1}`, hpPct: 100 - ((i * 13) % 90), kind: "monster" as const, distance: 1 + (i % 9) })));
 
   // ---------- servidor falso ----------
   const equipment: Partial<Record<EquipSlot, ItemInstance>> = {
