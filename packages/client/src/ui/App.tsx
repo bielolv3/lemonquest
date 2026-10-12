@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { session } from "../session.ts";
 import { Login } from "./Login.tsx";
+import { useLoginReady } from "./loading.ts";
 import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { Hud } from "./hud/Hud.tsx";
@@ -17,7 +18,9 @@ export function App() {
   useEffect(() => session.onRoom(() => setConnected(true)), []);
   useEffect(() => { if (UITEST) void import("./uitest/harness.ts").then((m) => m.startUiTest()); }, []);
 
-  if (!connected && !FXTEST && !UITEST) return <Login />;
+  // O login só aparece com o mapa pronto (ou após 15 s): nada de caixa de login sobre tela preta.
+  const loginReady = useLoginReady();
+  if (!connected && !FXTEST && !UITEST) return loginReady ? <Login /> : null;
   return (
     <>
       <Hud />

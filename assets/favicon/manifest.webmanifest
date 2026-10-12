@@ -1,0 +1,14 @@
+{
+  "name": "The Lemon Quest",
+  "short_name": "Lemon Quest",
+  "description": "RPG multiplayer de navegador.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1b1f2a",
+  "theme_color": "#1b1f2a",
+  "icons": [
+    { "src": "/favicon/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

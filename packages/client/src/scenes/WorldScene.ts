@@ -26,7 +26,8 @@ import { SpellEffects } from "../game/spellFx.ts";
 import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
 import { openCtxMenu, openOutfit } from "../ui/outfit/outfit.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
-import { buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
+import { MAP_KEY, buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
+import { loading } from "../ui/loading.ts";
 import { openNpc } from "../ui/npc/npc.ts";
 import { openStatue } from "../ui/training/training.ts";
 import { showDeath, showLevelBanner } from "../ui/combat/combatUi.ts";
@@ -106,12 +107,27 @@ export class WorldScene extends Phaser.Scene {
   constructor() { super("world"); }
 
   preload() {
+    this.trackLoading();
     preloadWorldMap(this);
     for (const s of [...ALL_SHEETS, ...ADDON_SHEET_LIST, ...allCreatureSheets(), ...allNpcSheets()]) {
       this.load.spritesheet(s.key, `${import.meta.env.BASE_URL}${s.url}`, { frameWidth: s.frameWidth, frameHeight: s.frameHeight });
     }
     CombatFx.preload(this);
     LootFx.preload(this);
+  }
+
+  /** Alimenta a tela de carregamento com o progresso REAL do loader (mapa, tilesets, sprites, efeitos). */
+  private trackLoading() {
+    const sheetKeys = new Set([...ALL_SHEETS, ...ADDON_SHEET_LIST, ...allCreatureSheets(), ...allNpcSheets()].map((s) => s.key));
+    const labelFor = (key: string) =>
+      key === MAP_KEY || key.startsWith("tileset:") ? "Carregando mapa…" : sheetKeys.has(key) ? "Carregando personagens…" : "Carregando efeitos…";
+    this.load.on(Phaser.Loader.Events.PROGRESS, (v: number) => loading.report("files", v));
+    this.load.on(Phaser.Loader.Events.FILE_PROGRESS, (file: Phaser.Loader.File) => loading.report("files", 0, labelFor(file.key)));
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+      console.warn("[load] falhou:", file.key, file.url);
+      // Só o mapa e os tilesets são indispensáveis; sprites opcionais ausentes são tolerados.
+      if (file.key === MAP_KEY || file.key.startsWith("tileset:")) loading.fail();
+    });
   }
 
   create() {
@@ -184,6 +200,10 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
 
     if (FXTEST) startFxTest(this, this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+
+    // Mapa montado: avisa a tela de carregamento depois do 1º frame realmente desenhado.
+    loading.report("create", 1, "Preparando o mundo…");
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => requestAnimationFrame(() => loading.mapReady()));
   }
 
   // --- rede -----------------------------------------------------------------
@@ -280,6 +300,7 @@ export class WorldScene extends Phaser.Scene {
       this.predictor.speedPct = p.speedPct ?? 100;
       this.predictor.reset(p.x, p.y, p.dir);
       this.pcam.jumpTo((p.x + 0.5) * TILE_SIZE, (p.y + 0.5) * TILE_SIZE);
+      this.game.events.once(Phaser.Core.Events.POST_RENDER, () => requestAnimationFrame(() => loading.worldReady()));
       this.setMyStats(p.level, p.maxHp);
       this.myVocation = p.vocation;
       this.unlockedUpTo = p.level;

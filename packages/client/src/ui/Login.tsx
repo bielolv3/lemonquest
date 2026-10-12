@@ -4,6 +4,7 @@ import {
   type AuthError, type AuthFail, type CharacterSummary, type SkillId, type Vocation,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
+import { loading } from "./loading.ts";
 import { VOCATION_META, vocationMeta } from "./hud/vocations.ts";
 import { OutfitCanvas } from "./outfit/OutfitCanvas.tsx";
 import { resolveOutfit } from "@lemonquest/shared";
@@ -128,7 +129,8 @@ export function Login() {
       return;
     }
     try { localStorage.setItem(LAST_CHAR_KEY, r.name); } catch { /* indisponível */ }
-    await session.connect(r.token, r.name);
+    loading.enterWorld(); // "Entrando no mundo…" até a sala chegar e a câmera estar no jogador
+    try { await session.connect(r.token, r.name); } catch (e) { loading.cancelEnter(); throw e; }
   });
 
   const createChar = () => run(async () => {

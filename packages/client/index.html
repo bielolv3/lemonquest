@@ -4,11 +4,134 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Lemon Quest</title>
+    <meta name="theme-color" content="#1b1f2a" />
+    <meta name="description" content="The Lemon Quest: RPG multiplayer de navegador." />
+    <link rel="icon" href="/favicon/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <link rel="manifest" href="/favicon/manifest.webmanifest" />
+    <link rel="preload" as="image" href="/favicon/favicon-32.png" />
+
+    <!-- Fonte pixel: não bloqueante (antes ficava num @import do CSS e segurava a 1ª pintura -> tela preta). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+
+    <!-- CSS crítico da tela de carregamento: pinta antes de qualquer JS. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #1b1f2a; }
+      #boot {
+        position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at 50% 42%, #272d3f 0%, #1b1f2a 55%, #0d0f15 100%);
+        color: #e8e6d9; font-family: "Pixelify Sans", "Courier New", monospace;
+        opacity: 1; transition: opacity 500ms ease; user-select: none;
+      }
+      #boot.hide { opacity: 0; pointer-events: none; }
+      #boot[hidden] { display: none; }
+      #boot .boot-box { width: min(480px, 90vw); display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+      #boot .boot-lemon {
+        width: 128px; height: 128px; image-rendering: pixelated; animation: boot-bob 1.8s steps(6) infinite;
+        filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
+      }
+      #boot .boot-title {
+        margin: 0; font-size: 44px; font-weight: 600; letter-spacing: 2px; line-height: 1.05; white-space: nowrap; color: #d9a441;
+        text-shadow: 0 3px 0 #6b4a12, 0 6px 0 rgba(0, 0, 0, 0.4);
+      }
+      #boot .boot-bar { position: relative; width: min(340px, 100%); height: 14px; box-sizing: border-box; padding: 2px; background: #0b0d13; border: 2px solid #2c3242; border-radius: 3px; overflow: hidden; }
+      #boot .boot-fill {
+        position: relative; height: 100%; width: 0; background: repeating-linear-gradient(90deg, #f2b91c 0 6px, #d9a441 6px 8px);
+        box-shadow: inset 0 2px 0 rgba(255, 247, 168, 0.55);
+      }
+      #boot .boot-shimmer {
+        position: absolute; top: 2px; bottom: 2px; left: 2px; width: 30%; opacity: 0; pointer-events: none;
+        background: linear-gradient(90deg, transparent, rgba(255, 247, 168, 0.5), transparent); transition: opacity 300ms;
+      }
+      #boot.stalled .boot-shimmer { opacity: 1; animation: boot-shimmer 1.2s linear infinite; }
+      #boot .boot-status { margin: 0; min-height: 20px; font-size: 16px; color: #a9adbb; }
+      #boot .boot-tip { margin: 6px 0 0; min-height: 40px; font-size: 14px; line-height: 1.35; color: #8a8fa0; transition: opacity 350ms; }
+      #boot .boot-tip b { color: #d9a441; font-weight: 600; }
+      #boot .boot-tip.swap { opacity: 0; }
+      #boot .boot-error { display: none; flex-direction: column; align-items: center; gap: 10px; }
+      #boot .boot-error p { margin: 0; font-size: 15px; color: #ff8a7a; }
+      #boot .boot-retry {
+        font: inherit; font-size: 16px; padding: 8px 18px; cursor: pointer; color: #11141c; background: #d9a441;
+        border: 1px solid #d9a441; border-radius: 4px;
+      }
+      #boot.failed .boot-bar, #boot.failed .boot-status, #boot.failed .boot-tip { display: none; }
+      #boot.failed .boot-error { display: flex; }
+      #boot.failed .boot-lemon { animation: none; filter: grayscale(0.7) drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35)); }
+      @keyframes boot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+      @keyframes boot-shimmer { from { transform: translateX(-120%); } to { transform: translateX(420%); } }
+      @media (max-width: 480px) { #boot .boot-title { font-size: 30px; } #boot .boot-lemon { width: 96px; height: 96px; } }
+      @media (prefers-reduced-motion: reduce) {
+        #boot { transition-duration: 1ms; }
+        #boot .boot-lemon, #boot.stalled .boot-shimmer { animation: none; }
+        #boot .boot-tip { transition: none; }
+      }
+    </style>
     <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite">
+      <div class="boot-box">
+        <img class="boot-lemon" src="/favicon/favicon-32.png" width="32" height="32" alt="" draggable="false" />
+        <h1 class="boot-title">The Lemon Quest</h1>
+        <div class="boot-bar" aria-hidden="true"><div class="boot-fill"></div><div class="boot-shimmer"></div></div>
+        <p class="boot-status">Carregando…</p>
+        <p class="boot-tip"></p>
+        <div class="boot-error">
+          <p>Não foi possível carregar o jogo. Verifique sua conexão.</p>
+          <button class="boot-retry" type="button" onclick="location.reload()">Tentar de novo</button>
+        </div>
+      </div>
+    </div>
     <div id="game"></div>
     <div id="ui"></div>
+    <script>
+      // Dicas rotativas + falha de carregamento do bundle: roda antes do JS principal.
+      (function () {
+        var boot = document.getElementById("boot");
+        var tipEl = boot.querySelector(".boot-tip");
+        var TIPS = [
+          "Aperte <b>O</b> para trocar de roupa.",
+          "<b>Q</b> e <b>E</b> usam poções rápidas.",
+          "No <b>Centro de Treinamento</b> você treina até offline.",
+          "O <b>Coliseu</b> tem 30 ondas. Quanto você aguenta?",
+          "<b>Clique direito</b> pega itens do chão.",
+          "<b>F5</b>, <b>F6</b> e <b>F7</b> mudam sua postura de combate.",
+          "<b>M</b> abre o mapa do mundo.",
+          "Digite <b>exura</b> no chat para se curar.",
+          "<b>K</b> abre suas habilidades.",
+          "<b>Ctrl</b> + setas viram o personagem sem andar.",
+          "Clique no chão para andar até o ponto.",
+          "<b>?</b> mostra todos os atalhos do teclado.",
+          "Os números <b>1</b> a <b>8</b> lançam as magias da barra.",
+          "Morrer custa experiência. Cuidado com os chefes!"
+        ];
+        var i = Math.floor(Math.random() * TIPS.length);
+        function show() { tipEl.innerHTML = "<b>Dica:</b> " + TIPS[i % TIPS.length]; }
+        show();
+        var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.__lqTipTimer = setInterval(function () {
+          if (boot.hidden || boot.classList.contains("hide") || boot.classList.contains("failed")) return;
+          i++;
+          if (reduce) { show(); return; }
+          tipEl.classList.add("swap");
+          setTimeout(function () { show(); tipEl.classList.remove("swap"); }, 350);
+        }, 3000);
+        // Falha ao baixar o bundle (rede caiu / servidor fora): mostra o erro com "Tentar de novo".
+        window.addEventListener("error", function (e) {
+          var t = e.target;
+          if (t && t.tagName === "SCRIPT") boot.classList.add("failed");
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
