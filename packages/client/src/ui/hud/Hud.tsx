@@ -24,6 +24,9 @@ import { helpOpen, skillsOpen, toggle } from "./uiState.ts";
 import { OutfitWindow } from "../outfit/OutfitWindow.tsx";
 import { ContextMenu } from "../outfit/ContextMenu.tsx";
 import { toggleOutfit } from "../outfit/outfit.ts";
+import { AchievementsWindow } from "../achievements/AchievementsWindow.tsx";
+import { RankingWindow } from "../achievements/RankingWindow.tsx";
+import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
 import "./world.ts";
 import "./hud.css";
 
@@ -48,6 +51,8 @@ export function Hud() {
       <LootToasts />
       <SkillsWindow />
       <OutfitWindow />
+      <AchievementsWindow />
+      <RankingWindow />
       <Sidebar />
       <ContextMenu />
       <Tooltip />
@@ -74,11 +79,15 @@ function useHudKeys() {
       if (e.repeat) return;
       if (e.code === "KeyK") { e.preventDefault(); toggle(skillsOpen); return; }
       if (e.code === "KeyO") { e.preventDefault(); toggleOutfit(); return; }
+      if (e.code === "KeyJ") { e.preventDefault(); toggleAchievements(); return; }
+      if (e.code === "KeyR") { e.preventDefault(); toggleRanking(); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); toggle(helpOpen); return; }
       if (e.key === "Escape") {
         if (closeTopOverlay()) return;
         // Fecha o que estiver aberto, um por vez; por último limpa o alvo.
-        if (helpOpen.get()) helpOpen.set(false);
+        if (achievementsOpen.get()) achievementsOpen.set(false);
+        else if (rankingOpen.get()) rankingOpen.set(false);
+        else if (helpOpen.get()) helpOpen.set(false);
         else if (skillsOpen.get()) skillsOpen.set(false);
         else if (getTarget()) clearTarget();
       }

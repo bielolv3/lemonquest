@@ -44,6 +44,10 @@ export const C2S = {
   Arena: "arena",
   /** Trocar roupa/addons (janela de roupas). */
   SetOutfit: "setOutfit",
+  /** Escolher o título ativo (conquistas). */
+  SetTitle: "setTitle",
+  /** Pedir o estado das conquistas (ao abrir a janela). */
+  AchievementsRequest: "achievementsRequest",
   /** Grupo (party): convidar/aceitar/recusar/sair/expulsar/passar liderança/desfazer. */
   Party: "party",
 } as const;
@@ -148,6 +152,10 @@ export const S2C = {
   Teleported: "teleported",
   /** Anúncio de um administrador (faixa grande no centro da tela, para todos). */
   Announce: "announce",
+  /** Conquista desbloqueada (toast). */
+  AchievementUnlocked: "achievementUnlocked",
+  /** Estado completo das conquistas (ao entrar e a cada mudança). */
+  Achievements: "achievements",
   /** Estado do SEU grupo (party), enviado ao mudar (null = sem grupo). */
   Party: "party",
   /** Convite para um grupo (toast com Aceitar/Recusar). */

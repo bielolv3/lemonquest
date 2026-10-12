@@ -27,6 +27,19 @@ export interface CharacterData {
   /** Roupa (OUTFITS) e addons (bits 1|2). Ausente = padrão da vocação. */
   outfit?: string;
   addons?: number;
+  /** Conquistas (systems/achievements.ts): concluídas, contadores e título ativo. */
+  ach?: {
+    /** id da conquista → ms epoch em que foi concluída. */
+    done: Record<string, number>;
+    /** Contadores acumulados (kills, bosses, deaths, steps, gold, foods, drops, pickups, offline [min], quests, party, arena...). */
+    stats: Record<string, number>;
+    /** Tipos de monstro comuns já derrotados (bestiário). */
+    killed: string[];
+    /** Título ativo (id em TITLES) ou ausente. */
+    title?: string;
+  };
+  /** Roupas/addons/títulos liberados: "outfit:x", "addon:x:1|2", "title:x". */
+  unlocks?: string[];
   /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */
   muted?: { until: number; by: string };
 }

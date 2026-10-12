@@ -332,6 +332,7 @@ export class WorldScene extends Phaser.Scene {
     const isMe = id === this.myId;
     const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir);
     this.lookSig.set(id, `${p.outfit}|${p.addons}`);
+    actor.setTitle(p.title ?? "");
     actor.setHp(p.hp, p.maxHp, true);
     this.actors.set(id, actor);
     if (isPartyMember(id)) actor.setParty(true);
@@ -361,6 +362,7 @@ export class WorldScene extends Phaser.Scene {
     const k = this.known.get(id);
     if (!actor || !k) return;
     actor.setHp(p.hp, p.maxHp);
+    actor.setTitle(p.title ?? "");
     const sig = `${p.outfit}|${p.addons}`;
     if (this.lookSig.get(id) !== sig) { this.lookSig.set(id, sig); actor.setLook(outfitLook(p.outfit, p.addons, p.vocation)); }
     const moved = p.x !== k.x || p.y !== k.y;

@@ -1,0 +1,59 @@
+/* Janelas de conquistas (J) e ranking (R) + cadeados da janela de roupas */
+.ach-win, .rank-win { top: 72px; left: max(8px, calc(50% - 230px)); width: min(460px, 96vw); max-height: min(78vh, 640px); background: rgba(17, 20, 28, 0.96); }
+.ach-win .win-title, .rank-win .win-title { cursor: default; }
+.ach-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 4px; }
+.ach-points { font-size: 13px; color: var(--hud-muted); display: flex; flex-direction: column; line-height: 1.2; }
+.ach-points b { color: var(--hud-gold); font-family: "Pixelify Sans", system-ui, sans-serif; font-size: 20px; font-weight: 600; }
+.ach-points small, .ach-title-pick small { font-size: 10px; color: var(--hud-faint); text-transform: uppercase; letter-spacing: 1px; }
+.ach-title-pick { display: flex; flex-direction: column; gap: 2px; }
+.ach-select {
+  font: inherit; font-size: 12px; color: var(--hud-text); background: var(--hud-well); border: 1px solid var(--hud-line);
+  border-radius: 4px; padding: 3px 6px; max-width: 170px;
+}
+.ach-filters, .rank-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px 8px; }
+.ach-filter {
+  font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--hud-line-soft); color: var(--hud-muted) !important;
+}
+.ach-filter:hover { border-color: var(--hud-line-hi); color: var(--hud-text) !important; }
+.ach-filter.on { border-color: var(--hud-gold); color: var(--hud-gold) !important; background: rgba(217, 164, 65, 0.1); }
+.ach-list { list-style: none; margin: 0; padding: 0 12px 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.ach-row { display: flex; gap: 10px; padding: 7px 9px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--hud-line-soft); border-radius: 5px; }
+.ach-row.done { border-color: rgba(217, 164, 65, 0.45); background: rgba(217, 164, 65, 0.07); }
+.ach-icon { flex: 0 0 30px; height: 30px; display: grid; place-items: center; font-size: 20px; filter: grayscale(1) opacity(0.55); }
+.ach-row.done .ach-icon { filter: none; }
+.ach-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ach-top { display: flex; justify-content: space-between; gap: 8px; }
+.ach-name { font-size: 13px; color: var(--hud-text); font-weight: 600; }
+.ach-row.done .ach-name { color: var(--hud-gold); }
+.ach-pts { font-size: 11px; color: var(--hud-faint); white-space: nowrap; }
+.ach-desc { font-size: 12px; color: var(--hud-muted); }
+.ach-when { font-size: 11px; color: var(--hud-faint); }
+.ach-bar { position: relative; height: 13px; background: var(--hud-well); border: 1px solid var(--hud-line-soft); border-radius: 3px; overflow: hidden; }
+.ach-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#5c8f4e, #43733a); }
+.ach-bar > em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 10px; color: #fff; text-shadow: 0 1px 0 #000; }
+.ach-rewards { display: flex; flex-wrap: wrap; gap: 4px; }
+.ach-chip { font-size: 10px; padding: 1px 6px; border-radius: 8px; color: var(--hud-faint); border: 1px solid var(--hud-line-soft); }
+.ach-chip.got { color: var(--hud-gold); border-color: rgba(217, 164, 65, 0.5); }
+.ach-empty { padding: 14px; text-align: center; color: var(--hud-faint); font-size: 12px; list-style: none; }
+
+.rank-body { padding: 0 12px; overflow-y: auto; }
+.rank-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rank-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--hud-faint); padding: 3px 6px; }
+.rank-table td { padding: 4px 6px; border-top: 1px solid var(--hud-line-soft); color: var(--hud-text); }
+.rank-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.rank-table tr.top1 td { color: var(--hud-gold); }
+.rank-table tr.top2 td { color: #cfd4de; }
+.rank-table tr.top3 td { color: #d79a5a; }
+.rank-foot { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px 10px; font-size: 12px; color: var(--hud-muted); }
+.rank-foot a { color: var(--hud-gold); }
+
+/* Janela de roupas: itens bloqueados */
+.outfit-cell.locked { opacity: 0.55; }
+.outfit-cell.locked canvas { filter: grayscale(1) brightness(0.7); }
+.outfit-cell { position: relative; }
+.outfit-lock { position: absolute; top: 3px; right: 3px; color: var(--hud-gold); filter: drop-shadow(0 1px 0 #000); }
+.outfit-addon.locked { cursor: not-allowed; opacity: 0.6; }
+.outfit-addon.locked .outfit-addon-name { color: var(--hud-faint); }
+.outfit-req { font-size: 11px; color: var(--hud-gold); }
+.outfit-btn:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -32,6 +32,19 @@ export class ExplorationSystem {
     return e ? { width: this.width, height: this.height, bits: e.mask.toBase64() } : undefined;
   }
 
+  /** % (0–100) dos tiles ALCANÇÁVEIS já explorados (reachable = 1 byte/tile). */
+  percent(sessionId: string, reachable: Uint8Array): number {
+    const e = this.entries.get(sessionId);
+    if (!e) return 0;
+    let total = 0, seen = 0;
+    for (let i = 0; i < reachable.length; i++) {
+      if (!reachable[i]) continue;
+      total++;
+      if ((e.mask.bits[i >> 3] & (1 << (i & 7))) !== 0) seen++;
+    }
+    return total ? (seen * 100) / total : 0;
+  }
+
   /** Largura do mapa (salva junto com a máscara para detectar mudança de largura). */
   get mapWidth(): number { return this.width; }
 

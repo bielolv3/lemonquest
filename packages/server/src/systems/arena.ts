@@ -73,6 +73,8 @@ export interface ArenaOptions {
   setBest: (id: string, best: number) => void;
   /** Saiu da arena (morte/desistência/fim): fecha NPC, some com invocações, limpa condições. */
   onExit?: (p: PlayerState) => void;
+  /** Venceu uma onda (conquistas). */
+  onWaveCleared?: (p: PlayerState, wave: number) => void;
   /** Entrou na arena: fecha diálogos de NPC abertos. */
   onEnter?: (p: PlayerState) => void;
   /** Fecha a loja do coliseu (a onda começou). */
@@ -471,6 +473,7 @@ export class ArenaSystem {
       m.gold += gold;
       if (xp > 0) this.o.combat.gainXp(p, xp, p.x, p.y);
       if (gold > 0) this.o.addGold(p, gold);
+      this.o.onWaveCleared?.(p, wave);
       this.o.combat.healPlayer(p, p.id, Math.round(p.maxHp * ARENA_PAUSE_HEAL));
       this.o.combat.restoreMana(p, Math.round(p.maxMana * ARENA_PAUSE_HEAL));
     }

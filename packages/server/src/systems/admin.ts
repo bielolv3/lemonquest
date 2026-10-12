@@ -2,9 +2,9 @@
 // Admin = personagem listado em LEMONQUEST_ADMINS (vírgulas; comparação como name_key: NFC + minúsculas).
 // Resposta só para quem digitou (Notice com log=true: aparece também no chat). Nada é difundido, exceto /anuncio.
 //   /kick <nome> [motivo] · /mute <nome> <minutos> · /unmute <nome> · /anuncio <texto>
-//   /online · /resetsenha <conta> · /tp <nome>
+//   /online · /resetsenha <conta> · /tp <nome> · /desbloquear <nome> <roupa|addon|título>
 // Toda ação é logada no console com o prefixo [admin].
-import { S2C, type AnnounceMsg, type FeedMsg, type NoticeMsg } from "@lemonquest/shared";
+import { S2C, resolveUnlockArg, unlockText, type AnnounceMsg, type FeedMsg, type NoticeMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import { nameKey } from "../persistence/db.ts";
@@ -20,7 +20,7 @@ export const MAX_KICK_REASON_BYTES = 100;
 /** Este personagem é admin? (vale em produção; não depende de LEMONQUEST_DEV_COMMANDS). */
 export const isAdmin = (name: string, env: Env = process.env): boolean => devAdmins(env).has(nameKey(name));
 
-export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp"] as const;
+export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp", "/desbloquear"] as const;
 
 export interface AdminContext {
   send: (sessionId: string, type: string, msg: unknown) => void;
@@ -40,6 +40,8 @@ export interface AdminContext {
   resetCode: (account: string, by: string) => Promise<{ code: string; account: string; expiresAt: number } | null>;
   /** /tp x y é do comando de dev: se estiver ligado para este jogador, o admin deixa passar. */
   devTp?: (p: PlayerState) => boolean;
+  /** Concede roupa/addon/título (online: avisa o jogador). true = era novo. */
+  grantUnlock?: (rec: CharacterRecord, unlockId: string, online?: PlayerState) => boolean;
   env?: Env;
   now?: () => number;
   log?: (line: string) => void;
@@ -161,6 +163,21 @@ export function handleAdminCommand(p: PlayerState, text: string, ctx: AdminConte
         },
         (e) => { console.error("[admin] /resetsenha falhou:", e); reply("Não foi possível gerar o código.", "warn"); },
       );
+      break;
+    }
+    case "/desbloquear": {
+      const arg = words.pop();
+      const name = words.join(" ");
+      if (!name || !arg) { reply("Uso: /desbloquear <nome> <roupa|addon|título> (ex.: pirata, pirata_chapeu, title:persistente)", "warn"); break; }
+      const unlockId = resolveUnlockArg(arg);
+      if (!unlockId) { reply(`Não conheço "${arg}". Use o id de uma roupa (pirata), de um addon (pirata_chapeu) ou title:<id>.`, "warn"); break; }
+      const target = byName(name);
+      const rec = target ? ctx.record(target.id) : ctx.findOffline?.(name);
+      if (!rec || !ctx.grantUnlock) { reply(`Personagem não encontrado: ${name}`, "warn"); break; }
+      const isNew = ctx.grantUnlock(rec, unlockId, target);
+      if (!target) ctx.saveOffline?.(rec);
+      audit(`/desbloquear ${rec.name} ${unlockId}${target ? "" : " (offline)"}${isNew ? "" : " (já tinha)"}`);
+      reply(isNew ? `${rec.name} recebeu — ${unlockText(unlockId)}.` : `${rec.name} já tinha — ${unlockText(unlockId)}.`, isNew ? "good" : "info");
       break;
     }
     case "/tp": {
