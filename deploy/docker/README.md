@@ -86,7 +86,47 @@ Edite `docker-compose.yml` (seção `environment`) e rode `docker compose up -d`
 | `LEMONQUEST_DEV_COMMANDS` | desligado | `"1"` liga /level, /item etc. **Não use no escritório.** |
 | `LEMONQUEST_ADMINS` | vazio | Personagens que podem usar os comandos de dev (ex.: `"Leonardo"`). |
 
-## 7. Como a imagem é montada
+## 7. Servidor Linux do escritório (repositório privado no GitHub)
+
+O código fica em `github.com/leocsd/lemonquest` (privado). No servidor:
+
+1. **Docker**: `curl -fsSL https://get.docker.com | sh` e `sudo usermod -aG docker $USER` (saia e entre de novo). Confira com `docker compose version`.
+2. **Chave de leitura só deste repositório (deploy key)** — assim o servidor baixa o código sem usar a sua conta:
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/lemonquest_deploy -N "" -C "servidor-escritorio"
+   cat ~/.ssh/lemonquest_deploy.pub
+   ```
+
+   Cole a chave pública em GitHub → repositório → *Settings → Deploy keys → Add deploy key* (deixe **sem** "Allow write access"). Depois:
+
+   ```bash
+   cat >> ~/.ssh/config <<'EOF'
+   Host github-lemonquest
+     HostName github.com
+     User git
+     IdentityFile ~/.ssh/lemonquest_deploy
+     IdentitiesOnly yes
+   EOF
+   git clone git@github-lemonquest:leocsd/lemonquest.git ~/lemonquest
+   ```
+
+3. **Levar os personagens** (opcional): pare o jogo na máquina antiga (`docker compose stop`) e copie o banco para o servidor:
+
+   ```bash
+   # na máquina antiga (PowerShell), por exemplo:
+   scp C:\Users\leocs\Desktop\lemonquest\docker-data\lemonquest.db usuario@IP-DO-SERVIDOR:~/lemonquest/docker-data/
+   ```
+
+   (Crie a pasta antes no servidor: `mkdir -p ~/lemonquest/docker-data`.)
+4. **Subir**: `cd ~/lemonquest && docker compose up -d --build`, depois `docker compose ps` até ficar *healthy*.
+5. **Firewall** (se usar ufw): `sudo ufw allow 2567/tcp`. O jogo fica em `http://IP-DO-SERVIDOR:2567`.
+6. **Inicia com o servidor**: o Docker sobe no boot no Linux e o container tem `restart: unless-stopped` — não precisa de mais nada (confira com `sudo systemctl is-enabled docker`).
+7. **Atualizar** quando houver versão nova no GitHub: `cd ~/lemonquest && git pull && docker compose up -d --build`.
+
+> Não deixe a máquina antiga e o servidor rodando o jogo ao mesmo tempo com o mesmo banco copiado — cada um vira um "mundo" separado. Depois de migrar, desligue o antigo (`docker compose down`).
+
+## 8. Como a imagem é montada
 
 - `Dockerfile` em duas etapas: a primeira instala tudo e gera o build do cliente; a final (`node:24-bookworm-slim`, ~500 MB) leva só o servidor, as dependências de produção, o mapa e o cliente compilado.
 - O processo roda como o usuário `node` (sem privilégios). Na partida o container acerta o dono da pasta `/app/data`, para funcionar também com pastas montadas no Linux.
