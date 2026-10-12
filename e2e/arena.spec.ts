@@ -134,3 +134,28 @@ test("coliseu em grupo: dois jogadores, lobby → entrar → iniciar → ambos n
     await cb.close();
   }
 });
+
+test("coliseu: cair na arena não tem penalidade (sem perda de XP) e mostra o resultado", async ({ page }) => {
+  test.setTimeout(300_000); // espera os ratos derrubarem um personagem fraco que não reage
+  await enterGame(page, "sorcerer");
+  await setLevel(page, 2);
+  const before = (await meState(page))!;
+  await openArena(page);
+  const win = page.getByRole("dialog", { name: "Coliseu" });
+  await win.getByRole("button", { name: "Criar grupo" }).click();
+  await win.getByRole("button", { name: "Iniciar (solo)" }).click();
+  await expect(page.locator(".arena-banner")).toContainText("Onda 1", { timeout: 25_000 });
+  const card = page.getByRole("dialog", { name: "Resultado do Coliseu" });
+  await expect(card).toBeVisible({ timeout: 240_000 });
+  await expect(card).toContainText("Você caiu na arena");
+  await expect(card).toContainText("Sem penalidade");
+  await snap(page, "arena-wiped");
+  // Nada da tela de morte comum, XP/level intactos e o personagem fora da arena, vivo.
+  await expect(page.getByRole("alertdialog", { name: "Você morreu" })).toHaveCount(0);
+  const after = (await meState(page))!;
+  expect(after.level).toBe(before.level);
+  expect(after.xp).toBeGreaterThanOrEqual(before.xp);
+  expect(after.hp).toBeGreaterThan(0);
+  const pos = (await me(page))!;
+  expect(Math.max(Math.abs(pos.x - MASTER.x), Math.abs(pos.y - MASTER.y))).toBeLessThan(12);
+});
