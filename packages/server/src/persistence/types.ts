@@ -27,6 +27,8 @@ export interface CharacterData {
   /** Roupa (OUTFITS) e addons (bits 1|2). Ausente = padrão da vocação. */
   outfit?: string;
   addons?: number;
+  /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */
+  muted?: { until: number; by: string };
 }
 
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */

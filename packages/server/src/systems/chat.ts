@@ -30,6 +30,8 @@ export interface ChatHooks {
   castWords?: (p: PlayerState, text: string) => boolean;
   /** Comandos (dev): retorna true se tratou. Texto com "/" NUNCA vai para o chat (desconhecido → aviso). */
   command?: (p: PlayerState, text: string) => boolean;
+  /** Silenciado por admin: ms restantes (0 = pode falar). Magias e comandos continuam funcionando. */
+  muted?: (p: PlayerState) => number;
 }
 
 export function handleChat(room: Room, client: Client, from: PlayerState, msg: ChatSendMsg, hooks: ChatHooks = {}): void {
@@ -43,6 +45,13 @@ export function handleChat(room: Room, client: Client, from: PlayerState, msg: C
   }
   // Magia: as palavras aparecem sobre o conjurador via S2C.SpellCast (cliente), nunca no log do chat.
   if (hooks.castWords?.(from, text)) return;
+
+  const muted = hooks.muted?.(from) ?? 0;
+  if (muted > 0) {
+    const min = Math.max(1, Math.ceil(muted / 60_000));
+    client.send(S2C.Notice, { text: `Você está silenciado (mais ${min} min).`, kind: "warn" } satisfies NoticeMsg);
+    return;
+  }
 
   if (!checkRate(client.sessionId)) {
     const notice: NoticeMsg = { text: "Calma! Você está falando rápido demais.", kind: "warn" };

@@ -13,7 +13,8 @@
     "start": "npm run build && npm run start -w @lemonquest/server",
     "start:fast": "npm run start -w @lemonquest/server",
     "typecheck": "tsc -p packages/shared && tsc -p packages/server && tsc -p packages/client",
-    "test": "vitest run"
+    "test": "vitest run",
+    "admin": "npm run admin -w @lemonquest/server --"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

@@ -1,6 +1,6 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
-  C2S, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
+  C2S, CLOSE_KICKED, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
@@ -26,10 +26,11 @@ import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
 import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
-import { handleDevCommand } from "../systems/devcommands.ts";
+import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
+import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
 import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
-import { claimOnline, consumeToken, releaseOnline, type AuthData } from "../persistence/auth.ts";
+import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import { getCharacterByName, saveCharacter } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
@@ -40,6 +41,8 @@ export const AUTOSAVE_MS = 15_000;
 export const RECONNECT_S = 20;
 /** Fechamento da sessão antiga quando o mesmo personagem entra em outro lugar: CLOSE_REPLACED (shared). */
 export const REPLACED_REASON = "Sua conta entrou em outro lugar";
+/** Motivo padrão do /kick sem motivo (vai no frame de fechamento). */
+export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 /** Limite global por cliente (Colyseus 0.18: excedeu → desconecta o cliente com WITH_ERROR). */
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
@@ -262,19 +265,31 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     for (const v of this.reachable) nReach += v;
     console.log(`[lemonquest] ${nReach} tiles alcançáveis a partir do spawn`);
 
-    // Comandos com "/": só admins com LEMONQUEST_DEV_COMMANDS=1 (fora de produção); senão "Comando desconhecido." (chat.ts).
-    const command = (p: PlayerState, text: string) => handleDevCommand(p, text, {
+    // Comandos com "/": de ADMIN (LEMONQUEST_ADMINS, também em produção) e de DEV (só com LEMONQUEST_DEV_COMMANDS=1,
+    // fora de produção). Quem não pode → "Comando desconhecido." (chat.ts).
+    const command = (p: PlayerState, text: string) => handleAdminCommand(p, text, {
+      send, broadcast,
+      players: () => this.state.players.values(),
+      record: (id) => this.records.get(id),
+      findOffline: (name) => getCharacterByName(name),
+      saveOffline: (rec) => this.persist(rec),
+      kick: (id, reason) => this.kick(id, reason),
+      teleportNear: (admin, target) => this.teleportNear(admin, target),
+      resetCode: (account, by) => createResetCode(account, by),
+      devTp: (pl) => isDevAdmin(pl.name),
+    }) || handleDevCommand(p, text, {
       inventory: this.inventory, send,
       teleport: (pl, x, y) => this.movement.teleport(pl, x, y),
       isWalkable: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y),
       setMagicLevel: (pl, n) => this.skills.setLevel(pl, "magic", n),
     });
+    const muted = (p: PlayerState) => muteRemaining(this.records.get(p.id));
     this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); this.movement.onMove(p, m); });
     this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.movement.onWalkTo(p, m); });
     this.on<TurnMsg>(C2S.Turn, (p, m) => this.movement.onTurn(p, m));
     this.on<AttackMsg>(C2S.Attack, (p, m) => this.combat.onAttack(p, m));
     this.on<ChatSendMsg>(C2S.Chat, (p, m, c) =>
-      handleChat(this, c, p, m, { castWords: (pl, text) => this.spells.castWords(pl, text), command }));
+      handleChat(this, c, p, m, { castWords: (pl, text) => this.spells.castWords(pl, text), command, muted }));
     this.on<CastMsg>(C2S.Cast, (p, m) => this.spells.onCast(p, m));
     this.on<MoveItemMsg>(C2S.MoveItem, (p, m) => this.inventory.onMoveItem(p, m));
     this.on<UseItemMsg>(C2S.UseItem, (p, m) => this.inventory.onUseItem(p, m));
@@ -462,13 +477,37 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
   }
 
+  /** /kick: fecha a sessão com CLOSE_KICKED + motivo (sem reconexão automática; onLeave salva e limpa). */
+  kick(sessionId: string, reason: string) {
+    const c = this.clients.getById(sessionId);
+    if (!c) return;
+    try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
+  }
+
+  /** /tp <nome>: leva o admin para um tile livre ao redor do alvo (raio 1, depois 2). */
+  teleportNear(admin: PlayerState, target: PlayerState): boolean {
+    for (let r = 1; r <= 2; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = target.x + dx, y = target.y + dy;
+          if (!this.isFreeTile(x, y, admin.id)) continue;
+          this.movement.teleport(admin, x, y);
+          this.clients.getById(admin.id)?.send(S2C.Teleported, { x, y });
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /**
    * Queda sem consentimento (Wi-Fi, aba suspensa): o jogador fica parado no mundo por RECONNECT_S segundos
    * enquanto o SDK reconecta sozinho. Sem reconexão → o Colyseus chama onLeave (limpeza real).
    */
   onDrop(client: Client, code?: number) {
     const sid = client.sessionId;
-    if (this.shuttingDown || !this.records.has(sid) || code === CloseCode.WITH_ERROR || code === CLOSE_REPLACED || code === CLOSE_TRAINING) return; // → onLeave
+    if (this.shuttingDown || !this.records.has(sid) || code === CloseCode.WITH_ERROR || code === CLOSE_REPLACED || code === CLOSE_TRAINING || code === CLOSE_KICKED) return; // → onLeave
     const p = this.state.players.get(sid);
     if (p) this.movement.teleport(p, p.x, p.y); // para de andar
     console.log(`[world] ${p?.name ?? sid} caiu (código ${code}); aguardando reconexão por ${RECONNECT_S} s`);
