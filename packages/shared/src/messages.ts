@@ -1,6 +1,7 @@
 import type { ChatChannel, ChatMessage, CombatEvent, Dir, FightStance, Vocation } from "./types.ts";
 import type { ConditionId } from "./data/spells.ts";
 import type { SkillId } from "./skills.ts";
+export type { SkillId };
 import type { EquipSlot, ItemInstance, Rarity, Stats } from "./data/items.ts";
 
 /** Cliente → servidor */
@@ -30,7 +31,20 @@ export const C2S = {
   NpcTrade: "npcTrade",
   /** Modo de batalha: postura (ofensivo/equilibrado/defensivo) e seguir o alvo. */
   FightMode: "fightMode",
+  /** Começar treino offline numa estátua de treino adjacente (o servidor salva e desconecta com CLOSE_TRAINING). */
+  TrainOffline: "trainOffline",
+  /** Coliseu: ações de lobby (no NPC do coliseu) e de partida. */
+  Arena: "arena",
 } as const;
+
+export interface TrainOfflineMsg { skill: SkillId }
+export type ArenaActionMsg =
+  | { action: "list" }                        // pede S2C.ArenaLobbies
+  | { action: "create" }                      // cria um lobby (você é o líder)
+  | { action: "join"; lobbyId: string }
+  | { action: "leave" }                       // sai do lobby OU desiste da partida (volta à vila)
+  | { action: "start" }                       // só o líder: inicia (precisa estar perto do NPC do coliseu)
+  | { action: "ready" };                      // durante a pausa: "pronto" (todos prontos = próxima onda já)
 
 export interface FightModeMsg { stance: FightStance; chase: boolean }
 
@@ -92,6 +106,16 @@ export const S2C = {
   Feed: "feed",
   /** Fala ambiente de NPC (balão sobre a cabeça). */
   NpcSay: "npcSay",
+  /** Abrir a escolha de skill da estátua de treino offline. */
+  TrainingOpen: "trainingOpen",
+  /** Resumo do treino offline ao entrar no jogo. */
+  TrainingResult: "trainingResult",
+  /** Lista de lobbies do coliseu (enviada ao abrir o NPC do coliseu e a cada mudança enquanto aberto). */
+  ArenaLobbies: "arenaLobbies",
+  /** Estado da SUA partida/lobby de coliseu (null = fora). */
+  ArenaState: "arenaState",
+  /** Fim da partida: resumo para cada participante. */
+  ArenaResult: "arenaResult",
   /** Você foi teletransportado (portal). x,y = novo tile. */
   Teleported: "teleported",
 } as const;
@@ -141,6 +165,27 @@ export interface NpcOpenMsg {
 export interface LootMsg { x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number; lostFull?: number }
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
 export interface NpcSayMsg { npcId: string; text: string }
+export interface TrainingOpenMsg { statueId: string }
+export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }
+export interface ArenaLobbySummary { id: string; leader: string; members: string[]; max: number; avgLevel: number }
+export interface ArenaLobbiesMsg { lobbies: ArenaLobbySummary[]; freeArenas: number; queue: number }
+export type ArenaPhase = "lobby" | "queued" | "countdown" | "fight" | "pause" | "ended";
+export interface ArenaStateMsg {
+  state: null | {
+    lobbyId: string;
+    arenaId?: number;              // 1..ARENA_COUNT quando em partida
+    phase: ArenaPhase;
+    wave: number;                  // onda atual (1..); 0 antes de começar
+    /** Fim da contagem/pausa (ms epoch do servidor), se houver. */
+    phaseEndsAt?: number;
+    monstersLeft?: number;
+    members: { name: string; alive: boolean; ready?: boolean }[];
+    leader: string;
+    /** Recompensa acumulada até agora (cada participante). */
+    earned: { xp: number; gold: number };
+  };
+}
+export interface ArenaResultMsg { wavesCleared: number; xp: number; gold: number; best: number; reason: "wiped" | "gave_up" | "completed" }
 export interface CombatMsg { events: CombatEvent[] }
 export interface XpGainMsg { amount: number; x: number; y: number }
 export interface LevelUpMsg { level: number; maxHp: number; maxMana: number }
@@ -149,18 +194,48 @@ export interface CreatureDiedMsg { id: string; x: number; y: number; defId: stri
 export interface ExploredMsg { width: number; height: number; bits: string /* base64 */ }
 export interface NoticeMsg { text: string; kind?: "info" | "warn" | "good" }
 
-/** HTTP: POST /api/login — cria a conta no primeiro login (vocation obrigatório nesse caso). */
-export interface LoginRequest { name: string; password: string; vocation?: Vocation }
-export type LoginResponse =
-  | { ok: true; token: string; name: string; vocation: Vocation; isNew: boolean }
-  | {
-    ok: false;
-    error: "invalid_name" | "wrong_password" | "need_vocation" | "already_online" | "invalid_request" | "weak_password" | "too_many_attempts";
-    /** too_many_attempts: segundos até poder tentar de novo. */
-    retryAfterSec?: number;
-    /** Texto pronto (pt-BR) para erros que o cliente não conheça. */
-    message?: string;
-  };
+/**
+ * Fluxo de contas (uma conta → vários personagens):
+ *   1. POST /api/login     {account, password, create?}  → AccountSession (lista de personagens)
+ *      create=true cria a conta (erro "account_taken" se já existe); sem create, conta inexistente → "no_account".
+ *   2. POST /api/characters {session, name, vocation}     → AccountSession atualizada (cria personagem)
+ *   3. POST /api/play       {session, name}               → PlayResponse (token de uso único p/ joinOrCreate)
+ *   POST /api/logout {session} encerra a sessão da conta.
+ * O nome da CONTA é privado (não aparece no jogo); o nome do PERSONAGEM é o que os outros veem.
+ */
+export interface LoginRequest { account: string; password: string; create?: boolean }
+export interface CharacterSummary {
+  name: string;
+  vocation: Vocation;
+  level: number;
+  /** Treinando offline agora (ao entrar, recebe o progresso). */
+  training?: { skill: SkillId; sinceMs: number };
+  online?: boolean;
+}
+export const MAX_CHARACTERS_PER_ACCOUNT = 5;
+export type AuthError =
+  | "invalid_request" | "invalid_account" | "invalid_name" | "wrong_password" | "no_account" | "account_taken"
+  | "weak_password" | "too_many_attempts" | "name_taken" | "too_many_characters" | "invalid_session" | "no_character"
+  | "already_online";
+export type AuthFail = {
+  ok: false;
+  error: AuthError;
+  /** too_many_attempts: segundos até poder tentar de novo. */
+  retryAfterSec?: number;
+  /** Texto pronto (pt-BR) para erros que o cliente não conheça. */
+  message?: string;
+};
+/** Sessão da conta (curta, em memória no servidor; expira em 30 min sem uso). */
+export type AccountSession = { ok: true; session: string; account: string; characters: CharacterSummary[] } | AuthFail;
+export interface CreateCharacterRequest { session: string; name: string; vocation: Vocation }
+export interface PlayRequest { session: string; name: string }
+export type PlayResponse = { ok: true; token: string; name: string; vocation: Vocation } | AuthFail;
+/** @deprecated mantido só para compatibilidade de tipos antigos. */
+export type LoginResponse = AccountSession;
+
+/** Códigos de fechamento próprios (o Colyseus reserva 4000–4010). */
+export const CLOSE_REPLACED = 4100;   // a conta entrou em outro lugar
+export const CLOSE_TRAINING = 4101;   // saiu para treinar offline
 
 /** Opções do joinOrCreate("world", ...) */
 export interface JoinOptions { token: string }

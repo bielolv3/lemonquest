@@ -4,7 +4,16 @@
  *   - tilelayers: "ground", "deco" (abaixo dos personagens), "above" (desenhada sobre os personagens: copas, telhados)
  *   - tilelayer "collision": qualquer gid != 0 bloqueia o tile
  *   - objectgroup "objects": pontos com `type`/`class` = "spawn_player" | "npc" | "monster_spawn" | "portal"
+ *   - "training_statue" (ponto; prop `statueId`): estátua de treino offline (o tile é bloqueado; interage-se do lado).
+ *   - "zone" com prop `pz=true`: zona de proteção (a vila e o centro de treinamento).
+ *   - Coliseu: "arena" (RETÂNGULO; props `arenaId` 1..ARENA_COUNT) = área de luta da instância;
+ *     "arena_entry" (ponto; prop `arenaId`) = onde o grupo nasce; "arena_spawn" (ponto; prop `arenaId`) = pontos
+ *     de spawn de monstros (vários por arena); "arena_exit" (ponto) = para onde volta quem sai (na vila, perto do NPC).
+ *     NPCs: "arena_master" na vila (lobbies) e "arena_shop_<n>" dentro de cada arena (loja das pausas).
  */
+/** Quantidade de arenas (instâncias paralelas do coliseu). */
+export const ARENA_COUNT = 4;
+
 export interface TiledLayer {
   name: string;
   type: "tilelayer" | "objectgroup";
