@@ -233,6 +233,7 @@ describe("dev commands", () => {
       inventory: w.inv, send: (to: string, type: string, msg: unknown) => w.sent.push({ to, type, msg }),
       teleport: (_: PlayerState, x: number, y: number) => tp.push(x, y), isWalkable: () => true,
       setMagicLevel: (_: PlayerState, n: number) => { ml = n; }, rng: seeded(1),
+      env: { NODE_ENV: "development", TIBINHA_DEV_COMMANDS: "1", TIBINHA_ADMINS: "p1" },
     };
     return { w, p, c, tp, ml: () => ml };
   }
@@ -260,7 +261,7 @@ describe("dev commands", () => {
   it("disabled in production", () => {
     process.env.NODE_ENV = "production";
     const t = ctx();
-    expect(handleDevCommand(t.p, "/gold 500", t.c)).toBe(false);
+    expect(handleDevCommand(t.p, "/gold 500", { ...t.c, env: { ...t.c.env, NODE_ENV: "production" } })).toBe(false);
     expect(t.w.inv.gold("p1")).toBe(0);
   });
 });

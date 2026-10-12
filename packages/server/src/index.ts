@@ -80,6 +80,12 @@ gameServer.define("world", WorldRoom);
 // Só joinOrCreate pelo HTTP (create/join/joinById ficam fechados). A reconexão automática do SDK vai direto
 // pelo WebSocket com o reconnectionToken, sem passar por /matchmake.
 matchMaker.controller.exposedMethods = ["joinOrCreate"];
+if (PROD) {
+  // O Colyseus põe CORS aberto (Allow-Origin = origem pedida) em TODA resposta HTTP do servidor, inclusive /api.
+  // Em produção cliente e API têm a mesma origem: sem cabeçalhos CORS.
+  matchMaker.controller.DEFAULT_CORS_HEADERS = {} as typeof matchMaker.controller.DEFAULT_CORS_HEADERS;
+  matchMaker.controller.getCorsHeaders = () => ({});
+}
 
 let stopBackups: () => void = () => {};
 const checkpointTimer = setInterval(() => {

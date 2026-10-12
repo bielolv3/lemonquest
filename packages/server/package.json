@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "cross-env NODE_ENV=production tsx src/index.ts"
+    "dev": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/index.ts",
+    "start": "cross-env NODE_ENV=production NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/index.ts"
   },
   "dependencies": {
     "@colyseus/ws-transport": "^0.18.4",
