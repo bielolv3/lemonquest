@@ -108,10 +108,11 @@ export const NPCS: Record<string, NpcDef> = {
   },
   bounty_board: {
     id: "bounty_board", name: "Quadro de Recompensas", sprite: C + "Inspector/SpriteSheet.png",
-    greeting: "Em breve, recompensas por cabeças de monstros serão afixadas aqui. Volte mais tarde!",
+    greeting: "Cartazes novos todos os dias às 6h: três recompensas por cabeças de monstros, pagas em ouro, experiência e um Baú de Recompensa.",
     idleLines: [
-      "Em breve: recompensas!",
       "Procura-se: aventureiros corajosos.",
+      "Recompensas novas todo dia às 6h!",
+      "Paga-se bem por cabeças de monstros.",
     ],
   },
   arena_master: {

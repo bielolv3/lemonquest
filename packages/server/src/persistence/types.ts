@@ -29,6 +29,17 @@ export interface CharacterData {
   addons?: number;
   /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */
   muted?: { until: number; by: string };
+  /** Missões (systems/quests.ts): progresso das ativas, concluídas, rastreadas e recompensas diárias do dia. */
+  quests?: QuestSaveData;
+}
+
+export interface QuestSaveData {
+  /** questId → progresso por passo. */
+  active?: Record<string, number[]>;
+  done?: string[];
+  tracked?: string[];
+  /** Recompensas diárias: dia (chave "AAAA-MM-DD", troca às 6h de Brasília), faixa de level travada no dia e estado de cada uma. */
+  bounty?: { day: string; band: number; s: { st: "open" | "active" | "done"; n: number }[] };
 }
 
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */

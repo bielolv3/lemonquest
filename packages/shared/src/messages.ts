@@ -43,7 +43,20 @@ export const C2S = {
   Arena: "arena",
   /** Trocar roupa/addons (janela de roupas). */
   SetOutfit: "setOutfit",
+  /** Missões e recompensas diárias: aceitar/entregar/abandonar/rastrear (QuestActionMsg). */
+  Quest: "quest",
 } as const;
+
+/** Ações de missão. accept/turnIn exigem a janela do NPC que dá a missão aberta (e perto). */
+export type QuestActionMsg =
+  | { action: "accept"; questId: string }
+  | { action: "turnIn"; questId: string }
+  | { action: "abandon"; questId: string }
+  | { action: "track"; questId: string; on: boolean }
+  /** Quadro de Recompensas (index 0..BOUNTIES_PER_DAY-1). */
+  | { action: "bountyAccept"; index: number }
+  | { action: "bountyTurnIn"; index: number };
+
 
 export interface SetOutfitMsg { outfit: string; addons: number }
 
@@ -136,7 +149,21 @@ export const S2C = {
   Teleported: "teleported",
   /** Anúncio de um administrador (faixa grande no centro da tela, para todos). */
   Announce: "announce",
+  /** Estado das missões/recompensas diárias do jogador (QuestsMsg, shared/data/quests.ts): ao entrar e a cada mudança. */
+  Quests: "quests",
+  /** Missão (ou recompensa diária) concluída: toast com o resumo da recompensa. */
+  QuestComplete: "questComplete",
 } as const;
+
+export interface QuestCompleteMsg {
+  /** Nome da missão (ou "Recompensa: Mate 20 Lobos"). */
+  name: string;
+  xp: number;
+  gold: number;
+  items: { itemId: string; count: number }[];
+  bounty?: boolean;
+}
+
 
 export interface AnnounceMsg { text: string; from: string }
 

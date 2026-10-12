@@ -63,7 +63,9 @@ export interface ItemDef {
   /** Preço base em ouro (a loja vende por ~este valor e compra por ~30%). */
   value: number;
   /** Itens usáveis: poções (cura/mana instantâneas) e comida (`food`: regeneração ao longo do tempo). */
-  use?: { heal?: number; mana?: number; food?: { hpPerTick: number; manaPerTick: number; durationMs: number }; cooldownMs: number };
+  use?: { heal?: number; mana?: number; food?: { hpPerTick: number; manaPerTick: number; durationMs: number }; cooldownMs: number;
+    /** Baú: abrir (usar) sorteia uma recompensa (servidor, systems/quests.ts). */
+    chest?: boolean };
   description?: string;    // PT-BR, curta
 }
 
@@ -187,6 +189,11 @@ mat("mithril_bar", "Barra de Mithril", img("Resource/BarMithril.png"), 2500, "Me
 
 // Chaves e itens de missão
 add({ id: "crypt_key", name: "Chave da Cripta", kind: "key", value: 0, icon: img("Treasure/SilverKey.png"), description: "Abre o portão selado da Cripta. Cai do Lich do Pântano." });
+add({
+  id: "bounty_chest", name: "Baú de Recompensa", kind: "quest", stackable: true, maxStack: 20, value: 0, icon: { url: N + "Treasure/LittleTreasureChest.png", frame: 0, frameWidth: 16, frameHeight: 16 },
+  use: { chest: true, cooldownMs: 500 },
+  description: "Prêmio do Quadro de Recompensas. Use para abrir: poções, comida, ouro e, com sorte, um equipamento incomum ou melhor.",
+});
 add({ id: "goblin_crown", name: "Coroa do Rei Goblin", kind: "quest", value: 0, icon: img("Treasure/GoldCup.png"), description: "Prova de que o Rei Goblin caiu." });
 
 // ---------------------------------------------------------------------------

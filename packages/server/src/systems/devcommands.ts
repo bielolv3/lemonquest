@@ -1,6 +1,6 @@
 // Comandos de desenvolvimento no chat. Resposta só para quem digitou (Notice).
 // Ligados SÓ com LEMONQUEST_DEV_COMMANDS=1, NODE_ENV != production e para nomes listados em LEMONQUEST_ADMINS (vírgulas).
-//   /level N · /item <id> [count] [rarity] · /gold N · /heal · /tp x y · /ml N
+//   /level N · /item <id> [count] [rarity] · /gold N · /heal · /tp x y · /ml N · /quest list|reset <id>|complete <id>
 import { RARITIES, S2C, isEquipable, xpForLevel, type NoticeMsg, type Rarity, type TeleportedMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { InventorySystem } from "./inventory.ts";
@@ -32,12 +32,14 @@ export interface DevContext {
   teleport: (p: PlayerState, x: number, y: number) => void;
   isWalkable: (x: number, y: number) => boolean;
   setMagicLevel: (p: PlayerState, level: number) => void;
+  /** /quest … (systems/quests.ts devCommand). Devolve a resposta. */
+  quest?: (p: PlayerState, args: string[]) => string;
   rng?: () => number;
   /** Ambiente (testes); padrão process.env. */
   env?: Env;
 }
 
-const COMMANDS = ["/level", "/item", "/gold", "/heal", "/tp", "/ml"];
+const COMMANDS = ["/level", "/item", "/gold", "/heal", "/tp", "/ml", "/quest"];
 
 /** Trata um comando de dev. Retorna true se o texto era um comando (não vai para o chat). */
 export function handleDevCommand(p: PlayerState, text: string, ctx: DevContext): boolean {
@@ -96,6 +98,9 @@ export function handleDevCommand(p: PlayerState, text: string, ctx: DevContext):
       reply(`Teleportado para ${x},${y}.`, "good");
       break;
     }
+    case "/quest":
+      reply(ctx.quest ? ctx.quest(p, parts.slice(1)) : "Missões indisponíveis.", "info");
+      break;
     case "/ml": {
       const n = int(parts[1]);
       if (!(n >= 0 && n <= 200)) { reply("Uso: /ml N (0–200)", "warn"); break; }

@@ -77,6 +77,8 @@ export interface ArenaOptions {
   onEnter?: (p: PlayerState) => void;
   /** Fecha a loja do coliseu (a onda começou). */
   closeNpc?: (id: string) => void;
+  /** Onda vencida por um participante vivo (missões). */
+  onWaveCleared?: (p: PlayerState, wave: number) => void;
   send: (id: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   now?: () => number;
@@ -443,6 +445,7 @@ export class ArenaSystem {
       m.gold += gold;
       if (xp > 0) this.o.combat.gainXp(p, xp, p.x, p.y);
       if (gold > 0) this.o.addGold(p, gold);
+      this.o.onWaveCleared?.(p, wave);
       this.o.combat.healPlayer(p, p.id, Math.round(p.maxHp * ARENA_PAUSE_HEAL));
       this.o.combat.restoreMana(p, Math.round(p.maxMana * ARENA_PAUSE_HEAL));
     }

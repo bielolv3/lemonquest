@@ -113,6 +113,8 @@ export interface InventoryOptions {
   eat?: (p: PlayerState, food: NonNullable<NonNullable<ItemDef["use"]>["food"]>, now: number) => boolean;
   /** Equipamento mudou (velocidade etc.). */
   onStatsChanged?: (p: PlayerState) => void;
+  /** Baú (use.chest): o item já foi consumido; sorteia e entrega a recompensa (systems/quests.ts). */
+  openChest?: (p: PlayerState, defId: string) => void;
 }
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);
@@ -262,6 +264,31 @@ export class InventorySystem {
     const inv = this.inv.get(p.id);
     if (!inv || n < 0 || inv.gold < n) return false;
     inv.gold -= n;
+    this.dirty.add(p.id);
+    return true;
+  }
+
+  /** Quantas unidades de `defId` há na mochila. */
+  countItem(id: string, defId: string): number {
+    const inv = this.inv.get(id);
+    let n = 0;
+    for (const it of inv?.backpack ?? []) if (it && it.defId === defId) n += it.count;
+    return n;
+  }
+
+  /** Remove `count` unidades de `defId` da mochila (de várias pilhas). Tudo ou nada. */
+  removeItems(p: PlayerState, defId: string, count: number): boolean {
+    const inv = this.inv.get(p.id);
+    if (!inv || !isInt(count) || count < 1 || this.countItem(p.id, defId) < count) return false;
+    let left = count;
+    for (let i = inv.backpack.length - 1; i >= 0 && left > 0; i--) {
+      const it = inv.backpack[i];
+      if (!it || it.defId !== defId) continue;
+      const n = Math.min(left, it.count);
+      it.count -= n;
+      left -= n;
+      if (it.count <= 0) inv.backpack[i] = null;
+    }
     this.dirty.add(p.id);
     return true;
   }
@@ -537,6 +564,16 @@ export class InventorySystem {
     const use = this.defs(it.defId)?.use;
     if (!use) return this.warn(p, MSG.notUsable);
     const now = this.now();
+    if (use.chest) {
+      if (!this.o.openChest) return this.warn(p, MSG.notUsable);
+      if (now < (this.foodCdUntil.get(p.id) ?? 0)) return;
+      this.foodCdUntil.set(p.id, now + Math.max(0, use.cooldownMs ?? 0));
+      it.count -= 1;
+      if (it.count <= 0) inv.backpack[index] = null;
+      this.dirty.add(p.id);
+      this.o.openChest(p, it.defId);
+      return;
+    }
     if (use.food) {
       if (now < (this.foodCdUntil.get(p.id) ?? 0)) return this.warn(p, MSG.foodCooldown);
       if (!this.o.eat?.(p, use.food, now)) return this.info(p, MSG.satisfied);
