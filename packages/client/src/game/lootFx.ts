@@ -4,6 +4,7 @@ import { RARITY_COLOR, TILE_SIZE, itemDef, type ItemIcon, type ItemInstance, typ
 import type { CombatFx } from "./combatFx.ts";
 import { sfx, type SfxName } from "./sfx.ts";
 import { TEX } from "./textures.ts";
+import { lightBus } from "./lighting.ts";
 
 const DEPTH = 1_950_000;
 const BEAM_DEPTH = 1_899_000;
@@ -174,6 +175,7 @@ export class LootFx {
       this.worldLayer.add(img.setDepth(BEAM_DEPTH));
       this.worldLayer.add(ring.setDepth(BEAM_DEPTH));
       drop.beam = { img, ring, until: hold, h, w };
+      lightBus.burst(cx, cy, tint, big ? 70 : 46, hold + 500, big ? 1 : 0.8);
       drop.fx.push(img, ring);
       if (big) this.flash(tint);
       sfx.play(best === "legendary" ? "lootLegend" : best === "epic" ? "lootEpic" : "lootRare", { volume: big ? 1 : 0.8 });

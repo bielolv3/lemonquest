@@ -8,6 +8,7 @@ import type { PixelCamera } from "./pixelCamera.ts";
 import { sfx, type SfxName } from "./sfx.ts";
 import { PAL, type Pal } from "./spellPalette.ts";
 import { TEX } from "./textures.ts";
+import { lightBus } from "./lighting.ts";
 
 const FX_DEPTH = 1_900_000;
 const GROUND = 7;
@@ -191,6 +192,7 @@ export class SpellEffects {
     let g = this.glows.find((i) => !i.visible);
     if (!g) { g = this.scene.add.image(0, 0, TEX.glow).setBlendMode(Phaser.BlendModes.ADD); this.layer.add(g); this.glows.push(g); }
     this.scene.tweens.killTweensOf(g);
+    lightBus.burst(x, y, color, radiusPx * 2.4, ms * 1.5, Math.min(1, alpha + 0.2));
     const size = radiusPx * 2;
     g.setVisible(true).setPosition(Math.round(x), Math.round(y)).setTint(color).setDepth(FX_DEPTH - 1).setAlpha(alpha).setDisplaySize(size * 0.6, size * 0.6);
     const gg = g;
@@ -672,6 +674,7 @@ export class SpellEffects {
       const k = Math.min(1, p.t / p.dur);
       const x = p.fx + (p.tx - p.fx) * k, y = p.fy + (p.ty - p.fy) * k;
       p.s.setPosition(Math.round(x), Math.round(y));
+      lightBus.point(x, y, PAL[p.key]?.main ?? 0xffffff, 40, 0.85);
       if (p.spin) p.s.rotation += p.spin * dt;
       p.trailAcc += dt;
       if (p.trailAcc > 22) { p.trailAcc = 0; this.sparks[p.key]?.emitParticleAt(x + rnd(-1.5, 1.5), y + rnd(-1.5, 1.5), 1); }

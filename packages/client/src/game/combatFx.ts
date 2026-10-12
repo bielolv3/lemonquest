@@ -4,6 +4,7 @@ import Phaser from "phaser";
 import { type DamageKind } from "@lemonquest/shared";
 import type { PixelCamera } from "./pixelCamera.ts";
 import { TEX } from "./textures.ts";
+import { lightBus } from "./lighting.ts";
 
 const FX_DEPTH = 1_900_000;
 const FONT = '"Pixelify Sans", Verdana, system-ui, sans-serif';
@@ -58,6 +59,7 @@ interface ProjItem {
   s: Phaser.GameObjects.Sprite; active: boolean;
   fx: number; fy: number; tx: number; ty: number; t: number; dur: number;
   ev: unknown;
+  kind: DamageKind;
 }
 interface GhostItem { s: Phaser.GameObjects.Sprite; age: number; base: number; y0: number }
 
@@ -182,6 +184,7 @@ export class CombatFx {
   /** Impacto elemental/corte no ponto do corpo do alvo. */
   hit(kind: DamageKind, wx: number, wy: number, ranged: boolean, angle: number) {
     const st = HIT_FX[kind];
+    if (kind !== "physical") lightBus.burst(wx, wy, KIND_COLOR[kind], 34, 300, 0.85);
     // Corte aponta na direção do golpe, com leve variação.
     const rot = kind === "physical" || kind === "earth" ? angle + (Math.random() - 0.5) * 0.6 : 0;
     this.playFx(st.sheet, wx, wy, st.scale * (ranged ? 0.75 : 1), st.tint, st.add, rot);
@@ -204,10 +207,11 @@ export class CombatFx {
     if (!it) {
       const s = this.scene.add.sprite(0, 0, ARROW.key).setVisible(false);
       this.worldLayer.add(s.setDepth(FX_DEPTH));
-      it = { s, active: false, fx: 0, fy: 0, tx: 0, ty: 0, t: 0, dur: 0, ev: null };
+      it = { s, active: false, fx: 0, fy: 0, tx: 0, ty: 0, t: 0, dur: 0, ev: null, kind: "physical" };
       this.projs.push(it);
     }
     it.active = true;
+    it.kind = kind;
     it.fx = fx; it.fy = fy; it.tx = tx; it.ty = ty; it.t = 0; it.dur = Math.max(60, dur); it.ev = ev;
     const s = it.s;
     s.anims.stop();
@@ -282,6 +286,7 @@ export class CombatFx {
       p.t += dt;
       const k = Math.min(1, p.t / p.dur);
       p.s.setPosition(Math.round(p.fx + (p.tx - p.fx) * k), Math.round(p.fy + (p.ty - p.fy) * k));
+      if (p.kind !== "physical") lightBus.point(p.s.x, p.s.y, KIND_COLOR[p.kind], 30, 0.8);
       if (k >= 1) {
         p.active = false; p.s.setVisible(false); p.s.anims.stop();
         this.onImpact(p.ev);

@@ -13,6 +13,8 @@ import { allCreatureSheets, creatureVisual, levelColor, sheetTrim } from "../gam
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
+import { LightField } from "../game/lighting.ts";
+import { worldClock } from "../game/daynight.ts";
 import { GroundItems } from "../game/ground.ts";
 import { beginGroundPress } from "../ui/items/dnd.ts";
 import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
@@ -95,6 +97,8 @@ export class WorldScene extends Phaser.Scene {
   /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
   private groundWalkTimer = 0;
   private butterflies!: Butterflies;
+  /** Escuridão do ciclo dia/noite + luzes dinâmicas (game/lighting.ts). */
+  private lightField!: LightField;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
   private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
   private statues!: StatueIndex;
@@ -159,7 +163,14 @@ export class WorldScene extends Phaser.Scene {
     this.uiLayer.cameraFilter |= main.id;
     this.worldLayer.cameraFilter |= this.uiCam.id;
 
+    // Camada de luz: só a câmera de UI a desenha (zoom 1), entre o mundo e os nomes/barras.
+    const lightLayer = this.add.layer().setDepth(0.5);
+    lightLayer.cameraFilter |= main.id;
     this.pcam = new PixelCamera(main, this.world.widthPx, this.world.heightPx);
+    this.lightField = new LightField(this, lightLayer, this.pcam, this.world.tiled, {
+      me: () => { const a = this.actors.get(this.myId); return a ? { x: a.bodyX, y: a.bodyY, tileX: a.tileX, tileY: a.tileY } : null; },
+      others: () => this.otherBodies(),
+    });
     this.pcam.jumpTo((this.world.spawn.x + 0.5) * TILE_SIZE, (this.world.spawn.y + 0.5) * TILE_SIZE);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
 
@@ -207,7 +218,11 @@ export class WorldScene extends Phaser.Scene {
     this.disposers.push(session.onRoom((room) => this.bindRoom(room)));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
 
-    if (FXTEST) startFxTest(this, this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+    if (FXTEST) {
+      // ?at=x,y põe o personagem de teste noutro lugar do mapa (ex.: cavernas) para checar iluminação.
+      const at = /^(\d+),(\d+)$/.exec(new URLSearchParams(location.search).get("at") ?? "");
+      startFxTest(this, at ? { x: Number(at[1]), y: Number(at[2]) } : this.world.spawn, (x, y) => this.world.grid.isWalkable(x, y));
+    }
     if (E2E_PROBE) this.installE2EProbe();
 
     // Mapa montado: avisa a tela de carregamento depois do 1º frame realmente desenhado.
@@ -256,6 +271,13 @@ export class WorldScene extends Phaser.Scene {
       console.warn("[chão] state.groundItems indisponível", e);
     }
 
+    try {
+      // Relógio do mundo (ciclo dia/noite): o estado traz worldTimeMs; o cliente extrapola.
+      this.disposers.push($.listen("worldTimeMs", (v: number) => worldClock.setServerTime(v)));
+    } catch (e) {
+      console.warn("[dia/noite] state.worldTimeMs indisponível", e);
+    }
+
     const msg = <T>(type: string, fn: (m: T) => void) => {
       const off = room.onMessage(type, fn) as unknown;
       if (typeof off === "function") this.disposers.push(off as () => void);
@@ -290,6 +312,11 @@ export class WorldScene extends Phaser.Scene {
     this.pendingPickup = null;
     clearBattleEntries("monsters");
     this.room = null;
+  }
+
+  /** Corpos dos outros jogadores (para a luz pessoal deles). */
+  private *otherBodies() {
+    for (const [id, a] of this.actors) if (id !== this.myId) yield { x: a.bodyX, y: a.bodyY };
   }
 
   private actorDeps(): ActorDeps {
@@ -751,6 +778,7 @@ export class WorldScene extends Phaser.Scene {
     this.loot.update(dt);
     this.fx.update(dt);
     this.spells.update(dt, time);
+    this.lightField.update(dt, time);
     this.updateHover();
     this.updateTargetMark(time);
 
@@ -1065,6 +1093,7 @@ export class WorldScene extends Phaser.Scene {
     this.loot?.destroy();
     this.ground?.destroy();
     this.butterflies?.destroy();
+    this.lightField?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();
   }
