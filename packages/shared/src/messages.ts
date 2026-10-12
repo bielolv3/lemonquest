@@ -143,7 +143,9 @@ export interface AnnounceMsg { text: string; from: string }
 export interface TeleportedMsg { x: number; y: number }
 
 export type ChatRecvMsg = ChatMessage;
-export type CastFailReason = "cooldown" | "mana" | "level" | "vocation" | "target" | "range" | "pz" | "unknown" | "dead";
+export type CastFailReason = "cooldown" | "mana" | "level" | "vocation" | "target" | "range" | "pz" | "unknown" | "dead"
+  /** Parede entre o conjurador e o alvo (linha de visão). */
+  | "no_los";
 export interface CastResultMsg {
   spellId: string;
   ok: boolean;

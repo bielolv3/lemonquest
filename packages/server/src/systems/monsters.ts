@@ -1,7 +1,7 @@
 // Monstros: spawns (com respawn estilo Tibia), índice de ocupação O(1), passos e zonas proibidas.
 // A IA (decisões) fica em ai.ts; o dano/morte em combat.ts (via `attackHook`).
 import {
-  DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, applySpeedPct, canStepTerrain, findObjects, isDiagonal, monsterDef, objectTile,
+  DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, applySpeedPct, canStepTerrain, findObjects, isDiagonal, lineOfSight, monsterDef, objectTile,
   type CollisionGrid, type GroundSpeedGrid, type MonsterDef, type TiledMap,
 } from "@lemonquest/shared";
 import { MonsterState, type PlayerState } from "../state.ts";
@@ -161,6 +161,9 @@ export class MonsterManager {
   private readonly errors: ErrorLog;
   /** Jogadores do tick atual (≤ 32; varrer é mais barato que indexar). */
   playerList: PlayerState[] = [];
+  /** Cache de linha de visão (a grade é estática; zerado a cada tick para não crescer sem limite). */
+  private readonly losCache = new Map<number, boolean>();
+  private readonly walkable = (x: number, y: number) => this.grid.isWalkable(x, y);
 
   constructor(private readonly o: MonsterManagerOptions) {
     this.grid = o.grid;
@@ -197,6 +200,25 @@ export class MonsterManager {
   playerAt(x: number, y: number): PlayerState | undefined {
     for (const p of this.playerList) if (p.x === x && p.y === y) return p;
     return undefined;
+  }
+
+  /**
+   * Linha de visão entre dois tiles (paredes da grade de colisão bloqueiam; criaturas/NPCs não).
+   * Simétrica; memorizada durante o tick (IA, ataques e magias perguntam o mesmo par várias vezes).
+   */
+  los(ax: number, ay: number, bx: number, by: number): boolean {
+    if (Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= 1 && (ax === bx || ay === by)) return true;
+    if (!this.inBounds(ax, ay) || !this.inBounds(bx, by)) return lineOfSight(ax, ay, bx, by, this.walkable);
+    const n = this.W * this.grid.height;
+    const a = ay * this.W + ax, b = by * this.W + bx;
+    const key = a < b ? a * n + b : b * n + a;
+    let hit = this.losCache.get(key);
+    if (hit === undefined) {
+      hit = lineOfSight(ax, ay, bx, by, this.walkable);
+      if (this.losCache.size >= 50_000) this.losCache.clear();
+      this.losCache.set(key, hit);
+    }
+    return hit;
   }
 
   /** Tile ocupado/proibido para um monstro entrar (o terreno é checado à parte). */
@@ -437,6 +459,7 @@ export class MonsterManager {
 
   tick(now: number): void {
     this.playerList = [...this.o.players()];
+    this.losCache.clear();
     this.processRespawns(now);
     for (const m of this.list.values()) {
       try {

@@ -18,7 +18,7 @@ export const stanceTaken = (p: Pick<PlayerState, "stance">): number => STANCE_TA
 
 export interface FightModeOptions {
   movement: Pick<MovementSystem, "isIdle" | "pathFor" | "follow">;
-  monsters: Pick<MonsterManager, "wild">;
+  monsters: Pick<MonsterManager, "wild"> & Partial<Pick<MonsterManager, "los">>;
   /** Alcance do ataque automático atual do jogador (arma/vocação). */
   attackRange: (p: PlayerState) => number;
   now?: () => number;
@@ -82,7 +82,10 @@ export class FightModeSystem {
       const s = this.state(p.id);
       if (now < s.pausedUntil) continue;
       const d = cheb(p.x, p.y, m.s.x, m.s.y);
-      if (d <= Math.max(1, this.o.attackRange(p))) { s.path = null; continue; }
+      const range = Math.max(1, this.o.attackRange(p));
+      // No alcance: para — exceto à distância sem linha de visão (anda em direção ao alvo até enxergá-lo).
+      const sight = range <= 1 || !this.o.monsters.los || this.o.monsters.los(p.x, p.y, m.s.x, m.s.y);
+      if (d <= range && sight) { s.path = null; continue; }
       if (!this.o.movement.isIdle(p, now)) continue;
       const moved = s.goal.x !== m.s.x || s.goal.y !== m.s.y;
       const stale = now - s.at >= CHASE_REPATH_MS;

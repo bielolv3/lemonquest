@@ -263,14 +263,23 @@ export function npcBuyPrice(value: number, rarity: Rarity = "common"): number {
 export const OFFLINE_TRAINING_MAX_MIN = 720;
 /** Abaixo disto (minutos) o treino não rende nada. */
 export const OFFLINE_TRAINING_MIN_MIN = 1;
-/** Rendimento do treino offline em relação ao treino online contínuo num boneco (estilo Tibia: 50%). */
-export const OFFLINE_TRAINING_FACTOR = 0.5;
+/**
+ * Rendimento do treino offline em relação ao treino online CONTÍNUO num boneco (teto teórico: atacar sem parar /
+ * gastar toda a mana regenerada). Calibrado pelo "feel" do Tibia: 1 h offline numa skill baixa ≈ +3 a +5 níveis.
+ *   - melee/distance/shield: 12% de 30 tentativas/min = 3,6/min (216/h).
+ *   - magic: 3% da mana regenerada por minuto (a regeneração cresce com o level; o online contínuo é bem mais rápido
+ *     que o real, que alterna caçar/curar/esperar — por isso o fator menor).
+ * Tabela (1 h → 12 h, a partir do valor inicial): knight melee 10 → +4 / +13; paladin distance 10 → +4 / +13;
+ * sorcerer melee 10 → +2 / +5; druid lv8 ML 0 → +3 / +11; druid lv20 ML 0 → +5 / +14; druid lv30 ML 15 → +0 (44%) / +3;
+ * knight melee 30 → +0 (7%) / +0 (78%) — a curva de skill é exponencial: offline rende pouco em skill alta.
+ */
+export const OFFLINE_TRAINING_FACTOR = { weapon: 0.12, magic: 0.03 } as const;
 
 /**
  * "Tentativas" de skill ganhas por `minutes` de treino offline (inteiro, arredondado para baixo).
  * Online num boneco: melee/distance/shield = 1 tentativa por ataque (PLAYER_ATTACK_MS) → 30/min; magic = mana gasta,
  * limitada pela regeneração de mana → manaRegenAmount(maxMana, level, fora de combate) por REGEN_INTERVAL_MS.
- * Offline = 50% disso. Os minutos são limitados a [0, 12 h]; menos de 1 min = 0.
+ * Offline = isso × OFFLINE_TRAINING_FACTOR. Os minutos são limitados a [0, 12 h]; menos de 1 min = 0.
  */
 export function offlineTrainingTries(skill: SkillId, minutes: number, vocation: Vocation, level: number): number {
   if (!Number.isFinite(minutes) || minutes < OFFLINE_TRAINING_MIN_MIN) return 0;
@@ -279,11 +288,12 @@ export function offlineTrainingTries(skill: SkillId, minutes: number, vocation: 
   if (skill === "magic") {
     const lv = Math.max(1, Math.floor(level));
     const regen = manaRegenAmount(baseStats(vocation, lv).maxMana, lv, false, false);
-    perMin = (regen * 60_000) / REGEN_INTERVAL_MS;
+    perMin = ((regen * 60_000) / REGEN_INTERVAL_MS) * OFFLINE_TRAINING_FACTOR.magic;
   } else {
-    perMin = 60_000 / PLAYER_ATTACK_MS;
+    perMin = (60_000 / PLAYER_ATTACK_MS) * OFFLINE_TRAINING_FACTOR.weapon;
   }
-  return Math.floor(m * perMin * OFFLINE_TRAINING_FACTOR);
+  // + epsilon: evita 215,999… → 215 por erro de ponto flutuante.
+  return Math.floor(m * perMin + 1e-9);
 }
 
 /** Minutos de treino offline entre `sinceMs` e `nowMs`, limitados a [0, 12 h] (fração preservada). */

@@ -72,7 +72,7 @@
       "name": "Pena no chapéu",
       "front": "addons/nobre_pena.png",
       "back": null,
-      "extraTop": 5
+      "extraTop": 4
     },
     "invocador_diadema": {
       "outfit": "invocador",
@@ -93,7 +93,7 @@
       "name": "Elmo alado",
       "front": "addons/guerreiro_asas.png",
       "back": "addons/guerreiro_asas_back.png",
-      "extraTop": 4
+      "extraTop": 7
     },
     "guerreiro_machado": {
       "outfit": "guerreiro",

@@ -207,12 +207,15 @@ export class SpellSystem {
       const ally = (targetId ? this.o.getPlayer(targetId) : undefined) ?? p;
       if (ally.hp <= 0) return { ok: false, reason: "target" };
       if (cheb(p.x, p.y, ally.x, ally.y) > range) return { ok: false, reason: "range" };
+      if (ally !== p && !mm.los(p.x, p.y, ally.x, ally.y)) return { ok: false, reason: "no_los" };
       return { ok: true, ally };
     }
     const m = mm.wild(targetId || p.targetId);
     if (!m) return { ok: false, reason: "target" };
     if (cheb(p.x, p.y, m.s.x, m.s.y) > range) return { ok: false, reason: "range" };
     if (!m.def.invulnerable && mm.inPz(m.s.x, m.s.y)) return { ok: false, reason: "pz" };
+    // Alvo único e centro da área no alvo exigem linha de visão (paredes entre o conjurador e o alvo).
+    if (!mm.los(p.x, p.y, m.s.x, m.s.y)) return { ok: false, reason: "no_los" };
     return { ok: true, monster: m };
   }
 
@@ -225,6 +228,12 @@ export class SpellSystem {
 
   private wall = (x: number, y: number) => !this.o.grid.isWalkable(x, y);
 
+  /** Exclui da área paredes e tiles sem linha de visão a partir do centro (não atinge atrás de parede). */
+  private hidden(cx: number, cy: number): (x: number, y: number) => boolean {
+    const mm = this.o.monsters;
+    return (x, y) => this.wall(x, y) || !mm.los(cx, cy, x, y);
+  }
+
   private apply(p: PlayerState, s: SpellDef, r: Resolved & { ok: true }, now: number): SpellCastMsg {
     const mm = this.o.monsters;
     if (s.dash && r.monster) this.dash(p, r.monster, s.range ?? DEFAULT_SPELL_RANGE);
@@ -236,9 +245,9 @@ export class SpellSystem {
     // Tiles da área.
     let tiles: Point[] | undefined;
     const center = r.monster ? { x: r.monster.s.x, y: r.monster.s.y } : r.ally ? { x: r.ally.x, y: r.ally.y } : { x: p.x, y: p.y };
-    if (s.target === "area_self") tiles = circleTiles(p.x, p.y, s.radius ?? 1, this.wall);
-    else if (s.target === "area_target") tiles = circleTiles(center.x, center.y, s.radius ?? 1, this.wall);
-    else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.wall);
+    if (s.target === "area_self") tiles = circleTiles(p.x, p.y, s.radius ?? 1, this.hidden(p.x, p.y));
+    else if (s.target === "area_target") tiles = circleTiles(center.x, center.y, s.radius ?? 1, this.hidden(center.x, center.y));
+    else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.hidden(p.x, p.y));
 
     // Quem é atingido.
     let hitMonsters: Monster[] = [];

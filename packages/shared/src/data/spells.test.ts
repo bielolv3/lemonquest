@@ -135,19 +135,20 @@ describe("SPELLS", () => {
       expect(SPELLS.piercing_arrow.cooldownMs).toBe(2000);
     });
 
-    it("Cura (exura): ~15% da vida no level 1; ~25-42% (mago) e 13-25% (cav/pal) nos levels 20-30", () => {
+    it("Cura (exura): ~15% da vida no level 1; mago 25-30% (lv20) e 30-35% (lv30); cav/pal 15-22%", () => {
       for (const v of VOCS) {
         expect(healPct("light_heal", v, 1), v).toBeGreaterThanOrEqual(0.15);
         expect(healPct("light_heal", v, 1), v).toBeLessThanOrEqual(0.20);
       }
+      const MAGE: Record<number, [number, number]> = { 20: [0.25, 0.30], 30: [0.30, 0.35] };
       for (const lvl of [20, 30]) {
         for (const v of ["sorcerer", "druid"] as const) {
-          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeGreaterThanOrEqual(0.25);
-          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeLessThanOrEqual(0.42);
+          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeGreaterThanOrEqual(MAGE[lvl][0]);
+          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeLessThanOrEqual(MAGE[lvl][1]);
         }
         for (const v of ["knight", "paladin"] as const) {
-          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeGreaterThanOrEqual(0.13);
-          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeLessThanOrEqual(0.25);
+          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeGreaterThanOrEqual(0.15);
+          expect(healPct("light_heal", v, lvl), `${v}@${lvl}`).toBeLessThanOrEqual(0.22);
         }
       }
       expect(healPct("light_heal", "druid", 20)).toBeGreaterThan(healPct("light_heal", "knight", 20));

@@ -137,7 +137,9 @@ export class SummonSystem {
     const s = m.s;
     if (t) {
       const range = Math.max(1, m.def.attackRange);
-      return cheb(s.x, s.y, t.s.x, t.s.y) <= range ? null : { x: t.s.x, y: t.s.y };
+      const inRange = cheb(s.x, s.y, t.s.x, t.s.y) <= range;
+      // Distância sem linha de visão: aproxima-se até enxergar.
+      return inRange && (range <= 1 || this.o.monsters.los(s.x, s.y, t.s.x, t.s.y)) ? null : { x: t.s.x, y: t.s.y };
     }
     return cheb(s.x, s.y, owner.x, owner.y) < SUMMON_FOLLOW_DIST ? null : { x: owner.x, y: owner.y };
   }
@@ -149,7 +151,7 @@ export class SummonSystem {
     if (t) {
       const d = cheb(s.x, s.y, t.s.x, t.s.y);
       const range = Math.max(1, m.def.attackRange);
-      if (d >= 1 && d <= range && now >= m.nextAttackAt) {
+      if (d >= 1 && d <= range && now >= m.nextAttackAt && (range <= 1 || w.los(s.x, s.y, t.s.x, t.s.y))) {
         const face = dirFromDelta(Math.sign(t.s.x - s.x), Math.sign(t.s.y - s.y));
         if (face !== null && now >= m.stepEndsAt) s.dir = face;
         m.nextAttackAt = now + m.def.attackMs;
