@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg } from "@lemonquest/shared";
+import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";
@@ -29,6 +29,11 @@ export function Chat() {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
       setLines((l) => [...l, m].slice(-MAX_LINES));
       if (collapsedRef.current) setUnread((n) => n + 1);
+    });
+    // Respostas de comandos de admin (Notice com log): ficam no chat, copiáveis (ex.: código de recuperação).
+    room.onMessage(S2C.Notice, (m: NoticeMsg) => {
+      if (!m?.log || typeof m.text !== "string") return;
+      setLines((l) => [...l, { from: "", text: m.text, channel: "system", ts: Date.now() } as Line].slice(-MAX_LINES));
     });
   }), []);
 

@@ -183,7 +183,8 @@ Com o atalho (5B): feche a janela do servidor, rode os mesmos `git pull` / `npm 
 | `LEMONQUEST_DB` | `data\lemonquest.db` (na raiz do repo) | Caminho do banco SQLite. |
 | `LEMONQUEST_BACKUP_DIR` | `data\backups` | Pasta onde o servidor grava os backups automáticos. |
 | `LEMONQUEST_DEV_COMMANDS` | desligado | `1` habilita comandos de desenvolvimento (só para teste, **não** deixe ligado em produção sem necessidade). |
-| `LEMONQUEST_ADMINS` | vazio | Nomes de personagens admin, separados por vírgula (ex.: `Leo,Ana`); usado com `LEMONQUEST_DEV_COMMANDS=1`. |
+| `LEMONQUEST_ADMINS` | vazio | Nomes de personagens admin, separados por vírgula (ex.: `Leo,Ana`). Comandos de admin (`/kick`, `/mute`, `/anuncio`, `/online`, `/resetsenha`, `/tp`) valem em produção; os de dev só com `LEMONQUEST_DEV_COMMANDS=1` fora de produção. Veja "Administradores" no README principal. |
+| `LEMONQUEST_BACKUP_COPY_DIR` | vazio | Pasta extra (outro disco/pasta de rede) que recebe uma cópia de cada backup, com rotação própria (1 por dia, 14 dias). Se estiver indisponível, só loga. |
 | `NODE_ENV` | - | Use `production` (o `npm run start:fast` já define). |
 
 No serviço, acrescente-as em `AppEnvironmentExtra` (ex.: `nssm set LemonQuest AppEnvironmentExtra NODE_ENV=production LEMONQUEST_BACKUP_DIR=D:\backups-lemonquest`). Lembre que esse comando **substitui** a lista inteira.

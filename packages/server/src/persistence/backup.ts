@@ -79,8 +79,9 @@ export async function copyBackupOffsite(file: string, copyDir: string | null = b
     return false;
   }
   try {
-    // hourlyH = 0: tudo entra na regra diária (o mais recente de cada dia), por keepDays dias.
-    const del = selectBackupsToDelete(await fs.promises.readdir(copyDir), now, 0, keepDays);
+    // hourlyH = -1: nenhum arquivo cai na faixa "horária" (nem o da hora atual) — todos seguem a regra diária
+    // (o mais recente de cada dia), por keepDays dias.
+    const del = selectBackupsToDelete(await fs.promises.readdir(copyDir), now, -1, keepDays);
     for (const n of del) await fs.promises.rm(path.join(copyDir, n), { force: true });
   } catch (e) {
     console.error("[backup] rotação da cópia externa falhou:", (e as Error).message ?? e);

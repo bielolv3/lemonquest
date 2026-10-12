@@ -13,7 +13,7 @@ import { PortalSystem } from "../systems/portals.ts";
 import { MonsterManager, parseSafeZones, parseSpawns } from "../systems/monsters.ts";
 import { CombatSystem, attackProfile, playerArmor } from "../systems/combat.ts";
 import { RegenSystem } from "../systems/regen.ts";
-import { handleChat, clearChatState } from "../systems/chat.ts";
+import { handleChat, clearChatState, type ChatHooks } from "../systems/chat.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
@@ -94,6 +94,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private throttle = new PerSecond();
   readonly errors = new ErrorLog();
   private reachable!: Uint8Array;
+  /** Ganchos do chat (magias, comandos de admin/dev, mute) — públicos para os testes. */
+  chatHooks: ChatHooks = {};
   private steps: ReadonlyArray<readonly [string, () => void]> = [];
   private tickNow = 0;
   private shuttingDown = false;
@@ -284,12 +286,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       setMagicLevel: (pl, n) => this.skills.setLevel(pl, "magic", n),
     });
     const muted = (p: PlayerState) => muteRemaining(this.records.get(p.id));
+    this.chatHooks = { castWords: (pl, text) => this.spells.castWords(pl, text), command, muted };
     this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); this.movement.onMove(p, m); });
     this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.movement.onWalkTo(p, m); });
     this.on<TurnMsg>(C2S.Turn, (p, m) => this.movement.onTurn(p, m));
     this.on<AttackMsg>(C2S.Attack, (p, m) => this.combat.onAttack(p, m));
     this.on<ChatSendMsg>(C2S.Chat, (p, m, c) =>
-      handleChat(this, c, p, m, { castWords: (pl, text) => this.spells.castWords(pl, text), command, muted }));
+      handleChat(this, c, p, m, this.chatHooks));
     this.on<CastMsg>(C2S.Cast, (p, m) => this.spells.onCast(p, m));
     this.on<MoveItemMsg>(C2S.MoveItem, (p, m) => this.inventory.onMoveItem(p, m));
     this.on<UseItemMsg>(C2S.UseItem, (p, m) => this.inventory.onUseItem(p, m));
