@@ -43,6 +43,8 @@ export interface QuestOptions {
   broadcast?: (type: string, msg: unknown) => void;
   /** Desbloqueio de recompensa (roupa/addon/título): o sistema de conquistas liga aqui. Padrão: nada. */
   onUnlock?: (playerId: string, unlockId: string) => void;
+  /** Missão concluída (conquistas: contador "quests"). Recompensas diárias: bounty = true. */
+  onComplete?: (playerId: string, id: string, bounty: boolean) => void;
   now?: () => number;
   rng?: () => number;
   quests?: QuestDef[];
@@ -302,6 +304,7 @@ export class QuestSystem {
     this.dirty.add(p.id);
     const items = this.grant(p, d.rewards);
     if (d.rewards.unlock) this.o.onUnlock?.(p.id, d.rewards.unlock);
+    this.o.onComplete?.(p.id, d.id, false);
     this.o.send(p.id, S2C.QuestComplete, { name: d.name, xp: d.rewards.xp, gold: d.rewards.gold, items } satisfies QuestCompleteMsg);
     if (d.rewards.unlock || d.steps.some((s) => s.kind === "boss")) {
       this.o.broadcast?.(S2C.Feed, { text: `📜 ${p.name} concluiu a missão "${d.name}"!`, kind: "info" } satisfies FeedMsg);
@@ -372,6 +375,7 @@ export class QuestSystem {
     b.x.st = "done";
     this.dirty.add(p.id);
     const items = this.grant(p, { xp: b.d.xp, gold: b.d.gold }, [makeItem(BOUNTY_CHEST_ID, 1)]);
+    this.o.onComplete?.(p.id, b.d.monster, true);
     this.o.send(p.id, S2C.QuestComplete, { name: bountyTitle(b.d), xp: b.d.xp, gold: b.d.gold, items, bounty: true } satisfies QuestCompleteMsg);
   }
 

@@ -157,6 +157,13 @@ export class Actor {
     this.syncDisplay();
   }
 
+  /** Título (conquistas) numa 2ª linha logo acima da barra, abaixo do nome. "" remove. */
+  setTitle(title: string) {
+    const name = this.label.text.split("\n")[0]!;
+    const t = title ? `${name}\n${title}` : name;
+    if (this.label.text !== t) this.label.setText(t);
+  }
+
   /** Membro do meu grupo: escudinho ao lado do nome e (para os outros) nome verde-claro. */
   setParty(on: boolean) {
     if (on === !!this.partyIcon) return;

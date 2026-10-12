@@ -73,12 +73,12 @@ export interface ArenaOptions {
   setBest: (id: string, best: number) => void;
   /** Saiu da arena (morte/desistência/fim): fecha NPC, some com invocações, limpa condições. */
   onExit?: (p: PlayerState) => void;
+  /** Venceu uma onda (conquistas e missões). */
+  onWaveCleared?: (p: PlayerState, wave: number) => void;
   /** Entrou na arena: fecha diálogos de NPC abertos. */
   onEnter?: (p: PlayerState) => void;
   /** Fecha a loja do coliseu (a onda começou). */
   closeNpc?: (id: string) => void;
-  /** Onda vencida por um participante vivo (missões). */
-  onWaveCleared?: (p: PlayerState, wave: number) => void;
   send: (id: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   now?: () => number;

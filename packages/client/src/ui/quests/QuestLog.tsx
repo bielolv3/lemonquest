@@ -1,5 +1,5 @@
 // Diário de missões (tecla L / trilho): ativas e concluídas, com descrição, passos e recompensas.
-import { MAX_TRACKED_QUESTS, QUEST_LIST, npcDef, questDef, questReady } from "@lemonquest/shared";
+import { MAX_TRACKED_QUESTS, QUEST_LIST, npcDef, questDef, questReady, unlockText } from "@lemonquest/shared";
 import { useEffect, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { inventoryStore } from "../items/inventory.ts";
@@ -69,7 +69,7 @@ function QuestLogDialog() {
                 <li key={i} class={l.done ? "done" : ""}><span>{l.label}</span><span class="quest-step-n">{l.cur}/{l.max}</span></li>
               ))}
             </ul>
-            <div class="quest-reward"><b>Recompensa:</b> {rewardText(def.rewards)}{def.rewards.unlock ? " · desbloqueio especial" : ""}</div>
+            <div class="quest-reward"><b>Recompensa:</b> {rewardText(def.rewards)}{def.rewards.unlock ? ` · ${unlockText(def.rewards.unlock)}` : ""}</div>
             {act && (
               <div class="quest-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
                 <label class="ql-track">

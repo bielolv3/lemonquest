@@ -1,6 +1,6 @@
 // Aba "Missões" da janela de NPC (oferta → Aceitar/Recusar, progresso, Entregar) e o Quadro de Recompensas.
 import {
-  BOUNTY_CHEST_ID, QUEST_LIST, bountyTitle, itemDef, questsForNpc, type QuestDef, type QuestStatus,
+  BOUNTY_CHEST_ID, QUEST_LIST, bountyTitle, itemDef, questsForNpc, unlockText, type QuestDef, type QuestStatus,
 } from "@lemonquest/shared";
 import { useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
@@ -70,7 +70,7 @@ function QuestCard(o: {
           </li>
         ))}
       </ul>
-      <div class="quest-reward"><b>Recompensa:</b> {rewardText(def.rewards)}{def.rewards.unlock ? " · desbloqueio especial" : ""}</div>
+      <div class="quest-reward"><b>Recompensa:</b> {rewardText(def.rewards)}{def.rewards.unlock ? ` · ${unlockText(def.rewards.unlock)}` : ""}</div>
       <div class="quest-actions">
         {status === "available" && <>
           <button class="quest-btn primary" onClick={o.onAccept}>Aceitar</button>

@@ -71,6 +71,9 @@ export interface GroundOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   now?: () => number;
   log?: (msg: string) => void;
+  /** Conquistas: o jogador largou / pegou um item. */
+  onDropped?: (p: PlayerState) => void;
+  onPickedUp?: (p: PlayerState) => void;
 }
 
 export const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -143,6 +146,7 @@ export class GroundSystem {
     } else {
       this.remove(e.state.id);
     }
+    this.o.onPickedUp?.(p);
     if (LOG_RARITIES.includes(e.item.rarity)) this.log(`[ground] ${p.name} pegou ${e.item.defId} (${e.item.rarity}) em ${e.state.x},${e.state.y}`);
   }
 
@@ -302,6 +306,7 @@ export class GroundSystem {
       this.o.inventory.placePickup(p, taken);
       return this.warn(p, GROUND_MSG.tileFull);
     }
+    this.o.onDropped?.(p);
     if (LOG_RARITIES.includes(taken.rarity)) {
       const name = this.o.inventory.defs(taken.defId)?.name ?? taken.defId;
       this.log(`[ground] ${p.name} largou ${name} (${RARITY_LABEL[taken.rarity]}) em ${t.x},${t.y}`);

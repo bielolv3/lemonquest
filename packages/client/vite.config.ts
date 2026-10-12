@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
 import preact from "@preact/preset-vite";
 // @ts-ignore módulo .mjs sem tipos
 import { buildPublic } from "../../tools/build-public.mjs";
@@ -10,6 +11,7 @@ export default defineConfig(({ command }) => ({
   plugins: [preact()],
   // Build: pasta curada (tools/build-public.mjs). Dev: assets/ completo.
   publicDir: command === "build" ? buildPublic() : "../../assets",
+  build: { rollupOptions: { input: { main: resolve(__dirname, "index.html"), ranking: resolve(__dirname, "ranking.html") } } },
   server: {
     host: lan ? true : "localhost",
     port: 3000,

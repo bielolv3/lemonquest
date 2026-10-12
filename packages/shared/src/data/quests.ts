@@ -174,7 +174,7 @@ export const QUEST_LIST: QuestDef[] = [
       progress: "O lich ainda caminha. Sinto sua presença daqui. Derrote-o e traga a Chave da Cripta.",
       complete: "A chave da Cripta... Então é verdade. Guarde-a bem; precisaremos dela. Receba a bênção da luz.",
     },
-    rewards: { xp: 8000, gold: 3000, items: [{ itemId: "health_potion_large", count: 5 }, { itemId: "mana_potion_large", count: 5 }], unlock: "quest_lich_bane" },
+    rewards: { xp: 8000, gold: 3000, items: [{ itemId: "health_potion_large", count: 5 }, { itemId: "mana_potion_large", count: 5 }], unlock: "addon:invocador:2" },
   }),
   // --- Ruínas e Cripta (25–40) ------------------------------------------------------------------------
   q({
@@ -222,7 +222,7 @@ export const QUEST_LIST: QuestDef[] = [
       progress: "O Rei Goblin ainda reina. Quero aquela coroa na minha mesa.",
       complete: "A coroa do Rei Goblin! Os bardos vão cantar seu nome por anos. Aceite isto em nome da vila.",
     },
-    rewards: { xp: 20000, gold: 15000, items: [{ itemId: "mithril_bar", count: 2 }], unlock: "quest_goblin_slayer" },
+    rewards: { xp: 20000, gold: 15000, items: [{ itemId: "mithril_bar", count: 2 }], unlock: "addon:assassino:2" },
   }),
   // --- Coliseu ------------------------------------------------------------------------------------------
   q({
@@ -235,7 +235,7 @@ export const QUEST_LIST: QuestDef[] = [
       progress: "Ainda não venceu a quinta onda? A areia não mente.",
       complete: "A multidão grita seu nome! Isto é para quem sobrevive à areia.",
     },
-    rewards: { xp: 2500, gold: 1500, items: [{ itemId: "health_potion_medium", count: 10 }], unlock: "quest_arena_glory" },
+    rewards: { xp: 2500, gold: 1500, items: [{ itemId: "health_potion_medium", count: 10 }], unlock: "outfit:barbaro" },
   }),
 ];
 

@@ -31,6 +31,8 @@ export class PlayerState extends Schema implements PlayerView {
   @type("boolean") chase = false;
   @type("string") outfit = "cavaleiro";
   @type("uint8") addons = 0;
+  /** Título ativo (texto). Conquistas. */
+  @type("string") title = "";
   @type("string") partyId = "";
 }
 

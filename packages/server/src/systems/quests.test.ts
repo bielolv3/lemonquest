@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BOUNTY_BANDS, BOUNTY_CHEST_ID, ITEMS, MONSTERS, QUEST_LIST, QUESTS, RARITIES, S2C, isEquipable, itemDef, npcMarker, npcDef,
-  bountyTitle, pluralPt, questStatus, questsForNpc, xpForLevel, type QuestDef, type QuestsMsg,
+  bountyTitle, isValidUnlockId, pluralPt, questStatus, questsForNpc, xpForLevel, type QuestDef, type QuestsMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { InventorySystem, makeItem } from "./inventory.ts";
@@ -52,6 +52,7 @@ describe("quests: catálogo", () => {
         if (s.kind === "talk") expect(npcDef(s.target)).toBeDefined();
         expect(s.count).toBeGreaterThan(0);
       }
+      if (d.rewards.unlock) expect(isValidUnlockId(d.rewards.unlock), d.rewards.unlock).toBe(true);
       for (const it of d.rewards.items ?? []) expect(itemDef(it.itemId), `${d.id}/${it.itemId}`).toBeDefined();
       for (const k of ["offer", "accept", "progress", "complete"] as const) expect(d.dialog[k].length).toBeGreaterThan(10);
       // Pré-requisitos não pedem level maior que a própria missão.
@@ -151,7 +152,7 @@ describe("quests: aceitar, progredir, entregar", () => {
     ql.qs.onAction(q, { action: "turnIn", questId: "swamp_lich" });
     expect(ql.state().done).toContain("swamp_lich");
     expect(ql.inv.countItem("p1", "crypt_key")).toBe(1);
-    expect(ql.unlocks).toEqual(["quest_lich_bane"]);
+    expect(ql.unlocks).toEqual(["addon:invocador:2"]);
     expect(ql.sent.some((s) => s.to === "*" && s.type === S2C.Feed)).toBe(true);
   });
 
