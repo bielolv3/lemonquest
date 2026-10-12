@@ -114,6 +114,47 @@ export const NPCS: Record<string, NpcDef> = {
       "Procura-se: aventureiros corajosos.",
     ],
   },
+  arena_master: {
+    id: "arena_master", name: "Mestre do Coliseu", sprite: C + "RedGladiator/SpriteSheet.png",
+    greeting: "Bem-vindo ao Coliseu! Forme seu grupo, escolha uma arena e enfrente as ondas de monstros. Quanto mais longe for, maior a glória.",
+    idleLines: [
+      "Sangue, areia e glória! Quem entra no Coliseu?",
+      "Grupos formados rendem mais glória. Chame seus amigos!",
+      "Cada onda é mais feroz que a anterior.",
+    ],
+  },
+  arena_shop_1: {
+    id: "arena_shop_1", name: "Vendedor do Coliseu", sprite: C + "GladiatorBlue/SpriteSheet.png",
+    greeting: "Respire fundo, guerreiro! Poções e comida para a próxima onda.",
+    shop: {
+      sells: sells("health_potion", "health_potion_medium", "health_potion_large", "mana_potion", "mana_potion_medium", "mana_potion_large", "meat", "honey", "onigiri"),
+    },
+    idleLines: ["Reponha as forças antes da próxima onda!", "Poção na mão, vitória no coração."],
+  },
+  arena_shop_2: {
+    id: "arena_shop_2", name: "Vendedor do Coliseu", sprite: C + "GladiatorBlue/SpriteSheet.png",
+    greeting: "Respire fundo, guerreiro! Poções e comida para a próxima onda.",
+    shop: {
+      sells: sells("health_potion", "health_potion_medium", "health_potion_large", "mana_potion", "mana_potion_medium", "mana_potion_large", "meat", "honey", "onigiri"),
+    },
+    idleLines: ["Reponha as forças antes da próxima onda!", "Poção na mão, vitória no coração."],
+  },
+  arena_shop_3: {
+    id: "arena_shop_3", name: "Vendedor do Coliseu", sprite: C + "GladiatorBlue/SpriteSheet.png",
+    greeting: "Respire fundo, guerreiro! Poções e comida para a próxima onda.",
+    shop: {
+      sells: sells("health_potion", "health_potion_medium", "health_potion_large", "mana_potion", "mana_potion_medium", "mana_potion_large", "meat", "honey", "onigiri"),
+    },
+    idleLines: ["Reponha as forças antes da próxima onda!", "Poção na mão, vitória no coração."],
+  },
+  arena_shop_4: {
+    id: "arena_shop_4", name: "Vendedor do Coliseu", sprite: C + "GladiatorBlue/SpriteSheet.png",
+    greeting: "Respire fundo, guerreiro! Poções e comida para a próxima onda.",
+    shop: {
+      sells: sells("health_potion", "health_potion_medium", "health_potion_large", "mana_potion", "mana_potion_medium", "mana_potion_large", "meat", "honey", "onigiri"),
+    },
+    idleLines: ["Reponha as forças antes da próxima onda!", "Poção na mão, vitória no coração."],
+  },
 };
 
 export const npcDef = (id: string): NpcDef | undefined => (Object.hasOwn(NPCS, id) ? NPCS[id] : undefined);

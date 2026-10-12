@@ -7,8 +7,10 @@ import { S } from './stamps.mjs';
 
 const SEED = 20260611;
 // Overworld = rows 0..OW_H-1. Dungeons live far below (>= 26 tiles of solid void between them and any overworld tile).
-const W = 160, OW_H = 120, DY = 62, H = 182;
+const W = 160, OW_H = 120, DY = 62, DUNGEON_BOTTOM = 181, H = 288; // rows below DUNGEON_BOTTOM hold the 4 colosseum arenas (void area)
 const rng = mulberry32(SEED);
+const rng2 = mulberry32(SEED + 1); // separate stream for the training center / colosseum so the old content stays byte-stable
+const pick2 = (arr) => arr[Math.floor(rng2() * arr.length)];
 const rnd = (a, b) => a + rng() * (b - a);
 const ri = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = (arr) => arr[Math.floor(rng() * arr.length)];
@@ -21,8 +23,8 @@ const idx = (x, y) => y * W + x;
 const inb = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
 
 // ===================================================================== regions
-const CAVE = { x0: 0, x1: 56, y0: 84 + DY, y1: H - 1 };
-const CRYPT = { x0: 104, x1: W - 1, y0: 98 + DY, y1: H - 1 };
+const CAVE = { x0: 0, x1: 56, y0: 84 + DY, y1: DUNGEON_BOTTOM };
+const CRYPT = { x0: 104, x1: W - 1, y0: 98 + DY, y1: DUNGEON_BOTTOM };
 const TOWN = { x0: 60, x1: 100, y0: 77, y1: 113 };
 const inRect = (r, x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
 
@@ -512,6 +514,117 @@ map.put('deco', 11, 103 + DY, 'D', 1, 0); map.block(11, 103 + DY, false); // cav
 map.put('deco', 131, 107 + DY, 'D', 2, 0); map.block(131, 107 + DY, false); // crypt exit (skull door)
 // ensure the wall cells north of the exits are walls with proper rows (they already are); keep neighbours blocked
 
+// ===================================================================== CENTRO DE TREINAMENTO + COLISEU (town side)
+// Built AFTER everything else (own rng stream) so every pre-existing tile/object keeps its coordinates.
+function wipe(x0, y0, x1, y1) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = idx(x, y); map.layers.deco[i] = 0; map.layers.above[i] = 0; map.layers.collision[i] = 0; map.occ[i] = 0; }
+}
+function cobbleTile(x, y) {
+  const inP = (a, b) => inb(a, b) && pave[idx(a, b)] === 1;
+  const top = !inP(x, y - 1), bot = !inP(x, y + 1), lef = !inP(x - 1, y), rig = !inP(x + 1, y);
+  map.put('ground', x, y, 'I', lef ? 0 : rig ? 2 : 1, top ? 12 : bot ? 15 : 13);
+}
+const dirtFull = (x, y) => { const [c, r] = blob['11111111']; const alt = rng2() < 0.05; map.put('ground', x, y, 'F', alt ? (x % 2) : c, alt ? 11 : r); };
+
+// ---- Centro de Treinamento: walled yard west of the village, entered through a new gate in the west palisade
+const TC = { x0: 44, y0: 99, x1: 60, y1: 114 };
+wipe(TC.x0, TC.y0, TC.x1 - 1, TC.y1);
+wipe(60, 105, 60, 106); wipe(61, 105, 63, 106); // gate gap + approach
+for (let y = TC.y0; y <= TC.y1; y++) for (let x = TC.x0; x < TC.x1; x++) dirtFull(x, y);
+for (let y = 105; y <= 106; y++) for (let x = 60; x <= 64; x++) dirtFull(x, y);
+fenceH(TC.y0, TC.x0 + 1, TC.x1 - 1, []); fenceH(TC.y1, TC.x0 + 1, TC.x1 - 1, []);
+fenceV(TC.x0, TC.y0, TC.y1, []); fenceV(60, 113, 114, []);
+const TRAIN_DUMMIES = [];
+for (const y of [104, 107, 110]) for (const x of [48, 52, 56]) TRAIN_DUMMIES.push([x, y]);
+const TRAIN_STATUES = []; // [statueId, x, y] (y = blocked base row)
+{
+  const kinds = ['statue', 'statueB', 'statueC', 'statueD'];
+  let n = 0;
+  for (const [sy, base, shift] of [[100, 101, 0], [112, 113, 2]]) for (let k = 0; k < 4; k++) {
+    const x = 46 + k * 4;
+    place(kinds[(k + shift) % 4], x, sy, { check: false });
+    map.block(x, base); map.block(x + 1, base);
+    TRAIN_STATUES.push(['statue_' + ++n, x, base]);
+  }
+}
+for (const [x, y] of [[59, 103], [59, 108]]) place('lamp', x, y - 1, { check: false });
+for (const [x, y] of [[45, 104], [45, 110]]) place('barrel', x, y, { check: false });
+place('board', 45, 107, { check: false });
+for (let k = 0; k < 10; k++) { const x = 46 + Math.floor(rng2() * 13), y = 103 + Math.floor(rng2() * 9); if (!map.blocked(x, y) && !map.layers.deco[idx(x, y)] && !TRAIN_DUMMIES.some(([a, b]) => a === x && b === y)) put1(x, y, 'FD', pick2([14, 15, 5, 6]), 0); }
+
+// ---- Coliseu entrance: cobbled court in the SE quarter of the village, sandstone gatehouse + lions
+const COURT = { x0: 82, y0: 101, x1: 93, y1: 111 };
+wipe(COURT.x0, COURT.y0, COURT.x1, COURT.y1);
+for (let y = COURT.y0; y <= COURT.y1; y++) for (let x = COURT.x0; x <= COURT.x1; x++) pave[idx(x, y)] = 1;
+for (let y = 85; y <= 112; y++) for (let x = 66; x <= 96; x++) if (pave[idx(x, y)]) cobbleTile(x, y);
+// gatehouse: two towers + a flat-roofed hall with a dark arch (x 83..92, y 102..107)
+place('desertTower', 83, 102, { check: false }); place('desertTower', 90, 102, { check: false });
+{
+  const hx = 86, hw = 4, top = 102, face = 107;
+  for (let y = top; y <= face; y++) for (let i = 0; i < hw; i++) {
+    const row = y === top ? 0 : y === face ? 2 : 1;
+    const tc = row === 1 && (i === 1 || i === 2) && y !== top + 1 ? 7 : 6 + i; // one barred window only; plain roof elsewhere
+    map.put(y === face ? 'deco' : 'above', hx + i, y, 'T', tc, row);
+    map.block(hx + i, y);
+  }
+  map.reserve(hx, top, hw, face - top + 1);
+}
+place('lionA', 83, 109, { check: false }); place('lionB', 91, 109, { check: false });
+for (const x of [85, 90]) place('lamp', x, 109, { check: false });
+const ARENA_MASTER = [87, 108], ARENA_EXIT = [88, 110];
+
+// ===================================================================== COLISEU ARENAS (void area; the server teleports players in)
+// Each arena: block 30x26 = rect 24x20 (+3 wall margin). Oval sand floor (24x16) + a rest alcove (north). Blocks are >= 26 tiles apart.
+const AR_W = 24, AR_H = 20;
+const ARENAS = [1, 2, 3, 4].map((id) => { const col = (id - 1) % 2, row = (id - 1) >> 1; const bx = 14 + col * 56, by = 208 + row * 52; return { id, bx, by, rx: bx + 3, ry: by + 3 }; });
+const arenaFloorG = new Uint8Array(W * H), arenaNook = new Uint8Array(W * H);
+const aLocalFloor = (lx, ly) => (ly >= 4 && ly <= 19 && ((lx + 0.5 - 12) / 12) ** 2 + ((ly + 0.5 - 12) / 8) ** 2 <= 1) || (lx >= 9 && lx <= 14 && ly >= 1 && ly <= 3);
+const A_PILLARS = [[7, 9], [7, 15], [16, 9], [16, 15], [11, 12], [12, 12]]; // local base tiles
+const A_SPAWNS = [[21, 8], [21, 12], [21, 16], [18, 6], [18, 18], [14, 5], [14, 19], [10, 19]];
+const A_ENTRY = [2, 11], A_SHOP = [11, 2];
+for (const a of ARENAS) for (let ly = 0; ly < AR_H; ly++) for (let lx = 0; lx < AR_W; lx++) {
+  if (!aLocalFloor(lx, ly)) continue;
+  arenaFloorG[idx(a.rx + lx, a.ry + ly)] = 1;
+  if (ly <= 3) arenaNook[idx(a.rx + lx, a.ry + ly)] = 1;
+}
+const isAF = (x, y) => inb(x, y) && arenaFloorG[idx(x, y)] === 1;
+const arenaBlockOf = (x, y) => ARENAS.find((a) => x >= a.bx && x < a.bx + 30 && y >= a.by && y < a.by + 26);
+const aWall = new Uint8Array(W * H);
+for (const a of ARENAS) for (let y = a.by; y < a.by + 26; y++) for (let x = a.bx; x < a.bx + 30; x++) {
+  if (isAF(x, y)) continue;
+  let w = false;
+  for (let j = -2; j <= 2 && !w; j++) for (let i = -2; i <= 2; i++) if (isAF(x + i, y + j)) { w = true; break; }
+  if (!w && isAF(x, y + 3)) w = true;
+  if (w) aWall[idx(x, y)] = 1;
+}
+const isAW = (x, y) => inb(x, y) && aWall[idx(x, y)] === 1;
+for (const a of ARENAS) for (let y = a.by; y < a.by + 26; y++) for (let x = a.bx; x < a.bx + 30; x++) {
+  const i = idx(x, y);
+  if (isAF(x, y)) {
+    if (arenaNook[i]) map.put('ground', x, y, 'I', 1, 13);
+    else { const t = rng2() < 0.14; map.put('ground', x, y, 'A', t ? 1 + Math.floor(rng2() * 4) : 0, 5); }
+    map.block(x, y, false);
+  } else if (isAW(x, y)) {
+    const above = isAW(x, y - 1), below = isAW(x, y + 1), left = isAW(x - 1, y), right = isAW(x + 1, y);
+    const row = isAF(x, y + 1) ? 2 : !above ? 0 : !below ? 2 : 1;
+    const col = !left ? 0 : !right ? 2 : 1;
+    let c = 17 + col, r = 4 + row;
+    if (col === 1 && row === 2) { if (rng2() < 0.25) c = 18; else c = 19; }
+    map.put('deco', x, y, 'T', c, r);
+    map.block(x, y);
+  }
+}
+for (const a of ARENAS) {
+  map.reserve(a.bx, a.by, 30, 26);
+  for (const [px, py] of A_PILLARS) place('sandPillar', a.rx + px, a.ry + py - 2, { check: false });
+  // rest alcove: lamps, barrels, a chest; the vendor stands at A_SHOP
+  for (const lx of [9, 14]) place('lamp', a.rx + lx, a.ry + 1, { check: false });
+  for (const lx of [10, 13]) place('barrel', a.rx + lx, a.ry + 1, { check: false });
+  place('chest', a.rx + 12, a.ry + 1, { check: false });
+  // bones / skulls lying around the sand
+  for (let k = 0; k < 18; k++) { const lx = 1 + Math.floor(rng2() * 22), ly = 5 + Math.floor(rng2() * 14); const x = a.rx + lx, y = a.ry + ly; if (isAF(x, y) && !map.blocked(x, y) && !map.layers.deco[idx(x, y)] && !A_SPAWNS.some(([sx, sy]) => sx === lx && sy === ly) && !(lx === A_ENTRY[0] && ly === A_ENTRY[1])) put1(x, y, 'FD', pick2([14, 15, 5, 6]), 0); }
+}
+
 // ===================================================================== OBJECTS
 const SPAWN = [79, 92];
 map.tileObj('spawn_player', SPAWN[0], SPAWN[1], undefined, 'spawn');
@@ -541,7 +654,20 @@ const zones = [
   ['Cavernas', 0, 84 + DY, 57, 36, '2 - The Cave.ogg'],
   ['Cripta', 104, 98 + DY, 56, 22, '40 - Crypt.ogg'],
 ];
-for (const [name, x, y, w, h, music] of zones) map.addObject({ type: 'zone', name, x: x * 16, y: y * 16, width: w * 16, height: h * 16, rect: true, props: { music } });
+for (const [name, x, y, w, h, music] of zones) map.addObject({ type: 'zone', name, x: x * 16, y: y * 16, width: w * 16, height: h * 16, rect: true, props: name === 'Vila de Pedra Clara' ? { music, pz: true } : { music } });
+// --- new content (objects appended after the old ones: old object ids stay stable)
+map.addObject({ type: 'zone', name: 'Centro de Treinamento', x: 43 * 16, y: 98 * 16, width: 17 * 16, height: 18 * 16, rect: true, props: { music: '36 - Village.ogg', pz: true } });
+for (const [id, x, y] of TRAIN_STATUES) map.tileObj('training_statue', x, y, { statueId: id }, id);
+for (const [x, y] of TRAIN_DUMMIES) map.tileObj('monster_spawn', x, y, { monster: 'training_dummy', count: 1, radius: 0, level: 1 }, 'training_dummy');
+map.tileObj('npc', ARENA_MASTER[0], ARENA_MASTER[1], { npcId: 'arena_master' }, 'arena_master');
+map.tileObj('arena_exit', ARENA_EXIT[0], ARENA_EXIT[1], undefined, 'arena_exit');
+for (const a of ARENAS) {
+  map.addObject({ type: 'arena', name: `Arena ${a.id}`, x: a.rx * 16, y: a.ry * 16, width: AR_W * 16, height: AR_H * 16, rect: true, props: { arenaId: a.id } });
+  map.tileObj('arena_entry', a.rx + A_ENTRY[0], a.ry + A_ENTRY[1], { arenaId: a.id }, `arena_entry_${a.id}`);
+  for (const [sx, sy] of A_SPAWNS) map.tileObj('arena_spawn', a.rx + sx, a.ry + sy, { arenaId: a.id }, `arena_spawn_${a.id}`);
+  map.tileObj('npc', a.rx + A_SHOP[0], a.ry + A_SHOP[1], { npcId: `arena_shop_${a.id}` }, `arena_shop_${a.id}`);
+  map.addObject({ type: 'zone', name: 'Coliseu', x: a.bx * 16, y: a.by * 16, width: 30 * 16, height: 26 * 16, rect: true, props: { music: '17 - Fight.ogg', pz: false } });
+}
 
 // ===================================================================== VALIDATION
 function fail(msg) { try { renderPreview(map, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true }); } catch {} console.error('\nMAP VALIDATION FAILED: ' + msg); process.exit(1); }
@@ -568,10 +694,44 @@ for (const [m, , r, , x, y] of spawns) {
   const dx = Math.max(TOWN.x0 - x, 0, x - TOWN.x1), dy = Math.max(TOWN.y0 - y, 0, y - TOWN.y1);
   if (Math.hypot(dx, dy) < 14) fail(`monster_spawn ${m} at ${x},${y} too close to town`);
 }
+// ---- training center + colosseum (town side)
+{
+  const nb4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [x, y] of TRAIN_DUMMIES) { if (map.blocked(x, y)) fail(`training dummy at ${x},${y} is blocked`); if (!R(x, y)) fail(`training dummy at ${x},${y} unreachable`); }
+  if (new Set(TRAIN_DUMMIES.map((d) => d.join())).size !== TRAIN_DUMMIES.length) fail('duplicate dummy');
+  for (const [id, x, y] of TRAIN_STATUES) {
+    if (!map.blocked(x, y)) fail(`${id} at ${x},${y} is not blocked`);
+    if (!nb4.some(([a, b]) => !map.blocked(x + a, y + b) && R(x + a, y + b))) fail(`${id} at ${x},${y} has no reachable walkable neighbour`);
+  }
+  for (const [nm, [x, y]] of [['arena_master', ARENA_MASTER], ['arena_exit', ARENA_EXIT]]) { if (map.blocked(x, y)) fail(`${nm} at ${x},${y} blocked`); if (!R(x, y)) fail(`${nm} at ${x},${y} unreachable`); }
+  if (!inRect({ x0: 58, y0: 76, x1: 103, y1: 115 }, ARENA_MASTER[0], ARENA_MASTER[1])) fail('arena_master outside town PZ');
+  if (!inRect({ x0: 58, y0: 76, x1: 103, y1: 115 }, ARENA_EXIT[0], ARENA_EXIT[1])) fail('arena_exit outside town PZ');
+  if (!R(60, 105) || !R(60, 106)) fail('training center gate unreachable');
+}
+// ---- arenas: NOT reachable by walking from the spawn; each arena entry is an extra BFS root and must reach its own objects.
+const arenaReach = new Uint8Array(W * H);
+for (const a of ARENAS) {
+  const ex = a.rx + A_ENTRY[0], ey = a.ry + A_ENTRY[1];
+  if (map.blocked(ex, ey)) fail(`arena ${a.id} entry blocked`);
+  if (R(ex, ey)) fail(`arena ${a.id} entry is reachable from the overworld (must be isolated)`);
+  const ar = bfs(map, ex, ey);
+  const AR = (x, y) => ar[idx(x, y)] === 1;
+  for (let i = 0; i < ar.length; i++) if (ar[i]) { arenaReach[i] = 1; const x = i % W, y = (i / W) | 0; if (x < a.rx || x >= a.rx + AR_W || y < a.ry || y >= a.ry + AR_H) fail(`arena ${a.id} walkable area leaks outside its rect at ${x},${y}`); }
+  for (const [sx, sy] of A_SPAWNS) { const x = a.rx + sx, y = a.ry + sy; if (map.blocked(x, y)) fail(`arena ${a.id} spawn ${x},${y} blocked`); if (!AR(x, y)) fail(`arena ${a.id} spawn ${x},${y} unreachable from entry`); }
+  const sx = a.rx + A_SHOP[0], sy = a.ry + A_SHOP[1];
+  if (map.blocked(sx, sy)) fail(`arena ${a.id} shop npc tile blocked`);
+  if (!AR(sx, sy)) fail(`arena ${a.id} shop npc unreachable from entry`);
+  // floor count sanity: enough room to fight
+  let n = 0; for (let i = 0; i < ar.length; i++) n += ar[i];
+  if (n < 300) fail(`arena ${a.id} too small (${n} tiles)`);
+  console.log(`arena ${a.id}: ${n} walkable tiles reachable from entry ${ex},${ey}`);
+}
 // NPCs become obstacles
 for (const [id, x, y] of npcs) map.block(x, y);
+map.block(ARENA_MASTER[0], ARENA_MASTER[1]);
+for (const a of ARENAS) map.block(a.rx + A_SHOP[0], a.ry + A_SHOP[1]);
 let walk = 0, reached = 0;
-for (let i = 0; i < W * H; i++) { if (map.layers.collision[i] === 0 || reach[i]) { if (map.layers.collision[i] === 0) walk++; } if (reach[i]) reached++; }
+for (let i = 0; i < W * H; i++) { if (map.layers.collision[i] === 0) walk++; if (reach[i] || arenaReach[i]) reached++; }
 console.log(`BFS ok: ${reached} reachable tiles of ${walk} walkable (${((reached / walk) * 100).toFixed(1)}%)`);
 
 // ===================================================================== OUTPUT

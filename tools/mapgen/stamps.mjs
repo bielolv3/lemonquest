@@ -27,6 +27,10 @@ export const S = {
   torii: ['H', 1, 5, 3, 2],
   statue: ['H', 5, 15, 2, 2],
   statueB: ['H', 3, 15, 2, 2],
+  sandPillar: ['H', 0, 15, 1, 3, { baseRows: 1 }],
+  statueC: ['H', 5, 17, 2, 2], statueD: ['H', 3, 17, 2, 2],
+  // ---- colosseum (Desert): gatehouse tower 3x6, crenellated wall 3x3, lion statues 2x3
+  desertTower: ['T', 14, 4, 3, 6, { blockAll: true }], lionA: ['T', 0, 6, 2, 3], lionB: ['T', 0, 9, 2, 3],
   // ---- props (Element)
   lamp: ['E', 6, 3, 1, 2], well: ['E', 6, 1, 1, 1], board: ['E', 1, 2, 1, 1], chest: ['E', 3, 1, 1, 1], barrel: ['E', 0, 0, 1, 1],
   graveCross: ['E', 3, 2, 1, 1], graveA: ['E', 4, 2, 1, 1], graveB: ['E', 5, 2, 1, 1],
