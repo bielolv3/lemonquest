@@ -4,7 +4,7 @@
 import { randomBytes } from "node:crypto";
 import {
   BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, RARITIES, S2C, baseStats, itemDef,
-  type DepotMsg, type DiscardItemMsg, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance,
+  type DepotMsg, type DiscardItemMsg, type DropFrom, type PickupTo, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance,
   type ItemLocation, type MoveItemMsg, type NoticeMsg, type QuickPotionMsg, type Rarity, type SkillId,
   type StatId, type Stats, type UseItemMsg,
 } from "@lemonquest/shared";
@@ -276,6 +276,73 @@ export class InventorySystem {
     if (it.count <= 0) inv.backpack[index] = null;
     this.dirty.add(p.id);
     return { ...it, count };
+  }
+
+  // --- chão (systems/ground.ts) ---------------------------------------------------------
+
+  /** Item em `from` (mochila/equipamento), sem remover. */
+  peekAt(id: string, from: DropFrom): ItemInstance | undefined {
+    const inv = this.inv.get(id);
+    if (!inv || !from || typeof from !== "object") return undefined;
+    if (from.where === "backpack") return isInt(from.index) && from.index >= 0 && from.index < inv.backpack.length ? inv.backpack[from.index] ?? undefined : undefined;
+    if (from.where === "equip") return EQUIP_SLOTS.includes(from.slot) ? inv.equipment[from.slot] : undefined;
+    return undefined;
+  }
+
+  /**
+   * Remove `count` unidades de `from` para largar no chão. Pilha inteira = a própria instância;
+   * parte = cópia com uid novo. Equipamento sai inteiro (e recalcula atributos).
+   */
+  takeForDrop(p: PlayerState, from: DropFrom, count?: number): ItemInstance | undefined {
+    const inv = this.inv.get(p.id);
+    const it = this.peekAt(p.id, from);
+    if (!inv || !it) return undefined;
+    const n = count === undefined ? it.count : count;
+    if (!isInt(n) || n < 1 || n > it.count) return undefined;
+    if (from.where === "equip") {
+      delete inv.equipment[from.slot];
+      this.dirty.add(p.id);
+      this.equipmentChanged(p);
+      return it;
+    }
+    const idx = (from as { index: number }).index;
+    this.dirty.add(p.id);
+    if (n === it.count) { inv.backpack[idx] = null; return it; }
+    it.count -= n;
+    return { ...it, uid: newUid(), count: n, bonuses: it.bonuses.map((b) => ({ ...b })) };
+  }
+
+  /**
+   * Coloca um item vindo do chão: no slot pedido se der (vazio/mesma pilha/equipável livre), senão como addItem.
+   * Ouro vira contador. Retorna quantas unidades NÃO couberam.
+   */
+  placePickup(p: PlayerState, item: ItemInstance, to?: PickupTo): number {
+    const inv = this.inv.get(p.id);
+    const d = this.defs(item.defId);
+    if (!inv || !d) return item.count;
+    if (d.id === GOLD_ID) { this.addGold(p, item.count); return 0; }
+    if (to?.where === "backpack" && isInt(to.index) && to.index >= 0 && to.index < inv.backpack.length) {
+      const cur = inv.backpack[to.index];
+      const max = maxStackOf(d);
+      if (!cur && item.count <= max) { inv.backpack[to.index] = item; this.dirty.add(p.id); return 0; }
+      if (cur && d.stackable && cur.defId === item.defId && cur.rarity === item.rarity && cur.count < max) {
+        const mv = Math.min(item.count, max - cur.count);
+        cur.count += mv;
+        this.dirty.add(p.id);
+        if (mv === item.count) return 0;
+        return this.addItem(p, { ...item, count: item.count - mv });
+      }
+    } else if (to?.where === "equip" && EQUIP_SLOTS.includes(to.slot) && item.count === 1 && !inv.equipment[to.slot]) {
+      const conflict = (to.slot === "weapon" && d.twoHanded && inv.equipment.shield)
+        || (to.slot === "shield" && inv.equipment.weapon && this.defs(inv.equipment.weapon.defId)?.twoHanded);
+      if (!this.canEquip(p, d, to.slot) && !conflict) {
+        inv.equipment[to.slot] = item;
+        this.dirty.add(p.id);
+        this.equipmentChanged(p);
+        return 0;
+      }
+    }
+    return this.addItem(p, item);
   }
 
   // --- mensagens ----------------------------------------------------------------------

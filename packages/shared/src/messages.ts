@@ -174,7 +174,13 @@ export interface NpcOpenMsg {
   shop?: { sells: { itemId: string; price: number }[]; buys?: string[]; sellRatio: number };
   depot?: boolean;
 }
-export interface LootMsg { x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number; lostFull?: number }
+export interface LootMsg {
+  x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number;
+  /** Itens perdidos (mochila cheia e sem espaço no chão). */
+  lostFull?: number;
+  /** Itens que não couberam e caíram no chão (no seu tile, só você pega por 60 s). */
+  fellToGround?: number;
+}
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
 export interface NpcSayMsg { npcId: string; text: string }
 export interface TrainingOpenMsg { statueId: string }

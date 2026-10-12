@@ -1,8 +1,8 @@
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "colyseus";
 import {
   C2S, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
-  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
-  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type QuickPotionMsg, type TurnMsg,
+  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
+  type MoveItemMsg, type MoveMsg, type NoticeMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -22,6 +22,7 @@ import { SummonSystem } from "../systems/summons.ts";
 import { SpellSystem } from "../systems/spells.ts";
 import { InventorySystem } from "../systems/inventory.ts";
 import { LootSystem } from "../systems/loot.ts";
+import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
 import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
@@ -75,6 +76,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private spells!: SpellSystem;
   private inventory!: InventorySystem;
   private loot!: LootSystem;
+  private ground!: GroundSystem;
   private npcs!: NpcSystem;
   private fight!: FightModeSystem;
   private arena!: ArenaSystem;
@@ -164,7 +166,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende nas pausas entre as ondas." : null),
     });
     this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y));
-    this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast });
+    // Itens no chão (só em memória; somem ao reiniciar o servidor).
+    this.ground = new GroundSystem({
+      inventory: this.inventory, collection: this.state.groundItems, send,
+      canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
+      seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
+    });
+    this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground });
     this.regen = new RegenSystem({
       inCombat: (id, now) => this.combat.inCombat(id, now),
       inPz: (x, y) => this.monsters.inPz(x, y),
@@ -270,7 +278,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<MoveItemMsg>(C2S.MoveItem, (p, m) => this.inventory.onMoveItem(p, m));
     this.on<UseItemMsg>(C2S.UseItem, (p, m) => this.inventory.onUseItem(p, m));
     this.on<QuickPotionMsg>(C2S.QuickPotion, (p, m) => this.inventory.onQuickPotion(p, m));
-    this.on<DiscardItemMsg>(C2S.DiscardItem, (p, m) => this.inventory.onDiscard(p, m));
+    this.on<DiscardItemMsg>(C2S.DiscardItem, (p, m) => this.ground.onDiscard(p, m));
+    this.on<DropItemMsg>(C2S.DropItem, (p, m) => this.ground.onDrop(p, m));
+    this.on<PickupItemMsg>(C2S.PickupItem, (p, m) => this.ground.onPickup(p, m));
     this.on<NpcInteractMsg>(C2S.NpcInteract, (p, m) => {
       this.npcs.onInteract(p, m);
       if (m?.npcId === "arena_master" && this.npcs.openFor(p.id) === "arena_master") this.arena.openLobbies(p);
@@ -296,6 +306,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["npcs", () => this.npcs.tick(this.tickNow)],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
       ["combat.flush", () => this.combat.flush()],
+      ["ground", () => this.ground.tick(this.tickNow)],
       ["inventory.flush", () => this.inventory.flush()],
     ];
 
@@ -503,6 +514,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["food", () => this.food.removePlayer(sid)],
         ["exploration", () => this.exploration.removePlayer(sid)],
         ["inventory", () => this.inventory.removePlayer(sid)],
+        ["ground", () => this.ground.removePlayer(sid)],
         ["npcs", () => this.npcs.removePlayer(sid)],
         ["fight", () => this.fight.removePlayer(sid)],
         ["chat", () => clearChatState(sid)],

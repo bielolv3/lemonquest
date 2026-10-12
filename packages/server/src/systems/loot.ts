@@ -5,7 +5,7 @@ import {
   type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
-import { GOLD_ID, makeItem, type InventorySystem, type ItemDefs } from "./inventory.ts";
+import { GOLD_ID, makeItem, newUid, type InventorySystem, type ItemDefs } from "./inventory.ts";
 import type { Monster } from "./monsters.ts";
 
 /** Chances de raridade para equipáveis (soma 1). */
@@ -102,6 +102,8 @@ export interface LootOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   rng?: () => number;
+  /** Itens no chão (systems/ground.ts): o que não coube cai no tile de quem matou (protegido por 60 s). */
+  ground?: { placeLoot: (p: PlayerState, item: ItemInstance) => boolean };
 }
 
 export const FEED_RARITIES: Rarity[] = ["epic", "legendary"];
@@ -134,21 +136,26 @@ export class LootSystem {
     const roll = rollLoot(def, this.rng, this.o.inventory.defs);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
     const got: ItemInstance[] = [];
-    let lost = 0;
+    let lost = 0, fell = 0;
     for (const it of roll.items) {
       const n = it.count;
       const left = this.o.inventory.addItem(p, it);
       if (left < n) got.push({ ...it, count: n - left });
-      if (left > 0) lost++;
+      if (left > 0) {
+        const rest = left === n ? it : { ...it, uid: newUid(), count: left, bonuses: it.bonuses.map((b) => ({ ...b })) };
+        if (this.o.ground?.placeLoot(p, rest)) fell++; else lost++;
+      }
       const d = this.o.inventory.defs(it.defId);
       if (d && FEED_RARITIES.includes(it.rarity) && left < n) {
         this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
       }
     }
+    if (fell > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${fell} item(ns) caíram no chão.`, kind: "warn" } satisfies NoticeMsg);
     if (lost > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${lost} item(ns) perdido(s)`, kind: "warn" } satisfies NoticeMsg);
-    if (got.length || roll.gold > 0 || lost > 0) {
+    if (got.length || roll.gold > 0 || lost > 0 || fell > 0) {
       const msg: LootMsg = { x, y, monsterName: def.name, items: got, gold: roll.gold };
       if (lost > 0) msg.lostFull = lost;
+      if (fell > 0) msg.fellToGround = fell;
       this.o.send(p.id, S2C.Loot, msg);
     }
   }

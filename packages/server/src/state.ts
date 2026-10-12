@@ -1,5 +1,5 @@
 import { Schema, MapSchema, type } from "@colyseus/schema";
-import type { FightStance, MonsterView, PlayerView, Vocation } from "@lemonquest/shared";
+import type { FightStance, GroundItemView, MonsterView, PlayerView, Vocation } from "@lemonquest/shared";
 
 /** Deve espelhar PlayerView (packages/shared/src/types.ts). */
 export class PlayerState extends Schema implements PlayerView {
@@ -45,7 +45,18 @@ export class MonsterState extends Schema implements MonsterView {
   @type("string") ownerId = "";
 }
 
+/** Deve espelhar GroundItemView (packages/shared/src/types.ts). Bônus ficam só no servidor (systems/ground.ts). */
+export class GroundItemState extends Schema implements GroundItemView {
+  @type("string") id = "";
+  @type("string") defId = "";
+  @type("uint32") count = 1;
+  @type("string") rarity = "common";
+  @type("uint16") x = 0;
+  @type("uint16") y = 0;
+}
+
 export class WorldState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
   @type({ map: MonsterState }) monsters = new MapSchema<MonsterState>();
+  @type({ map: GroundItemState }) groundItems = new MapSchema<GroundItemState>();
 }
