@@ -123,4 +123,15 @@ describe("WorldRoom: treino offline", () => {
     r.onJoin(c, {}, auth("Eva"));
     expect(sentOf(c, S2C.TrainingResult)).toHaveLength(0);
   });
+
+  it("mapa real: estátuas, 9 bonecos dentro da PZ (pz por propriedade)", () => {
+    const r = new WorldRoom() as any;
+    r["__init"]();
+    r.onCreate({});
+    rooms.push(r);
+    expect(r.training.statues.length).toBeGreaterThanOrEqual(8);
+    const dummies = [...r.monsters.all()].filter((m: any) => m.def.id === "training_dummy");
+    expect(dummies.length).toBe(9);
+    for (const d of dummies) expect(r.monsters.inPz(d.s.x, d.s.y)).toBe(true);
+  });
 });
