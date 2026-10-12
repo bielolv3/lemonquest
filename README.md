@@ -52,3 +52,5 @@ npm start            # build + start
 Em produção o servidor serve tudo na porta 2567 (`PORT` para mudar).
 
 **Guia completo para Windows (serviço, firewall, backups, atualização):** [deploy/windows/README-DEPLOY.md](deploy/windows/README-DEPLOY.md)
+
+**Com Docker (Windows, Linux ou Mac):** `docker compose up -d --build` — guia em [deploy/docker/README.md](deploy/docker/README.md).

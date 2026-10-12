@@ -47,7 +47,7 @@ Para parar: `Ctrl+C` (o servidor salva os jogadores antes de sair).
 
 ## 5. Iniciar junto com o Windows
 
-Há dois jeitos. **Recomendado: serviço (5A).**
+Há dois jeitos. **Recomendado: serviço (5A).** (Prefere Docker? Veja [../docker/README.md](../docker/README.md) — ele substitui esta seção.)
 
 | | 5A. Serviço do Windows (NSSM) | 5B. Atalho na Inicialização |
 | --- | --- | --- |

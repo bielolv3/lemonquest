@@ -1,0 +1,32 @@
+# The Lemon Quest em Docker.
+#   Subir / atualizar:  docker compose up -d --build
+#   Ver logs:           docker compose logs -f
+#   Parar (salva tudo): docker compose stop
+# Guia completo: deploy/docker/README.md
+#
+# ATENÇÃO: não rode junto com o serviço do Windows (NSSM) — os dois usam a porta 2567.
+
+services:
+  lemonquest:
+    build: .
+    image: lemonquest:latest
+    container_name: lemonquest
+    restart: unless-stopped          # sobe com o Docker e reinicia se cair (papel do NSSM)
+    init: true                       # repassa sinais corretamente e evita processos zumbis
+    ports:
+      - "2567:2567"
+    environment:
+      PORT: "2567"
+      TZ: "America/Sao_Paulo"        # horário dos backups (lemonquest-AAAAMMDD-HH.db) e dos logs
+      # Comandos de desenvolvimento (/level, /item...) — deixe desligado no escritório.
+      # LEMONQUEST_DEV_COMMANDS: "1"
+      # LEMONQUEST_ADMINS: "Leonardo"
+    volumes:
+      # Banco (lemonquest.db) e backups ficam aqui, na pasta do projeto, fora do container.
+      - ./docker-data:/app/data
+    stop_grace_period: 30s           # tempo para salvar os jogadores antes de o Docker forçar a parada
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

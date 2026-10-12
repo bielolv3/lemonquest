@@ -1,0 +1,24 @@
+# Nunca vai para a imagem
+node_modules
+**/node_modules
+.git
+.claude
+data
+docker-data
+logs
+*.log
+*.db
+*.db-wal
+*.db-shm
+
+# Saídas de build (são geradas dentro da imagem)
+packages/client/dist
+packages/client/.public
+
+# Peso morto para o runtime (previews, pack antigo, catálogo)
+assets/_download
+assets/ninja-adventure
+assets/maps/preview*.png
+assets/addons/preview*.png
+assets/icons/*-preview.png
+assets/CATALOG.md

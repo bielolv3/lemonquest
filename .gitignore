@@ -16,3 +16,6 @@ packages/client/.public/
 # Logs
 *.log
 logs/
+
+# Dados do container Docker (banco e backups)
+docker-data/
