@@ -33,7 +33,9 @@ Não use a mesma senha do trabalho: a rede do escritório não é criptografada 
 
 ## Administradores
 
-Admin = personagem listado em `LEMONQUEST_ADMINS` (vírgulas, sem diferença de maiúsculas/acentos: `"Leonardo, Ana Maria"`).
+Admin = personagem listado em `LEMONQUEST_ADMINS` (vírgulas, sem diferença de maiúsculas: `"Leonardo, Ana Maria"`).
+Esses nomes ficam **reservados**: só as contas listadas em `LEMONQUEST_ADMIN_ACCOUNTS` (login, vírgulas) conseguem criar um
+personagem com eles (inclusive variantes com/sem acento). Um personagem admin que já existe não é afetado.
 Os comandos de admin funcionam **também em produção** (os de dev — `/level`, `/item`... — continuam só com
 `LEMONQUEST_DEV_COMMANDS=1` e nunca em produção). Para quem não é admin, todos respondem "Comando desconhecido.".
 As respostas aparecem só para o admin (aviso + linha no chat). Toda ação fica no log do servidor com `[admin]`.
@@ -86,6 +88,12 @@ npx playwright show-report        # relatório HTML (playwright-report/); screen
 - `E2E_SKIP_BUILD=1` pula o build do cliente; `E2E_SNAPS=1` salva capturas de revisão em `test-results/snaps/`;
   `--trace on` grava traces (desligados por padrão: deixam o carregamento muito lento com vários workers).
 - Rodar um arquivo/teste: `npm run test:e2e -- e2e/arena.spec.ts -g "solo"`.
+
+### Auditoria e roadmap
+
+Diagnóstico técnico/gameplay em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md), prioridades e status em
+[docs/GAME_ROADMAP.md](docs/GAME_ROADMAP.md), estratégia e resultados de testes em [docs/TEST_PLAN.md](docs/TEST_PLAN.md),
+mudanças em [CHANGELOG.md](CHANGELOG.md).
 
 ## Produção (servidor do escritório)
 
