@@ -33,10 +33,14 @@ test("atacar e matar um monstro na floresta", async ({ page }) => {
   await expect(page.locator(".fm-btn.chase")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await monsters(page)).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const xp0 = (await meState(page))!.xp as number;
-  const id = await targetNearest(page);
-  // Morre (sai do estado) e o personagem ganha XP.
-  await expect.poll(async () => (await monsters(page)).some((m) => m.id === id), { timeout: 45_000 }).toBe(false);
-  await expect.poll(async () => (await meState(page))!.xp as number, { timeout: 10_000 }).toBeGreaterThan(xp0);
+  // Mata o alvo e ganha XP. Se o alvo morrer na mão de outro (jogador de um teste anterior ainda no mundo pela janela
+  // de reconexão, caçando os mesmos ratos), mira no próximo.
+  await expect.poll(async () => {
+    if ((await meState(page))!.xp > xp0) return true;
+    const target = await page.evaluate(() => (window as any).__lq.target() as string);
+    if (!target || !(await monsters(page)).some((m) => m.id === target)) await targetNearest(page).catch(() => "");
+    return false;
+  }, { timeout: 60_000, intervals: [1000] }).toBe(true);
 });
 
 test("magia na tecla 1 (cura) gasta mana e entra em recarga", async ({ page }) => {
