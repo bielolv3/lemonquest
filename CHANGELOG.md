@@ -19,6 +19,10 @@
 - Testes E2E do Coliseu e do grupo sem corridas com a pausa e com alvos abatidos por outros jogadores.
 - Heap do cliente medido com 10 bots: estável (~49–50 MB).
 
+### Jogabilidade
+- Armas de tier 3 (level 15) agora são vendidas: Bento (todas as vocações), Velho Caçador (Arco Longo) e Dona Marta
+  (Varinha da Tempestade, Cajado de Gelo). Antes cavaleiros e feiticeiros não tinham de onde tirar arma de tier 3.
+
 ## [Não lançado] — 2026-10-14 · ciclo 2
 
 ### Jogabilidade

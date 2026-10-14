@@ -76,6 +76,8 @@ Legenda: **C** = confirmado (código lido e/ou reproduzido) · **H** = hipótese
 |---|---|---|---|
 | 27 | **P1** Arma abaixo do seu tier bate menos que o punho: o dano desarmado cresce com level e skill (`VOC_DAMAGE.perLevel`), o da arma quase não | C — cavaleiro lv 15 / skill 30: punho 48, Espada Curta 21, Espada Longa 45; lv 50 / skill 80: punho 267, melhor arma (Katana de Mithril) 287 | Loot de arma vira armadilha; no fim do jogo arma quase não importa. **Resolvido no ciclo 2** (arma nunca pior + punho cresce devagar) |
 
+| 28 | **P2** Armas de tier 3 inacessíveis para cavaleiro e feiticeiro (nem loja nem monstro); tier 4 só para cavaleiro (goblin 1,2%). Única outra fonte: baú diário (15% de equipamento, sorteado entre todas as peças da faixa) | C — levantamento de `MONSTERS.loot` × lojas dos NPCs × `chestGearPool` | Depois do rebalanço do punho, ficar preso no tier 2 entre os levels 15 e 35. **Ciclo 3:** tier 3 passou a ser vendido (Bento + lojas da vocação); tiers 4–5 seguem como recompensa de loot/baú/chefe |
+
 ### Não confirmado
 
 - **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.
