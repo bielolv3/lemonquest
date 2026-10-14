@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLOSE_REPLACED, findObjects, objectTile } from "@lemonquest/shared";
-import { REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
+import { RECONNECT_S, REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
 import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, loadGroundRows, saveCharacter } from "../persistence/db.ts";
 import { makeItem } from "../systems/inventory.ts";
 import { handleCreateCharacter, handleLogin, handlePlay, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";
@@ -242,5 +242,63 @@ describe("WorldRoom: item entre mochila e chão", () => {
     r.tick();
     expect(potions()).toBe(1);
     expect(onGround()).toBe(0);
+  });
+});
+
+describe("WorldRoom: sair em combate", () => {
+  const join = (r: any, name: string, sid: string) => {
+    createAccount(name, "h", "s", "knight");
+    const c = fakeClient(r, sid);
+    r.onJoin(c, {}, auth(name));
+    return c;
+  };
+  const expire = (r: any, sid: string) => r.lingering.get(sid).tick(RECONNECT_S * 1000 + 1);
+
+  it("sair de propósito logo após lutar: fica no mundo RECONNECT_S s (pode apanhar), depois sai e libera o nome", () => {
+    const r = makeRoom();
+    const c = join(r, "Rui", "r1");
+    r.combat.markCombat("r1", Date.now());
+    r.onLeave(c, 4000);
+    expect(r.state.players.has("r1")).toBe(true);
+    expect(onlineOwner("Rui")).toBe("r1");
+    expire(r, "r1");
+    expect(r.state.players.has("r1")).toBe(false);
+    expect(onlineOwner("Rui")).toBeUndefined();
+    expect(r.lingering.size).toBe(0);
+  });
+
+  it("fora de combate (ou morto) sai na hora, como antes", () => {
+    const r = makeRoom();
+    const c = join(r, "Lia", "l1");
+    r.onLeave(c, 4000);
+    expect(r.state.players.has("l1")).toBe(false);
+    const c2 = join(r, "Ivo", "i1");
+    r.combat.markCombat("i1", Date.now());
+    r.state.players.get("i1").hp = 0;
+    r.onLeave(c2, 4000);
+    expect(r.state.players.has("i1")).toBe(false);
+  });
+
+  it("relogar durante a permanência troca a sessão; o timer antigo não derruba a nova", () => {
+    const r = makeRoom();
+    const c = join(r, "Bob", "b1");
+    r.combat.markCombat("b1", Date.now());
+    r.onLeave(c, 4000);
+    const c2 = fakeClient(r, "b2");
+    r.onJoin(c2, {}, auth("Bob"));
+    expect(r.state.players.has("b1")).toBe(false);
+    expect(r.state.players.has("b2")).toBe(true);
+    expect(r.lingering.size).toBe(0);
+    expect(onlineOwner("Bob")).toBe("b2");
+  });
+
+  it("kick durante a permanência tira o personagem na hora", () => {
+    const r = makeRoom();
+    const c = join(r, "Gus", "g1");
+    r.combat.markCombat("g1", Date.now());
+    r.onLeave(c, 4000);
+    r.kick("g1", "tchau");
+    expect(r.state.players.has("g1")).toBe(false);
+    expect(r.lingering.size).toBe(0);
   });
 });

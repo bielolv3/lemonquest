@@ -20,6 +20,8 @@
 - Heap do cliente medido com 10 bots: estável (~49–50 MB).
 
 ### Jogabilidade
+- Sair do jogo de propósito no meio de uma luta não salva mais da morte: o personagem fica 20 s no mundo, igual a uma
+  queda de conexão (fechar a aba já funcionava assim).
 - Armas de tier 3 (level 15) agora são vendidas: Bento (todas as vocações), Velho Caçador (Arco Longo) e Dona Marta
   (Varinha da Tempestade, Bastão de Gelo). Antes cavaleiros e feiticeiros não tinham de onde tirar arma de tier 3.
 

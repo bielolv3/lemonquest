@@ -63,7 +63,7 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 |---|---|---|---|
 | F | FPS do **cliente** numa sessão longa com vários jogadores | ⏳ | heap já medido (plano); FPS headless sem GPU não é confiável — medir num PC do escritório |
 | E | #13 Timeout da predição baseado na latência medida | ✅ | `predictor.test.ts`: 60 ms → 450 ms (igual); 600 ms → >1,2 s; teto 2 s. E2E de movimento ok |
-| A | #11 Saída voluntária em combate: manter o personagem ~6 s no mundo | ⏳ adiado | só cliente modificado chama `leave()`; fechar a aba já deixa o personagem 20 s no mundo. Atrasar a limpeza cria corrida com relogin — fazer só com teste dedicado |
+| A | #11 Saída voluntária em combate: o personagem fica RECONNECT_S (20 s) no mundo, como numa queda (pode morrer); relogin/kick cancelam | ✅ | `WorldRoom.test.ts` (4 casos: permanência, fora de combate/morto, relogin, kick) |
 
 ## Precisa de decisão 🧭
 

@@ -107,6 +107,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private names = new Map<string, string>();
   /** Reconexões pendentes (onDrop), para cancelar se o personagem entrar de novo por outro lugar. */
   private reconnecting = new Map<string, Deferred<Client>>();
+  /**
+   * Saiu de propósito (room.leave) logo depois de lutar: o personagem fica no mundo RECONNECT_S segundos, como numa queda
+   * de conexão (pode morrer). Sem isso um cliente modificado escapava da morte saindo no último instante.
+   */
+  private lingering = new Map<string, { clear(): void; tick?(dt: number): void }>();
   private throttle = new PerSecond();
   readonly errors = new ErrorLog();
   private reachable!: Uint8Array;
@@ -578,6 +583,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private replaceSession(oldSid: string) {
     const old = this.clients.getById(oldSid);
     console.log(`[world] ${this.names.get(oldSid) ?? "?"} entrou em outro lugar — derrubando a sessão antiga`);
+    this.lingering.get(oldSid)?.clear();
+    this.lingering.delete(oldSid);
     this.cleanupSession(oldSid);
     const pending = this.reconnecting.get(oldSid);
     if (pending) { this.reconnecting.delete(oldSid); pending.reject(new Error("replaced")); }
@@ -594,6 +601,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.reconnecting.delete(sessionId);
       try { pending.reject(new Error("kicked")); } catch (e) { this.errors.report("kick.reconnect", e); }
     }
+    // Ficou no mundo depois de sair em combate: o kick tira já.
+    const linger = this.lingering.get(sessionId);
+    if (linger) { linger.clear(); this.endLinger(sessionId); return; }
     const c = this.clients.getById(sessionId);
     if (!c) return;
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
@@ -650,8 +660,27 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onLeave(client: Client, code?: number) {
     const sid = client.sessionId;
     const name = this.names.get(sid);
+    if (code === CloseCode.CONSENTED && this.shouldLinger(sid)) {
+      console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${RECONNECT_S} s`);
+      this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), RECONNECT_S * 1000));
+      return;
+    }
     this.cleanupSession(sid);
     if (name) console.log(`[world] ${name} saiu (código ${code}; ${this.state.players.size} online)`);
+  }
+
+  /** Fica no mundo ao sair? Só vivo, em combate recente e fora de partida do Coliseu (lá sair já é desistir sem penalidade). */
+  private shouldLinger(sid: string): boolean {
+    const p = this.state.players.get(sid);
+    return !this.shuttingDown && !!p && p.hp > 0 && this.combat.inCombat(sid, Date.now()) && !this.arena.inMatch(sid);
+  }
+
+  /** Fim da permanência após sair em combate (ou cancelamento: relogin/kick). */
+  private endLinger(sid: string) {
+    if (!this.lingering.delete(sid)) return;
+    const name = this.names.get(sid);
+    this.cleanupSession(sid);
+    if (name) console.log(`[world] ${name} saiu (após o combate; ${this.state.players.size} online)`);
   }
 
   /** Salva e remove a sessão de todos os sistemas. Limpeza e liberação do nome SEMPRE rodam, mesmo se salvar falhar. */
