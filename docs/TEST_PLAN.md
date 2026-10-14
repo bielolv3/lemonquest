@@ -9,6 +9,7 @@
 | Build | `npm run build` | cliente (Vite) + bundle do servidor (esbuild) |
 | E2E | `npm run test:e2e` | Playwright/Chromium contra servidor de teste (porta 2851, banco temporário): login/conta, mundo, chão, painéis, grupo, coliseu, treino, conquistas, missões |
 | Benchmark manual | `npx tsx packages/server/src/systems/pathfinding.bench.ts` | custo do A* (µs por caminho) |
+| Carga | servidor E2E (`E2E_PORT=2872 E2E_SKIP_BUILD=1 node e2e/start-server.mjs`) + `node tools/loadtest.mjs http://127.0.0.1:2872 --bots 10 --secs 130` | tick do servidor (log `[tick]`), ida e volta de um passo |
 | CI | `.github/workflows/ci.yml` | typecheck + unitários + build + Docker `/health` + E2E |
 
 Rodar o jogo isolado para testes manuais (não toca no banco real):
@@ -37,6 +38,21 @@ Verificações manuais feitas no navegador (servidor isolado):
 - `curl -I /health`: sem `X-Powered-By`, com `nosniff` e `Referrer-Policy`.
 - Console: sem erros do jogo (só mensagens da extensão do navegador).
 
+## Resultados — ciclo 2 (2026-10-14)
+
+| Verificação | Resultado |
+|---|---|
+| Unitários | 482/482 |
+| E2E | 25/25 (rodada com as mudanças de jogabilidade); após a troca de dependências 24/25 → o que falhou passou 3/3 isolado (ver abaixo) |
+| `npm audit --omit=dev` | 15 avisos → 0 |
+| Bundle do servidor | 5,44 MB → 2,40 MB; `npm run start:bundle` sobe em produção e serve `/health` e o cliente |
+| Docker | `docker build` ok (224 MB); container responde `/health` |
+| Carga (10 bots, 131 monstros, 2 × 60 s) | tick médio 0,198 / 0,204 ms, máx 4,95 / 2,38 ms; passo p50 46 ms, p95 298 ms |
+| Reconexão | monstro morto durante a queda: some do estado e `onRemove` dispara ao reconectar (sem "fantasmas") |
+
+Achado de balanço (#27) medido com as fórmulas: cavaleiro lv 15 / skill 30 bate 48 desarmado, 21 com a Espada Curta e 45
+com a Espada Longa; depois do ajuste, a arma nunca fica abaixo do punho.
+
 ## Instabilidade conhecida do E2E (investigada)
 
 `arena.spec.ts` falhava de vez em quando com a máquina carregada: o toast "Onda N vencida" dura 3 s e a faixa
@@ -48,8 +64,6 @@ que aparece. Depois: 12/12 (`--repeat-each=4`).
 ## Pendente / exige avaliação manual
 
 - **Áudio** da atenuação por distância (efeitos de terceiros): ouvir em sessão real com 2+ jogadores.
-- **Desempenho em carga**: FPS e heap do cliente numa sessão de 30+ min com vários jogadores; tick do servidor
-  (`[tick] média/máx` no log) com 10 jogadores.
+- **Desempenho do cliente**: FPS e heap numa sessão de 30+ min com vários jogadores (num PC com GPU).
 - **Proxy**: `LEMONQUEST_TRUST_PROXY` atrás do Caddy real com a 2567 fechada.
-- **Reconexão**: cortar a rede, matar um monstro e voltar (hipótese de entidade "fantasma").
 - Celular/toque: não suportado (fora do escopo, ver roadmap).

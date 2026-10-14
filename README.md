@@ -89,6 +89,15 @@ npx playwright show-report        # relatório HTML (playwright-report/); screen
   `--trace on` grava traces (desligados por padrão: deixam o carregamento muito lento com vários workers).
 - Rodar um arquivo/teste: `npm run test:e2e -- e2e/arena.spec.ts -g "solo"`.
 
+### Teste de carga
+
+```bash
+E2E_PORT=2872 E2E_SKIP_BUILD=1 node e2e/start-server.mjs                 # servidor de teste (outro terminal)
+node tools/loadtest.mjs http://127.0.0.1:2872 --bots 10 --secs 130         # bots andam, atacam e falam
+```
+
+O desempenho sai no log do servidor (`[tick] … média X ms, máx Y ms`, a cada 60 s fora de produção).
+
 ### Auditoria e roadmap
 
 Diagnóstico técnico/gameplay em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md), prioridades e status em

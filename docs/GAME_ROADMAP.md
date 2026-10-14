@@ -35,14 +35,16 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | D | #21 Loot para o maior causador de dano a até 12 tiles (senão, quem deu o último golpe); XP só entre quem está perto (sem ninguém perto, todos os que bateram) | ✅ | `combat.test.ts` (novo caso) |
 | D | #27 Arma nunca dá menos dano que o punho (vale o maior dos dois; a arma define alcance/tipo) | ✅ | `inventory.test.ts` atualizado; E2E do Coliseu voltou a vencer as ondas |
 | C | Foco por teclado visível em botões/links/selects/checkbox (`:focus-visible`) | ✅ | typecheck |
+| E | #24 `colyseus` (meta-pacote) → `@colyseus/core` + `@colyseus/schema` explícito | ✅ | `npm audit --omit=dev`: 15 → **0**; lock 378 → 300 pacotes; `server.mjs` 5,44 → 2,40 MB; bundle de produção e imagem Docker sobem e respondem `/health`; E2E |
+| F | Teste de carga `tools/loadtest.mjs` (10 bots andando/atacando/falando, 131 monstros) | ✅ | tick **0,20 ms em média, máx 2,4–5,0 ms** (orçamento 50 ms); passo ida e volta p50 46 ms / p95 298 ms |
+| F | Hipótese de "fantasmas" após reconexão automática | ✅ refutada | experimento com o SDK: monstro morto durante a queda some do estado e dispara `onRemove` ao reconectar |
 
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |
 |---|---|---|---|
-| F | Medir FPS/heap numa sessão longa com vários clientes (antes/depois dos itens 2, 6, 7) | ⏳ | ainda não há medição em carga |
-| F | Verificar hipótese de "fantasmas" após reconexão automática | ⏳ | E2E com rede cortada |
-| E | #24 Trocar `colyseus` por `@colyseus/core` + `@colyseus/ws-transport` | ⏳ | some com os avisos do audit; testar boot/Docker. **Não** usar `npm audit fix --force` (rebaixa para 0.15) |
+| F | FPS/heap do **cliente** numa sessão longa com vários jogadores | ⏳ | o servidor já foi medido (ciclo 2); no cliente headless sem GPU o FPS não é confiável — medir num PC do escritório |
+| F | E2E "atacar e matar um monstro na floresta" falha às vezes (≈1 em 4 rodadas completas; 3/3 isolado) | ⏳ | provável: jogador de teste anterior, ainda no mundo pela janela de reconexão de 20 s, mata o alvo antes |
 | C | Acessibilidade: dificuldade da criatura além da cor do nome; foco visível nos inputs | ⏳ | |
 | E | #13 Timeout da predição baseado no RTT medido | ⏳ | baixo valor na LAN |
 | A | #11 Saída voluntária em combate: manter o personagem ~6 s no mundo | ⏳ adiado | só cliente modificado chama `leave()`; fechar a aba já deixa o personagem 20 s no mundo. Atrasar a limpeza cria corrida com relogin — fazer só com teste dedicado |

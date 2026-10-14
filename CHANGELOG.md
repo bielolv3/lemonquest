@@ -13,6 +13,11 @@
 ### Acessibilidade
 - Foco por teclado visível em botões, links, selects e checkboxes.
 
+### Engenharia
+- Servidor depende de `@colyseus/core` em vez do meta-pacote `colyseus` (que trazia auth, monitor, playground e Redis
+  sem uso): `npm audit` 15 → 0 avisos, bundle 5,4 → 2,4 MB.
+- `tools/loadtest.mjs`: teste de carga com bots (10 jogadores: tick médio 0,2 ms de 50 ms).
+
 ## [Não lançado] — 2026-10-14 · auditoria, ciclo 1
 
 Diagnóstico completo em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md); estado em [docs/GAME_ROADMAP.md](docs/GAME_ROADMAP.md).

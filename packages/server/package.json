@@ -8,9 +8,10 @@
     "admin": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx scripts/admin.ts"
   },
   "dependencies": {
+    "@colyseus/core": "^0.18.18",
+    "@colyseus/schema": "^5.0.36",
     "@colyseus/ws-transport": "^0.18.4",
     "@lemonquest/shared": "*",
-    "colyseus": "^0.18.9",
     "express": "^5.3.0"
   },
   "devDependencies": {

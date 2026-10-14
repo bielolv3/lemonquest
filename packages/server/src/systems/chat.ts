@@ -1,4 +1,4 @@
-import type { Client, Room } from "colyseus";
+import type { Client, Room } from "@colyseus/core";
 import { MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 

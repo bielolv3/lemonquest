@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import express from "express";
-import { Server, matchMaker } from "colyseus";
+import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RANKING_CACHE_S } from "@lemonquest/shared";
 import { rankingJson } from "./persistence/ranking.ts";
