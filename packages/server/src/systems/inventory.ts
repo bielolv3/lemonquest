@@ -6,7 +6,7 @@ import {
   BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, RARITIES, S2C, baseStats, itemDef,
   type DepotMsg, type DiscardItemMsg, type DropFrom, type PickupTo, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance,
   type ItemLocation, type MoveItemMsg, type NoticeMsg, type QuickPotionMsg, type Rarity, type SkillId,
-  type StatId, type Stats, type UseItemMsg,
+  type StatId, type Stats, type UseItemMsg, type Vocation,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterData } from "../persistence/types.ts";
@@ -48,6 +48,19 @@ export const maxStackOf = (d: ItemDef | undefined): number => (d?.stackable ? Ma
 
 export function makeItem(defId: string, count = 1, rarity: Rarity = "common", bonuses: ItemInstance["bonuses"] = []): ItemInstance {
   return { uid: newUid(), defId, count: Math.max(1, Math.floor(count)), rarity, bonuses: bonuses.map((b) => ({ ...b })) };
+}
+
+/** Arma inicial de cada vocação (tier 1, level 1). */
+export const STARTER_WEAPON: Record<Vocation, string> = {
+  knight: "short_sword", paladin: "short_bow", sorcerer: "apprentice_wand", druid: "twig_rod",
+};
+
+/** Kit do personagem NOVO (só na criação): arma da vocação equipada + 3 poções de vida + 5 carnes na mochila. */
+export function starterKit(vocation: Vocation): Pick<CharacterData, "equipment" | "backpack"> {
+  return {
+    equipment: { weapon: makeItem(STARTER_WEAPON[vocation]) },
+    backpack: [makeItem("health_potion", 3), makeItem("meat", 5)],
+  };
 }
 
 export function emptyInventory(): Inventory {

@@ -198,9 +198,15 @@ describe("inventory: stats aggregation", () => {
     w.inv.onMoveItem(p, { from: { where: "equip", slot: "armor" }, to: { where: "backpack", index: 0 } });
     expect(p.maxHp).toBe(base.maxHp);
     expect(p.hp).toBe(base.maxHp);
-    // Arma: weaponDamageRange com attack total e skill + crítico do anel.
+    // Arma: weaponDamageRange com attack total e skill + crítico do anel — mas nunca abaixo do desarmado (aqui a arma
+    // fraca para o level 30 perderia do punho: vale o desarmado com a skill efetiva).
     const prof = attackProfile({ ...p, skillMelee: 20 } as typeof p, itemsFx("sword"), (s) => w.inv.stat("p1", s));
-    expect(prof.damage).toEqual(weaponDamageRange(24, 20, 30));
+    const armed = weaponDamageRange(24, 20, 30), fists = playerDamageRange("knight", 30, 20 + w.inv.stat("p1", "melee"));
+    expect(armed[1]).toBeLessThan(fists[0]);
+    expect(prof.damage).toEqual(fists);
+    // Arma forte para o level: vale a da arma.
+    const strong = attackProfile({ ...p, level: 1, skillMelee: 20 } as typeof p, itemsFx("sword"), (s) => w.inv.stat("p1", s));
+    expect(strong.damage).toEqual(weaponDamageRange(24, 20, 1));
     expect(prof.critPct).toBeCloseTo(0.17);
     expect(prof.range).toBe(1);
     // Desarmado = fórmula da vocação.

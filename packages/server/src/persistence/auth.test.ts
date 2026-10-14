@@ -56,6 +56,18 @@ describe("auth: contas", () => {
     }
   });
 
+  it("personagem novo ganha o kit inicial: arma da vocação equipada, 3 poções de vida e 5 carnes", async () => {
+    const a = okSession(await create("contaKit"));
+    const weapons = { knight: "short_sword", paladin: "short_bow", sorcerer: "apprentice_wand", druid: "twig_rod" } as const;
+    for (const [voc, name] of [["knight", "Kit Um"], ["paladin", "Kit Dois"], ["sorcerer", "Kit Tres"], ["druid", "Kit Quatro"]] as const) {
+      okSession(handleCreateCharacter({ session: a.session, name, vocation: voc }));
+      const d = getCharacterByName(name)!.data as { equipment?: { weapon?: { defId: string } }; backpack?: ({ defId: string; count: number } | null)[]; outfit?: string };
+      expect(d.equipment?.weapon?.defId, voc).toBe(weapons[voc]);
+      expect(d.backpack?.map((it) => it && `${it.defId}×${it.count}`)).toEqual(["health_potion×3", "meat×5"]);
+      expect(d.outfit).toBeTruthy();
+    }
+  });
+
   it("valida nomes de conta (3–20, letras latinas/dígitos/._-)", () => {
     for (const n of ["ab", "a".repeat(21), "leo!", "Лео", "le@o", "", "a​bc"]) expect(normalizeAccount(n), n).toBeNull();
     expect(normalizeAccount(" leo.silva_99 ")).toBe("leo.silva_99");

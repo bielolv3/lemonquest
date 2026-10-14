@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_ATTACK_MS, REGEN_INTERVAL_MS, S2C, baseStats, deathPenalty, xpForLevel } from "@lemonquest/shared";
 import { RegenSystem } from "./regen.ts";
+import { LootSystem } from "./loot.ts";
+import { KILL_CREDIT_RANGE } from "./monsters.ts";
 import { def, openGrid, player, world } from "./testkit.ts";
 
 const types = (sent: { type: string }[]) => sent.map((s) => s.type);
@@ -169,5 +171,28 @@ describe("regen", () => {
     w.run(1000);
     expect(w.combat.inCombat("v", w.now())).toBe(true);
     expect(w.combat.inCombat("other", w.now())).toBe(false);
+  });
+});
+
+describe("crédito do abate: só quem está perto", () => {
+  it("quem bateu e foi para longe não leva XP nem loot; sem ninguém perto, vale o último golpe", () => {
+    const w = setup({ hp: 100, xp: 90, armor: 0 });
+    const far = w.add(player("far", 10 + KILL_CREDIT_RANGE + 2, 10, { name: "Longe" }));
+    const near = w.add(player("near", 11, 10, { name: "Perto" }));
+    const loot = new LootSystem({ inventory: {} as any, getPlayer: (id) => w.players.get(id), send: () => {}, broadcast: () => {} });
+    w.mm.onDamaged(w.m, "far", 80, w.now());
+    w.mm.onDamaged(w.m, "near", 10, w.now());
+    expect(loot.topDamager(w.m)?.id).toBe("near"); // "far" bateu mais, mas está longe
+    // Ninguém perto: fica com quem deu o último golpe.
+    near.x = 10 - KILL_CREDIT_RANGE - 2;
+    expect(loot.topDamager(w.m)?.id).toBe("near");
+    near.x = 11;
+
+    w.combat.damageMonster(w.m, "near", 1e9, "physical", w.now());
+    w.combat.flush();
+    const xp = w.sent.filter((s) => s.type === S2C.XpGain);
+    expect(xp.map((s) => s.to)).toEqual(["near"]);
+    expect(xp[0]!.msg.amount).toBe(90);
+    expect(far.xp).toBe(0);
   });
 });

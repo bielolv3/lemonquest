@@ -238,9 +238,9 @@ export function createAccount(name: string, passHash: string, salt: string): Acc
 }
 
 /** Cria um personagem na conta. Lança se o nome já existir em QUALQUER conta. */
-export function createCharacter(accountId: number, name: string, vocation: Vocation): CharacterRecord {
+export function createCharacter(accountId: number, name: string, vocation: Vocation, extra: Partial<CharacterData> = {}): CharacterRecord {
   // Roupa inicial = a padrão da vocação (o jogador troca depois na janela de roupas).
-  const data: CharacterData = { outfit: defaultOutfit(vocation), addons: 0 };
+  const data: CharacterData = { ...extra, outfit: defaultOutfit(vocation), addons: 0 };
   const r = getDb().prepare(
     "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?, ?)",
   ).run(accountId, name, nameKey(name), vocation, JSON.stringify(data), Date.now());

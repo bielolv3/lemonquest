@@ -220,6 +220,24 @@ describe("coliseu: partida", () => {
     expect(k.w.sent.some((s) => s.type === S2C.Loot)).toBe(false);
   });
 
+  it("XP das ondas só para quem está na faixa de level do grupo (2/3 do maior); o resto ganha só o ouro", () => {
+    const k = setup();
+    const hi = k.add("hi", { level: 30 }), lo = k.add("lo", { level: 5 }), mid = k.add("mid", { level: 20 });
+    k.arena.onAction(hi, { action: "create" });
+    for (const p of [lo, mid]) k.arena.onAction(p, { action: "join", lobbyId: k.arena.partyFor("hi")!.id });
+    k.arena.onAction(hi, { action: "start" });
+    k.toWave1();
+    const xp0 = { hi: hi.xp, lo: lo.xp, mid: mid.xp };
+    k.killAll();
+    k.run(100);
+    expect(hi.xp).toBeGreaterThan(xp0.hi);
+    expect(mid.xp - xp0.mid).toBe(hi.xp - xp0.hi); // 20 ≥ 2/3 de 30
+    expect(lo.xp).toBe(xp0.lo);
+    expect(k.gold.get("lo")).toBe(arenaWaveGold(1));
+    expect(k.notices("lo").at(-1)).toMatch(/Sem XP: level abaixo de 20/);
+    expect(k.lastOf("lo", S2C.ArenaState).state.earned.xp).toBe(0);
+  });
+
   it("pausa acaba no tempo → próxima onda; todos prontos → começa em 3 s", () => {
     const k = setup();
     const a = k.add("a"), b = k.add("b");

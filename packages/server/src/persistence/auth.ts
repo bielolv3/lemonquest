@@ -15,6 +15,7 @@ import type { CharacterRecord } from "./types.ts";
 import { loadOutfit } from "../systems/outfit.ts";
 import { e2eMode } from "../e2e.ts";
 import { devAdmins } from "../systems/devcommands.ts";
+import { starterKit } from "../systems/inventory.ts";
 
 /** Validade do token de entrada no mundo (uso único, emitido pelo /api/play). */
 export const TOKEN_TTL_MS = 60_000;
@@ -294,7 +295,7 @@ export function handleCreateCharacter(req: CreateCharacterRequest, ctx: LoginCon
   if (getCharacterByName(name)) return fail("name_taken");
   let rec;
   try {
-    rec = createCharacter(s.accountId, name, req.vocation);
+    rec = createCharacter(s.accountId, name, req.vocation, starterKit(req.vocation));
   } catch {
     return fail("name_taken");
   }

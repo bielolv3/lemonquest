@@ -6,7 +6,7 @@ import {
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { GOLD_ID, makeItem, newUid, type InventorySystem, type ItemDefs } from "./inventory.ts";
-import type { Monster } from "./monsters.ts";
+import { KILL_CREDIT_RANGE, cheb, type Monster } from "./monsters.ts";
 
 /** Chances de raridade para equipáveis (soma 1). */
 export const RARITY_WEIGHTS: Record<Rarity, number> = { common: 0.7, uncommon: 0.2, rare: 0.075, epic: 0.022, legendary: 0.003 };
@@ -115,11 +115,24 @@ export class LootSystem {
     this.rng = o.rng ?? Math.random;
   }
 
-  /** Jogador online que mais causou dano. */
+  /**
+   * Dono do loot: quem mais causou dano entre os que estão perto do monstro (KILL_CREDIT_RANGE). Se ninguém que bateu
+   * está perto, fica com quem deu o último golpe (ou, sem ele online, quem mais bateu).
+   */
   topDamager(m: Monster): PlayerState | undefined {
+    const getPlayer = this.o.getPlayer;
+    const near = [...m.damageBy].filter(([id]) => {
+      const p = getPlayer(id);
+      return !!p && cheb(p.x, p.y, m.s.x, m.s.y) <= KILL_CREDIT_RANGE;
+    });
+    if (!near.length) {
+      const last = m.lastCreditId ? getPlayer(m.lastCreditId) : undefined;
+      if (last) return last;
+    }
+    const pool = near.length ? near : [...m.damageBy];
     let best: PlayerState | undefined, bestDmg = 0;
-    for (const [id, dmg] of m.damageBy) {
-      const p = this.o.getPlayer(id);
+    for (const [id, dmg] of pool) {
+      const p = getPlayer(id);
       if (p && dmg > bestDmg) { best = p; bestDmg = dmg; }
     }
     return best;

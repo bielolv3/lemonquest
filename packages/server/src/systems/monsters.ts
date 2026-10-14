@@ -51,6 +51,8 @@ export interface Monster {
   returnSince: number;
   /** Último jogador que o feriu (passivos revidam). */
   lastAttackerId: string;
+  /** Quem recebe o crédito do último golpe (dono, no caso de invocação): fica com o loot se ninguém estiver perto. */
+  lastCreditId: string;
   /** Dano total por jogador (divisão de XP). */
   damageBy: Map<string, number>;
   /** Velocidade em % (condições haste/slow; 0 = enraizado). Ausente = 100. */
@@ -139,6 +141,19 @@ export function parsePortalTiles(map: TiledMap): Point[] {
 const MASK_PZ = 1, MASK_PORTAL = 2;
 
 export const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+/** Distância máxima (tiles) do monstro, na morte, para levar loot/XP do abate (mesma da XP compartilhada do grupo). */
+export const KILL_CREDIT_RANGE = 12;
+
+/**
+ * Quem deu dano, está online e perto do monstro agora: [id, dano]. Quem bateu e foi embora para longe não leva o
+ * crédito. Se ninguém que bateu está perto, devolve todos os online (não se perde a XP de um abate por DoT/invocação).
+ */
+export function killCredit(m: Monster, getPlayer: (id: string) => PlayerState | undefined): [string, number][] {
+  const online = [...m.damageBy].filter(([id]) => getPlayer(id));
+  const near = online.filter(([id]) => { const p = getPlayer(id)!; return cheb(p.x, p.y, m.s.x, m.s.y) <= KILL_CREDIT_RANGE; });
+  return near.length ? near : online;
+}
 
 export class MonsterManager {
   readonly grid: CollisionGrid;
@@ -273,7 +288,7 @@ export class MonsterManager {
     const m: Monster = {
       s, def, spawn: sp, mode: "idle", sleeping: false,
       stepEndsAt: 0, nextThinkAt: now, nextWanderAt: now, nextAttackAt: now, path: null, pathAt: 0,
-      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", damageBy: new Map(),
+      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", lastCreditId: "", damageBy: new Map(),
     };
     this.list.set(s.id, m);
     this.occ.set(y * this.W + x, m);
@@ -335,7 +350,7 @@ export class MonsterManager {
       s, def, spawn: sp, mode: "idle", sleeping: false,
       stepEndsAt: 0, nextThinkAt: now + Math.floor(this.rng() * 250), nextWanderAt: now + 2000 + this.rng() * 3000,
       nextAttackAt: 0, path: null, pathAt: 0, pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0,
-      lastAttackerId: "", damageBy: new Map(),
+      lastAttackerId: "", lastCreditId: "", damageBy: new Map(),
     };
     this.list.set(s.id, m);
     this.occ.set(t.y * this.W + t.x, m);
@@ -378,7 +393,7 @@ export class MonsterManager {
     const m: Monster = {
       s, def, spawn: { defId: def.id, x, y, count: 1, radius: 0 }, mode: "idle", sleeping: false,
       stepEndsAt: 0, nextThinkAt: now, nextWanderAt: now + 2000, nextAttackAt: now + 500, path: null, pathAt: 0,
-      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", damageBy: new Map(),
+      pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", lastCreditId: "", damageBy: new Map(),
       arenaId: o.arenaId, bounds: o.bounds, allow: o.allow, dmgMult: o.dmgMult ?? 1,
     };
     this.list.set(s.id, m);
@@ -435,7 +450,10 @@ export class MonsterManager {
    */
   onDamaged(m: Monster, attackerId: string, amount: number, now: number, creditId = attackerId): void {
     if (m.def.stationary) return; // boneco de treino: não revida, não dá crédito
-    if (amount > 0 && creditId) m.damageBy.set(creditId, (m.damageBy.get(creditId) ?? 0) + amount);
+    if (amount > 0 && creditId) {
+      m.damageBy.set(creditId, (m.damageBy.get(creditId) ?? 0) + amount);
+      m.lastCreditId = creditId;
+    }
     m.lastAttackerId = attackerId;
     m.sleeping = false;
     if (m.mode === "idle" || m.mode === "return" || ((m.mode === "chase" || m.mode === "flee") && !this.validTarget(m.s.targetId))) {

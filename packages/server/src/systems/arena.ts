@@ -5,7 +5,7 @@
 import {
   ARENA_COMPLETE_GOLD, ARENA_COMPLETE_XP_PCT, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_LOBBY_RANGE, ARENA_MAX_PARTY,
   ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, arenaPauseMs,
-  arenaWaveGold, arenaWaveSpawns, arenaWaveXp, findObjects, monsterDef, objectTile,
+  arenaWaveGold, arenaWaveSpawns, arenaWaveXp, findObjects, monsterDef, objectTile, partyMinLevel,
   type ArenaActionMsg, type ArenaLobbiesMsg, type ArenaLobbySummary, type ArenaPhase, type ArenaResultMsg,
   type ArenaSpawnSpec, type ArenaStateMsg, type FeedMsg, type MonsterDef, type NoticeMsg, type TiledMap,
 } from "@lemonquest/shared";
@@ -463,11 +463,18 @@ export class ArenaSystem {
     const wave = party.wave;
     party.cleared = wave;
     const alive = party.members.filter((m) => m.alive);
-    const xp = arenaWaveXp(party.spawns, alive.length);
+    const waveXp = arenaWaveXp(party.spawns, alive.length);
     const gold = arenaWaveGold(wave);
+    // Mesma faixa da XP compartilhada do grupo: quem está abaixo de 2/3 do maior level vivo ganha só o ouro (sem isso um
+    // level alto "carregava" personagens level 1 por ondas fáceis — as ondas escalam pela média).
+    const players = alive.map((m) => this.o.getPlayer(m.id)).filter((p): p is PlayerState => !!p);
+    const minLevel = partyMinLevel(Math.max(0, ...players.map((p) => p.level)));
+    const xpFor = new Map<string, number>();
     for (const m of alive) {
       const p = this.o.getPlayer(m.id);
       if (!p) continue;
+      const xp = p.level >= minLevel ? waveXp : 0;
+      xpFor.set(m.id, xp);
       m.cleared = wave;
       m.xp += xp;
       m.gold += gold;
@@ -483,7 +490,11 @@ export class ArenaSystem {
     party.phaseEndsAt = now + arenaPauseMs(wave);
     party.readyTriggered = false;
     for (const m of party.members) m.ready = false;
-    for (const m of alive) this.notice(m.id, `Onda ${wave} vencida! +${xp} XP, +${gold} de ouro.`, "good");
+    for (const m of alive) {
+      const xp = xpFor.get(m.id) ?? 0;
+      if (xp > 0 || waveXp <= 0) this.notice(m.id, `Onda ${wave} vencida! +${xp} XP, +${gold} de ouro.`, "good");
+      else this.notice(m.id, `Onda ${wave} vencida! +${gold} de ouro. Sem XP: level abaixo de ${minLevel} (2/3 do maior do grupo).`, "info");
+    }
     this.pushState(party);
   }
 

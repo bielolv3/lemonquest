@@ -6,7 +6,7 @@ import {
   type DamageKind, type NoticeMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
-import { cheb, isMonsterState, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
+import { cheb, isMonsterState, killCredit, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
 import { weaponSkill } from "./inventory.ts";
 
 /** Alvo mais longe que isso (fora da tela) é descartado. */
@@ -47,17 +47,19 @@ export type BonusLookup = (s: "melee" | "distance" | "magic" | "shield" | "crit"
 export function attackProfile(p: PlayerState, weapon?: ItemDef, bonus: BonusLookup = () => 0): AttackProfile {
   const va = VOCATION_ATTACK[p.vocation] ?? VOCATION_ATTACK.knight;
   const critPct = critChance(p.vocation, bonus("crit"));
-  if (!weapon) {
-    const s = attackSkillValue(p);
-    const eff = s === undefined || !Number.isFinite(s) ? undefined : s + bonus(weaponSkill(undefined, p.vocation));
-    return { range: va.range, kind: va.kind, ranged: va.ranged, damage: playerDamageRange(p.vocation, p.level, eff), critPct };
-  }
+  const s = attackSkillValue(p);
+  const eff = s === undefined || !Number.isFinite(s) ? undefined : s + bonus(weaponSkill(undefined, p.vocation));
+  const unarmed = playerDamageRange(p.vocation, p.level, eff);
+  if (!weapon) return { range: va.range, kind: va.kind, ranged: va.ranged, damage: unarmed, critPct };
   const sk = weaponSkill(weapon, p.vocation);
   const trained = skillValue(p, sk) ?? (sk === "magic" ? 0 : 10);
   const range = Math.max(1, weapon.range ?? va.range);
+  const armed = weaponDamageRange(bonus("attack"), trained + bonus(sk), p.level, sk === "magic");
+  // O dano desarmado cresce com level e skill: uma arma de tier abaixo do seu level batia MENOS que o punho (a arma
+  // inicial já perdia no level ~5). Arma nunca piora o dano — tirar a arma já dava esse valor; ela define alcance/tipo.
   return {
     range, kind: weapon.damageKind ?? va.kind, ranged: range > 1,
-    damage: weaponDamageRange(bonus("attack"), trained + bonus(sk), p.level, sk === "magic"),
+    damage: [Math.max(armed[0], unarmed[0]), Math.max(armed[1], unarmed[1])],
     critPct,
   };
 }
@@ -332,7 +334,7 @@ export class CombatSystem {
   private killMonster(m: Monster, now: number) {
     const { id, x, y, defId } = m.s;
     // Invocações e monstros do coliseu (recompensa por onda) não dão XP por abate.
-    const online = m.s.ownerId || m.arenaId ? [] : [...m.damageBy].filter(([pid]) => this.o.getPlayer(pid));
+    const online = m.s.ownerId || m.arenaId ? [] : killCredit(m, this.o.getPlayer);
     const byDamage = splitXp(m.def.xp, online);
     const shares = this.hooks.xpShares && byDamage.size ? this.hooks.xpShares(m, byDamage, now) : byDamage;
     if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
