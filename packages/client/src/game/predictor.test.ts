@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CollisionGrid, Dir, stepDuration } from "@lemonquest/shared";
-import { Predictor } from "./predictor.ts";
+import { CONFIRM_TIMEOUT_MAX_MS, CONFIRM_TIMEOUT_MS, Predictor } from "./predictor.ts";
 
 function grid(rows: string[]): CollisionGrid {
   const h = rows.length, w = rows[0].length;
@@ -70,6 +70,35 @@ describe("Predictor", () => {
     expect(p.checkStale(0, 0, 100)).toBe(false);
     expect(p.checkStale(0, 0, 1000)).toBe(true);
     expect([p.x, p.y]).toEqual([0, 0]);
+  });
+
+  it("timeout da confirmação acompanha a latência medida (LAN fica no mínimo; teto de 2 s)", () => {
+    const walk = (p: Predictor, lag: number, n: number) => {
+      let t = 0;
+      p.press(Dir.E);
+      for (let i = 0; i < n; i++) {
+        const e = p.update(t);
+        if (e?.kind === "step") expect(p.onServerPos(e.x, e.y, e.ms, t + lag).kind).toBe("confirmed");
+        t = p.stepEndsAt;
+        if (p.x >= 5) { p.reset(0, 0, Dir.E); p.stepEndsAt = t; }
+      }
+    };
+    const lan = make();
+    walk(lan, 60, 10);
+    expect(lan.confirmTimeoutMs).toBe(CONFIRM_TIMEOUT_MS);
+    const vpn = make();
+    walk(vpn, 600, 20);
+    expect(vpn.confirmTimeoutMs).toBeGreaterThan(1200);
+    expect(vpn.confirmTimeoutMs).toBeLessThanOrEqual(CONFIRM_TIMEOUT_MAX_MS);
+    // Com 600 ms de ida e volta, um passo ainda não confirmado em 1 s não é desfeito (antes: desfeito em 450 ms).
+    vpn.reset(0, 0, Dir.S);
+    vpn.press(Dir.S); vpn.release();
+    vpn.stepEndsAt = 0;
+    vpn.update(10_000);
+    expect(vpn.checkStale(0, 0, 11_000)).toBe(false);
+    const huge = make();
+    walk(huge, 5000, 20);
+    expect(huge.confirmTimeoutMs).toBe(CONFIRM_TIMEOUT_MAX_MS);
   });
 
   it("haste shortens the step; rooted (speedPct 0) only turns", () => {

@@ -23,8 +23,10 @@ export type Reconcile =
 
 interface Predicted { x: number; y: number; at: number; ms: number }
 
-/** Quanto esperar a confirmação de um passo previsto antes de desistir dele (LAN: ~100ms típicos). */
-const CONFIRM_TIMEOUT_MS = 450;
+/** Espera mínima pela confirmação de um passo previsto antes de desistir dele (LAN: ~100ms típicos). */
+export const CONFIRM_TIMEOUT_MS = 450;
+/** Teto da espera (latência muito alta: melhor corrigir do que andar "no escuro" por segundos). */
+export const CONFIRM_TIMEOUT_MAX_MS = 2000;
 
 export class Predictor {
   /** Posição prevista (após o último passo previsto). */
@@ -38,8 +40,18 @@ export class Predictor {
   held: Dir | null = null;
   pending: Dir | null = null;
   private queue: Predicted[] = [];
+  /** Média móvel do tempo previsão → confirmação (≈ ida e volta + tick). 0 = ainda sem amostra. */
+  private confirmAvgMs = 0;
 
   constructor(private readonly world: PredictWorld) {}
+
+  /**
+   * Quanto esperar a confirmação antes de desistir da previsão: o mínimo da LAN, ou o dobro da latência medida (+2 ticks)
+   * quando ela é maior — com timeout fixo, acima de ~450 ms de ida e volta TODO passo era desfeito (personagem "elástico").
+   */
+  get confirmTimeoutMs(): number {
+    return Math.min(CONFIRM_TIMEOUT_MAX_MS, Math.max(CONFIRM_TIMEOUT_MS, Math.round(this.confirmAvgMs * 2 + TICK_MS * 2)));
+  }
 
   get unconfirmed(): number { return this.queue.length; }
 
@@ -92,6 +104,8 @@ export class Predictor {
     }
     const i = this.queue.findIndex((p) => p.x === sx && p.y === sy);
     if (i >= 0) {
+      const sample = now - this.queue[i]!.at;
+      this.confirmAvgMs = this.confirmAvgMs === 0 ? sample : this.confirmAvgMs * 0.8 + sample * 0.2;
       this.queue.splice(0, i + 1);
       return { kind: "confirmed" };
     }
@@ -109,7 +123,7 @@ export class Predictor {
   /** Previsão mais antiga sem confirmação há tempo demais → volta para a posição do servidor. */
   checkStale(sx: number, sy: number, now: number): boolean {
     const head = this.queue[0];
-    if (!head || now - head.at < CONFIRM_TIMEOUT_MS) return false;
+    if (!head || now - head.at < this.confirmTimeoutMs) return false;
     this.diverge(sx, sy, now);
     return true;
   }
