@@ -57,6 +57,17 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | F | Heap do cliente em sessão com 10 bots | ✅ | plano (49,0 → 49,7 MB em 6 min) |
 | D | #28 Armas tier 3 (lv 15) à venda: Bento (todas), Velho Caçador (arco), Dona Marta (varinha/cajado) — antes não caíam de nenhum monstro para cavaleiro e feiticeiro | ✅ | unitários; levantamento de fontes por vocação/tier |
 
+### Ciclo 3 — depois da revisão independente
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| D | Crédito "só quem está perto" também em missões, conquistas de abate e abate em grupo (antes só XP/loot) | ✅ | `WorldRoom.test.ts` |
+| A | Quem fica no mundo ao sair em combate para de andar (como na queda) | ✅ | `WorldRoom.test.ts` |
+| A | `lastCreditId` zerado quando o monstro volta ao spawn | ✅ | unitários |
+| E | Predição: amostra de confirmação limitada a 1 s | ✅ | `predictor.test.ts` |
+| C | Login: chamadas da API com timeout de 15 s (servidor travado não deixa "Carregando personagens…" para sempre) | ✅ | typecheck + E2E |
+| F | E2E: conferências sem `poll` logo após ações (chão/mochila) e canto livre de jogadores/itens que sobraram | ✅ | 25/25 |
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |

@@ -15,11 +15,14 @@
 - Nomes e números do mundo ficam nítidos ao arrastar a janela para um monitor com outra escala.
 
 ### Engenharia
+- Login: se o servidor não responder em 15 s, aparece "Não foi possível conectar ao servidor." (antes ficava em
+  "Carregando personagens…" para sempre).
 - Hover do mouse sem alocação por frame; cursor só é escrito quando muda.
 - Testes E2E do Coliseu e do grupo sem corridas com a pausa e com alvos abatidos por outros jogadores.
 - Heap do cliente medido com 10 bots: estável (~49–50 MB).
 
 ### Jogabilidade
+- Quem bateu num monstro e foi para longe também não conta mais o abate em missões e conquistas (mesma regra da XP).
 - Sair do jogo de propósito no meio de uma luta não salva mais da morte: o personagem fica 20 s no mundo, igual a uma
   queda de conexão (fechar a aba já funcionava assim).
 - Armas de tier 3 (level 15) agora são vendidas: Bento (todas as vocações), Velho Caçador (Arco Longo) e Dona Marta
