@@ -21,7 +21,7 @@
 
 ### Jogabilidade
 - Armas de tier 3 (level 15) agora são vendidas: Bento (todas as vocações), Velho Caçador (Arco Longo) e Dona Marta
-  (Varinha da Tempestade, Cajado de Gelo). Antes cavaleiros e feiticeiros não tinham de onde tirar arma de tier 3.
+  (Varinha da Tempestade, Bastão de Gelo). Antes cavaleiros e feiticeiros não tinham de onde tirar arma de tier 3.
 
 ## [Não lançado] — 2026-10-14 · ciclo 2
 
