@@ -46,6 +46,10 @@ test("atacar e matar um monstro na floresta", async ({ page }) => {
 test("magia na tecla 1 (cura) gasta mana e entra em recarga", async ({ page }) => {
   await enterGame(page, "druid");
   await setLevel(page, 20);
+  // Fora da vila: lá a regen de mana por tique (66 no lv 20) cobre a Cura (50) e, se cair no mesmo tick, o gasto nem
+  // aparece no estado. Na floresta a regen é 22.
+  const spot = (await walkableNear(page, FOREST.x, FOREST.y, 4))[0]!;
+  await teleport(page, spot.x, spot.y);
   const slot = page.locator(".action-slot").first();
   await expect(slot).toHaveClass(/filled/);
   const mana0 = (await meState(page))!.mana as number;
