@@ -51,8 +51,8 @@ describe("itemInfo: dano da arma no balão", () => {
     const eq = { weapon: mk("short_sword") };
     const d = weaponDamage(itemDef("longsword"), mk("longsword"), me, eq, itemDef)!;
     const skills = { melee: 25, distance: 10, magic: 0 };
-    expect(d.with).toEqual(autoAttackRange("knight", 20, skills, itemDef("longsword"), (s) => (s === "attack" ? 22 : 0)));
-    expect(d.now).toEqual(autoAttackRange("knight", 20, skills, itemDef("short_sword"), (s) => (s === "attack" ? 9 : 0)));
+    expect(d.with).toEqual(autoAttackRange("knight", 20, skills, itemDef("longsword"), (s) => (s === "attack" ? itemDef("longsword")!.stats!.attack! : 0)));
+    expect(d.now).toEqual(autoAttackRange("knight", 20, skills, itemDef("short_sword"), (s) => (s === "attack" ? itemDef("short_sword")!.stats!.attack! : 0)));
     expect(d.with[0] + d.with[1]).toBeGreaterThan(d.now[0] + d.now[1]);
     expect(d.likeFists).toBe(false);
     // Espada Curta no level 60: não supera o punho.

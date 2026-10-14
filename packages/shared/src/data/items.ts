@@ -214,8 +214,9 @@ const weapon = (id: string, name: string, wt: WeaponType, voc: Vocation, icon: I
 const W = "Weapons/";
 
 // Cavaleiro (corpo a corpo). T1 lv1, T2 lv8, T3 lv15, T4 lv25, T5 lv35.
-weapon("short_sword", "Espada Curta", "sword", "knight", img(W + "Sword/Sprite.png"), 1, 9, 60, "Lâmina simples de treino.");
-weapon("wooden_club", "Clava de Madeira", "club", "knight", img(W + "Club/Sprite.png"), 1, 8, 45, "Pesada e barata.");
+// T1 com ataque um pouco maior: com o punho crescendo devagar, a arma inicial ainda vale até o tier 2 (lv 8).
+weapon("short_sword", "Espada Curta", "sword", "knight", img(W + "Sword/Sprite.png"), 1, 11, 60, "Lâmina simples de treino.");
+weapon("wooden_club", "Clava de Madeira", "club", "knight", img(W + "Club/Sprite.png"), 1, 10, 45, "Pesada e barata.");
 weapon("longsword", "Espada Longa", "sword", "knight", img(W + "Sword2/Sprite.png"), 2, 22, 700, "Equilibrada e confiável.");
 weapon("hand_axe", "Machado de Mão", "axe", "knight", img(W + "Axe/Sprite.png"), 2, 24, 750, "Corta fundo, mas é lento de manejar.");
 weapon("iron_sword", "Espada de Ferro", "sword", "knight", img(W + "Rapier/Sprite.png", 0xb8c0d0), 3, 36, 3000, "Forjada em ferro de boa qualidade.", { stats: { melee: 1 } });
@@ -227,7 +228,7 @@ weapon("dragon_axe", "Machado do Dragão", "axe", "knight", img(W + "Axe/Sprite.
 
 // Paladino (arcos, alcance 6, físico, duas mãos).
 const BOW = { range: 6, twoHanded: true } as const;
-weapon("short_bow", "Arco Curto", "bow", "paladin", img(W + "Bow/Sprite.png"), 1, 8, 70, "Arco de madeira para iniciantes.", BOW);
+weapon("short_bow", "Arco Curto", "bow", "paladin", img(W + "Bow/Sprite.png"), 1, 9, 70, "Arco de madeira para iniciantes.", BOW);
 weapon("hunting_bow", "Arco de Caça", "bow", "paladin", img(W + "Bow2/Sprite.png"), 2, 19, 700, "Silencioso e preciso.", BOW);
 weapon("long_bow", "Arco Longo", "bow", "paladin", img(W + "Bow/Sprite.png", 0xd0b070), 3, 32, 3000, "Alcança longe com força.", { ...BOW, stats: { distance: 1 } });
 weapon("composite_bow", "Arco Composto", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xb0c0d8), 4, 46, 11000, "Chifre, madeira e tendão.", { ...BOW, stats: { distance: 2 } });
@@ -235,14 +236,14 @@ weapon("elven_bow", "Arco Élfico", "bow", "paladin", img(W + "Bow2/Sprite.png",
 
 // Feiticeiro (varinhas, alcance 4, energia/fogo).
 const WAND = { range: 4 } as const;
-weapon("apprentice_wand", "Varinha de Aprendiz", "wand", "sorcerer", img(W + "MagicWand/Sprite.png"), 1, 6, 70, "Faísca fraca, mas é um começo.", { ...WAND, kind: "energy" });
+weapon("apprentice_wand", "Varinha de Aprendiz", "wand", "sorcerer", img(W + "MagicWand/Sprite.png"), 1, 7, 70, "Faísca fraca, mas é um começo.", { ...WAND, kind: "energy" });
 weapon("oak_wand", "Varinha de Carvalho", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xd0a060), 2, 15, 700, "Crepita de energia.", { ...WAND, kind: "energy", stats: { magic: 1 } });
 weapon("storm_wand", "Varinha da Tempestade", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0x80b8ff), 3, 25, 3000, "Raios curtos e nervosos.", { ...WAND, kind: "energy", stats: { magic: 1 } });
 weapon("ember_wand", "Varinha Flamejante", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff8040), 4, 38, 11000, "Quente ao toque.", { ...WAND, kind: "fire", stats: { magic: 2, manaMax: 40 } });
 weapon("inferno_wand", "Varinha do Inferno", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff3030), 5, 52, 38000, "Guarda uma chama que não morre.", { ...WAND, kind: "fire", stats: { magic: 3, manaMax: 80 } });
 
 // Druida (bastões, alcance 4, gelo/terra).
-weapon("twig_rod", "Graveto Encantado", "rod", "druid", img(W + "Stick/Sprite.png"), 1, 6, 70, "Um graveto que ainda lembra da floresta.", { ...WAND, kind: "ice" });
+weapon("twig_rod", "Graveto Encantado", "rod", "druid", img(W + "Stick/Sprite.png"), 1, 7, 70, "Um graveto que ainda lembra da floresta.", { ...WAND, kind: "ice" });
 weapon("thorn_rod", "Bastão de Espinhos", "rod", "druid", img(W + "Stick/Sprite.png", 0x70c060), 2, 15, 700, "Espinhos que pulsam com a terra.", { ...WAND, kind: "earth", stats: { magic: 1 } });
 weapon("frost_rod", "Bastão de Gelo", "rod", "druid", img(W + "Stick/Sprite.png", 0x90d8ff), 3, 25, 3000, "Cristais de gelo no topo.", { ...WAND, kind: "ice", stats: { magic: 1 } });
 weapon("moss_rod", "Bastão do Pântano", "rod", "druid", img(W + "Stick/Sprite.png", 0x50a070), 4, 38, 11000, "Cheira a terra úmida.", { ...WAND, kind: "earth", stats: { magic: 2, manaMax: 40 } });
