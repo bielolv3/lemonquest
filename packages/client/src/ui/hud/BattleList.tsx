@@ -33,11 +33,14 @@ export function BattleRows({ entries }: { entries: BattleEntry[] }) {
               style={e.color ? ({ "--row-accent": e.color } as any) : undefined}
               onClick={() => toggleTarget({ id: e.id, kind: e.kind })}
               data-tip={e.name}
-              data-tip-sub={`${e.kind === "player" ? "Jogador" : "Criatura"} · ${e.distance} sqm · ${e.hpPct}% HP`}
+              data-tip-sub={`${e.kind === "player" ? "Jogador" : `Criatura${e.difficulty ? ` ${e.difficulty}` : ""}`} · ${e.distance} sqm · ${e.hpPct}% HP`}
             >
               <span class="battle-mark" aria-hidden="true" />
               <span class="battle-main">
-                <span class="battle-name">{e.name}</span>
+                <span class="battle-name">
+                  {(e.difficulty === "perigosa" || e.difficulty === "chefe") && <span class="battle-danger" aria-label={e.difficulty}>! </span>}
+                  {e.name}
+                </span>
                 <span class="battle-hp">
                   <span style={{ width: `${e.hpPct}%`, background: hpColor(e.hpPct) }} />
                 </span>

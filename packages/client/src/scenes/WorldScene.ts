@@ -9,7 +9,7 @@ import {
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
-import { allCreatureSheets, creatureVisual, levelColor, sheetTrim } from "../game/creatures.ts";
+import { allCreatureSheets, creatureVisual, levelColor, levelDifficulty, sheetTrim } from "../game/creatures.ts";
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
@@ -887,14 +887,17 @@ export class WorldScene extends Phaser.Scene {
     const me = this.actors.get(this.myId);
     if (!me) return;
     const list: BattleEntry[] = [];
-    let sig = "";
+    let sig = `${this.myLevel};`; // level do jogador muda a cor/dificuldade das criaturas
     for (const [id, i] of this.creatureInfo) {
       const k = this.creatureKnown.get(id);
       if (!k || this.dying.has(id)) continue;
       const d = chebyshev(k.x, k.y, me.tileX, me.tileY);
       if (d > BATTLE_RANGE) continue;
       const pct = hpPct(i.hp, i.maxHp);
-      list.push({ id, name: i.name, hpPct: pct, kind: "monster", distance: d, color: levelColor(i.level, this.myLevel, i.boss) });
+      list.push({
+        id, name: i.name, hpPct: pct, kind: "monster", distance: d,
+        color: levelColor(i.level, this.myLevel, i.boss), difficulty: levelDifficulty(i.level, this.myLevel, i.boss),
+      });
       sig += `${id}:${pct}:${d};`;
     }
     if (sig === this.battleSig) return;

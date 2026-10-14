@@ -60,14 +60,25 @@ export function allCreatureSheets(): CharacterSheet[] {
   return [...sheets.values()];
 }
 
-/** Cor do nome conforme a diferença de level entre a criatura e o jogador local. */
-export function levelColor(monsterLevel: number, myLevel: number, boss: boolean): string {
-  if (boss) return "#ff9a3c";
+export type Difficulty = "fraca" | "normal" | "difícil" | "perigosa" | "chefe";
+
+/** Dificuldade conforme a diferença de level entre a criatura e o jogador local (mesmas faixas da cor). */
+export function levelDifficulty(monsterLevel: number, myLevel: number, boss: boolean): Difficulty {
+  if (boss) return "chefe";
   const d = monsterLevel - myLevel;
-  if (d <= -5) return "#9aa0ad";
-  if (d <= 2) return "#ffffff";
-  if (d <= 6) return "#ffe066";
-  return "#ff6b5e";
+  if (d <= -5) return "fraca";
+  if (d <= 2) return "normal";
+  if (d <= 6) return "difícil";
+  return "perigosa";
+}
+
+const DIFFICULTY_COLOR: Record<Difficulty, string> = {
+  fraca: "#9aa0ad", normal: "#ffffff", difícil: "#ffe066", perigosa: "#ff6b5e", chefe: "#ff9a3c",
+};
+
+/** Cor do nome conforme a dificuldade (a lista de batalha também diz em texto — não depender só da cor). */
+export function levelColor(monsterLevel: number, myLevel: number, boss: boolean): string {
+  return DIFFICULTY_COLOR[levelDifficulty(monsterLevel, myLevel, boss)];
 }
 
 export interface SheetTrim { top: number; bottom: number }

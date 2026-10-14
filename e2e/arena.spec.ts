@@ -102,6 +102,10 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
     return best;
   }, [pos.x, pos.y] as const);
   expect(shop).not.toBeNull();
+  // Perto do vendedor (/tp): o teste é a loja abrir na pausa, não o caminho até ela — andando, com a CPU ocupada,
+  // a pausa de 25 s às vezes acabava antes de chegar.
+  const nearShop = (await walkableNear(page, shop!.x, shop!.y + 2, 2)).find((t) => t.x !== shop!.x || t.y !== shop!.y);
+  if (nearShop) await teleport(page, nearShop.x, nearShop.y);
   const npcWin = page.locator(".npc-window");
   await expect.poll(async () => {
     if (await npcWin.isVisible()) return true;

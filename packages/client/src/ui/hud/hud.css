@@ -269,6 +269,7 @@
 .battle-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .battle-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d9d7cc; }
 .battle-row.selected .battle-name { color: #fff; }
+.battle-danger { color: #ff6b5e; font-weight: 700; }
 .battle-hp { height: 3px; border-radius: 2px; background: #07080c; overflow: hidden; }
 .battle-hp > span { display: block; height: 100%; transition: width 200ms var(--hud-ease), background-color 200ms; }
 .battle-dist { flex: none; font-size: 10px; color: var(--hud-faint); font-variant-numeric: tabular-nums; }

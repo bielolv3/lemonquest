@@ -14,6 +14,8 @@ export interface BattleEntry {
   distance: number;
   /** Cor de destaque opcional (ex.: vocação). */
   color?: string;
+  /** Criatura: dificuldade em texto (a cor do nome sozinha não serve para quem não distingue cores). */
+  difficulty?: string;
 }
 
 /** Posição genérica de algo no mapa, para quem publica entradas a partir do estado. */
