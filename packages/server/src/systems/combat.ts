@@ -55,13 +55,9 @@ export function attackProfile(p: PlayerState, weapon?: ItemDef, bonus: BonusLook
   const trained = skillValue(p, sk) ?? (sk === "magic" ? 0 : 10);
   const range = Math.max(1, weapon.range ?? va.range);
   const armed = weaponDamageRange(bonus("attack"), trained + bonus(sk), p.level, sk === "magic");
-  // O dano desarmado cresce com level e skill: uma arma de tier abaixo do seu level batia MENOS que o punho (a arma
-  // inicial já perdia no level ~5). Arma nunca piora o dano — tirar a arma já dava esse valor; ela define alcance/tipo.
-  return {
-    range, kind: weapon.damageKind ?? va.kind, ranged: range > 1,
-    damage: [Math.max(armed[0], unarmed[0]), Math.max(armed[1], unarmed[1])],
-    critPct,
-  };
+  // Arma nunca piora o dano (tirar a arma já dava o do punho): vale a faixa com a maior média; a arma define alcance/tipo.
+  const better = armed[0] + armed[1] >= unarmed[0] + unarmed[1] ? armed : unarmed;
+  return { range, kind: weapon.damageKind ?? va.kind, ranged: range > 1, damage: better, critPct };
 }
 
 /** Valor da skill que conta no ataque básico (undefined = multiplicador 1, ex.: jogadores de teste sem skills). */

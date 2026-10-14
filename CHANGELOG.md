@@ -9,6 +9,9 @@
 - Loot vai para quem mais bateu **e está perto** (12 tiles); quem bateu e foi embora não leva. A XP do abate também é
   dividida só entre quem está perto.
 - Arma nunca dá menos dano que lutar desarmado (antes uma arma abaixo do seu tier batia menos que o punho).
+- **Balanço:** o dano desarmado cresce bem mais devagar com o level (cerca de metade). Arma do seu tier bate 1,5–2,5×
+  o punho; quem joga equipado fica no mesmo patamar de antes. Quem lutava sem arma deve comprar uma (o Bento vende
+  tier 1 e 2) ou usar a do loot.
 
 ### Acessibilidade
 - Foco por teclado visível em botões, links, selects e checkboxes.

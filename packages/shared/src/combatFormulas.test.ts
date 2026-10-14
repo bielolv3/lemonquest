@@ -17,7 +17,7 @@ function seeded(seed: number) {
 
 describe("combat formulas", () => {
   it("damage range scales with vocation and level (knight > paladin > mages)", () => {
-    expect(playerDamageRange("knight", 1)).toEqual([5, 10]);
+    expect(playerDamageRange("knight", 1)).toEqual([5, 9]);
     const at = (lvl: number) => VOCATIONS.map((v) => playerDamageRange(v, lvl)[1]);
     const [k, p, s, d] = at(20);
     expect(k).toBeGreaterThan(p);

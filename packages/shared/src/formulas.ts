@@ -96,11 +96,17 @@ export const VOCATION_ATTACK: Record<Vocation, VocationAttack> = {
   druid: { range: 4, kind: "ice", ranged: true, canCrit: false },
 };
 
+/**
+ * Dano DESARMADO por vocação. Cresce devagar de propósito: a arma do seu tier bate ~1,5–2,5× o punho e a de um tier
+ * atrás ainda bate mais que ele (antes, com perLevel 1,6/1,4/1,1, o punho alcançava a melhor arma no level 50 e arma
+ * de tier baixo batia menos que lutar sem nada). O dano do jogador equipado ficou no patamar em que o Coliseu foi
+ * calibrado (ver `estimate` em arena.test.ts).
+ */
 const VOC_DAMAGE: Record<Vocation, { base: number; perLevel: number }> = {
-  knight: { base: 6, perLevel: 1.6 },
-  paladin: { base: 5, perLevel: 1.4 },
-  sorcerer: { base: 4, perLevel: 1.1 },
-  druid: { base: 4, perLevel: 1.1 },
+  knight: { base: 6, perLevel: 0.85 },
+  paladin: { base: 5, perLevel: 0.75 },
+  sorcerer: { base: 4, perLevel: 0.6 },
+  druid: { base: 4, perLevel: 0.6 },
 };
 
 /**
