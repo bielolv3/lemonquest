@@ -22,6 +22,10 @@
 - Heap do cliente medido com 10 bots: estável (~49–50 MB).
 
 ### Jogabilidade
+- Personagem novo vê um cartão de **primeiros passos** (andar, atacar, primeira missão, atalhos); some ao fechar ou
+  no primeiro abate.
+- Armas de tier 1 um pouco mais fortes (Espada Curta 11, Clava 10, Arco Curto 9, varinha/graveto 7): a arma inicial
+  continua melhor que o punho até o tier 2.
 - Quem bateu num monstro e foi para longe também não conta mais o abate em missões e conquistas (mesma regra da XP).
 - Sair do jogo de propósito no meio de uma luta não salva mais da morte: o personagem fica 20 s no mundo, igual a uma
   queda de conexão (fechar a aba já funcionava assim).

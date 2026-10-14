@@ -80,7 +80,12 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 
 | Item | Opções |
 |---|---|
-| _Design: nenhuma pendente._ Configuração de produção: | |
+| #29 Lobo para magos (faixa 5–10) | dano [8,18]→[6,15] e vida 90→80 (mesma XP): mago 104 → 72 s por lobo |
+| #30 Magia de dano do druida no lv 1 | espelhar a Bola de Fogo: 8 de mana, 2 s, gelo, 11 + 0,6×lv + 2,5×ML |
+| #31 Ouro sem destino no lv 25+ | vender tier 4 no Bento (11–13 mil: ~1–2 h de jogo) **ou** manter tier 4–5 como recompensa e criar outro gasto |
+| #32 Fim de jogo (lv 40+) | mais spawns de espírito de chama (3 → ~8) ou um monstro lv 45–48 (~650 vida, ~850 XP) |
+| #33 Magos no lv 25+ | vida por level de feiticeiro/druida 5 → 7 (lv 30: 295 → 353); conjunto tier 3 para paladino |
+| Configuração de produção: | |
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
 

@@ -78,6 +78,33 @@ Legenda: **C** = confirmado (código lido e/ou reproduzido) · **H** = hipótese
 
 | 28 | **P2** Armas de tier 3 inacessíveis para cavaleiro e feiticeiro (nem loja nem monstro); tier 4 só para cavaleiro (goblin 1,2%). Única outra fonte: baú diário (15% de equipamento, sorteado entre todas as peças da faixa) | C — levantamento de `MONSTERS.loot` × lojas dos NPCs × `chestGearPool` | Depois do rebalanço do punho, ficar preso no tier 2 entre os levels 15 e 35. **Ciclo 3:** tier 3 passou a ser vendido (Bento + lojas da vocação); tiers 4–5 seguem como recompensa de loot/baú/chefe |
 
+### Análise quantitativa de balanço (ciclo 3)
+
+Scripts com os dados e fórmulas reais (`autoAttackRange`, `mitigate`, regen, preços), só auto-ataque, sem kiting,
+skill 10/20/30/45/60 nos levels 1/8/15/25/35; "ideal" = um jogador sem disputa de spawn (realista ≈ 40–50%).
+
+| Faixa | Alvos | h/level ideal (cav. / pal. / feit.) |
+|---|---|---|
+| 1–5 | rato, gosma, abelha | 0,09 / 0,09 / 0,12 |
+| **5–10** | abelha, lobo, cobra | **0,26 / 0,35 / 0,33–0,52** (2,5–3× a faixa anterior) |
+| 10–15 | cobra, aranha, morcego | 0,14 / 0,17 / 0,33 |
+| 15–25 | aranha, esqueleto, goblin | 0,16 / 0,19 / 0,32 |
+| 25–35 | goblin, fantasma, homem-lagarto | 0,12–0,21 / 0,14–0,29 / 0,29–0,56 |
+| 35–50 | só espírito de chama | 0,10–0,19 / 0,16–0,26 / 0,27–0,54 |
+
+- Missões: 1,2–2,2 levels de XP cada (chefes no topo) — coerente. Ouro de 30 a 15 000, escala sensata.
+- Economia no lv 15: ~4 mil de ouro/h realista → arma tier 3 em ~45–60 min. No lv 25 o ouro sobra (nada de tier 4–5 à venda).
+- Perigo: nenhum monstro mata em 2–3 golpes um jogador do mesmo level; os dois chefes estão calibrados para 3–4 jogadores.
+- Rebalanço do punho: cada tier de arma supera o punho até ~15 levels depois de liberar; o tier 1 empatava cedo (lv 7) — **corrigido** (+1/+2 de ataque).
+
+| # | Achado | Status |
+|---|---|---|
+| 29 | Faixa 5–10 lenta (tier 1 empatava com o punho no lv 7; lobo pesado para magos) | arma tier 1 ✅; lobo 🧭 |
+| 30 | Druida sem magia de dano barata no início (feiticeiro tem Bola de Fogo) | 🧭 |
+| 31 | Sem destino para o ouro depois do tier 3 (tier 4–5 não vendidos) | 🧭 |
+| 32 | Sem conteúdo acima do lv 40 (só 3 spawns de espírito de chama) | 🧭 |
+| 33 | Magos frágeis em corpo a corpo no lv 25+; paladino sem armadura tier 3 | 🧭 |
+
 ### Não confirmado
 
 - **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.
