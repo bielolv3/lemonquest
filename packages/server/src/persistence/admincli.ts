@@ -1,6 +1,6 @@
 // Ferramenta de linha de comando do dono do servidor (quando nenhum admin está online).
 //   npm run admin -- reset-password <conta>
-//   Docker: docker compose exec -u node lemonquest node --import tsx scripts/admin.ts reset-password <conta>
+//   Docker: docker compose exec -u node lemonquest node packages/server/dist/admin.mjs reset-password <conta>
 // Abre a base em LEMONQUEST_DB (ou data/lemonquest.db). Pode rodar com o servidor ligado (SQLite WAL + busy_timeout).
 import { closeDb, initDb, listDeletedCharacters } from "./db.ts";
 import { createResetCode, formatResetCode } from "./auth.ts";

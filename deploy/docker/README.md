@@ -177,7 +177,7 @@ chat: `/online`, `/kick <nome> [motivo]`, `/mute <nome> <minutos>`, `/unmute <no
 `docker compose logs | grep "\[admin\]"`.
 
 **Recuperar a senha de alguém sem admin online** (o container precisa estar rodando; o diretório de trabalho da imagem
-é `/app/packages/server` e o banco é o de `LEMONQUEST_DB=/app/data/lemonquest.db`):
+é `/app` e o banco é o de `LEMONQUEST_DB=/app/data/lemonquest.db`):
 
 ```bash
 docker compose exec -u node lemonquest node packages/server/dist/admin.mjs reset-password <conta>
