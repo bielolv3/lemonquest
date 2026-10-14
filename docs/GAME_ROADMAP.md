@@ -53,13 +53,14 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | E | Hover: vetor reaproveitado e cursor só escrito quando muda (rodava a cada frame) | ✅ | typecheck + E2E |
 | F | Teste estatístico de dano: 160 mil `expect()` estouravam o tempo limite com CPU ocupada → conta violações | ✅ | arquivo em < 1 s |
 | F | Docs do Docker: comando do admin e diretório de trabalho (`/app`) conferidos na imagem | ✅ | `docker run … node packages/server/dist/admin.mjs` |
+| C | Acessibilidade: dificuldade da criatura em texto (dica da lista de batalha) e "!" para perigosa/chefe | ✅ | captura conferida |
+| F | Heap do cliente em sessão com 10 bots | ✅ | plano (49,0 → 49,7 MB em 6 min) |
 
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |
 |---|---|---|---|
-| F | FPS/heap do **cliente** numa sessão longa com vários jogadores | ⏳ | o servidor já foi medido (ciclo 2); no cliente headless sem GPU o FPS não é confiável — medir num PC do escritório |
-| C | Acessibilidade: dificuldade da criatura além da cor do nome | ⏳ | foco visível já feito (ciclo 2) |
+| F | FPS do **cliente** numa sessão longa com vários jogadores | ⏳ | heap já medido (plano); FPS headless sem GPU não é confiável — medir num PC do escritório |
 | E | #13 Timeout da predição baseado no RTT medido | ⏳ | baixo valor na LAN |
 | A | #11 Saída voluntária em combate: manter o personagem ~6 s no mundo | ⏳ adiado | só cliente modificado chama `leave()`; fechar a aba já deixa o personagem 20 s no mundo. Atrasar a limpeza cria corrida com relogin — fazer só com teste dedicado |
 

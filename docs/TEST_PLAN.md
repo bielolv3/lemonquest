@@ -53,6 +53,19 @@ Verificações manuais feitas no navegador (servidor isolado):
 Achado de balanço (#27) medido com as fórmulas: cavaleiro lv 15 / skill 30 bate 48 desarmado, 21 com a Espada Curta e 45
 com a Espada Longa; depois do ajuste, a arma nunca fica abaixo do punho.
 
+## Resultados — ciclo 3 (2026-10-14)
+
+| Verificação | Resultado |
+|---|---|
+| Unitários | 486/486 |
+| E2E | 25/25; Coliseu 6/6 em repetição após os ajustes de corrida (mira com espera curta, `/tp` até o vendedor) |
+| Heap do cliente (Chromium headless, GC forçado a cada 30 s, 10 bots andando/lutando/falando, 6 min) | **plano: 49,0 → 49,7 MB**; DOM sobe de 365 para ~660 e para (linhas do chat no teto de 80 por aba) |
+| Troca de monitor (DPR 1 → 2, emulação CDP) | 151/151 textos do mundo na nova resolução |
+| Capturas 1280×720 / 1366×768 / 1440×900 / 1920×1080 | coluna lateral cabe até a mochila (720p: mochila recolhida por padrão, como antes; faixa "▾" indica o resto) |
+
+Uma primeira medição de 10 min foi descartada: o computador entrou em suspensão no meio (passo com "ida e volta"
+de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do servidor).
+
 ## Instabilidade conhecida do E2E (investigada)
 
 `arena.spec.ts` falhava de vez em quando com a máquina carregada: o toast "Onda N vencida" dura 3 s e a faixa
@@ -64,6 +77,6 @@ que aparece. Depois: 12/12 (`--repeat-each=4`).
 ## Pendente / exige avaliação manual
 
 - **Áudio** da atenuação por distância (efeitos de terceiros): ouvir em sessão real com 2+ jogadores.
-- **Desempenho do cliente**: FPS e heap numa sessão de 30+ min com vários jogadores (num PC com GPU).
+- **FPS do cliente** numa sessão de 30+ min com vários jogadores (num PC com GPU; o heap já foi medido, ciclo 3).
 - **Proxy**: `LEMONQUEST_TRUST_PROXY` atrás do Caddy real com a 2567 fechada.
 - Celular/toque: não suportado (fora do escopo, ver roadmap).
