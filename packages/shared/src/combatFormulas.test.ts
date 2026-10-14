@@ -31,14 +31,17 @@ describe("combat formulas", () => {
     for (const v of VOCATIONS) {
       const [min, max] = playerDamageRange(v, 10);
       let miss = 0, crit = 0;
+      const bad: string[] = [];
       const N = 20_000;
+      // Conta as violações e confere uma vez no fim: 160 mil expect() no laço passavam do tempo limite com a CPU ocupada.
       for (let i = 0; i < N; i++) {
         const r = playerAttackDamage(v, 10, rng);
-        if (r.miss) { miss++; expect(r.amount).toBe(0); continue; }
+        if (r.miss) { miss++; if (r.amount !== 0) bad.push(`errou com ${r.amount}`); continue; }
         if (r.crit) crit++;
-        expect(r.amount).toBeGreaterThanOrEqual(min);
-        expect(r.amount).toBeLessThanOrEqual(r.crit ? Math.round(max * 1.5) : max);
+        const hi = r.crit ? Math.round(max * 1.5) : max;
+        if (r.amount < min || r.amount > hi) bad.push(`${r.amount} fora de [${min}, ${hi}]`);
       }
+      expect(bad.slice(0, 5), v).toEqual([]);
       expect(miss / N).toBeGreaterThan(0.035);
       expect(miss / N).toBeLessThan(0.065);
       if (v === "knight" || v === "paladin") expect(crit / N).toBeGreaterThan(0.05);

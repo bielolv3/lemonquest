@@ -4,6 +4,7 @@ import { BASE_STEP_MS, TILE_SIZE, type Dir, type Facing } from "@lemonquest/shar
 import { dirToFacing } from "./facing.ts";
 import { ADDON_ORIGIN_Y, walkAnimKey, type CharacterLook } from "./sprites.ts";
 import { TEX } from "./textures.ts";
+import { textRes } from "./textRes.ts";
 
 interface Segment {
   fx: number; fy: number; // px (canto superior esquerdo do tile)
@@ -146,7 +147,7 @@ export class Actor {
       color: (this.baseNameColor = opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff")),
       stroke: "#101018",
       strokeThickness: opts.fontSize && opts.fontSize < 11 ? 2 : 3,
-      resolution: Math.max(1, Math.ceil(window.devicePixelRatio || 1)),
+      resolution: textRes(),
     }).setOrigin(0.5, 1);
     deps.uiLayer.add(this.label);
 

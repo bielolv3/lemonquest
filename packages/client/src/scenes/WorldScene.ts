@@ -21,6 +21,7 @@ import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
 import { KeyboardInput } from "../game/input.ts";
+import { applyTextRes, onTextResChange, sceneTexts } from "../game/textRes.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
 import { sfx, type SfxName } from "../game/sfx.ts";
@@ -228,6 +229,8 @@ export class WorldScene extends Phaser.Scene {
     this.butterflies = new Butterflies(this, this.worldLayer, homes);
     this.setupPointer();
     this.disposers.push(subscribeTarget((t) => this.onStoreTarget(t)));
+    // Janela foi para um monitor com outra escala: textos existentes na nova resolução (os novos já nascem nela).
+    this.disposers.push(onTextResChange((r) => applyTextRes(this, r)));
 
     this.disposers.push(session.onRoom((room) => this.bindRoom(room)));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
@@ -793,6 +796,7 @@ export class WorldScene extends Phaser.Scene {
         .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),
       ground: () => this.ground?.all() ?? [],
       target: () => this.curTarget,
+      textResolutions: () => sceneTexts(this).reduce<Record<string, number>>((acc, t) => { acc[t.style.resolution] = (acc[t.style.resolution] ?? 0) + 1; return acc; }, {}),
       walkable: (x: number, y: number) => this.world.grid.isWalkable(x, y),
       statues: () => this.statues.list.map((s) => ({ id: s.id, x: s.x, y: s.y })),
       npcTile: (id: string) => this.npcs.tileOf(id),

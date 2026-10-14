@@ -7,6 +7,7 @@ import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
 import { inventoryStore } from "../ui/items/inventory.ts";
 import { meStore } from "../ui/hud/world.ts";
 import { selectStore } from "../ui/hud/store.ts";
+import { textRes } from "./textRes.ts";
 
 /** Cor do marcador de missão: "!" disponível e "?" pronta em amarelo; "?" em andamento em cinza. */
 const MARKER_STYLE: Record<Exclude<NpcMarker, null>, { text: string; color: string }> = {
@@ -88,7 +89,7 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
 export class NpcManager {
   private npcs = new Map<string, Npc>();
-  private readonly res = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
+  private get res() { return textRes(); }
   private readonly offs: (() => void)[] = [];
   private markerTime = 0;
 

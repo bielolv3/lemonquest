@@ -5,6 +5,7 @@ import Phaser from "phaser";
 import { RARITIES, RARITY_COLOR, TILE_SIZE, itemDef, type GroundItemView, type ItemInstance, type Rarity } from "@lemonquest/shared";
 import { ensureItemIcon, itemIconKey } from "./lootFx.ts";
 import { TEX } from "./textures.ts";
+import { textRes } from "./textRes.ts";
 
 /** Abaixo do quadrado de hover (5) e dos atores (≥ 26); acima do chão (< 0). */
 const DEPTH = 3;
@@ -48,7 +49,7 @@ export class GroundItems {
     this.label = scene.add.text(0, 0, "", {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "11px", fontStyle: "bold",
       color: "#ffffff", stroke: "#101018", strokeThickness: 3,
-      resolution: Math.max(1, Math.ceil(window.devicePixelRatio || 1)),
+      resolution: textRes(),
     }).setOrigin(0.5, 1).setVisible(false);
     uiLayer.add(this.label);
   }
@@ -167,7 +168,7 @@ export class GroundItems {
         vis.count = this.scene.add.text(0, 0, top.count > 999 ? "999+" : String(top.count), {
           fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "9px", fontStyle: "bold",
           color: "#ffffff", stroke: "#101018", strokeThickness: 2,
-          resolution: Math.max(1, Math.ceil(window.devicePixelRatio || 1)),
+          resolution: textRes(),
         }).setOrigin(1, 1);
         this.uiLayer.add(vis.count);
       }

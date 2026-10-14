@@ -5,6 +5,7 @@ import { type DamageKind } from "@lemonquest/shared";
 import type { PixelCamera } from "./pixelCamera.ts";
 import { TEX } from "./textures.ts";
 import { lightBus } from "./lighting.ts";
+import { textRes } from "./textRes.ts";
 
 const FX_DEPTH = 1_900_000;
 const FONT = '"Pixelify Sans", Verdana, system-ui, sans-serif';
@@ -72,7 +73,7 @@ export class CombatFx {
   private emitters = {} as Record<DamageKind, Phaser.GameObjects.Particles.ParticleEmitter>;
   private lvlEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private res = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
+  private get res() { return textRes(); }
 
   /** Chamado quando um projétil chega (para aplicar o dano visual). */
   onImpact: (ev: unknown) => void = () => {};
