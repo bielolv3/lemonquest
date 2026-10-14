@@ -64,6 +64,18 @@
   transition: transform 220ms var(--hud-ease), opacity 180ms ease, right 220ms var(--hud-ease);
 }
 .hud-panel::-webkit-scrollbar { display: none; }
+/* "Tem mais embaixo": faixa colada no fim da coluna (some quando chega ao fim ou cabe tudo). */
+.panel-more {
+  position: sticky; bottom: 0; flex: none; margin-top: -30px; height: 30px; width: 100%;
+  border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 14px; color: var(--hud-text, #e8e6d9);
+  background: linear-gradient(to bottom, rgba(11, 13, 19, 0), rgba(11, 13, 19, 0.92));
+  opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+}
+.hud-panel.more-below .panel-more { opacity: 1; pointer-events: auto; }
+/* Telas baixas: minimapa menor (continua quadrado) para caber personagem/equipamento/batalha/mochila. */
+@media (max-height: 820px) {
+  .minimap-box { width: 150px; margin: 0 auto; }
+}
 .hud-side:not(.open) .hud-panel { transform: translateX(calc(100% + 16px)); opacity: 0; pointer-events: none; }
 
 /* Recolhida com painéis fixados: só os fixados ficam, empilhados à esquerda do trilho (abaixo do HP/MP compacto). */

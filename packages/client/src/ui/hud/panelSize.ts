@@ -25,7 +25,14 @@ export const SIZE_SPEC: Record<SizableId, SizeSpec> = {
 
 export type Sizes = Record<SizableId, number>;
 
-export const defaultSizes = (): Sizes => ({ battle: SIZE_SPEC.battle.def, backpack: SIZE_SPEC.backpack.def });
+/** Tela baixa (720p/768p): a batalha começa com 3 linhas para a mochila caber na coluna (preferência salva vale mais). */
+export const SHORT_SCREEN_PX = 820;
+const viewportH = (): number => (typeof window !== "undefined" ? window.innerHeight : 1080);
+
+export const defaultSizes = (h = viewportH()): Sizes => ({
+  battle: h <= SHORT_SCREEN_PX ? 3 : SIZE_SPEC.battle.def,
+  backpack: SIZE_SPEC.backpack.def,
+});
 
 /** Linhas válidas (inteiro entre min e max); valor inválido volta ao padrão. */
 export function clampRows(id: SizableId, rows: unknown): number {

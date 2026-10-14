@@ -47,6 +47,21 @@ export function Sidebar() {
   const phRef = useRef<HTMLDivElement>(null);
   usePanelDrag(asideRef, phRef);
 
+  // Tela baixa (720p): a coluna rola, mas a barra de rolagem é escondida — marca "tem mais embaixo" (mochila!).
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    const check = () => el.classList.toggle("more-below", el.scrollHeight - el.scrollTop - el.clientHeight > 6);
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    for (const c of Array.from(el.children)) ro.observe(c);
+    const mo = new MutationObserver(() => { for (const c of Array.from(el.children)) ro.observe(c); check(); });
+    mo.observe(el, { childList: true });
+    el.addEventListener("scroll", check, { passive: true });
+    check();
+    return () => { ro.disconnect(); mo.disconnect(); el.removeEventListener("scroll", check); };
+  }, []);
+
   // Ao estreitar a janela abaixo do limite, recolhe (uma vez por cruzamento).
   useEffect(() => {
     let wasNarrow = window.innerWidth < NARROW_PX;
@@ -106,6 +121,10 @@ export function Sidebar() {
       >
         {order.map((id) => PANELS[id])}
         <div class="panel-ph" ref={phRef} aria-hidden="true" />
+        <button
+          class="panel-more" tabIndex={-1} aria-label="Rolar a barra lateral para baixo"
+          onClick={() => asideRef.current?.scrollBy({ top: 220, behavior: "smooth" })}
+        >▾</button>
       </aside>
     </div>
   );

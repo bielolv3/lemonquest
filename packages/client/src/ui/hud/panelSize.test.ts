@@ -6,6 +6,11 @@ describe("panelSize", () => {
     expect(defaultSizes()).toEqual({ battle: 5, backpack: 3 });
   });
 
+  it("tela baixa (≤ 820 px): batalha começa com 3 linhas para a mochila caber", () => {
+    expect(defaultSizes(720)).toEqual({ battle: 3, backpack: 3 });
+    expect(defaultSizes(900)).toEqual({ battle: 5, backpack: 3 });
+  });
+
   it("clampRows limita a min/max, arredonda e trata inválidos", () => {
     expect(clampRows("battle", 1)).toBe(2);
     expect(clampRows("battle", 99)).toBe(12);
