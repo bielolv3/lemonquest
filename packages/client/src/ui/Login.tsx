@@ -98,7 +98,7 @@ export function Login() {
         if (r && !r.ok && r.error !== "invalid_session") setError(errorText(r));
         setStep("account");
       })
-      .catch(() => setStep("account"));
+      .catch(() => { setError("Não foi possível conectar ao servidor."); setStep("account"); }); // fora do ar ou sem resposta (timeout)
   }, []);
 
   useEffect(() => { if (step === "chars") listRef.current?.focus(); }, [step]);

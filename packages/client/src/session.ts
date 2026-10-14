@@ -31,11 +31,15 @@ function storeSet(s: Storage, k: string, v: string | null) {
   try { if (v === null) s.removeItem(k); else s.setItem(k, v); } catch { /* armazenamento indisponível */ }
 }
 
+/** Servidor que não responde (travado/sobrecarregado) vira erro em vez de "Carregando…" para sempre. */
+export const API_TIMEOUT_MS = 15_000;
+
 async function post<T extends { ok: boolean }>(path: string, body: unknown): Promise<T | AuthFail> {
   const res = await fetch(`${endpoint}/api/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   });
   try {
     return (await res.json()) as T | AuthFail;

@@ -76,7 +76,7 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
     await waitSettled(b);
     await drag(b, await tileToClient(b, drop.x, drop.y), await center(b, bpSlot(b, empty)));
     await expect.poll(async () => (await inventory(b))!.backpack[empty]?.defId, { timeout: 10_000 }).toBe(items[3]);
-    expect(await ground(a)).toHaveLength(0);
+    await expect.poll(async () => (await ground(a)).length, { timeout: 10_000 }).toBe(0); // o patch do chão chega a A depois
   } finally {
     await ca.close();
     await cb.close();
