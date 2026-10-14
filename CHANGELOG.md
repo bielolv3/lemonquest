@@ -1,5 +1,24 @@
 # Changelog
 
+## [Não lançado] — 2026-10-14 · ciclo 3 (polimento)
+
+### Interface
+- Balão do item mostra o **dano por golpe** da arma e compara com o atual (▲/▼); avisa quando a arma não supera lutar
+  sem arma. A conta é a mesma do servidor.
+- Coliseu: a janela mostra o level de cada membro e marca **"sem XP"** quem está fora da faixa.
+- Telas baixas (720p/768p): minimapa menor, batalha com 3 linhas por padrão e uma faixa "▾" quando a barra lateral
+  tem mais conteúdo abaixo.
+- Lista de batalha diz a **dificuldade** da criatura em texto (fraca/normal/difícil/perigosa/chefe) e marca com "!"
+  as perigosas e os chefes — não depende mais só da cor do nome.
+- Chat: cada aba guarda as próprias 80 linhas (o Grupo não apaga o Geral); avisos do servidor contam como não lidos
+  quando você está na aba Grupo.
+- Nomes e números do mundo ficam nítidos ao arrastar a janela para um monitor com outra escala.
+
+### Engenharia
+- Hover do mouse sem alocação por frame; cursor só é escrito quando muda.
+- Testes E2E do Coliseu e do grupo sem corridas com a pausa e com alvos abatidos por outros jogadores.
+- Heap do cliente medido com 10 bots: estável (~49–50 MB).
+
 ## [Não lançado] — 2026-10-14 · ciclo 2
 
 ### Jogabilidade
