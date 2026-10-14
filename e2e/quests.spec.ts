@@ -64,6 +64,9 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   await expect.poll(() => marker(page, "guard_captain")).toBe("ready");
 
   const gold0 = (await inventory(page))!.gold;
+  // O kit inicial já traz poções de vida: a recompensa (5) é conferida pelo total.
+  const potions = async () => (await inventory(page))!.backpack.reduce((n, b) => n + (b?.defId === "health_potion" ? b.count : 0), 0);
+  const potions0 = await potions();
   win = await talkTo(page, "guard_captain", "Capitão Rodrigo");
   const ready = win.locator('.quest-card[data-quest="rats_barn"]');
   await expect(ready).toContainText("Pronta");
@@ -74,7 +77,7 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   await expect(done).toContainText("+30 de ouro");
   await snap(page, "quest-done");
   await expect.poll(async () => (await inventory(page))!.gold).toBeGreaterThanOrEqual(gold0 + 30);
-  await expect.poll(async () => (await inventory(page))!.backpack.some((b) => b?.defId === "health_potion")).toBe(true);
+  await expect.poll(potions).toBe(potions0 + 5);
   await expect(tracker).toBeHidden();
 
   // Diário (L): aparece em concluídas.

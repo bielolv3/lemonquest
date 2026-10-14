@@ -38,7 +38,8 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
     const drop = { x: base.x + 1, y: base.y };
     await teleport(a, base.x, base.y);
     await teleport(b, base.x + 2, base.y);
-    const items = ["health_potion", "mana_potion", "health_potion_medium", "mana_potion_medium"];
+    // Nada do kit inicial (3 poções de vida + carnes): cada item começa com 0 e o teste conta 1.
+    const items = ["mana_potion", "health_potion_medium", "mana_potion_medium", "health_potion_large"];
     for (const id of items) await say(a, `/item ${id} 1`);
     await expect.poll(async () => (await Promise.all(items.map((id) => countOf(a, id)))).every((n) => n === 1), { timeout: 10_000 }).toBe(true);
 

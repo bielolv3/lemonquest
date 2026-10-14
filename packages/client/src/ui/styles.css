@@ -28,6 +28,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; col
   border: 1px solid #2c3242; border-radius: 4px; padding: 8px 10px; outline: none;
 }
 .field input:focus, .chat-input:focus { border-color: #d9a441; }
+/* Foco por teclado (Tab) sempre visível; clique de mouse não mostra (focus-visible). */
+#ui :where(button, a, select, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
+  outline: 2px solid #d9a441; outline-offset: 2px;
+}
 .btn {
   font: inherit; font-size: 16px; padding: 9px 12px; cursor: pointer; color: #11141c;
   background: #d9a441; border: 1px solid #d9a441; border-radius: 4px;
