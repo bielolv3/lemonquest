@@ -2,7 +2,7 @@
 import { useEffect } from "preact/hooks";
 import type { SkillId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
-import { playersStore, selectMe, type PlayerSnap } from "../hud/world.ts";
+import { meStore, type PlayerSnap } from "../hud/world.ts";
 import {
   SKILL_NAMES, SKILL_ORDER, closeTraining, resultText, startTraining, trainingOpenStore, trainingResultStore,
 } from "./training.ts";
@@ -21,7 +21,7 @@ function levelOf(me: PlayerSnap | null | undefined, s: SkillId): { level: number
 export function TrainingWindow() {
   const open = useStore(trainingOpenStore);
   const result = useStore(trainingResultStore);
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
 
   useEffect(() => {
     if (!open) return;

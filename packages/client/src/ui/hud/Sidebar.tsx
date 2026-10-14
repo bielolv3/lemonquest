@@ -20,7 +20,7 @@ import { outfitOpen, toggleOutfit } from "../outfit/outfit.ts";
 import { questLogOpen, toggleQuestLog } from "../quests/quests.ts";
 import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
 import { helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, toggle } from "./uiState.ts";
-import { playersStore, selectMe } from "./world.ts";
+import { meStore } from "./world.ts";
 
 export function Sidebar() {
   const open = useStore(sidebarOpen);
@@ -143,7 +143,7 @@ function openWorldMap() {
 
 /** Mini HP/mana quando o painel está recolhido. */
 function CompactVitals() {
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   if (!me) return null;
   return (
     <div class="hud-card compact-vitals" onClick={() => sidebarOpen.set(true)} data-tip="Abrir painel">

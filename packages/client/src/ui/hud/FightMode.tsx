@@ -4,7 +4,7 @@ import { C2S, type FightModeMsg, type FightStance } from "@lemonquest/shared";
 import { send } from "../items/net.ts";
 import { PixelIcon } from "./icons.tsx";
 import { createStore, useStore } from "./store.ts";
-import { playersStore, selectMe } from "./world.ts";
+import { meStore } from "./world.ts";
 
 export const STANCES: { id: FightStance; label: string; tip: string; key: string }[] = [
   { id: "offensive", label: "Ofensivo", tip: "+20% dano causado, +15% dano recebido", key: "F5" },
@@ -17,7 +17,7 @@ const pending = createStore<FightModeMsg | null>(null);
 let pendingTimer = 0;
 
 export function currentFightMode(): FightModeMsg {
-  const me = selectMe(playersStore.get());
+  const me = meStore.get();
   return pending.get() ?? { stance: me?.stance ?? "balanced", chase: me?.chase ?? false };
 }
 
@@ -102,7 +102,7 @@ function StanceIcon({ id }: { id: FightStance }) {
 }
 
 export function FightModeControls() {
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   const p = useStore(pending);
   // O estado real chegou (ou mudou): descarta o valor otimista.
   useEffect(() => {

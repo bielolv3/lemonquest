@@ -14,7 +14,7 @@ import {
 import { spellIcon } from "./spellIcons.ts";
 import { createStore } from "./store.ts";
 import { getTarget } from "./target.ts";
-import { playersStore, selectMe } from "./world.ts";
+import { meStore } from "./world.ts";
 
 /** Incrementa quando falta mana (a barra de MP pisca). */
 export const manaFlashStore = createStore(0);
@@ -64,7 +64,7 @@ function fail(slot: number, reason: CastFailReason) {
 function activate(slot: number) {
   const spell = slotSpells[slot];
   if (!spell) return;
-  const me = selectMe(playersStore.get());
+  const me = meStore.get();
   const now = performance.now();
   if (me && me.level < spell.level) return fail(slot, "level");
   const cd = cooldownStore.get()[slot];
@@ -116,11 +116,10 @@ export function handleCastResult(r: CastResultMsg): void {
 /** Liga a barra de ações às magias e ao servidor. Retorna o desligador. */
 export function startCastBar(): () => void {
   let voc = "";
-  const offStore = playersStore.subscribe((m) => {
-    const me = selectMe(m);
+  const offStore = meStore.subscribe((me) => {
     if (me && me.vocation !== voc) { voc = me.vocation; fillSlots(voc); }
   });
-  const first = selectMe(playersStore.get());
+  const first = meStore.get();
   if (first) { voc = first.vocation; fillSlots(voc); }
   const offAct = onSlotActivate(activate);
   const offRoom = session.onRoom((room) => {

@@ -222,7 +222,8 @@ export class SpellEffects {
 
   // --- ponto de entrada -------------------------------------------------------------
 
-  cast(msg: SpellCastMsg, override?: SpellDef) {
+  /** `gain` = volume relativo pela distância ao jogador local (0 = sem som; o visual sai igual). */
+  cast(msg: SpellCastMsg, override?: SpellDef, gain = 1) {
     const def = override ?? spellDef(msg.spellId);
     if (!def) return;
     const caster = this.ctx.actor(msg.casterId);
@@ -234,7 +235,7 @@ export class SpellEffects {
     const feetY = caster ? caster.ry + TS - 1 : center.y + TS / 2;
 
     if (caster) this.cfx.floatText(caster.headX, caster.headY - 6, def.words, 0xffa83a, { size: 13, life: 1300, rise: 22, dx: 0, italic: true, stroke: "#2a1200" });
-    sfx.play(SOUND[def.fx], { volume: 0.85 });
+    if (gain > 0) sfx.play(SOUND[def.fx], { volume: 0.85 * gain });
 
     // Círculo rúnico no chão do conjurador.
     if (caster) {
@@ -245,7 +246,7 @@ export class SpellEffects {
     const tiles = msg.tiles ?? [];
     const target = msg.targetId ? this.ctx.actor(msg.targetId) : undefined;
     const tgt = target ? { x: target.bodyX, y: target.bodyY } : center;
-    const args = { def, msg, caster, mine, pal, cx, cy, tiles, tgt, center };
+    const args = { def, msg, caster, mine, pal, cx, cy, tiles, tgt, center, gain };
 
     switch (def.fx) {
       case "taunt": return this.taunt(args);
@@ -259,7 +260,7 @@ export class SpellEffects {
       case "target": {
         const dist = Math.hypot(tgt.x - cx, tgt.y - (cy - 2));
         this.projectile(def.fx, cx, cy - 2, tgt.x, tgt.y, Math.max(140, dist / 0.32), () => {
-          this.impact(def.fx, tgt.x, tgt.y, 1);
+          this.impact(def.fx, tgt.x, tgt.y, 1, gain);
           if (mine) this.ctx.shake(80, 0.0025);
         });
         return;
@@ -296,13 +297,13 @@ export class SpellEffects {
   }
 
   /** Impacto de uma magia de alvo único. */
-  private impact(k: FxKey, x: number, y: number, size: number) {
+  private impact(k: FxKey, x: number, y: number, size: number, gain = 1) {
     const pal = PAL[k];
     const d = FX_DEPTH - 3;
     switch (k) {
       case "fire":
         this.play("fx:fx_explosion", { x, y, scale: 0.8 * size, depth: d });
-        this.sparks.fire.explode(14, x, y); sfx.play("sp_fire_hit", { volume: 0.7 });
+        this.sparks.fire.explode(14, x, y); if (gain > 0) sfx.play("sp_fire_hit", { volume: 0.7 * gain });
         break;
       case "ice":
         this.play("fx:sp_iceb", { x, y: y + 6, oy: 0.8, scale: 0.9 * size, depth: d });
@@ -408,7 +409,7 @@ export class SpellEffects {
     if (k === "energy") this.play("fx:fx_circle_spark", { x: center.x, y: center.y, scale: 0.8 + radius * 0.4, tint: pal.main, add: true, depth: GROUND });
     if (k === "holy") this.play("fx:sp_boost", { x: center.x, y: center.y, scale: 0.9 + radius * 0.3, tint: pal.main, add: true, depth: FX_DEPTH - 3 });
     if (mine) this.ctx.shake(130 + radius * 30, 0.003 + radius * 0.0007);
-    if (k === "fire") sfx.play("sp_fire_hit", { volume: 0.85 });
+    if (k === "fire" && a.gain > 0) sfx.play("sp_fire_hit", { volume: 0.85 * a.gain });
   }
 
   private wave(a: CastArgs) {
@@ -700,4 +701,6 @@ export class SpellEffects {
 interface CastArgs {
   def: SpellDef; msg: SpellCastMsg; caster: Actor | undefined; mine: boolean; pal: Pal;
   cx: number; cy: number; tiles: number[]; tgt: { x: number; y: number }; center: { x: number; y: number };
+  /** Volume relativo (distância ao jogador local). */
+  gain: number;
 }

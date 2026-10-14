@@ -9,8 +9,10 @@ import { partyStore } from "./party/party.ts";
 
 const MAX_LINES = 80;
 
-/** Linha do chat: mensagem normal ou notícia do servidor (S2C.Feed). */
-type Line = ChatMessage & { feed?: FeedEntry };
+/** Linha do chat: mensagem normal ou notícia do servidor (S2C.Feed). `key` = id local crescente (chave estável no slice). */
+type Line = ChatMessage & { feed?: FeedEntry; key: number };
+let nextKey = 0;
+const push = (l: Line[], m: Omit<Line, "key">): Line[] => [...l, { ...m, key: ++nextKey }].slice(-MAX_LINES);
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 const collapsedStore = persistedBool("chatCollapsed", false);
@@ -37,7 +39,7 @@ export function Chat() {
 
   useEffect(() => session.onRoom((room) => {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
-      setLines((l) => [...l, m].slice(-MAX_LINES));
+      setLines((l) => push(l, m));
       if (m.channel === "party") {
         if (collapsedRef.current || tabRef.current !== "party") setPartyUnread((n) => n + 1);
       } else if (collapsedRef.current || tabRef.current !== "global") setUnread((n) => n + 1);
@@ -45,12 +47,12 @@ export function Chat() {
     // Respostas de comandos de admin (Notice com log): ficam no chat, copiáveis (ex.: código de recuperação).
     room.onMessage(S2C.Notice, (m: NoticeMsg) => {
       if (!m?.log || typeof m.text !== "string") return;
-      setLines((l) => [...l, { from: "", text: m.text, channel: "system", ts: Date.now() } as Line].slice(-MAX_LINES));
+      setLines((l) => push(l, { from: "", text: m.text, channel: "system", ts: Date.now() }));
     });
   }), []);
 
   useEffect(() => onFeed((f) => {
-    setLines((l) => [...l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f } as Line].slice(-MAX_LINES));
+    setLines((l) => push(l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f }));
     if (collapsedRef.current) setUnread((n) => n + 1);
   }), []);
 
@@ -147,8 +149,8 @@ export function Chat() {
         {!lines.some((m) => inTab(m, tab)) && (
           <div class="chat-empty">{tab === "party" ? "Nenhuma mensagem do grupo ainda." : "Nenhuma mensagem ainda. Diga oi!"}</div>
         )}
-        {lines.map((m, i) => inTab(m, tab) && (
-          <div key={i} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}${m.from ? "" : " sys"}`}>
+        {lines.map((m) => inTab(m, tab) && (
+          <div key={m.key} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}${m.from ? "" : " sys"}`}>
             <span class="chat-time">{hhmm(m.ts)}</span>
             {m.feed ? (
               <span class="chat-text chat-feed" style={{ color: m.feed.rarity ? rarityColor(m.feed.rarity) : FEED_COLOR[m.feed.kind] }}>

@@ -23,7 +23,7 @@ import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
 import { KeyboardInput } from "../game/input.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
 import { Predictor } from "../game/predictor.ts";
-import { sfx } from "../game/sfx.ts";
+import { sfx, type SfxName } from "../game/sfx.ts";
 import { SpellEffects } from "../game/spellFx.ts";
 import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
 import { openCtxMenu, openOutfit, type CtxMenuItem } from "../ui/outfit/outfit.ts";
@@ -55,6 +55,14 @@ const SPLASHY = new Set(["mud", "swamp"]);
 
 /** Criaturas mais longe que isto (tiles) do jogador ficam escondidas (não destruídas). */
 const CULL_TILES = 25;
+/**
+ * O servidor manda combate/magias/mortes para a sala inteira: efeitos visuais de terceiros só a até
+ * esta distância (tiles, Chebyshev) do jogador — um pouco além da meia-largura da tela (~17 linhas visíveis).
+ */
+const FX_VIEW_TILES = 16;
+/** Sons de terceiros: volume cheio até SFX_FULL_TILES, cai linearmente e some em SFX_MAX_TILES. */
+const SFX_FULL_TILES = 3;
+const SFX_MAX_TILES = 10;
 /** Janela do duplo clique num item do chão (ms). */
 const GROUND_DBL_MS = 350;
 /** Testes E2E (Playwright): expõe window.__lq (ver installE2EProbe). */
@@ -116,6 +124,8 @@ export class WorldScene extends Phaser.Scene {
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
   private splash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private disposers: (() => void)[] = [];
+  /** onChange por entidade (coleção:id → desligador): solto no onRemove, senão acumulam a cada respawn/item visto. */
+  private entityOffs = new Map<string, () => void>();
 
   constructor() { super("world"); }
 
@@ -246,18 +256,17 @@ export class WorldScene extends Phaser.Scene {
     const $ = Callbacks.get(room as any) as any;
     const offAdd = $.onAdd("players", (p: PlayerView, id: string) => {
       this.addPlayer(id, p);
-      const offChange = $.onChange(p, () => this.onPlayerChange(id, p));
-      this.disposers.push(offChange);
+      this.trackEntity(`p:${id}`, $.onChange(p, () => this.onPlayerChange(id, p)));
     });
-    const offRemove = $.onRemove("players", (_p: PlayerView, id: string) => this.removePlayer(id));
+    const offRemove = $.onRemove("players", (_p: PlayerView, id: string) => { this.untrackEntity(`p:${id}`); this.removePlayer(id); });
     this.disposers.push(offAdd, offRemove);
 
     try {
       const mAdd = $.onAdd("monsters", (m: MonsterView, id: string) => {
         this.addMonster(id, m);
-        this.disposers.push($.onChange(m, () => this.onMonsterChange(id, m)));
+        this.trackEntity(`m:${id}`, $.onChange(m, () => this.onMonsterChange(id, m)));
       });
-      const mRemove = $.onRemove("monsters", (_m: MonsterView, id: string) => this.removeMonster(id));
+      const mRemove = $.onRemove("monsters", (_m: MonsterView, id: string) => { this.untrackEntity(`m:${id}`); this.removeMonster(id); });
       this.disposers.push(mAdd, mRemove);
     } catch (e) {
       console.warn("[combate] state.monsters indisponível", e);
@@ -267,9 +276,9 @@ export class WorldScene extends Phaser.Scene {
       this.ground.beginSync();
       const gAdd = $.onAdd("groundItems", (g: GroundItemView, id: string) => {
         this.ground.add(id, g);
-        this.disposers.push($.onChange(g, () => this.ground.change(id, g)));
+        this.trackEntity(`g:${id}`, $.onChange(g, () => this.ground.change(id, g)));
       });
-      const gRemove = $.onRemove("groundItems", (_g: GroundItemView, id: string) => this.ground.remove(id));
+      const gRemove = $.onRemove("groundItems", (_g: GroundItemView, id: string) => { this.untrackEntity(`g:${id}`); this.ground.remove(id); });
       this.disposers.push(gAdd, gRemove);
     } catch (e) {
       console.warn("[chão] state.groundItems indisponível", e);
@@ -300,7 +309,21 @@ export class WorldScene extends Phaser.Scene {
     room.onLeave(() => { if (this.room === room) this.unbindRoom(); });
   }
 
+  /** Guarda o onChange de uma entidade (troca o anterior, se o mesmo id reaparecer). */
+  private trackEntity(key: string, off: unknown) {
+    this.entityOffs.get(key)?.();
+    if (typeof off === "function") this.entityOffs.set(key, off as () => void);
+    else this.entityOffs.delete(key);
+  }
+
+  private untrackEntity(key: string) {
+    this.entityOffs.get(key)?.();
+    this.entityOffs.delete(key);
+  }
+
   private unbindRoom() {
+    for (const off of this.entityOffs.values()) off();
+    this.entityOffs.clear();
     for (const a of this.actors.values()) a.destroy();
     for (const a of this.creatures.values()) a.destroy();
     this.actors.clear();
@@ -394,10 +417,12 @@ export class WorldScene extends Phaser.Scene {
     const far = Math.max(Math.abs(x - actor.tileX), Math.abs(y - actor.tileY)) >= 2;
     if (!far) { actor.stepTo(x, y, ms, dir); return; }
     const apply = () => {
+      // O ator pode ter saído (logout logo após o teleporte) ou sido recriado nesses 40 ms.
+      if (this.actors.get(id) !== actor) return;
       if (this.recentCharge(id)) actor.dashTo(x, y, 120, dir);
       else actor.stepTo(x, y, ms, dir);
     };
-    if (this.recentCharge(id)) apply(); else setTimeout(apply, 40);
+    if (this.recentCharge(id)) apply(); else this.time.delayedCall(40, apply);
   }
 
   private setMyStats(level: number, maxHp: number) {
@@ -880,8 +905,10 @@ export class WorldScene extends Phaser.Scene {
     for (const ev of events) {
       const src = this.findActor(ev.sourceId), tgt = this.findActor(ev.targetId);
       if (ev.ranged && src && tgt && ev.sourceId !== ev.targetId) {
+        const r = this.fxReach([ev.sourceId, ev.targetId]);
+        if (!r.show) continue; // longe da tela: só cosmético (HP vem pelo estado)
         this.fx.projectile(ev.kind, src.bodyX, src.bodyY - 2, tgt.bodyX, tgt.bodyY, PROJECTILE_MS, ev);
-        sfx.play(ev.kind === "fire" ? "fire" : "shoot", { volume: 0.7 });
+        this.sfxAt(ev.kind === "fire" ? "fire" : "shoot", r.gain, { volume: 0.7 });
       } else {
         this.applyHit(ev);
       }
@@ -902,11 +929,13 @@ export class WorldScene extends Phaser.Scene {
     const toMe = ev.targetId === this.myId;
     const fromMe = ev.sourceId === this.myId;
     const textY = wy - 4;
+    const r = this.fxReach([ev.sourceId, ev.targetId], { x: wx / TILE_SIZE, y: wy / TILE_SIZE });
+    if (!r.show) return;
 
     if (ev.miss) {
       this.fx.floatText(wx, textY, "errou", 0xb5b9c6, { size: 11, life: 650, rise: 8 });
       this.fx.puff(wx, wy + 2);
-      sfx.play("miss", { volume: 0.6 });
+      this.sfxAt("miss", r.gain, { volume: 0.6 });
       return;
     }
     if (ev.kind === "mana") {
@@ -944,7 +973,31 @@ export class WorldScene extends Phaser.Scene {
     this.fx.hit(ev.kind, wx, wy, !!ev.ranged, ang);
 
     if (toMe && (ev.crit || ev.amount > this.myMaxHp * 0.2)) this.cameras.main.shake(140, 0.004);
-    sfx.play(ev.crit ? "crit" : toMe ? "hurt" : "hit", { volume: ev.crit ? 1 : 0.85 });
+    this.sfxAt(ev.crit ? "crit" : toMe ? "hurt" : "hit", r.gain, { volume: ev.crit ? 1 : 0.85 });
+  }
+
+  /**
+   * Alcance de um efeito de terceiros: desenhar? com que volume? Nunca filtra o que envolve o jogador
+   * local ou o grupo dele. `at` = posição (tiles) do acontecimento quando os atores já não existem.
+   */
+  private fxReach(ids: string[], at?: { x: number; y: number }): { show: boolean; gain: number } {
+    const me = this.actors.get(this.myId);
+    if (!me || ids.some((id) => id && (id === this.myId || isPartyMember(id)))) return { show: true, gain: 1 };
+    let d = Infinity;
+    for (const id of ids) {
+      const a = id ? this.findActor(id) : undefined;
+      if (a) d = Math.min(d, chebyshev(a.tileX, a.tileY, me.tileX, me.tileY));
+    }
+    if (at) d = Math.min(d, Math.max(Math.abs(at.x - me.tileX), Math.abs(at.y - me.tileY)));
+    if (d > FX_VIEW_TILES) return { show: false, gain: 0 };
+    const gain = d <= SFX_FULL_TILES ? 1 : Math.max(0, 1 - (d - SFX_FULL_TILES) / (SFX_MAX_TILES - SFX_FULL_TILES));
+    return { show: true, gain };
+  }
+
+  /** sfx.play com volume escalado pela distância (gain 0 = não toca). */
+  private sfxAt(name: SfxName, gain: number, opts: { volume?: number; rate?: number } = {}) {
+    if (gain <= 0) return;
+    sfx.play(name, { ...opts, volume: (opts.volume ?? 1) * gain });
   }
 
   onXpGain(amount: number) {
@@ -970,7 +1023,8 @@ export class WorldScene extends Phaser.Scene {
 
   onSpellCast(m: SpellCastMsg, override?: SpellDef) {
     if ((override ?? spellDef(m.spellId))?.fx === "charge") this.chargeAt.set(m.casterId, performance.now());
-    this.spells.cast(m, override);
+    const r = this.fxReach([m.casterId, m.targetId ?? ""], { x: m.x, y: m.y });
+    if (r.show) this.spells.cast(m, override, r.gain);
   }
 
   onConditions(m: ConditionsMsg) {
@@ -997,8 +1051,12 @@ export class WorldScene extends Phaser.Scene {
   onCreatureDied(m: CreatureDiedMsg) {
     if (this.dying.has(m.id)) return;
     this.dying.add(m.id);
-    if (this.curTarget === m.id) { this.curTarget = ""; setTarget(null); }
+    const wasTarget = this.curTarget === m.id;
+    if (wasTarget) { this.curTarget = ""; setTarget(null); }
     const a = this.creatures.get(m.id);
+    // Longe: o corpo some (estado) mas sem cadáver nem som.
+    const r = wasTarget ? { show: true, gain: 1 } : this.fxReach([m.id], { x: m.x, y: m.y });
+    if (!r.show) { a?.ghost(); return; }
     if (a) {
       const f = a.frameInfo;
       const depth = a.root.depth;
@@ -1010,7 +1068,7 @@ export class WorldScene extends Phaser.Scene {
       const dy = (v.look.sheet.frameHeight - sheetTrim(this, v.look.sheet).bottom) * v.scale;
       this.fx.corpse(v.look.sheet.key, v.look.sheet.idle.down, v.look.tint, m.x * TILE_SIZE + TILE_SIZE / 2, (m.y + 1) * TILE_SIZE + dy, v.scale, 10 + (m.y + 1) * TILE_SIZE);
     }
-    sfx.play("death", { volume: 0.8 });
+    this.sfxAt("death", r.gain, { volume: 0.8 });
   }
 
   // --- efeitos --------------------------------------------------------------

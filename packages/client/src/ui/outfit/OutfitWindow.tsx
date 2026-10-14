@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { OUTFIT_LIST, resolveOutfit, unlockRequirement, type Facing } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
-import { playersStore, selectMe } from "../hud/world.ts";
+import { meStore } from "../hud/world.ts";
 import { OutfitCanvas } from "./OutfitCanvas.tsx";
 import { PixelIcon } from "../hud/icons.tsx";
 import { achievementsStore, outfitUnlockedFor } from "../achievements/achievements.ts";
@@ -24,7 +24,7 @@ export function OutfitWindow() {
 }
 
 function OutfitDialog() {
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   const current = resolveOutfit(me?.outfit, me?.vocation ?? "knight");
   const [sel, setSel] = useState(current.id);
   const [addons, setAddons] = useState(me?.outfit === current.id ? me?.addons ?? 0 : 0);

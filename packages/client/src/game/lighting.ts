@@ -222,8 +222,26 @@ export class LightField {
       const cave = zoneLightMode(this.zoneName) === "dark";
       push(me.x, me.y - 2, (cave ? ME_RADIUS_CAVE_TILES : ME_RADIUS_TILES) * TILE_SIZE * breathe, 0xffe2b4, cave ? 0.97 : 0.85, cave ? 0.1 : 0.05);
     }
+    // Temporárias (clarões de magia e projéteis): recortadas pela tela e com vagas reservadas logo após a pessoal —
+    // no modo baixo uma cidade com muitas tochas não pode apagar as luzes do combate.
+    const near = (x: number, y: number) => x >= view.x0 - 48 && x <= view.x1 + 48 && y >= view.y0 - 48 && y <= view.y1 + 48;
+    const cap = MAX_LIGHTS[level];
+    const dynCap = Math.ceil(cap / 3);
+    // Além da reserva, as temporárias ainda entram no fim se sobrar vaga (modo alto).
+    const late: Draw[] = [];
+    const pushDyn = (x: number, y: number, rWorld: number, color: number, strength: number, glow: number) => {
+      if (!near(x, y)) return;
+      if (draws.length - (me ? 1 : 0) < dynCap) push(x, y, rWorld, color, strength, glow);
+      else late.push({ sx: sx(x), sy: sy(y), r: rWorld * z, color, strength, glow });
+    };
+    for (const b of bus.bursts) {
+      const t = b.age / b.ms;
+      const fade = (1 - t) * (1 - t);
+      pushDyn(b.x, b.y, b.r * (0.75 + 0.35 * t), b.color, Math.min(1, b.intensity * fade * 1.2), 0.55 * b.intensity * fade);
+    }
+    for (const p of framePoints) pushDyn(p.x, p.y, p.r, p.color, Math.min(1, p.intensity), 0.5 * p.intensity);
     for (const o of this.actors.others()) {
-      if (o.x < view.x0 - 48 || o.x > view.x1 + 48 || o.y < view.y0 - 48 || o.y > view.y1 + 48) continue;
+      if (!near(o.x, o.y)) continue;
       push(o.x, o.y - 2, OTHER_RADIUS_TILES * TILE_SIZE, 0xffe2b4, 0.8, 0.08);
     }
     // Fixas do mapa.
@@ -237,16 +255,10 @@ export class LightField {
       }
       push(l.x, l.y, r, l.color, s, g);
     }
-    // Temporárias (clarões e projéteis).
-    for (const b of bus.bursts) {
-      const t = b.age / b.ms;
-      const fade = (1 - t) * (1 - t);
-      push(b.x, b.y, b.r * (0.75 + 0.35 * t), b.color, Math.min(1, b.intensity * fade * 1.2), 0.55 * b.intensity * fade);
-    }
-    for (const p of framePoints) push(p.x, p.y, p.r, p.color, Math.min(1, p.intensity), 0.5 * p.intensity);
 
-    // Limite de luzes: a pessoal sempre entra (primeira); no resto vale a ordem de inserção (já recortadas).
-    const cap = MAX_LIGHTS[level];
+    for (const d of late) draws.push(d);
+
+    // Limite de luzes: pessoal, temporárias (reservadas), outros jogadores, fixas e o resto das temporárias.
     if (draws.length > cap) draws.length = cap;
     this.lastCount = draws.length;
 

@@ -3,10 +3,14 @@ import { useEffect, useState } from "preact/hooks";
 
 export type Unsubscribe = () => void;
 
-export interface Store<T> {
+/** Só leitura (ex.: store derivado por selectStore). */
+export interface ReadableStore<T> {
   get(): T;
-  set(next: T | ((prev: T) => T)): void;
   subscribe(fn: (v: T) => void): Unsubscribe;
+}
+
+export interface Store<T> extends ReadableStore<T> {
+  set(next: T | ((prev: T) => T)): void;
 }
 
 export function createStore<T>(initial: T): Store<T> {
@@ -27,8 +31,27 @@ export function createStore<T>(initial: T): Store<T> {
   };
 }
 
+/**
+ * Fatia derivada de um store: `get` recalcula na hora; os assinantes só são avisados quando o valor
+ * selecionado muda (`equals`, padrão Object.is). Ex.: o jogador local dentro do mapa de todos os jogadores.
+ */
+export function selectStore<T, U>(src: ReadableStore<T>, select: (v: T) => U, equals: (a: U, b: U) => boolean = Object.is): ReadableStore<U> {
+  return {
+    get: () => select(src.get()),
+    subscribe(fn) {
+      let last = select(src.get());
+      return src.subscribe((v) => {
+        const next = select(v);
+        if (equals(last, next)) return;
+        last = next;
+        fn(next);
+      });
+    },
+  };
+}
+
 /** Lê um store e re-renderiza quando ele muda. */
-export function useStore<T>(store: Store<T>): T {
+export function useStore<T>(store: ReadableStore<T>): T {
   const [v, setV] = useState(store.get);
   useEffect(() => {
     setV(() => store.get());

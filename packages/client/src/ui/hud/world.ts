@@ -3,7 +3,7 @@
 import { Callbacks, type Room } from "@colyseus/sdk";
 import type { PlayerView } from "@lemonquest/shared";
 import { session } from "../../session.ts";
-import { createStore } from "./store.ts";
+import { createStore, selectStore } from "./store.ts";
 
 export type PlayerSnap = Omit<PlayerView, "stepMs" | "seq">;
 
@@ -66,3 +66,9 @@ session.onRoom(bind);
 export function selectMe(players: ReadonlyMap<string, PlayerSnap>): PlayerSnap | null {
   return players.get(session.myId) ?? null;
 }
+
+/**
+ * Só o jogador local: avisa quando o snapshot dele muda (snap() cria objeto novo só para quem teve patch),
+ * não quando outro jogador anda. Use no lugar de selectMe(useStore(playersStore)).
+ */
+export const meStore = selectStore(playersStore, selectMe);

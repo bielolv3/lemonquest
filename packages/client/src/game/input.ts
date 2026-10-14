@@ -1,6 +1,7 @@
 // Teclado → intenção de movimento (8 direções). Usa eventos DOM (sem captura do Phaser) para não
 // atrapalhar campos de texto da UI.
 import { Dir, dirFromDelta } from "@lemonquest/shared";
+import { isTyping } from "../ui/focus.ts";
 
 type Axis = "up" | "down" | "left" | "right";
 
@@ -18,14 +19,6 @@ const DIAG_KEYS: Record<string, Dir> = {
 const TURN_KEYS: Record<string, Dir> = {
   ArrowUp: Dir.N, ArrowDown: Dir.S, ArrowLeft: Dir.W, ArrowRight: Dir.E,
 };
-
-/** Há um campo de texto com foco? (checagem local; a UI exporta isTyping() equivalente) */
-export function isTypingInField(): boolean {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
-}
 
 export interface InputHandlers {
   /** Direção segurada mudou (null = soltou tudo). */
@@ -60,7 +53,7 @@ export class KeyboardInput {
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
-    if (isTypingInField()) return;
+    if (isTyping()) return;
     const code = e.code;
     const isMove = code in AXIS_KEYS || code in DIAG_KEYS;
     if (!isMove) return;
@@ -85,7 +78,7 @@ export class KeyboardInput {
     this.emit();
   };
 
-  private onFocusIn = () => { if (isTypingInField()) this.releaseAll(); };
+  private onFocusIn = () => { if (isTyping()) this.releaseAll(); };
 
   private releaseAll = () => {
     if (this.down.length === 0 && this.current === null) return;

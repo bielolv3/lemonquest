@@ -1,4 +1,7 @@
-/** True quando algum campo de texto está focado (o input do jogo deve ignorar teclas). */
+/**
+ * True quando algum campo de texto está focado (o input do jogo deve ignorar teclas). Fonte única da verdade:
+ * movimento (game/input.ts), atalhos do HUD e chat usam esta. Checkbox, select, range etc. não contam.
+ */
 export function isTyping(): boolean {
   const el = document.activeElement;
   if (!el) return false;

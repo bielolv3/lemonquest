@@ -7,7 +7,7 @@ import { StatBar } from "./StatBar.tsx";
 import { manaFlashStore } from "./castbar.ts";
 import { useStore } from "./store.ts";
 import { vocationMeta } from "./vocations.ts";
-import { playersStore, selectMe, type PlayerSnap } from "./world.ts";
+import { meStore, type PlayerSnap } from "./world.ts";
 
 export function xpProgress(level: number, xp: number) {
   const from = xpForLevel(level), to = xpForLevel(level + 1);
@@ -29,7 +29,7 @@ export function Portrait({ me, size = 44 }: { me: PlayerSnap; size?: number }) {
 }
 
 export function StatusPanel() {
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   return (
     <Section id="status" title="Personagem" aside={me ? <span class="lvl-chip">Lv {me.level}</span> : null}>
       {me ? <StatusBody me={me} /> : <div class="hud-empty">Carregando…</div>}

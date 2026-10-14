@@ -3,14 +3,14 @@ import { spellDef, spellMana } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { activateSlot, ACTION_SLOTS, cooldownStore, flashStore, shakeStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
 import { useStore } from "./store.ts";
-import { playersStore, selectMe } from "./world.ts";
+import { meStore } from "./world.ts";
 
 export function ActionBar() {
   const slots = useStore(slotsStore);
   const cds = useStore(cooldownStore);
   const flashes = useStore(flashStore);
   const shakes = useStore(shakeStore);
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   const now = useCooldownClock(cds);
 
   return (

@@ -1,7 +1,7 @@
 // Balão de detalhes do item: nome (cor da raridade), tipo, requisitos, atributos, comparação com o equipado, valor.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
-import { playersStore, selectMe } from "../hud/world.ts";
+import { meStore } from "../hud/world.ts";
 import { defOf, inventoryStore } from "./inventory.ts";
 import {
   compareStats, DAMAGE_LABEL, fmtNum, fmtStat, kindText, rarityColor, rarityLabel, requirements, statLines, useText,
@@ -11,7 +11,7 @@ import { itemTipStore } from "./tipStore.ts";
 export function ItemTooltip() {
   const tip = useStore(itemTipStore);
   const inv = useStore(inventoryStore);
-  const players = useStore(playersStore);
+  const me = useStore(meStore);
   const el = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [visible, setVisible] = useState(false);
@@ -37,7 +37,6 @@ export function ItemTooltip() {
   }, [tip, visible]);
 
   const def = tip ? defOf(tip.inst) : undefined;
-  const me = selectMe(players);
   let body = null;
   if (tip) {
     const inst = tip.inst;

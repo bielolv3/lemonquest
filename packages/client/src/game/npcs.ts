@@ -5,7 +5,8 @@ import { Actor, type ActorDeps } from "./actor.ts";
 import { gridSheet, type CharacterSheet } from "./sprites.ts";
 import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
 import { inventoryStore } from "../ui/items/inventory.ts";
-import { playersStore, selectMe } from "../ui/hud/world.ts";
+import { meStore } from "../ui/hud/world.ts";
+import { selectStore } from "../ui/hud/store.ts";
 
 /** Cor do marcador de missão: "!" disponível e "?" pronta em amarelo; "?" em andamento em cinza. */
 const MARKER_STYLE: Record<Exclude<NpcMarker, null>, { text: string; color: string }> = {
@@ -98,13 +99,15 @@ export class NpcManager {
   ) {
     createBadgeTextures(scene);
     const refresh = () => this.refreshMarkers();
-    this.offs.push(questStore.subscribe(refresh), inventoryStore.subscribe(refresh), playersStore.subscribe(refresh));
+    // Do jogador só o nível importa para os marcadores: não recalcula a cada passo de alguém.
+    const myLevel = selectStore(meStore, (me) => me?.level ?? null);
+    this.offs.push(questStore.subscribe(refresh), inventoryStore.subscribe(refresh), myLevel.subscribe(refresh));
   }
 
   /** Recalcula os marcadores de missão (! / ?) de todos os NPCs. */
   refreshMarkers() {
     const st = questStore.get();
-    const me = selectMe(playersStore.get());
+    const me = meStore.get();
     const count = inventoryCounter();
     for (const n of this.npcs.values()) {
       const kind = st && me ? npcMarker(n.id, st, me.level, count) : null;

@@ -107,6 +107,8 @@ function useHudKeys() {
 /**
  * Botões do HUD não roubam o foco: assim Enter continua abrindo o chat (em vez de "clicar" de novo
  * o último botão) e o chat aberto não perde o foco ao clicar no painel.
+ * Checkbox/select (rastrear missão, título) soltam o foco depois de mudar: senão as setas mexeriam
+ * no select (e WASD no checkbox) em vez de andar. Campos de texto (chat, quantidade) não são afetados.
  */
 function useNoButtonFocus() {
   useEffect(() => {
@@ -114,7 +116,16 @@ function useNoButtonFocus() {
       const t = e.target as HTMLElement | null;
       if (t?.closest("#ui button")) e.preventDefault();
     };
+    const onChange = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest("#ui")) return;
+      if (t instanceof HTMLSelectElement || (t instanceof HTMLInputElement && (t.type === "checkbox" || t.type === "radio"))) t.blur();
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("change", onChange);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("change", onChange);
+    };
   }, []);
 }

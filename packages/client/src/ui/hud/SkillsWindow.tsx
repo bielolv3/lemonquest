@@ -5,7 +5,7 @@ import { StatBar } from "./StatBar.tsx";
 import { fmt, xpProgress } from "./StatusPanel.tsx";
 import { persistedJson, useStore } from "./store.ts";
 import { skillsOpen } from "./uiState.ts";
-import { playersStore, selectMe, type PlayerSnap } from "./world.ts";
+import { meStore, type PlayerSnap } from "./world.ts";
 
 const W = 248;
 const posStore = persistedJson<{ x: number; y: number }>("skillsPos", { x: -1, y: -1 });
@@ -32,7 +32,7 @@ function clampPos(x: number, y: number) {
 
 export function SkillsWindow() {
   const open = useStore(skillsOpen);
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   const stored = useStore(posStore);
   const [drag, setDrag] = useState(false);
   const win = useRef<HTMLDivElement>(null);

@@ -4,7 +4,7 @@ import {
 } from "@lemonquest/shared";
 import { useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
-import { playersStore, selectMe } from "../hud/world.ts";
+import { meStore } from "../hud/world.ts";
 import { inventoryStore } from "../items/inventory.ts";
 import { useTicker } from "../arena/useTicker.ts";
 import { inventoryCounter, questAction, questStore, rewardText, stepLines } from "./quests.ts";
@@ -15,7 +15,7 @@ const STATUS_LABEL: Partial<Record<QuestStatus, string>> = { available: "Nova", 
 export function NpcQuestList({ npcId }: { npcId: string }) {
   const st = useStore(questStore);
   useStore(inventoryStore); // coletar/entregar dependem da mochila
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   const [declined, setDeclined] = useState<string[]>([]);
   const [accepted, setAccepted] = useState<string[]>([]);
   if (!st || !me) return <div class="hud-empty">Carregando missões…</div>;
@@ -130,7 +130,7 @@ export function BountyBoard() {
 /** Missões do Mestre do Coliseu dentro da janela do Coliseu (só aparece se houver alguma). */
 export function ArenaQuests() {
   const st = useStore(questStore);
-  const me = selectMe(useStore(playersStore));
+  const me = useStore(meStore);
   if (!st || !me || questsForNpc("arena_master", st, me.level, inventoryCounter()).length === 0) return null;
   return <NpcQuestList npcId="arena_master" />;
 }
