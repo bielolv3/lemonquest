@@ -70,6 +70,12 @@ Legenda: **C** = confirmado (código lido e/ou reproduzido) · **H** = hipótese
 | 25 | Iluminação "baixa" (14 luzes) dá prioridade às tochas fixas sobre magias | C — `lighting.ts:230-250` |
 | 26 | Personagem novo começa sem arma, ouro ou comida | C — `db.ts:231`; desarmado é previsto (`combat.ts:22`); decisão de design |
 
+### Encontrado no ciclo 2
+
+| # | Problema | Evidência | Impacto |
+|---|---|---|---|
+| 27 | **P1** Arma abaixo do seu tier bate menos que o punho: o dano desarmado cresce com level e skill (`VOC_DAMAGE.perLevel`), o da arma quase não | C — cavaleiro lv 15 / skill 30: punho 48, Espada Curta 21, Espada Longa 45; lv 50 / skill 80: punho 267, melhor arma (Katana de Mithril) 287 | Loot de arma vira armadilha; no fim do jogo arma quase não importa |
+
 ### Não confirmado
 
 - **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.

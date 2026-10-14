@@ -1,5 +1,18 @@
 # Changelog
 
+## [Não lançado] — 2026-10-14 · ciclo 2
+
+### Jogabilidade
+- Kit inicial: personagem novo começa com a arma básica da vocação equipada, 3 Poções de Vida e 5 Carnes.
+- Coliseu: XP das ondas só para quem está na faixa de level do grupo (≥ 2/3 do maior); quem está abaixo ganha só o
+  ouro (aviso explica). Acaba com o "carregar" personagens level 1.
+- Loot vai para quem mais bateu **e está perto** (12 tiles); quem bateu e foi embora não leva. A XP do abate também é
+  dividida só entre quem está perto.
+- Arma nunca dá menos dano que lutar desarmado (antes uma arma abaixo do seu tier batia menos que o punho).
+
+### Acessibilidade
+- Foco por teclado visível em botões, links, selects e checkboxes.
+
 ## [Não lançado] — 2026-10-14 · auditoria, ciclo 1
 
 Diagnóstico completo em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md); estado em [docs/GAME_ROADMAP.md](docs/GAME_ROADMAP.md).

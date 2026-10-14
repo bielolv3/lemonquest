@@ -26,6 +26,16 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | E | #25 Luz: vagas reservadas (1/3) para magias/projéteis recortados pela tela; o resto entra no fim se sobrar vaga | ✅ | typecheck + E2E |
 | F | E2E do Coliseu instável (já falhava no código original: 1/9 em repetição) — toasts/faixas efêmeros agora são gravados por um MutationObserver | ✅ | `arena.spec.ts` 12/12 em 4 repetições |
 
+## Ciclo 2 (2026-10-14) — decisões de design + balanço
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| D | #10 Coliseu: XP das ondas só para quem está na faixa de level (≥ 2/3 do maior vivo); fora da faixa ganha só o ouro, com aviso | ✅ | `arena.test.ts` (novo caso) |
+| D | #26 Kit inicial na criação: arma tier 1 da vocação equipada + 3 Poções de Vida + 5 Carnes | ✅ | `auth.test.ts` (novo caso); E2E ajustados (ground/quests não contam mais com mochila vazia) |
+| D | #21 Loot para o maior causador de dano a até 12 tiles (senão, quem deu o último golpe); XP só entre quem está perto (sem ninguém perto, todos os que bateram) | ✅ | `combat.test.ts` (novo caso) |
+| D | #27 Arma nunca dá menos dano que o punho (vale o maior dos dois; a arma define alcance/tipo) | ✅ | `inventory.test.ts` atualizado; E2E do Coliseu voltou a vencer as ondas |
+| C | Foco por teclado visível em botões/links/selects/checkbox (`:focus-visible`) | ✅ | typecheck |
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |
@@ -41,9 +51,7 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 
 | Item | Opções |
 |---|---|
-| #10 Coliseu e power-leveling | (a) exigir a regra de level do grupo (`partyLevelsOk`) para entrar; (b) escalar ondas pelo maior level; (c) XP do Coliseu só para quem está na faixa de level do maior. (a) é a mais simples e coerente com o grupo, mas impede jogar com colegas de level muito diferente |
-| #26 Kit inicial | Começar desarmado parece intencional. Opção: arma básica da vocação + 2 poções + comida no primeiro login |
-| #21 Loot para quem foi embora | Exigir que o maior causador de dano esteja a até ~12 tiles |
+| #27 Peso das armas no fim do jogo | Hoje o punho cresce ~1,6/level (cavaleiro) e quase alcança a melhor arma no level 50. Opções: (a) reduzir `VOC_DAMAGE.perLevel` do desarmado; (b) arma soma ao dano base em vez de substituir; (c) deixar (com o ajuste do ciclo 2 a arma já não piora nada). Mexe no balanço inteiro — testar com `arena.test.ts` (estimativas) |
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
 
