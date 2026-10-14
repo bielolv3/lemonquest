@@ -149,7 +149,8 @@ export async function walkableNear(page: Page, x: number, y: number, r = 3): Pro
 }
 
 /** Clica no monstro mais perto até virar o alvo. */
-export async function targetNearest(page: Page, filter?: (defId: string) => boolean): Promise<string> {
+/** `timeoutMs`: quanto esperar até haver alvo (curto em laços que também vigiam outra coisa, como a pausa do Coliseu). */
+export async function targetNearest(page: Page, filter?: (defId: string) => boolean, timeoutMs = 30_000): Promise<string> {
   let id = "";
   await expect.poll(async () => {
     const m = (await me(page))!;
@@ -163,7 +164,7 @@ export async function targetNearest(page: Page, filter?: (defId: string) => bool
     await page.waitForTimeout(150);
     id = await page.evaluate(() => (window as any).__lq.target());
     return id;
-  }, { timeout: 30_000, intervals: [300] }).not.toBe("");
+  }, { timeout: timeoutMs, intervals: [300] }).not.toBe("");
   return id;
 }
 

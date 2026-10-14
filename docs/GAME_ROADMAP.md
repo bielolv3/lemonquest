@@ -41,12 +41,25 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | F | E2E "atacar e matar um monstro na floresta" falhava às vezes: jogador de teste anterior (janela de reconexão de 20 s) matava o alvo antes — o teste agora mira no próximo | ✅ | 3/3 isolado + 25/25 completo |
 | F | Hipótese de "fantasmas" após reconexão automática | ✅ refutada | experimento com o SDK: monstro morto durante a queda some do estado e dispara `onRemove` ao reconectar |
 
+## Ciclo 3 (2026-10-14) — polimento autônomo
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| C | Balão do item: **"Dano por golpe X–Y ▲/▼ atual A–B"** para armas da vocação; avisa "igual a lutar sem arma". A conta (`autoAttackRange`) foi para o shared e o servidor usa a mesma | ✅ | `itemInfo.test.ts` (igual ao servidor); capturas 1440×900 conferidas |
+| C | Coliseu: janela mostra o level de cada membro e marca **"sem XP"** quem está abaixo de 2/3 do maior | ✅ | `arena.test.ts` |
+| C | Telas baixas (720p/768p): minimapa 150 px, batalha com 3 linhas por padrão, faixa "▾" quando a coluna tem mais conteúdo (a barra de rolagem é escondida) | ✅ | `panelSize.test.ts`; capturas 1280×720 / 1366×768 / 1920×1080 |
+| C | Chat: 80 linhas **por aba** (o Grupo não apaga o Geral); avisos do servidor contam como não lidos fora do Geral | ✅ | `chatLines.test.ts` |
+| C | Textos do mundo acompanham a troca de monitor (DPR) | ✅ | emulação CDP: 151/151 textos 1 → 2 |
+| E | Hover: vetor reaproveitado e cursor só escrito quando muda (rodava a cada frame) | ✅ | typecheck + E2E |
+| F | Teste estatístico de dano: 160 mil `expect()` estouravam o tempo limite com CPU ocupada → conta violações | ✅ | arquivo em < 1 s |
+| F | Docs do Docker: comando do admin e diretório de trabalho (`/app`) conferidos na imagem | ✅ | `docker run … node packages/server/dist/admin.mjs` |
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |
 |---|---|---|---|
 | F | FPS/heap do **cliente** numa sessão longa com vários jogadores | ⏳ | o servidor já foi medido (ciclo 2); no cliente headless sem GPU o FPS não é confiável — medir num PC do escritório |
-| C | Acessibilidade: dificuldade da criatura além da cor do nome; foco visível nos inputs | ⏳ | |
+| C | Acessibilidade: dificuldade da criatura além da cor do nome | ⏳ | foco visível já feito (ciclo 2) |
 | E | #13 Timeout da predição baseado no RTT medido | ⏳ | baixo valor na LAN |
 | A | #11 Saída voluntária em combate: manter o personagem ~6 s no mundo | ⏳ adiado | só cliente modificado chama `leave()`; fechar a aba já deixa o personagem 20 s no mundo. Atrasar a limpeza cria corrida com relogin — fazer só com teste dedicado |
 
@@ -54,7 +67,7 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 
 | Item | Opções |
 |---|---|
-| _(nenhuma pendente)_ | |
+| _Design: nenhuma pendente._ Configuração de produção: | |
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
 

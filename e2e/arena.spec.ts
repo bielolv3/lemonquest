@@ -57,7 +57,8 @@ async function clearWave(page: Page): Promise<void> {
   await expect.poll(async () => {
     const t = await bar(page).textContent().catch(() => "");
     if (!t || /Pausa/.test(t)) return "pausa";
-    if ((await monsters(page)).length) await targetNearest(page).catch(() => "");
+    // Espera curta: se a onda acabar durante a mira, a pausa (25 s) não pode passar inteira dentro desta chamada.
+    if ((await monsters(page)).length) await targetNearest(page, undefined, 3000).catch(() => "");
     return /Pausa/.test((await bar(page).textContent().catch(() => "")) ?? "") ? "pausa" : t;
   }, { timeout: 90_000, intervals: [1000] }).toBe("pausa");
 }

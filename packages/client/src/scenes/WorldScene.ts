@@ -516,7 +516,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private creatureAtPointer(ptr: Phaser.Input.Pointer): string | null {
-    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    const wp = this.worldPoint(ptr);
     let best: string | null = null, bestY = -Infinity;
     for (const [id, a] of this.creatures) {
       if (a.culled || a.ghosted) continue;
@@ -679,12 +679,12 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private npcAtPointer(ptr: Phaser.Input.Pointer): string | null {
-    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    const wp = this.worldPoint(ptr);
     return this.npcs.atPoint(wp.x, wp.y);
   }
 
   private statueAtPointer(ptr: Phaser.Input.Pointer): string | null {
-    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    const wp = this.worldPoint(ptr);
     return this.statues.atPoint(wp.x, wp.y);
   }
 
@@ -811,7 +811,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private pointerTile(ptr: Phaser.Input.Pointer): { x: number; y: number } | null {
-    const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+    const wp = this.worldPoint(ptr);
     const x = Math.floor(wp.x / TILE_SIZE), y = Math.floor(wp.y / TILE_SIZE);
     if (x < 0 || y < 0 || x >= this.world.grid.width || y >= this.world.grid.height) return null;
     return { x, y };
@@ -1126,6 +1126,20 @@ export class WorldScene extends Phaser.Scene {
     this.tweens.add({ targets: m, alpha: 0, scale: 0.6, duration: 650, ease: "Quad.easeIn", onComplete: () => m.destroy() });
   }
 
+  /** Ponto do ponteiro no mundo (vetor reaproveitado: o hover roda a cada frame; quem chama usa na hora). */
+  private readonly wpTmp = new Phaser.Math.Vector2();
+  private worldPoint(ptr: Phaser.Input.Pointer): Phaser.Math.Vector2 {
+    return this.cameras.main.getWorldPoint(ptr.x, ptr.y, this.wpTmp);
+  }
+
+  /** Cursor do canvas, só escrito quando muda (o hover roda a cada frame). */
+  private cursor = "";
+  private setCursor(c: string) {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    this.game.canvas.style.cursor = c;
+  }
+
   private updateHover() {
     const ptr = this.input.activePointer;
     this.ground.showLabel(null);
@@ -1133,25 +1147,25 @@ export class WorldScene extends Phaser.Scene {
     const cid = this.creatureAtPointer(ptr);
     const c = cid ? this.creatures.get(cid) : undefined;
     if (c) {
-      this.game.canvas.style.cursor = "";
+      this.setCursor("");
       // Sobre uma criatura: quadrado branco no tile dela.
       this.hover.setPosition(this.pcam.snap(c.rx), this.pcam.snap(c.ry)).setAlpha(0.7).setVisible(true);
       return;
     }
     const nid = this.npcAtPointer(ptr);
     const nt = nid ? this.npcs.tileOf(nid) : null;
-    this.game.canvas.style.cursor = nt ? "pointer" : "";
+    this.setCursor(nt ? "pointer" : "");
     if (nt) { this.hover.setPosition(nt.x * TILE_SIZE, nt.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const sid = this.statueAtPointer(ptr);
     const st = sid ? this.statues.tileOf(sid) : null;
-    this.game.canvas.style.cursor = st ? "pointer" : "";
+    this.setCursor(st ? "pointer" : "");
     if (st) { this.hover.setPosition(st.x * TILE_SIZE, st.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const t = this.pointerTile(ptr);
     if (!t) { this.hover.setVisible(false); return; }
     const gid = this.ground.topAt(t.x, t.y);
     if (gid) {
       // Item no chão: cursor de mão + nome (cor da raridade) acima do tile.
-      this.game.canvas.style.cursor = "pointer";
+      this.setCursor("pointer");
       this.ground.showLabel(gid, this.pcam.toScreenX((t.x + 0.5) * TILE_SIZE), this.pcam.toScreenY(t.y * TILE_SIZE) - 2);
       this.hover.setPosition(t.x * TILE_SIZE, t.y * TILE_SIZE).setAlpha(0.45).setVisible(true);
       return;

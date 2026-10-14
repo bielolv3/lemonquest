@@ -83,9 +83,13 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     const xpA1 = await xpOf(a), xpB1 = await xpOf(b);
     await a.keyboard.press("F8");
     await expect.poll(async () => (await monsters(a)).length, { timeout: 15_000 }).toBeGreaterThan(0);
-    const second = await targetNearest(a);
-    await expect.poll(async () => (await monsters(a)).some((m) => m.id === second), { timeout: 45_000 }).toBe(false);
-    await expect.poll(() => xpOf(a), { timeout: 10_000 }).toBeGreaterThan(xpA1);
+    // A mata (se o alvo morrer na mão de outro jogador ainda no mundo de um teste anterior, mira no próximo).
+    await expect.poll(async () => {
+      if ((await xpOf(a)) > xpA1) return true;
+      const t = await a.evaluate(() => (window as any).__lq.target() as string);
+      if (!t || !(await monsters(a)).some((m) => m.id === t)) await targetNearest(a, undefined, 3000).catch(() => "");
+      return false;
+    }, { timeout: 60_000, intervals: [1000] }).toBe(true);
     await expect.poll(() => xpOf(b), { timeout: 10_000 }).toBeGreaterThan(xpB1);
     // Divisão igual entre os dois.
     expect((await xpOf(a)) - xpA1).toBe((await xpOf(b)) - xpB1);
