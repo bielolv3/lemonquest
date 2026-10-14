@@ -277,7 +277,8 @@ export interface ArenaStateMsg {
     /** Relógio do servidor no envio (o cliente corrige a diferença de relógio para a contagem). */
     serverNow?: number;
     monstersLeft?: number;
-    members: { name: string; alive: boolean; ready?: boolean }[];
+    /** level: para a janela mostrar quem está fora da faixa de XP (abaixo de 2/3 do maior). */
+    members: { name: string; alive: boolean; ready?: boolean; level?: number }[];
     leader: string;
     /** Recompensa acumulada até agora (cada participante). */
     earned: { xp: number; gold: number };

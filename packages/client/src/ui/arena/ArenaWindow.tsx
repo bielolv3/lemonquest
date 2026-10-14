@@ -1,5 +1,5 @@
 // Janela "Coliseu" (Mestre do Coliseu): lista de grupos abertos, criar/entrar/sair/iniciar.
-import { ARENA_COUNT, ARENA_MAX_PARTY } from "@lemonquest/shared";
+import { ARENA_COUNT, ARENA_MAX_PARTY, partyMinLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
 import { arenaAction, arenaLobbiesStore, arenaStateStore, arenaWindowOpen, closeArenaWindow, phaseRemaining } from "./arena.ts";
@@ -17,6 +17,8 @@ export function ArenaWindow() {
   if (!open) return null;
   const mine = st && !st.s.arenaId ? st.s : null;
   const myName = session.myName;
+  // Faixa de XP do Coliseu (mesma regra da XP compartilhada): abaixo de 2/3 do maior level ganha só o ouro.
+  const minLv = partyMinLevel(Math.max(0, ...(mine?.members ?? []).map((m) => m.level ?? 0)));
   const leader = mine?.leader === myName;
   return (
     <div class="hud-card hud-window arena-window" role="dialog" aria-label="Coliseu">
@@ -29,7 +31,7 @@ export function ArenaWindow() {
         <div class="arena-info">
           Arenas livres: <b>{list?.freeArenas ?? "?"}/{ARENA_COUNT}</b> · Fila: <b>{list?.queue ?? 0}</b>
         </div>
-        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (até {ARENA_MAX_PARTY}). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade.</div>
+        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (até {ARENA_MAX_PARTY}). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade. XP das ondas só para quem tem pelo menos 2/3 do level do mais alto do grupo.</div>
         <ArenaQuests />
         {mine ? (
           <div class="arena-mine">
@@ -37,7 +39,13 @@ export function ArenaWindow() {
               Seu grupo · {mine.phase === "queued" ? "na fila" : mine.phase === "countdown" ? `entrando em ${Math.ceil(phaseRemaining(st) / 1000)} s` : "aguardando"}
             </div>
             <ul class="arena-members">
-              {mine.members.map((m) => <li key={m.name}>{m.name === mine.leader ? "👑 " : ""}{m.name}</li>)}
+              {mine.members.map((m) => (
+                <li key={m.name}>
+                  {m.name === mine.leader ? "👑 " : ""}{m.name}
+                  {m.level !== undefined && <span class="arena-lv"> · Lv {m.level}</span>}
+                  {m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: ganha só o ouro das ondas`}> sem XP</span>}
+                </li>
+              ))}
             </ul>
             <div class="arena-actions">
               {leader && mine.phase === "lobby" && (

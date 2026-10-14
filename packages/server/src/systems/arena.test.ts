@@ -236,6 +236,8 @@ describe("coliseu: partida", () => {
     expect(k.gold.get("lo")).toBe(arenaWaveGold(1));
     expect(k.notices("lo").at(-1)).toMatch(/Sem XP: level abaixo de 20/);
     expect(k.lastOf("lo", S2C.ArenaState).state.earned.xp).toBe(0);
+    // A janela mostra o level de cada membro (para marcar quem fica sem XP).
+    expect(k.lastOf("lo", S2C.ArenaState).state.members.map((m: any) => m.level).sort((x: number, y: number) => x - y)).toEqual([5, 20, 30]);
   });
 
   it("pausa acaba no tempo → próxima onda; todos prontos → começa em 3 s", () => {
@@ -258,7 +260,7 @@ describe("coliseu: partida", () => {
     expect(k.arena.partyFor("a")!.phase).toBe("pause");
     k.arena.onAction(a, { action: "ready" });
     expect(k.lastOf("b", S2C.ArenaState).state.members).toEqual([
-      { name: "a", alive: true, ready: true }, { name: "b", alive: true, ready: false },
+      { name: "a", alive: true, level: 1, ready: true }, { name: "b", alive: true, level: 1, ready: false },
     ]);
     k.run(3500);
     expect(k.arena.partyFor("a")!.phase).toBe("pause");

@@ -659,7 +659,9 @@ export class ArenaSystem {
         wave: party.wave,
         ...(party.phaseEndsAt ? { phaseEndsAt: party.phaseEndsAt, serverNow: this.now() } : {}),
         ...(party.phase === "fight" ? { monstersLeft: party.monstersLeft } : {}),
-        members: party.members.map((m) => ({ name: m.name, alive: m.alive, ...(party.phase === "pause" ? { ready: m.ready } : {}) })),
+        members: party.members.map((m) => ({
+          name: m.name, alive: m.alive, level: this.o.getPlayer(m.id)?.level ?? 1, ...(party.phase === "pause" ? { ready: m.ready } : {}),
+        })),
         leader,
         earned: { xp: me?.xp ?? 0, gold: me?.gold ?? 0 },
       },
