@@ -57,7 +57,7 @@ com a Espada Longa; depois do ajuste, a arma nunca fica abaixo do punho.
 
 | Verificação | Resultado |
 |---|---|
-| Unitários | 486/486 |
+| Unitários | 491/491 (inclui permanência ao sair em combate, timeout adaptativo da predição) |
 | E2E | 25/25; Coliseu 6/6 em repetição após os ajustes de corrida (mira com espera curta, `/tp` até o vendedor) |
 | Heap do cliente (Chromium headless, GC forçado a cada 30 s, 10 bots andando/lutando/falando, 6 min) | **plano: 49,0 → 49,7 MB**; DOM sobe de 365 para ~660 e para (linhas do chat no teto de 80 por aba) |
 | Troca de monitor (DPR 1 → 2, emulação CDP) | 151/151 textos do mundo na nova resolução |
@@ -65,6 +65,13 @@ com a Espada Longa; depois do ajuste, a arma nunca fica abaixo do punho.
 
 Uma primeira medição de 10 min foi descartada: o computador entrou em suspensão no meio (passo com "ida e volta"
 de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do servidor).
+
+### Como ler falhas do E2E com a máquina ocupada
+
+Duas falhas desta rodada vieram de CPU saturada (testes unitários de outra revisão rodando junto): o log do servidor
+mostrou `[tick] 425 ticks: média 8,3 ms, máx 1154 ms` (deveriam ser ~1200 ticks/min). Antes de culpar o código,
+confira essa linha do log. O efeito visível no cliente ("Carregando personagens…" sem fim) virou erro com timeout de
+15 s nas chamadas da API.
 
 ## Instabilidade conhecida do E2E (investigada)
 
