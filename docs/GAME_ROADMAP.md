@@ -67,6 +67,9 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | E | Predição: amostra de confirmação limitada a 1 s | ✅ | `predictor.test.ts` |
 | C | Login: chamadas da API com timeout de 15 s (servidor travado não deixa "Carregando personagens…" para sempre) | ✅ | typecheck + E2E |
 | F | E2E: conferências sem `poll` logo após ações (chão/mochila) e canto livre de jogadores/itens que sobraram | ✅ | 25/25 |
+| C | Cartão "Primeiros passos" para personagem novo | ✅ | capturas 1440×900 / 1280×720; some ao fechar/primeiro abate |
+| D | #29 Armas tier 1 +1/+2 de ataque; lobo vida 80 / dano [6,15] | ✅ | unitários (metas de magias do lv 1 ≥ 1,5×); E2E 25/25 |
+| D | #30 Druida: Lasca de Gelo (exori frigo), espelho da Bola de Fogo | ✅ | conferido no jogo: 8 de mana, rato 25 → 3 |
 
 ## Próximos (ordem sugerida)
 
@@ -80,8 +83,6 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 
 | Item | Opções |
 |---|---|
-| #29 Lobo para magos (faixa 5–10) | dano [8,18]→[6,15] e vida 90→80 (mesma XP): mago 104 → 72 s por lobo |
-| #30 Magia de dano do druida no lv 1 | espelhar a Bola de Fogo: 8 de mana, 2 s, gelo, 11 + 0,6×lv + 2,5×ML |
 | #31 Ouro sem destino no lv 25+ | vender tier 4 no Bento (11–13 mil: ~1–2 h de jogo) **ou** manter tier 4–5 como recompensa e criar outro gasto |
 | #32 Fim de jogo (lv 40+) | mais spawns de espírito de chama (3 → ~8) ou um monstro lv 45–48 (~650 vida, ~850 XP) |
 | #33 Magos no lv 25+ | vida por level de feiticeiro/druida 5 → 7 (lv 30: 295 → 353); conjunto tier 3 para paladino |

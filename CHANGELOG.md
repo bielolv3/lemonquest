@@ -24,6 +24,9 @@
 ### Jogabilidade
 - Personagem novo vê um cartão de **primeiros passos** (andar, atacar, primeira missão, atalhos); some ao fechar ou
   no primeiro abate.
+- Druida ganha **Lasca de Gelo** (*exori frigo*) no level 1: dano de gelo barato, como a Bola de Fogo do feiticeiro.
+  Na barra ela entra na tecla 2 e as outras magias do druida andam uma tecla.
+- Lobo um pouco mais fraco (vida 80, dano 6–15; mesma XP): a faixa 5–10 ficava pesada para magos.
 - Armas de tier 1 um pouco mais fortes (Espada Curta 11, Clava 10, Arco Curto 9, varinha/graveto 7): a arma inicial
   continua melhor que o punho até o tier 2.
 - Quem bateu num monstro e foi para longe também não conta mais o abate em missões e conquistas (mesma regra da XP).
