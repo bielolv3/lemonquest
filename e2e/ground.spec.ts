@@ -32,8 +32,16 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
   try {
     await enterGame(a, "knight");
     await enterGame(b, "paladin");
-    // Um canto fora da vila, longe do spawn.
-    const spots = (await walkableNear(a, 60, 80, 4)).filter((t, _i, all) => all.some((o) => o.x === t.x + 1 && o.y === t.y) && all.some((o) => o.x === t.x + 2 && o.y === t.y));
+    // Um canto fora da vila, longe do spawn — e longe de quem ainda está no mundo (jogadores de um teste anterior ficam
+    // 20 s pela janela de reconexão; clicar no tile deles abre o menu do grupo em vez de pegar) e de itens que sobraram.
+    const busy = [
+      ...(await a.evaluate(() => (window as any).__lq.players() as { x: number; y: number }[])),
+      ...(await ground(a)),
+    ];
+    const clear = (x: number, y: number) => busy.every((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > 1);
+    const spots = (await walkableNear(a, 60, 80, 8)).filter((t, _i, all) =>
+      all.some((o) => o.x === t.x + 1 && o.y === t.y) && all.some((o) => o.x === t.x + 2 && o.y === t.y)
+      && clear(t.x, t.y) && clear(t.x + 1, t.y) && clear(t.x + 2, t.y));
     const base = spots[0]!;
     const drop = { x: base.x + 1, y: base.y };
     await teleport(a, base.x, base.y);
@@ -45,13 +53,13 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
 
     // 1) botão direito
     await dropToTile(a, items[0]!, drop.x, drop.y);
-    expect(await countOf(a, items[0]!)).toBe(0);
+    await expect.poll(() => countOf(a, items[0]!), { timeout: 10_000 }).toBe(0); // a mochila atualiza com a resposta do servidor
     await expect.poll(async () => (await ground(b)).some((g) => g.defId === items[0]), { timeout: 10_000 }).toBe(true);
     await snap(b, "ground-item-seen-by-b");
     await waitSettled(b);
     await clickTile(b, drop.x, drop.y, { button: "right" });
     await expect.poll(() => countOf(b, items[0]!), { timeout: 10_000 }).toBe(1);
-    await expect.poll(async () => (await ground(a)).length, { timeout: 10_000 }).toBe(0);
+    await expect.poll(async () => (await ground(a)).filter((g) => g.x === drop.x && g.y === drop.y).length, { timeout: 10_000 }).toBe(0);
 
     // 2) Ctrl + clique
     await dropToTile(a, items[1]!, drop.x, drop.y);
@@ -76,7 +84,7 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
     await waitSettled(b);
     await drag(b, await tileToClient(b, drop.x, drop.y), await center(b, bpSlot(b, empty)));
     await expect.poll(async () => (await inventory(b))!.backpack[empty]?.defId, { timeout: 10_000 }).toBe(items[3]);
-    await expect.poll(async () => (await ground(a)).length, { timeout: 10_000 }).toBe(0); // o patch do chão chega a A depois
+    await expect.poll(async () => (await ground(a)).filter((g) => g.x === drop.x && g.y === drop.y).length, { timeout: 10_000 }).toBe(0); // o patch do chão chega a A depois
   } finally {
     await ca.close();
     await cb.close();
