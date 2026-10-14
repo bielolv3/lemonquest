@@ -53,7 +53,7 @@ describe("SPELLS", () => {
       expect(list.filter((s) => s.target === "self" && s.heal).map((s) => s.id), v).toEqual(["light_heal"]);
       expect(list.every((s) => s.vocations.includes(v))).toBe(true);
     }
-    expect(Object.keys(SPELLS).length).toBe(22);
+    expect(Object.keys(SPELLS).length).toBe(23);
   });
 
   it("cura única: exura (lv1) para todas as vocações; sem exura gran/vita; druida mantém exura mas sio", () => {
@@ -130,7 +130,7 @@ describe("SPELLS", () => {
   describe("metas de balanceamento", () => {
     // Base = auto-ataque com a arma inicial (o personagem novo já começa com ela): a Bola de Fogo fica em ~1,8×.
     it("magia de ataque do level 1 vale 1,5-3x o auto-ataque, mana 10-20% de 50", () => {
-      for (const [v, id] of [["sorcerer", "fireball"], ["paladin", "piercing_arrow"], ["knight", "spin_strike"]] as const) {
+      for (const [v, id] of [["sorcerer", "fireball"], ["druid", "ice_shard"], ["paladin", "piercing_arrow"], ["knight", "spin_strike"]] as const) {
         const s = SPELLS[id];
         expect(s.vocations).toEqual([v]);
         const ratio = value(s) / autoAvg(v, 1);

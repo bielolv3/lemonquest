@@ -172,6 +172,12 @@ export const SPELLS: Record<string, SpellDef> = {
   },
 
   // ------------------------------------------------------------------ DRUIDA (cura e controle)
+  // Espelho da Bola de Fogo: sem ela o druida não tinha dano barato até o level 5 (só a Cura e o auto-ataque).
+  ice_shard: {
+    id: "ice_shard", name: "Lasca de Gelo", words: "exori frigo", vocations: ["druid"], level: 1, mana: 8, cooldownMs: 2000,
+    target: "target", range: 5, damage: { kind: "ice", base: 11, perLevel: 0.6, perMagic: 2.5, variance: 0.2 }, fx: "ice",
+    description: "Dispara uma lasca de gelo contra o alvo.",
+  },
   roots: {
     id: "roots", name: "Raiz", words: "exori tera", vocations: ["druid"], level: 5, mana: 20, cooldownMs: 15_000,
     target: "target", range: 4, damage: { kind: "earth", base: 6, perLevel: 1, perMagic: 2, variance: 0.2 },
