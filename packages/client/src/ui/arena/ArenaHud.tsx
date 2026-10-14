@@ -1,7 +1,7 @@
 // HUD da partida do coliseu (topo, centro): contagem 3-2-1, "Onda 7 · 5 monstros", pausa com "Pronto", faixa de onda e
 // cartão de resultado.
 import { useEffect, useState } from "preact/hooks";
-import { ARENA_MAX_WAVE } from "@lemonquest/shared";
+import { ARENA_MAX_WAVE, partyMinLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
 import { arenaAction, arenaBannerStore, arenaResultStore, arenaStateStore, phaseRemaining } from "./arena.ts";
@@ -54,6 +54,8 @@ function MatchBar() {
   }
   if (s.phase === "pause") {
     const me = s.members.find((m) => m.name === session.myName);
+    // Mesma faixa do servidor (membros vivos): abaixo de 2/3 do maior level a onda paga só o ouro.
+    const minLv = partyMinLevel(Math.max(0, ...s.members.filter((m) => m.alive).map((m) => m.level ?? 0)));
     return (
       <div class="arena-bar pause">
         <div class="arena-pause-row">
@@ -64,7 +66,10 @@ function MatchBar() {
         </div>
         <div class="arena-pause-members">
           {s.members.map((m) => (
-            <span key={m.name} class={m.alive ? "" : "out"}>{m.ready ? "✓" : m.alive ? "…" : "✗"} {m.name}</span>
+            <span key={m.name} class={m.alive ? "" : "out"}>
+              {m.ready ? "✓" : m.alive ? "…" : "✗"} {m.name}
+              {m.alive && m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: ganha só o ouro das ondas`}> sem XP</span>}
+            </span>
           ))}
         </div>
         <div class="arena-pause-hint">Próxima: onda {s.wave + 1}{(s.wave + 1) % 5 === 0 ? " (chefe!)" : ""} · Vendedor do Coliseu aberto · ganho: {fmt(s.earned.xp)} XP, {fmt(s.earned.gold)} ouro</div>
