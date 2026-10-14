@@ -328,7 +328,8 @@ export class CombatSystem {
     const shares = this.hooks.xpShares && byDamage.size ? this.hooks.xpShares(m, byDamage, now) : byDamage;
     if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
     if (!m.s.ownerId && this.hooks.onKillCredit) {
-      const credited = [...m.damageBy.keys()].filter((pid) => this.o.getPlayer(pid));
+      // Mesma regra da XP/loot: quem bateu e foi para longe não conta (conquistas de abate; o Coliseu também conta).
+      const credited = killCredit(m, this.o.getPlayer).map(([pid]) => pid);
       for (const pid of credited) this.hooks.onKillCredit(pid, m, credited.length > 1);
     }
     this.o.monsters.kill(m, now);

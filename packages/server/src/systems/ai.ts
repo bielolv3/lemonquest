@@ -93,6 +93,7 @@ function arrive(m: Monster, now: number) {
   m.s.targetId = "";
   m.damageBy.clear();
   m.lastAttackerId = "";
+  m.lastCreditId = "";
   m.path = null;
   m.nextWanderAt = now + 2000;
 }

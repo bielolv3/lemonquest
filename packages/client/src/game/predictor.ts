@@ -104,7 +104,8 @@ export class Predictor {
     }
     const i = this.queue.findIndex((p) => p.x === sx && p.y === sy);
     if (i >= 0) {
-      const sample = now - this.queue[i]!.at;
+      // Uma amostra só (pausa do servidor/GC) não infla a espera: teto de metade do máximo.
+      const sample = Math.min(CONFIRM_TIMEOUT_MAX_MS / 2, now - this.queue[i]!.at);
       this.confirmAvgMs = this.confirmAvgMs === 0 ? sample : this.confirmAvgMs * 0.8 + sample * 0.2;
       this.queue.splice(0, i + 1);
       return { kind: "confirmed" };

@@ -292,6 +292,16 @@ describe("WorldRoom: sair em combate", () => {
     expect(onlineOwner("Bob")).toBe("b2");
   });
 
+  it("ao ficar no mundo, para de andar (não chega sozinho a uma zona de proteção)", () => {
+    const r = makeRoom();
+    const c = join(r, "Edu", "e1");
+    r.combat.markCombat("e1", Date.now());
+    const stop = vi.spyOn(r.movement, "teleport");
+    r.onLeave(c, 4000);
+    const p = r.state.players.get("e1");
+    expect(stop).toHaveBeenCalledWith(p, p.x, p.y);
+  });
+
   it("kick durante a permanência tira o personagem na hora", () => {
     const r = makeRoom();
     const c = join(r, "Gus", "g1");
@@ -300,5 +310,22 @@ describe("WorldRoom: sair em combate", () => {
     r.kick("g1", "tchau");
     expect(r.state.players.has("g1")).toBe(false);
     expect(r.lingering.size).toBe(0);
+  });
+});
+
+describe("WorldRoom: crédito de missão só para quem está perto", () => {
+  it("quem bateu e foi para longe não conta o abate na missão", () => {
+    const r = makeRoom();
+    for (const [n, id] of [["Ana", "a1"], ["Bia", "b1"]] as const) {
+      createAccount(n, "h", "s", "knight");
+      r.onJoin(fakeClient(r, id), {}, auth(n));
+    }
+    const m = [...r.monsters.all()].find((x: any) => !x.def.invulnerable && !x.arenaId);
+    const near = r.state.players.get("a1"), far = r.state.players.get("b1");
+    near.x = m.s.x + 1; near.y = m.s.y;
+    far.x = m.s.x + 30; far.y = m.s.y;
+    m.damageBy.set("b1", 90);
+    m.damageBy.set("a1", 10);
+    expect(r.questCredit(m)).toEqual(["a1"]);
   });
 });

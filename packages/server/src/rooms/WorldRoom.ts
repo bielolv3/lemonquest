@@ -28,7 +28,7 @@ import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
 import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { QuestSystem, type ZoneRect } from "../systems/quests.ts";
-import type { Monster } from "../systems/monsters.ts";
+import { killCredit, type Monster } from "../systems/monsters.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
 import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
@@ -661,6 +661,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const sid = client.sessionId;
     const name = this.names.get(sid);
     if (code === CloseCode.CONSENTED && this.shouldLinger(sid)) {
+      const p = this.state.players.get(sid);
+      if (p) this.movement.teleport(p, p.x, p.y); // para de andar (como na queda): não chega à zona de proteção sozinho
       console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${RECONNECT_S} s`);
       this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), RECONNECT_S * 1000));
       return;
@@ -780,8 +782,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   questCredit(m: Monster): string[] {
     if (m.s.ownerId || m.arenaId) return [];
     const out = new Set<string>();
-    for (const id of m.damageBy.keys()) {
-      if (!this.state.players.has(id)) continue;
+    // Mesma regra da XP/loot (killCredit): quem bateu e foi para longe não conta.
+    for (const [id] of killCredit(m, (pid) => this.state.players.get(pid))) {
       out.add(id);
       // Grupo: membros vivos perto do monstro também recebem o crédito.
       for (const mate of this.partyMembersNear(id, m.s.x, m.s.y, PARTY_SHARE_RANGE)) out.add(mate.id);
@@ -796,8 +798,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   partyKillCredit(m: Monster): string[] {
     if (m.s.ownerId) return [];
     const byParty = new Map<object, Set<string>>();
-    for (const id of m.damageBy.keys()) {
-      if (!this.state.players.has(id)) continue;
+    for (const [id] of killCredit(m, (pid) => this.state.players.get(pid))) {
       const party = this.party.partyFor(id);
       if (!party) continue;
       let set = byParty.get(party);
