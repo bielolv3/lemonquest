@@ -25,6 +25,7 @@ import { OutfitWindow } from "../outfit/OutfitWindow.tsx";
 import { ContextMenu } from "../outfit/ContextMenu.tsx";
 import { toggleOutfit } from "../outfit/outfit.ts";
 import { QuestTracker, QuestDoneCard } from "../quests/QuestTracker.tsx";
+import { FirstSteps } from "./FirstSteps.tsx";
 import { QuestLog } from "../quests/QuestLog.tsx";
 import { toggleQuestLog } from "../quests/quests.ts";
 import { AchievementsWindow } from "../achievements/AchievementsWindow.tsx";
@@ -44,6 +45,7 @@ export function Hud() {
       <ConditionsStrip />
       <QuestTracker />
       <QuestDoneCard />
+      <FirstSteps />
       {/* Barra de magias + poções num bloco só: nunca se sobrepõem, qualquer que seja o número de slots. */}
       <div class="bottom-dock">
         <ActionBar />

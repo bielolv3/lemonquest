@@ -468,3 +468,18 @@ kbd {
   .hud-panel, .conditions, .hud-panel.reordering > [data-panel-id], .hud-rail, .bottom-dock, .action-bar, .stat-fill, .stat-ghost { transition: none !important; }
   .vignette.low, .vignette.critical, .stat-bar.hp.low .stat-fill { animation: none !important; }
 }
+
+/* ---------- Primeiros passos (personagem novo) ---------- */
+.first-steps {
+  position: fixed; top: 12px; left: calc((100vw - var(--hud-right, 0px)) / 2); transform: translateX(-50%); z-index: 26;
+  width: min(420px, calc(100vw - var(--hud-right, 0px) - 260px)); min-width: 260px; padding: 10px 14px 12px; box-sizing: border-box;
+  background: rgba(17, 20, 28, 0.92); border: 1px solid rgba(255, 212, 71, 0.55); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); font-size: 13px; color: #e8e6d9; pointer-events: auto;
+  animation: first-steps-in 320ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.first-steps-title { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #ffd447; margin-bottom: 4px; }
+.first-steps ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; line-height: 1.35; }
+.first-steps b { color: #fff3c4; }
+.first-steps-ok { margin-top: 8px; width: 100%; padding: 5px 10px; font-size: 14px; }
+@keyframes first-steps-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+@media (prefers-reduced-motion: reduce) { .first-steps { animation: none; } }
