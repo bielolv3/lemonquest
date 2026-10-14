@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ItemDef, ItemInstance } from "@lemonquest/shared";
-import { canEquip, compareStats, fmtStat, sellPrice, statLines, totalStats, useText } from "./itemInfo.ts";
+import { autoAttackRange, itemDef } from "@lemonquest/shared";
+import { canEquip, compareStats, fmtStat, sellPrice, statLines, totalStats, useText, weaponDamage } from "./itemInfo.ts";
 
 const sword: ItemDef = { id: "s", name: "Espada", kind: "weapon", slot: "weapon", icon: { url: "x.png" }, value: 100, stats: { attack: 10 }, level: 5, vocations: ["knight"] };
 const better: ItemDef = { ...sword, id: "s2", stats: { attack: 12, armor: 1 } };
@@ -39,5 +40,30 @@ describe("useText", () => {
   it("describes food as regen over time", () => {
     const food: ItemDef = { id: "f", name: "Bife", kind: "food", icon: { url: "x.png" }, value: 1, use: { food: { hpPerTick: 6, manaPerTick: 1, durationMs: 360_000 }, cooldownMs: 1000 } };
     expect(useText(food)).toBe("Recupera +6 vida e +1 mana a cada 2 s por 6 min");
+  });
+});
+
+describe("itemInfo: dano da arma no balão", () => {
+  const me = { vocation: "knight" as const, level: 20, skillMelee: 25, skillDistance: 10, magicLevel: 0 };
+  const mk = (defId: string): ItemInstance => ({ uid: defId, defId, count: 1, rarity: "common", bonuses: [] });
+
+  it("mesma conta do servidor: com a arma candidata vs. a equipada; arma fraca = igual ao punho", () => {
+    const eq = { weapon: mk("short_sword") };
+    const d = weaponDamage(itemDef("longsword"), mk("longsword"), me, eq, itemDef)!;
+    const skills = { melee: 25, distance: 10, magic: 0 };
+    expect(d.with).toEqual(autoAttackRange("knight", 20, skills, itemDef("longsword"), (s) => (s === "attack" ? 22 : 0)));
+    expect(d.now).toEqual(autoAttackRange("knight", 20, skills, itemDef("short_sword"), (s) => (s === "attack" ? 9 : 0)));
+    expect(d.with[0] + d.with[1]).toBeGreaterThan(d.now[0] + d.now[1]);
+    expect(d.likeFists).toBe(false);
+    // Espada Curta no level 60: não supera o punho.
+    const weak = weaponDamage(itemDef("short_sword"), mk("short_sword"), { ...me, level: 60 }, {}, itemDef)!;
+    expect(weak.likeFists).toBe(true);
+    expect(weak.with).toEqual(weak.now); // sem arma equipada, "agora" é o punho
+  });
+
+  it("só para armas da vocação do jogador", () => {
+    expect(weaponDamage(itemDef("short_bow"), mk("short_bow"), me, {}, itemDef)).toBeNull();
+    expect(weaponDamage(itemDef("leather_helmet"), mk("leather_helmet"), me, {}, itemDef)).toBeNull();
+    expect(weaponDamage(itemDef("short_bow"), mk("short_bow"), { ...me, vocation: "paladin" }, {}, itemDef)).not.toBeNull();
   });
 });

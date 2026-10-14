@@ -103,14 +103,8 @@ export function totalStats(inv: Inventory, defs: ItemDefs): Stats {
   return out;
 }
 
-/** Skill da arma: espada/machado/clava → melee; arco → distance; varinha/cajado → magic; sem tipo → da vocação. */
-export function weaponSkill(d: ItemDef | undefined, vocation: PlayerState["vocation"]): SkillId {
-  const t = d?.weaponType;
-  if (t === "sword" || t === "axe" || t === "club") return "melee";
-  if (t === "bow") return "distance";
-  if (t === "wand" || t === "rod") return "magic";
-  return vocation === "knight" ? "melee" : vocation === "paladin" ? "distance" : "magic";
-}
+/** Skill da arma (regra em shared/formulas.ts; reexportada para os sistemas do servidor). */
+export { weaponSkill } from "@lemonquest/shared";
 
 export interface InventoryOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;

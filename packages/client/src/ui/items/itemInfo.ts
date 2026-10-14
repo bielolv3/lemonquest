@@ -1,6 +1,6 @@
 // Formatação de itens: atributos, requisitos e comparação com o equipado. Sem dependência de UI (testável).
 import {
-  FOOD_TICK_MS, RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT,
+  FOOD_TICK_MS, RARITY_COLOR, RARITY_LABEL, RARITY_PRICE_MULT, autoAttackRange,
   type DamageKind, type EquipSlot, type ItemDef, type ItemInstance, type ItemKind, type Rarity, type StatId, type Stats, type Vocation,
   type WeaponType,
 } from "@lemonquest/shared";
@@ -76,6 +76,46 @@ export function compareStats(def: ItemDef | undefined, inst: ItemInstance | unde
     if (d !== 0) out.push({ stat, label: STAT_LABEL[stat], delta: d });
   }
   return out;
+}
+
+/** O mínimo do jogador para calcular o dano do ataque automático. */
+export interface DamageMe { vocation: Vocation; level: number; skillMelee: number; skillDistance: number; magicLevel: number }
+
+export interface WeaponDamage {
+  /** Dano por golpe com esta arma (no lugar da atual). */
+  with: [number, number];
+  /** Dano por golpe agora (arma equipada ou desarmado). */
+  now: [number, number];
+  /** Com esta arma o dano é o mesmo de lutar desarmado (arma fraca para o seu level/skill). */
+  likeFists: boolean;
+}
+
+/**
+ * Dano do ataque automático com esta arma vs. o atual — mesma conta do servidor (autoAttackRange). Bônus de ataque
+ * e skill vêm de todo o equipamento; a arma candidata substitui a equipada (e o escudo, se for de duas mãos).
+ * null = não é arma ou não é da vocação do jogador.
+ */
+export function weaponDamage(
+  def: ItemDef | undefined, inst: ItemInstance | undefined, me: DamageMe | null,
+  equipment: Partial<Record<EquipSlot, ItemInstance>>, defOf: (id: string) => ItemDef | undefined,
+): WeaponDamage | null {
+  if (!def || def.slot !== "weapon" || !me) return null;
+  if (def.vocations?.length && !def.vocations.includes(me.vocation)) return null;
+  const skills = { melee: me.skillMelee, distance: me.skillDistance, magic: me.magicLevel };
+  const sum = (items: [ItemDef | undefined, ItemInstance | undefined][]) => {
+    const out: Stats = {};
+    for (const [d, i] of items) for (const [k, v] of Object.entries(totalStats(d, i))) out[k as StatId] = (out[k as StatId] ?? 0) + (v as number);
+    return (s: StatId) => out[s] ?? 0;
+  };
+  const worn = (Object.entries(equipment) as [EquipSlot, ItemInstance][]).filter(([, it]) => !!it);
+  const curWeapon = equipment.weapon ? defOf(equipment.weapon.defId) : undefined;
+  const now = autoAttackRange(me.vocation, me.level, skills, curWeapon, sum(worn.map(([, it]) => [defOf(it.defId), it])));
+  const others = worn.filter(([slot]) => slot !== "weapon" && !(def.twoHanded && slot === "shield"));
+  const withBonus = sum([...others.map(([, it]) => [defOf(it.defId), it] as [ItemDef | undefined, ItemInstance]), [def, inst]]);
+  // Punho com os mesmos bônus (a arma pode dar skill): se a faixa for igual, a arma não acrescenta nada.
+  const fists = autoAttackRange(me.vocation, me.level, skills, undefined, withBonus);
+  const withR = autoAttackRange(me.vocation, me.level, skills, def, withBonus);
+  return { with: withR, now, likeFists: withR[0] === fists[0] && withR[1] === fists[1] };
 }
 
 export interface Requirement { text: string; ok: boolean }

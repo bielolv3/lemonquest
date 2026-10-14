@@ -1,13 +1,12 @@
 // Combate estilo Tibia: alvo + ataque automático a cada PLAYER_ATTACK_MS; dano de monstros; XP, level e morte.
 import {
   PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
-  playerDamageRange, rollAttack, rollInt, splitXp, weaponDamageRange,
+  autoAttackRange, rollAttack, rollInt, splitXp,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type NoticeMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { cheb, isMonsterState, killCredit, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
-import { weaponSkill } from "./inventory.ts";
 
 /** Alvo mais longe que isso (fora da tela) é descartado. */
 export const TARGET_MAX_DIST = 12;
@@ -40,24 +39,18 @@ export function skillValue(p: PlayerState, s: SkillId): number | undefined {
 export type BonusLookup = (s: "melee" | "distance" | "magic" | "shield" | "crit" | "attack") => number;
 
 /**
- * Perfil do ataque automático. Sem arma: fórmula da vocação (playerDamageRange). Com arma:
- * weaponDamageRange(attack total, skill efetiva, level); range/damageKind da arma sobrepõem os da vocação.
+ * Perfil do ataque automático. Dano: autoAttackRange (shared — a mesma conta do balão do item no cliente).
+ * Com arma, range/damageKind da arma sobrepõem os da vocação.
  * `bonus(stat)` = soma dos atributos do equipamento (skills, crit, attack).
  */
 export function attackProfile(p: PlayerState, weapon?: ItemDef, bonus: BonusLookup = () => 0): AttackProfile {
   const va = VOCATION_ATTACK[p.vocation] ?? VOCATION_ATTACK.knight;
   const critPct = critChance(p.vocation, bonus("crit"));
-  const s = attackSkillValue(p);
-  const eff = s === undefined || !Number.isFinite(s) ? undefined : s + bonus(weaponSkill(undefined, p.vocation));
-  const unarmed = playerDamageRange(p.vocation, p.level, eff);
-  if (!weapon) return { range: va.range, kind: va.kind, ranged: va.ranged, damage: unarmed, critPct };
-  const sk = weaponSkill(weapon, p.vocation);
-  const trained = skillValue(p, sk) ?? (sk === "magic" ? 0 : 10);
+  const skills = { melee: skillValue(p, "melee"), distance: skillValue(p, "distance"), magic: skillValue(p, "magic") };
+  const damage = autoAttackRange(p.vocation, p.level, skills, weapon, bonus);
+  if (!weapon) return { range: va.range, kind: va.kind, ranged: va.ranged, damage, critPct };
   const range = Math.max(1, weapon.range ?? va.range);
-  const armed = weaponDamageRange(bonus("attack"), trained + bonus(sk), p.level, sk === "magic");
-  // Arma nunca piora o dano (tirar a arma já dava o do punho): vale a faixa com a maior média; a arma define alcance/tipo.
-  const better = armed[0] + armed[1] >= unarmed[0] + unarmed[1] ? armed : unarmed;
-  return { range, kind: weapon.damageKind ?? va.kind, ranged: range > 1, damage: better, critPct };
+  return { range, kind: weapon.damageKind ?? va.kind, ranged: range > 1, damage, critPct };
 }
 
 /** Valor da skill que conta no ataque básico (undefined = multiplicador 1, ex.: jogadores de teste sem skills). */

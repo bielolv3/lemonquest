@@ -41,7 +41,7 @@ export function dirFromDelta(dx: number, dy: number): Dir | null {
 export const isValidDir = (d: unknown): d is Dir => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 7;
 
 import type { FightStance, Vocation } from "./types.ts";
-import type { Rarity } from "./data/items.ts";
+import type { ItemDef, Rarity } from "./data/items.ts";
 import type { SkillId } from "./skills.ts";
 
 /** XP total necessária para ATINGIR o level (level 1 = 0). Curva rápida no início, como no plano. */
@@ -129,6 +129,37 @@ export function playerDamageRange(vocation: Vocation, level: number, skill?: num
   const d = VOC_DAMAGE[vocation] ?? VOC_DAMAGE.knight;
   const avg = (d.base + Math.max(1, level) * d.perLevel) * (skill === undefined ? 1 : attackSkillMult(vocation, skill));
   return [Math.max(1, Math.floor(avg * 0.75)), Math.max(1, Math.ceil(avg * 1.25))];
+}
+
+/** Skill da arma: espada/machado/clava → melee; arco → distance; varinha/cajado → magic; sem tipo → da vocação. */
+export function weaponSkill(d: Pick<ItemDef, "weaponType"> | undefined, vocation: Vocation): SkillId {
+  const t = d?.weaponType;
+  if (t === "sword" || t === "axe" || t === "club") return "melee";
+  if (t === "bow") return "distance";
+  if (t === "wand" || t === "rod") return "magic";
+  return vocation === "knight" ? "melee" : vocation === "paladin" ? "distance" : "magic";
+}
+
+/** Skills treinadas (undefined = jogador de teste sem skills: multiplicador neutro). */
+export interface TrainedSkills { melee?: number; distance?: number; magic?: number }
+
+/**
+ * Faixa de dano do ataque automático (mesma regra no servidor e no balão do item):
+ * sem arma, a fórmula da vocação; com arma, weaponDamageRange — mas nunca abaixo do desarmado (vale a faixa de maior
+ * média: tirar a arma já dava o do punho). `bonus(stat)` = soma dos atributos do equipamento.
+ */
+export function autoAttackRange(
+  vocation: Vocation, level: number, skills: TrainedSkills, weapon: Pick<ItemDef, "weaponType"> | undefined,
+  bonus: (stat: SkillId | "attack") => number,
+): [number, number] {
+  const own = vocation === "knight" ? skills.melee : vocation === "paladin" ? skills.distance : skills.magic;
+  const eff = own === undefined || !Number.isFinite(own) ? undefined : own + bonus(weaponSkill(undefined, vocation));
+  const unarmed = playerDamageRange(vocation, level, eff);
+  if (!weapon) return unarmed;
+  const sk = weaponSkill(weapon, vocation);
+  const trained = (sk === "melee" ? skills.melee : sk === "distance" ? skills.distance : skills.magic) ?? (sk === "magic" ? 0 : 10);
+  const armed = weaponDamageRange(bonus("attack"), trained + bonus(sk), level, sk === "magic");
+  return armed[0] + armed[1] >= unarmed[0] + unarmed[1] ? armed : unarmed;
 }
 
 /** Inteiro uniforme em [min,max]. */

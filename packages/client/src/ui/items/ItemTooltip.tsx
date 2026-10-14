@@ -1,10 +1,11 @@
 // Balão de detalhes do item: nome (cor da raridade), tipo, requisitos, atributos, comparação com o equipado, valor.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { itemDef } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
 import { meStore } from "../hud/world.ts";
 import { defOf, inventoryStore } from "./inventory.ts";
 import {
-  compareStats, DAMAGE_LABEL, fmtNum, fmtStat, kindText, rarityColor, rarityLabel, requirements, statLines, useText,
+  compareStats, DAMAGE_LABEL, fmtNum, fmtStat, kindText, rarityColor, rarityLabel, requirements, statLines, useText, weaponDamage,
 } from "./itemInfo.ts";
 import { itemTipStore } from "./tipStore.ts";
 
@@ -47,6 +48,9 @@ export function ItemTooltip() {
     const eqDef = defOf(eq);
     const deltas = def && eq && eq.uid !== inst.uid ? compareStats(def, inst, eqDef, eq) : [];
     const useLine = def ? useText(def) : null;
+    const dmg = weaponDamage(def, inst, me, inv?.equipment ?? {}, itemDef);
+    const mid = (r: [number, number]) => r[0] + r[1];
+    const isWorn = tip.loc?.where === "equip";
     const unit = def?.value ?? 0;
     body = (
       <>
@@ -58,6 +62,17 @@ export function ItemTooltip() {
         {def?.range != null && def.slot === "weapon" && (
           <div class="it-line muted">
             {def.range > 1 ? `Alcance ${def.range} sqm` : "Corpo a corpo"}{def.damageKind && def.damageKind !== "physical" ? ` · dano de ${DAMAGE_LABEL[def.damageKind]}` : ""}
+          </div>
+        )}
+        {dmg && (
+          <div class="it-line it-dmg">
+            <span class="muted">Dano por golpe: </span><b>{dmg.with[0]}–{dmg.with[1]}</b>
+            {!isWorn && mid(dmg.with) !== mid(dmg.now) && (
+              <span class={mid(dmg.with) > mid(dmg.now) ? "good" : "bad"}>
+                {" "}{mid(dmg.with) > mid(dmg.now) ? "▲" : "▼"} atual {dmg.now[0]}–{dmg.now[1]}
+              </span>
+            )}
+            {dmg.likeFists && <div class="muted">Igual a lutar sem arma no seu level.</div>}
           </div>
         )}
         {reqs.length > 0 && (
