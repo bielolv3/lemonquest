@@ -3,23 +3,14 @@ import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type Notice
 import { session } from "../session.ts";
 import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";
-import { FEED_COLOR, onFeed, type FeedEntry } from "./items/loot.ts";
+import { FEED_COLOR, onFeed } from "./items/loot.ts";
 import { rarityColor } from "./items/itemInfo.ts";
 import { partyStore } from "./party/party.ts";
+import { inTab, pushLine, type Line, type Tab } from "./chatLines.ts";
 
-const MAX_LINES = 80;
-
-/** Linha do chat: mensagem normal ou notícia do servidor (S2C.Feed). `key` = id local crescente (chave estável no slice). */
-type Line = ChatMessage & { feed?: FeedEntry; key: number };
-let nextKey = 0;
-const push = (l: Line[], m: Omit<Line, "key">): Line[] => [...l, { ...m, key: ++nextKey }].slice(-MAX_LINES);
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 const collapsedStore = persistedBool("chatCollapsed", false);
-
-/** Aba do chat: "global" (Geral: global + sistema + feed) ou "party" (Grupo: só o canal do grupo). */
-type Tab = "global" | "party";
-const inTab = (m: Line, tab: Tab) => (tab === "party" ? m.channel === "party" : m.channel !== "party");
 
 export function Chat() {
   const [lines, setLines] = useState<Line[]>([]);
@@ -39,7 +30,7 @@ export function Chat() {
 
   useEffect(() => session.onRoom((room) => {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
-      setLines((l) => push(l, m));
+      setLines((l) => pushLine(l, m));
       if (m.channel === "party") {
         if (collapsedRef.current || tabRef.current !== "party") setPartyUnread((n) => n + 1);
       } else if (collapsedRef.current || tabRef.current !== "global") setUnread((n) => n + 1);
@@ -47,13 +38,13 @@ export function Chat() {
     // Respostas de comandos de admin (Notice com log): ficam no chat, copiáveis (ex.: código de recuperação).
     room.onMessage(S2C.Notice, (m: NoticeMsg) => {
       if (!m?.log || typeof m.text !== "string") return;
-      setLines((l) => push(l, { from: "", text: m.text, channel: "system", ts: Date.now() }));
+      setLines((l) => pushLine(l, { from: "", text: m.text, channel: "system", ts: Date.now() }));
     });
   }), []);
 
   useEffect(() => onFeed((f) => {
-    setLines((l) => push(l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f }));
-    if (collapsedRef.current) setUnread((n) => n + 1);
+    setLines((l) => pushLine(l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f }));
+    if (collapsedRef.current || tabRef.current !== "global") setUnread((n) => n + 1);
   }), []);
 
   useEffect(() => {
