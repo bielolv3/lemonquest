@@ -9,6 +9,7 @@ import { closeDb, getCharacterByName, getResetCode, initDb, listDeletedCharacter
 import {
   DELETE_MAX_PER_HOUR, LOGIN_MAX_FAILS, RESET_CODE_TTL_MS, authRouter, claimOnline, createResetCode, handleCreateCharacter,
   handleDeleteCharacter, handleLogin, handlePlay, handleResetPassword, handleResume, normalizeResetCode, releaseOnline, resetAuthState,
+  consumeToken, setSessionKicker,
 } from "./auth.ts";
 import { runAdminCli } from "./admincli.ts";
 
@@ -64,6 +65,25 @@ describe("recuperação de senha: código", () => {
     ok(await handleLogin({ account: "leo", password: "novasenha" }));
     // Mesmo código de novo: não vale mais.
     expect(await handleResetPassword({ account: "leo", code, password: "outrasenha" })).toEqual({ ok: false, error: "invalid_code" });
+  });
+
+  it("troca de senha derruba o token de entrada pendente e o personagem da conta que está no mundo", async () => {
+    const a = await newAccount();
+    ok(handleCreateCharacter({ session: a.session, name: "Leo", vocation: "knight" }));
+    ok(handleCreateCharacter({ session: a.session, name: "Lia", vocation: "druid" }));
+    claimOnline("Leo", "sess-leo");
+    const play = handlePlay({ session: a.session, name: "Lia" });
+    if (!play.ok) throw new Error("play falhou");
+    const kicked: string[] = [];
+    setSessionKicker((sid) => kicked.push(sid));
+    try {
+      const { code } = (await createResetCode("leo", "admin"))!;
+      ok(await handleResetPassword({ account: "leo", code, password: "novasenha" }));
+      expect(kicked).toEqual(["sess-leo"]);
+      expect(() => consumeToken(play.token)).toThrow();
+    } finally {
+      setSessionKicker(null);
+    }
   });
 
   it("expira em 24 h (e é apagado); código novo substitui o anterior", async () => {

@@ -14,6 +14,7 @@ import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 import type { CharacterRecord } from "./types.ts";
 import { loadOutfit } from "../systems/outfit.ts";
 import { e2eMode } from "../e2e.ts";
+import { devAdmins } from "../systems/devcommands.ts";
 
 /** Validade do token de entrada no mundo (uso único, emitido pelo /api/play). */
 export const TOKEN_TTL_MS = 60_000;
@@ -89,6 +90,28 @@ const LETTER = String.raw`(?:(?=\p{L})\p{Script=Latin})`;
 const NAME_RE = new RegExp(`^${LETTER}+(?: ${LETTER}+)*$`, "u");
 const ACC_CHAR = String.raw`(?:${LETTER}|[0-9._-])`;
 const ACCOUNT_RE = new RegExp(`^${ACC_CHAR}+(?: ${ACC_CHAR}+)*$`, "u");
+
+/** Letras de nomes NOVOS: ASCII + Latin-1 + Latin Extended-A (barra sósias: ｆｕｌｌｗｉｄｔｈ, ʟ small caps, ligaduras ﬁ). */
+const PLAIN_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ſ]+(?: [A-Za-zÀ-ÖØ-öø-ſ]+)*$/u;
+
+/** Nome aceito na CRIAÇÃO (mais estrito que normalizeName, que segue valendo para nomes antigos). */
+export const isPlainNewName = (name: string): boolean => name.normalize("NFKC") === name && PLAIN_NAME_RE.test(name);
+
+type Env = Record<string, string | undefined>;
+
+/** Chave sem acentos: "Leonardó" e "Leonardo" colidem (para reservar nomes de admin). */
+const foldKey = (s: string): string => nameKey(s).normalize("NFD").replace(/\p{M}/gu, "");
+
+/** O nome (ou uma variante com/sem acento dele) está em LEMONQUEST_ADMINS? */
+export const isReservedAdminName = (name: string, env: Env = process.env): boolean => {
+  const k = foldKey(name);
+  for (const a of devAdmins(env)) if (foldKey(a) === k) return true;
+  return false;
+};
+
+/** Contas (name_key) que podem criar personagens com nome de admin: LEMONQUEST_ADMIN_ACCOUNTS="leonardo, ana". */
+export const adminAccounts = (env: Env = process.env): Set<string> =>
+  new Set((env.LEMONQUEST_ADMIN_ACCOUNTS ?? "").split(",").map((s) => nameKey(s.trim())).filter(Boolean));
 
 /** Nome de PERSONAGEM: NFC; só letras do alfabeto latino (com acentos), palavras separadas por um único espaço. */
 export function normalizeName(raw: unknown): string | null {
@@ -180,7 +203,7 @@ const limited = (ms: number): AuthFail => {
 const fail = (error: AuthFail["error"], message?: string): AuthFail => (message ? { ok: false, error, message } : { ok: false, error });
 
 export interface LoginContext {
-  /** IP do cliente (req.socket.remoteAddress — sem proxy na LAN). */
+  /** IP do cliente (req.ip: o do socket, ou o do X-Forwarded-For com LEMONQUEST_TRUST_PROXY — ver index.ts). */
   ip?: string;
   now?: () => number;
 }
@@ -260,8 +283,14 @@ export function handleCreateCharacter(req: CreateCharacterRequest, ctx: LoginCon
   if (cw > 0) return limited(cw);
   charCreations.record(ck, now);
   const name = normalizeName(req.name);
-  if (!name) return fail("invalid_name");
+  if (!name || !isPlainNewName(name)) return fail("invalid_name");
   if (!VOCATIONS.includes(req.vocation)) return fail("invalid_request");
+  // Nome de admin livre (admin excluiu/ainda não criou o personagem) não pode ser pego por qualquer conta: admin é
+  // decidido pelo nome. Responde "name_taken" para não revelar quem é admin.
+  if (!e2eMode() && isReservedAdminName(name) && !adminAccounts().has(nameKey(s.account))) {
+    console.warn(`[auth] nome de admin recusado: ${name} (conta ${s.account}; libere em LEMONQUEST_ADMIN_ACCOUNTS)`);
+    return fail("name_taken");
+  }
   if (getCharacterByName(name)) return fail("name_taken");
   let rec;
   try {
@@ -328,6 +357,21 @@ function closeAccountSessions(accountId: number) {
   for (const [t, s] of sessions) if (s.accountId === accountId) sessions.delete(t);
 }
 
+/** Derruba uma sessão do jogo (o index registra o kick da sala; ausente nos testes de auth puros). */
+let kickSession: ((sessionId: string, reason: string) => void) | null = null;
+export function setSessionKicker(fn: ((sessionId: string, reason: string) => void) | null): void { kickSession = fn; }
+
+/** Senha trocada: tokens de entrada pendentes caem e os personagens da conta que estão no mundo são desconectados. */
+function closeAccountPlay(accountId: number) {
+  const keys = new Set(listCharacters(accountId).map((c) => nameKey(c.name)));
+  for (const k of keys) {
+    const t = pendingByKey.get(k);
+    if (t) { tokens.delete(t); pendingByKey.delete(k); }
+    const sid = online.get(k);
+    if (sid) kickSession?.(sid, "A senha da conta foi trocada. Entre de novo.");
+  }
+}
+
 /** POST /api/reset-password — troca a senha com um código de recuperação válido e já entra na conta. */
 export async function handleResetPassword(req: ResetPasswordRequest, ctx: LoginContext = {}): Promise<AccountSession> {
   const now = ctx.now ?? Date.now;
@@ -367,6 +411,7 @@ export async function handleResetPassword(req: ResetPasswordRequest, ctx: LoginC
   const salt = crypto.randomBytes(16).toString("hex");
   updatePassword(acc.id, await hashPassword(req.password, salt), salt);
   closeAccountSessions(acc.id);
+  closeAccountPlay(acc.id);
   resetAccountFails.reset(key);
   accountFails.reset(key);
   console.log(`[auth] senha da conta ${acc.name} redefinida com código de recuperação (de ${ip})`);
@@ -443,7 +488,7 @@ function send(res: Response, r: { ok: boolean; error?: string }) {
 function route(fn: (body: any, ctx: LoginContext) => Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }) {
   return async (req: import("express").Request, res: Response) => {
     try {
-      send(res, await fn(req.body ?? {}, { ip: req.socket.remoteAddress ?? "?" }));
+      send(res, await fn(req.body ?? {}, { ip: req.ip ?? req.socket.remoteAddress ?? "?" }));
     } catch (e) {
       console.error(`[auth] erro em ${req.path}`, e);
       res.status(500).json({ ok: false, error: "invalid_request" } satisfies AuthFail);

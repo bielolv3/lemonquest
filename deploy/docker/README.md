@@ -116,6 +116,8 @@ Edite `docker-compose.yml` (seção `environment`) e rode `docker compose up -d`
 | `PORT` | `2567` | Porta dentro do container (para mudar a porta de fora, altere `ports: "NOVA:2567"`). |
 | `TZ` | `America/Sao_Paulo` | Fuso dos nomes de backup e dos logs. |
 | `LEMONQUEST_ADMINS` | vazio | Personagens administradores (ex.: `"Leonardo, Ana"`) — comandos de admin, veja o passo 9. |
+| `LEMONQUEST_ADMIN_ACCOUNTS` | vazio | Contas (login) que podem criar personagens com nome de admin. Sem ela, nomes de admin ainda não criados ficam reservados. |
+| `LEMONQUEST_TRUST_PROXY` | vazio | Só atrás do Caddy **com a 2567 fechada** (`"uniquelocal"`): o limite de login por IP usa o IP real do jogador. |
 | `LEMONQUEST_DEV_COMMANDS` | desligado | `"1"` liga /level, /item etc. para os admins — só fora de produção (no container, que roda em produção, nunca liga). |
 | `LEMONQUEST_BACKUP_COPY_DIR` | vazio | Pasta para uma **cópia extra** de cada backup (outro disco/NAS). Veja o passo 5. |
 

@@ -97,7 +97,7 @@ export interface SpellSystemOptions {
   magicBonus?: (p: PlayerState) => number;
   /** Multiplicador do dano causado (postura). */
   dealtMult?: (p: PlayerState) => number;
-  /** Tile ocupado por algo além de monstros/jogadores (NPCs) — a investida não para em cima. */
+  /** Tile ocupado por algo além de monstros/jogadores (NPCs, portais) — a investida não para em cima. */
   isBlocked?: (x: number, y: number) => boolean;
   /**
    * Magias de grupo ("party"): quem conta como aliado do conjurador (ele mesmo + membros do grupo). Ausente = todos.

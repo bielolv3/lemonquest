@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLOSE_REPLACED, findObjects, objectTile } from "@lemonquest/shared";
-import { REPLACED_REASON, WorldRoom, currentWorld } from "./WorldRoom.ts";
-import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
+import { REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
+import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, loadGroundRows, saveCharacter } from "../persistence/db.ts";
+import { makeItem } from "../systems/inventory.ts";
 import { handleCreateCharacter, handleLogin, handlePlay, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";
 
 // Sala real (mapa real), fora do matchmaker: __init + onCreate; clientes falsos.
@@ -153,6 +154,19 @@ describe("WorldRoom: sessões", () => {
     expect(allow).toHaveBeenCalledTimes(1);
   });
 
+  it("kick de quem caiu e espera reconexão cancela a reconexão (troca de senha, /kick)", () => {
+    const r = makeRoom();
+    createAccount("Bel", "h", "s", "knight");
+    const c = fakeClient(r, "k1");
+    r.onJoin(c, {}, auth("Bel"));
+    const reject = vi.fn();
+    vi.spyOn(r, "allowReconnection").mockImplementation(() => Object.assign(new Promise(() => {}), { reject }) as any);
+    r.onDrop(c, 1006);
+    r.kick("k1", "senha trocada");
+    expect(reject).toHaveBeenCalledTimes(1);
+    expect(r.reconnecting.has("k1")).toBe(false);
+  });
+
   it("senha fraca (conta antiga) recebe aviso após entrar", () => {
     const r = makeRoom();
     createAccount("Caio", "h", "s", "sorcerer");
@@ -197,5 +211,36 @@ describe("WorldRoom: posição salva", () => {
     const c = fakeClient(r, "d1");
     r.onJoin(c, {}, auth("Davi"));
     expect([r.state.players.get("d1").x, r.state.players.get("d1").y]).toEqual([sp.x, sp.y]);
+  });
+});
+
+describe("WorldRoom: item entre mochila e chão", () => {
+  it("largar/pegar grava jogador e chão juntos no fim do tick (sem esperar o autosave)", () => {
+    const r = makeRoom();
+    createAccount("Gil", "h", "s", "knight");
+    const c = fakeClient(r, "g1");
+    r.onJoin(c, {}, auth("Gil"));
+    const p = r.state.players.get("g1");
+    r.inventory.addItem(p, makeItem("health_potion", 3));
+    r.saveAll();
+    const idx = r.inventory.serialize("g1").backpack.findIndex((it: any) => it?.defId === "health_potion");
+    const potions = () => (getCharacterByName("Gil")!.data.backpack ?? []).filter((it: any) => it?.defId === "health_potion").length;
+    const onGround = () => loadGroundRows().filter((g) => JSON.parse(g.item).defId === "health_potion").length;
+    expect(potions()).toBe(1);
+
+    r.ground.onDrop(p, { from: { where: "backpack", index: idx }, x: p.x, y: p.y });
+    r.tick();
+    expect(potions()).toBe(0);
+    expect(onGround()).toBe(1);
+
+    const gid = [...r.state.groundItems.keys()][0];
+    r.ground.onPickup(p, { groundId: gid });
+    const t = Date.now();
+    r.tick(); // menos de 1 s depois da última gravação: espera
+    expect(potions()).toBe(0);
+    vi.spyOn(Date, "now").mockReturnValue(t + TRANSFER_SAVE_MS + 1);
+    r.tick();
+    expect(potions()).toBe(1);
+    expect(onGround()).toBe(0);
   });
 });

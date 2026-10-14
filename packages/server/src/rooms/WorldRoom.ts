@@ -38,7 +38,7 @@ import { AchievementSystem, setActiveAchievements } from "../systems/achievement
 import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
-import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv } from "../persistence/db.ts";
+import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import { isValidStart, reachableFrom } from "../world/tiles.ts";
@@ -57,7 +57,11 @@ export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
   [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10,
+  // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
+  [C2S.Chat]: 6,
 };
+/** Intervalo mínimo entre gravações "jogador + chão" depois de largar/pegar item (ver saveTransfers). */
+export const TRANSFER_SAVE_MS = 1000;
 const DEV = process.env.NODE_ENV !== "production";
 /** Log de desempenho do tick: dev = a cada 60 s; produção = a cada 5 min e só se algum tick passou de 30 ms. */
 const PERF_LOG_MS = DEV ? 60_000 : 5 * 60_000;
@@ -111,6 +115,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private steps: ReadonlyArray<readonly [string, () => void]> = [];
   private tickNow = 0;
   private shuttingDown = false;
+  /** Jogadores que largaram/pegaram item do chão neste tick (ver saveTransfers). */
+  private readonly transferred = new Set<string>();
+  private lastTransferSave = 0;
   /** Salvamento de um registro (trocável nos testes para simular falha). */
   persist: (rec: CharacterRecord) => void = saveCharacter;
 
@@ -204,8 +211,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         }))),
       },
       inventory: this.inventory, collection: this.state.groundItems, send,
-      onDropped: (p) => this.ach?.event(p.id, "drop"),
-      onPickedUp: (p) => this.ach?.event(p.id, "pickup"),
+      onDropped: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "drop"); },
+      onPickedUp: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "pickup"); },
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });
@@ -241,7 +248,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       send, broadcast,
       magicBonus: (p) => this.inventory.stat(p.id, "magic"),
       dealtMult: stanceDealt,
-      isBlocked: (x, y) => this.npcs.isNpcAt(x, y),
+      // Investida não para em NPC nem em portal (cair num portal teleportava o cavaleiro sem querer).
+      isBlocked: (x, y) => this.npcs.isNpcAt(x, y) || this.portals.isPortalTile(x, y),
       isAlly: (a, b) => this.party.sameParty(a.id, b.id),
     });
     this.training = new TrainingSystem({
@@ -404,6 +412,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["combat.flush", () => this.combat.flush()],
       ["ground", () => this.ground.tick(this.tickNow)],
       ["inventory.flush", () => this.inventory.flush()],
+      ["transfers", () => this.saveTransfers()],
     ];
 
     this.setSimulationInterval(() => this.tick(), TICK_MS);
@@ -579,6 +588,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /** /kick: fecha a sessão com CLOSE_KICKED + motivo (sem reconexão automática; onLeave salva e limpa). */
   kick(sessionId: string, reason: string) {
+    // Caído esperando reconexão: o kick tem de valer também (senão o SDK reconecta e o jogador segue no mundo).
+    const pending = this.reconnecting.get(sessionId);
+    if (pending) {
+      this.reconnecting.delete(sessionId);
+      try { pending.reject(new Error("kicked")); } catch (e) { this.errors.report("kick.reconnect", e); }
+    }
     const c = this.clients.getById(sessionId);
     if (!c) return;
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
@@ -768,6 +783,23 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /** Desbloqueio vindo de missão (roupa/addon/título): sistema de conquistas. */
   onUnlock(playerId: string, unlockId: string): void { this.ach?.grant(playerId, unlockId); }
+
+  /**
+   * Item passou da mochila para o chão (ou o contrário) neste tick: grava os jogadores envolvidos e o chão JUNTOS, numa
+   * transação. Sem isso o chão (5 s) e o personagem (15 s) eram gravados em momentos diferentes e uma queda brusca do
+   * processo nesse intervalo duplicava ou sumia com o item. No máximo 1×/TRANSFER_SAVE_MS: regravar o chão custa
+   * ~1–7 ms (100–2000 itens) e não pode rodar a cada tick com gente arrumando a mochila.
+   */
+  saveTransfers(): void {
+    if (!this.transferred.size || this.tickNow - this.lastTransferSave < TRANSFER_SAVE_MS) return;
+    this.lastTransferSave = this.tickNow;
+    const ids = [...this.transferred];
+    this.transferred.clear();
+    transaction(() => {
+      for (const id of ids) runSafe("transfer.save", () => this.save(id), this.errors);
+      this.ground.flush(this.tickNow);
+    });
+  }
 
   /** Salva todos (autosave / desligamento). Um registro com erro não impede os outros. */
   saveAll(): number {

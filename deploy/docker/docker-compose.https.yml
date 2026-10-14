@@ -11,6 +11,12 @@
 
 # A porta 2567 do compose principal continua aberta (HTTP direto) até você validar o HTTPS. Depois, para fechá-la,
 # acrescente neste arquivo, no serviço lemonquest:   ports: !override []
+# Com a 2567 fechada, ligue também LEMONQUEST_TRUST_PROXY no serviço lemonquest (o limite de login por IP passa a ver o
+# IP real de cada jogador, não o do Caddy). NÃO ligue com a 2567 aberta: quem acessa direto poderia forjar o IP.
+#   lemonquest:
+#     ports: !override []
+#     environment:
+#       LEMONQUEST_TRUST_PROXY: "uniquelocal"
 services:
   caddy:
     image: caddy:2-alpine

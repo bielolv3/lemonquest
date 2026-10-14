@@ -31,6 +31,31 @@ describe("auth: contas", () => {
     expect(normalizeName("José")).toBe("José"); // NFD → NFC
   });
 
+  it("nomes NOVOS: recusa sósias (fullwidth, small caps, ligaduras) e aceita acentos comuns", async () => {
+    const a = okSession(await create("contaSosia"));
+    for (const name of ["Ｌｅｏ", "ʟeonardo", "Leonardᴏ", "Raﬁq"]) {
+      expect(normalizeName(name), name).not.toBeNull(); // nomes antigos assim continuam válidos para busca
+      expect(handleCreateCharacter({ session: a.session, name, vocation: "knight" }), name).toEqual({ ok: false, error: "invalid_name" });
+    }
+    expect(okSession(handleCreateCharacter({ session: a.session, name: "Ção Ñúñez", vocation: "knight" })).characters).toHaveLength(1);
+  });
+
+  it("nome de admin livre: só contas de LEMONQUEST_ADMIN_ACCOUNTS criam (também variantes com acento)", async () => {
+    vi.stubEnv("LEMONQUEST_ADMINS", "Leonardo, Ana Maria");
+    vi.stubEnv("LEMONQUEST_ADMIN_ACCOUNTS", "Dono");
+    try {
+      const intruso = okSession(await create("intruso"));
+      for (const name of ["leonardo", "Leonardó", "ANA MARIA"]) {
+        expect(handleCreateCharacter({ session: intruso.session, name, vocation: "knight" }), name).toEqual({ ok: false, error: "name_taken" });
+      }
+      expect(getCharacterByName("Leonardo")).toBeUndefined();
+      const dono = okSession(await create("dono"));
+      expect(okSession(handleCreateCharacter({ session: dono.session, name: "Leonardo", vocation: "knight" })).characters).toHaveLength(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("valida nomes de conta (3–20, letras latinas/dígitos/._-)", () => {
     for (const n of ["ab", "a".repeat(21), "leo!", "Лео", "le@o", "", "a​bc"]) expect(normalizeAccount(n), n).toBeNull();
     expect(normalizeAccount(" leo.silva_99 ")).toBe("leo.silva_99");

@@ -49,13 +49,15 @@ export function findPath(
   if (Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) > maxDist) return null;
   if (from.x < 0 || from.y < 0 || from.x >= W || from.y >= H) return null;
 
-  const N = W * H;
   const start = from.y * W + from.x;
   const goal = to.y * W + to.x;
-  const g = new Float64Array(N).fill(Infinity);
-  const parent = new Int32Array(N).fill(-1);
-  const closed = new Uint8Array(N);
-  const heap = new MinHeap();
+  // Buffers do tamanho do mapa reaproveitados entre chamadas: um nó só vale se stamp[i] === gen (sem fill a cada busca).
+  const sc = scratchFor(W * H);
+  const { g, parent, stamp, heap } = sc;
+  const gen = ++sc.gen;
+  const CLOSED = -gen; // stamp negativo = nó fechado nesta busca
+  heap.clear();
+  const seen = (i: number) => stamp[i] === gen || stamp[i] === CLOSED;
 
   const h = (x: number, y: number) => {
     const dx = Math.abs(x - to.x), dy = Math.abs(y - to.y);
@@ -63,14 +65,16 @@ export function findPath(
   };
 
   g[start] = 0;
+  parent[start] = -1;
+  stamp[start] = gen;
   heap.push(start, h(from.x, from.y), h(from.x, from.y));
   let expanded = 0;
 
   while (heap.size > 0) {
     const cur = heap.pop();
-    if (closed[cur]) continue;
+    if (stamp[cur] === CLOSED) continue;
     if (cur === goal) return rebuild(parent, cur, start, W);
-    closed[cur] = 1;
+    stamp[cur] = CLOSED;
     if (++expanded > maxNodes) return null;
 
     const cx = cur % W, cy = (cur - cx) / W;
@@ -80,10 +84,11 @@ export function findPath(
       const diag = dx !== 0 && dy !== 0;
       if (diag && (!grid.isWalkable(cx + dx, cy) || !grid.isWalkable(cx, cy + dy))) continue;
       const ni = ny * W + nx;
-      if (closed[ni]) continue;
+      if (stamp[ni] === CLOSED) continue;
       if (ni !== goal && isBlocked?.(nx, ny)) continue;
       const ng = g[cur] + (diag ? DIAGONAL_COST : 1);
-      if (ng < g[ni]) {
+      if (!seen(ni) || ng < g[ni]) {
+        stamp[ni] = gen;
         g[ni] = ng;
         parent[ni] = cur;
         const hn = h(nx, ny);
@@ -92,6 +97,17 @@ export function findPath(
     }
   }
   return null;
+}
+
+interface Scratch { g: Float64Array; parent: Int32Array; stamp: Int32Array; heap: MinHeap; gen: number }
+let scratch: Scratch | null = null;
+
+/** Buffers da busca para mapas de N tiles (recriados só se o tamanho mudar; gen reinicia antes de estourar). */
+function scratchFor(n: number): Scratch {
+  if (!scratch || scratch.g.length !== n || scratch.gen > 0x3fffffff) {
+    scratch = { g: new Float64Array(n), parent: new Int32Array(n), stamp: new Int32Array(n), heap: new MinHeap(), gen: 0 };
+  }
+  return scratch;
 }
 
 function rebuild(parent: Int32Array, end: number, start: number, W: number): Point[] {
@@ -106,6 +122,7 @@ class MinHeap {
   private f: number[] = [];
   private h: number[] = [];
   get size() { return this.ids.length; }
+  clear() { this.ids.length = 0; this.f.length = 0; this.h.length = 0; }
 
   push(id: number, f: number, h: number) {
     this.ids.push(id); this.f.push(f); this.h.push(h);
@@ -142,8 +159,9 @@ class MinHeap {
   }
 
   private swap(a: number, b: number) {
-    [this.ids[a], this.ids[b]] = [this.ids[b], this.ids[a]];
-    [this.f[a], this.f[b]] = [this.f[b], this.f[a]];
-    [this.h[a], this.h[b]] = [this.h[b], this.h[a]];
+    const ids = this.ids, f = this.f, h = this.h;
+    let t = ids[a]; ids[a] = ids[b]; ids[b] = t;
+    t = f[a]; f[a] = f[b]; f[b] = t;
+    t = h[a]; h[a] = h[b]; h[b] = t;
   }
 }

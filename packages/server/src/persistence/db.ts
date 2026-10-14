@@ -193,11 +193,21 @@ export function closeDb(): void {
   try { checkpoint("TRUNCATE"); } finally { db.close(); db = null; }
 }
 
-/** Cópia consistente da base em `file` (VACUUM INTO). Sobrescreve um arquivo existente com o mesmo nome. */
+/**
+ * Cópia consistente da base em `file` (VACUUM INTO). Grava num `.tmp` e só troca pelo arquivo final depois de pronta:
+ * uma falha (disco cheio...) não apaga o backup anterior com o mesmo nome.
+ */
 export function backupTo(file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.rmSync(file, { force: true });
-  getDb().prepare("VACUUM INTO ?").run(file);
+  const tmp = `${file}.tmp`;
+  fs.rmSync(tmp, { force: true });
+  try {
+    getDb().prepare("VACUUM INTO ?").run(tmp);
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    throw e;
+  }
 }
 
 interface CharRow {
@@ -348,19 +358,32 @@ export function loadGroundRows(): GroundRow[] {
   return rows.map((r) => ({ x: r.x, y: r.y, item: r.item, expiresAt: r.expires_at, owner: r.owner, ownerUntil: r.owner_until }));
 }
 
-/** Substitui TODOS os itens no chão (uma transação). */
-export function replaceGroundRows(rows: readonly GroundRow[]): void {
+/**
+ * Roda `fn` numa transação (SAVEPOINT: pode ficar dentro de outra — a de fora decide o COMMIT). Erro = desfaz e relança.
+ */
+export function transaction<T>(fn: () => T): T {
   const d = getDb();
-  d.exec("BEGIN");
+  const sp = `sp${++savepointSeq}`;
+  d.exec(`SAVEPOINT ${sp}`);
   try {
-    d.exec("DELETE FROM ground_items");
-    const ins = d.prepare("INSERT INTO ground_items (x, y, item, expires_at, owner, owner_until) VALUES (?, ?, ?, ?, ?, ?)");
-    for (const r of rows) ins.run(r.x, r.y, r.item, r.expiresAt, r.owner, r.ownerUntil);
-    d.exec("COMMIT");
+    const r = fn();
+    d.exec(`RELEASE ${sp}`);
+    return r;
   } catch (e) {
-    d.exec("ROLLBACK");
+    // Se o SQLite já desfez a transação inteira (disco cheio, E/S), o savepoint não existe mais: não esconde o erro original.
+    try { d.exec(`ROLLBACK TO ${sp}`); d.exec(`RELEASE ${sp}`); } catch { /* já desfeito */ }
     throw e;
   }
+}
+let savepointSeq = 0;
+
+/** Substitui TODOS os itens no chão (uma transação; aninha dentro de `transaction`). */
+export function replaceGroundRows(rows: readonly GroundRow[]): void {
+  transaction(() => {
+    getDb().exec("DELETE FROM ground_items");
+    const ins = getDb().prepare("INSERT INTO ground_items (x, y, item, expires_at, owner, owner_until) VALUES (?, ?, ?, ?, ?, ?)");
+    for (const r of rows) ins.run(r.x, r.y, r.item, r.expiresAt, r.owner, r.ownerUntil);
+  });
 }
 
 export interface RankingRow { name: string; vocation: string; level: number; xp: number; data: CharacterData }

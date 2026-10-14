@@ -7,8 +7,8 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RANKING_CACHE_S } from "@lemonquest/shared";
 import { rankingJson } from "./persistence/ranking.ts";
 import { ROOT_DIR } from "./paths.ts";
-import { WorldRoom } from "./rooms/WorldRoom.ts";
-import { authRouter } from "./persistence/auth.ts";
+import { WorldRoom, currentWorld } from "./rooms/WorldRoom.ts";
+import { authRouter, setSessionKicker } from "./persistence/auth.ts";
 import { checkpoint, closeDb, initDb } from "./persistence/db.ts";
 import { backupCopyDir, backupDir, startBackups } from "./persistence/backup.ts";
 import { devAdmins, devCommandsEnabled } from "./systems/devcommands.ts";
@@ -63,6 +63,16 @@ if (devCommandsEnabled()) {
 
 // --- HTTP ------------------------------------------------------------------------------------------------------------
 const app = express();
+app.disable("x-powered-by");
+// Atrás de proxy reverso (Caddy do docker-compose.https.yml): sem isto todo mundo chega com o IP do proxy e o limite
+// de login por IP vira um só para o escritório inteiro. Valor no formato do Express ("loopback, uniquelocal", "1"...).
+const TRUST_PROXY = process.env.LEMONQUEST_TRUST_PROXY?.trim();
+if (TRUST_PROXY) app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "same-origin");
+  next();
+});
 if (!PROD) {
   // Em dev o cliente (Vite :3000) chama a API na :2567.
   app.use((req, res, next) => {
@@ -99,6 +109,8 @@ if (SERVE_CLIENT) {
 const httpServer = http.createServer(app);
 const gameServer = new Server({ transport: new WebSocketTransport({ server: httpServer }), gracefullyShutdown: false });
 gameServer.define("world", WorldRoom);
+// Troca de senha (código de recuperação) derruba os personagens da conta que estão no mundo.
+setSessionKicker((sid, reason) => currentWorld()?.kick(sid, reason));
 // Só joinOrCreate pelo HTTP (create/join/joinById ficam fechados). A reconexão automática do SDK vai direto
 // pelo WebSocket com o reconnectionToken, sem passar por /matchmake.
 matchMaker.controller.exposedMethods = ["joinOrCreate"];
