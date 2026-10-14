@@ -123,7 +123,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
     sprite: grid4(M + "Owl/Owl.png"),
   },
   wolf: {
-    id: "wolf", name: "Lobo", level: 8, hp: 90, xp: 35, damage: [8, 18], damageKind: "physical", armor: 1,
+    id: "wolf", name: "Lobo", level: 8, hp: 80, xp: 35, damage: [6, 15], damageKind: "physical", armor: 1,
     attackMs: 1600, attackRange: 1, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 40_000,
     gold: [8, 20],
     loot: [
