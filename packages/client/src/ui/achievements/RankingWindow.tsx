@@ -18,6 +18,7 @@ function RankingDialog() {
   const [cat, setCat] = useState<RankingCategoryId>("level");
   useEffect(() => { void loadRanking(); }, []);
   const c = data?.categories.find((x) => x.id === cat);
+  const showLv = cat !== "level"; // no ranking de level a coluna "Lv" repetiria o valor
 
   return (
     <div class="hud-card hud-window rank-win" role="dialog" aria-label="Ranking">
@@ -38,14 +39,14 @@ function RankingDialog() {
         {error && <div class="ach-empty">Não foi possível carregar o ranking.</div>}
         {c && (
           <table class="rank-table">
-            <thead><tr><th>#</th><th>Personagem</th><th>Lv</th><th class="num">{c.unit}</th></tr></thead>
+            <thead><tr><th>#</th><th>Personagem</th>{showLv && <th>Lv</th>}<th class="num">{c.unit}</th></tr></thead>
             <tbody>
               {c.entries.map((e) => (
                 <tr key={e.rank} class={e.rank <= 3 ? `top${e.rank}` : ""}>
-                  <td>{e.rank}</td><td>{e.name}</td><td>{e.level}</td><td class="num">{fmtNum(e.value)}</td>
+                  <td>{e.rank}</td><td>{e.name}</td>{showLv && <td>{e.level}</td>}<td class="num">{fmtNum(e.value)}</td>
                 </tr>
               ))}
-              {c.entries.length === 0 && <tr><td colspan={4} class="ach-empty">Ninguém ainda.</td></tr>}
+              {c.entries.length === 0 && <tr><td colspan={showLv ? 4 : 3} class="ach-empty">Ninguém ainda.</td></tr>}
             </tbody>
           </table>
         )}

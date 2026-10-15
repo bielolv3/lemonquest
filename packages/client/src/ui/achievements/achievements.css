@@ -4,6 +4,7 @@
 .ach-win .win-title, .rank-win .win-title { cursor: default; }
 .ach-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 4px; }
 .ach-points { font-size: 13px; color: var(--hud-muted); display: flex; flex-direction: column; line-height: 1.2; }
+.ach-points-line { display: flex; align-items: baseline; gap: 4px; }
 .ach-points b { color: var(--hud-gold); font-family: "Pixelify Sans", system-ui, sans-serif; font-size: 20px; font-weight: 600; }
 .ach-points small, .ach-title-pick small { font-size: 10px; color: var(--hud-faint); text-transform: uppercase; letter-spacing: 1px; }
 .ach-title-pick { display: flex; flex-direction: column; gap: 2px; }

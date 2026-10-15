@@ -36,7 +36,7 @@ function AchievementsDialog() {
       </div>
       <div class="ach-head">
         <div class="ach-points" data-tip="Pontos de conquista">
-          <b>{fmtNum(st?.points ?? 0)}</b> / {fmtNum(TOTAL_ACHIEVEMENT_POINTS)} pts
+          <span class="ach-points-line"><b>{fmtNum(st?.points ?? 0)}</b> / {fmtNum(TOTAL_ACHIEVEMENT_POINTS)} pts</span>
           <small>{doneCount} de {ACHIEVEMENTS.length} conquistas</small>
         </div>
         <label class="ach-title-pick">
