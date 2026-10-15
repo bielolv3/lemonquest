@@ -166,8 +166,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; col
 /* Com a barra do coliseu no topo, os avisos descem para não ficarem escondidos atrás dela. */
 #ui:has(.arena-bar) .toasts { top: 56px; }
 #ui:has(.arena-bar.pause) .toasts { top: 104px; }
-/* Personagem novo: o cartão "Primeiros passos" ocupa o topo — os avisos aparecem logo abaixo dele. */
-#ui:has(.first-steps) .toasts { top: calc(20px + var(--first-steps-h, 190px)); }
 .toast { padding: 6px 14px; font-size: 14px; animation: toast-life 3s ease-out forwards; }
 .toast.warn { border-color: #d9a441; color: #f0cf8b; }
 .toast.good { border-color: #4f9d5d; color: #9fdcab; }

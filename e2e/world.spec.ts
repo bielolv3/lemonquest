@@ -125,3 +125,22 @@ test("som: o botão ♪ abre volume e mudo; o volume fica lembrado e as setas co
   expect(await saved()).toBe(vol);
   await expect(page.getByRole("button", { name: "Som", exact: true })).toHaveText("×");
 });
+
+test("primeiros passos: cartão no canto inferior direito (não cobre o caminho ao norte) e some com 'Entendi'", async ({ page }) => {
+  await enterGame(page);
+  const card = page.getByRole("note", { name: "Primeiros passos" });
+  await expect(card).toBeVisible();
+  const b = (await card.boundingBox())!, vp = page.viewportSize()!;
+  // Metade de baixo e à direita do personagem: o Capitão (noroeste) e a floresta (norte) ficam livres.
+  const m = (await me(page))!;
+  const pc = await tileToClient(page, m.x, m.y);
+  expect(b.y).toBeGreaterThan(pc.y);
+  expect(b.x).toBeGreaterThan(pc.x);
+  expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+  await card.getByRole("button", { name: "Entendi" }).click();
+  await expect(card).toBeHidden();
+  await page.reload();
+  await page.getByRole("button", { name: /Jogar com/ }).click();
+  await page.waitForFunction(() => !!(window as any).__lq?.me(), null, { timeout: 30_000 });
+  await expect(card).toBeHidden();
+});
