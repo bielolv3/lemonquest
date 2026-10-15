@@ -1,5 +1,6 @@
 /* Janela de NPC */
-.npc-window { left: 24px; top: 72px; width: 372px; max-height: calc(100vh - 150px); background: rgba(17, 20, 28, 0.93); }
+.npc-window { left: 24px; top: 72px; width: 372px; max-height: calc(100vh - 150px); }
+.hud-card.npc-window { background: rgba(17, 20, 28, 0.93); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .npc-title { cursor: default; }
 .npc-title > span:nth-child(2) { flex: 1; color: var(--hud-text); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; }
 .npc-gold { font-size: 12px; margin-right: 2px; }

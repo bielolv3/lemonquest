@@ -1,6 +1,7 @@
 /* Janela de roupas (tecla O) */
 .outfit-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(5, 6, 10, 0.35); pointer-events: auto; }
-.outfit-win { position: relative; width: min(600px, 96vw); max-height: 94vh; background: rgba(17, 20, 28, 0.96); animation: hud-pop 160ms var(--hud-ease); }
+.outfit-win { position: relative; width: min(600px, 96vw); max-height: 94vh; animation: hud-pop 160ms var(--hud-ease); }
+.hud-card.outfit-win { background: rgba(17, 20, 28, 0.96); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .outfit-win .win-title { cursor: default; }
 .outfit-body { display: flex; gap: 12px; padding: 12px; min-height: 0; overflow: auto; }
 
@@ -76,6 +77,7 @@
 }
 
 /* Menu de contexto (botão direito no mundo) */
-.ctx-menu { position: fixed; z-index: 45; min-width: 150px; padding: 4px; display: flex; flex-direction: column; background: rgba(17, 20, 28, 0.97); pointer-events: auto; animation: hud-pop 110ms var(--hud-ease); }
+.ctx-menu { position: fixed; z-index: 45; min-width: 150px; padding: 4px; display: flex; flex-direction: column; pointer-events: auto; animation: hud-pop 110ms var(--hud-ease); }
+.hud-card.ctx-menu { background: rgba(17, 20, 28, 0.97); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .ctx-item { text-align: left; padding: 6px 10px; cursor: pointer; font-size: 13px; background: none; border: 0; border-radius: 4px; color: var(--hud-text) !important; }
 .ctx-item:hover, .ctx-item:focus-visible { background: rgba(217, 164, 65, 0.16); color: #ffe2a3 !important; outline: none; }

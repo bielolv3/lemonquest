@@ -121,7 +121,8 @@ body.item-dragging, body.item-dragging * { cursor: grabbing !important; user-sel
 
 /* ---------- Diálogos ---------- */
 .item-dialog-backdrop { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; background: rgba(5, 6, 10, 0.4); }
-.item-dialog { width: 250px; padding: 12px; display: flex; flex-direction: column; gap: 9px; animation: hud-pop 140ms var(--hud-ease); background: rgba(17, 20, 28, 0.97); }
+.item-dialog { width: 250px; padding: 12px; display: flex; flex-direction: column; gap: 9px; animation: hud-pop 140ms var(--hud-ease); }
+.hud-card.item-dialog { background: rgba(17, 20, 28, 0.97); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .dlg-title { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--hud-muted); }
 .dlg-text { font-size: 13px; color: #cfd0d6; line-height: 1.4; }
 .dlg-row { display: flex; gap: 5px; align-items: center; }

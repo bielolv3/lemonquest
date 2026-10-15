@@ -1,5 +1,6 @@
 /* Treinamento offline */
-.train-window { left: 50%; top: 96px; transform: translateX(-50%); width: 340px; background: rgba(17, 20, 28, 0.95); }
+.train-window { left: 50%; top: 96px; transform: translateX(-50%); width: 340px; }
+.hud-card.train-window { background: rgba(17, 20, 28, 0.95); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .train-body { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
 .train-text { margin: 0; font-size: 13px; line-height: 1.45; color: #d9d7cc; }
 .train-hint { margin: 0; font-size: 11px; color: var(--hud-faint); text-align: center; }

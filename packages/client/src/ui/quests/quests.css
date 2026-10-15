@@ -56,7 +56,8 @@
 @keyframes qt-bump { 0% { color: #fff; transform: scale(1.25); } 100% { transform: scale(1); } }
 
 /* Diário de missões (tecla L) */
-.quest-log { left: 50%; top: 80px; transform: translateX(-50%); width: 560px; max-width: calc(100vw - 40px); height: min(520px, calc(100vh - 160px)); background: rgba(17, 20, 28, 0.94); }
+.quest-log { left: 50%; top: 80px; transform: translateX(-50%); width: 560px; max-width: calc(100vw - 40px); height: min(520px, calc(100vh - 160px)); }
+.hud-card.quest-log { background: rgba(17, 20, 28, 0.94); } /* vence o fundo do .hud-card (a ordem dos CSS não é garantida) */
 .quest-log .win-title > span:nth-child(2) { color: var(--hud-text); }
 .ql-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr; }
 .ql-list { border-right: 1px solid var(--hud-line); overflow-y: auto; padding: 6px; scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent; }

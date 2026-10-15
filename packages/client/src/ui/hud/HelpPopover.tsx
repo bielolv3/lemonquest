@@ -2,20 +2,40 @@
 import { useEffect, useRef } from "preact/hooks";
 import { helpOpen } from "./uiState.ts";
 
-const ROWS: { keys: string[]; label: string }[] = [
-  { keys: ["W", "A", "S", "D"], label: "Andar (ou setas)" },
-  { keys: ["7", "9", "1", "3"], label: "Diagonais (numpad)" },
-  { keys: ["Ctrl", "←↑→↓"], label: "Virar sem andar" },
-  { keys: ["Clique"], label: "Andar até o ponto" },
-  { keys: ["Enter"], label: "Abrir/enviar chat" },
-  { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
-  { keys: ["M"], label: "Mapa do mundo" },
-  { keys: ["K"], label: "Habilidades" },
-  { keys: ["O"], label: "Roupas e addons" },
-  { keys: ["J"], label: "Conquistas" },
-  { keys: ["R"], label: "Ranking" },
-  { keys: ["1", "–", "8"], label: "Magias da barra" },
-  { keys: ["?"], label: "Esta ajuda" },
+const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
+  {
+    title: "Movimento",
+    rows: [
+      { keys: ["W", "A", "S", "D"], label: "Andar (ou setas)" },
+      { keys: ["7", "9", "1", "3"], label: "Diagonais (numpad)" },
+      { keys: ["Ctrl", "←↑→↓"], label: "Virar sem andar" },
+      { keys: ["Clique"], label: "Andar até o ponto" },
+    ],
+  },
+  {
+    title: "Combate",
+    rows: [
+      { keys: ["1", "–", "8"], label: "Magias da barra" },
+      { keys: ["Q", "E"], label: "Poção de vida / mana" },
+      { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
+      { keys: ["F8"], label: "Seguir o alvo" },
+      { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
+    ],
+  },
+  {
+    title: "Janelas",
+    rows: [
+      { keys: ["Enter"], label: "Abrir/enviar chat" },
+      { keys: ["M"], label: "Mapa do mundo" },
+      { keys: ["K"], label: "Habilidades" },
+      { keys: ["L"], label: "Diário de missões" },
+      { keys: ["I"], label: "Equipamento e mochila" },
+      { keys: ["O"], label: "Roupas e addons" },
+      { keys: ["J"], label: "Conquistas" },
+      { keys: ["R"], label: "Ranking" },
+      { keys: ["F1"], label: "Esta ajuda (ou ?)" },
+    ],
+  },
 ];
 
 export function HelpPopover() {
@@ -36,16 +56,21 @@ export function HelpPopover() {
   return (
     <div class="hud-card help-pop" ref={el} role="dialog" aria-label="Atalhos de teclado">
       <div class="help-title">Atalhos</div>
-      <ul class="help-list">
-        {ROWS.map((r) => (
-          <li key={r.label}>
-            <span class="help-keys">
-              {r.keys.map((k, i) => (k === "–" ? <span key={i} class="help-dash">–</span> : <kbd key={i}>{k}</kbd>))}
-            </span>
-            <span class="help-label">{r.label}</span>
-          </li>
-        ))}
-      </ul>
+      {GROUPS.map((g) => (
+        <section key={g.title} class="help-group">
+          <div class="help-sub">{g.title}</div>
+          <ul class="help-list">
+            {g.rows.map((r) => (
+              <li key={r.label}>
+                <span class="help-keys">
+                  {r.keys.map((k, i) => (k === "–" ? <span key={i} class="help-dash">–</span> : <kbd key={i}>{k}</kbd>))}
+                </span>
+                <span class="help-label">{r.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

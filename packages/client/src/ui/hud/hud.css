@@ -431,13 +431,16 @@
 
 /* ---------- Ajuda ---------- */
 .help-pop {
-  position: absolute; top: 0; right: calc(100% + 6px); width: 264px; padding: 10px 12px 12px; z-index: 40;
+  position: absolute; top: 0; right: calc(100% + 6px); width: 300px;
+  max-height: calc(100vh - 20px); overflow-y: auto; padding: 10px 12px 12px; z-index: 40;
   animation: hud-pop 150ms var(--hud-ease); transform-origin: top right;
 }
 .help-title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--hud-muted); margin-bottom: 8px; }
-.help-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.help-group + .help-group { margin-top: 10px; }
+.help-sub { font-size: 10px; letter-spacing: 0.5px; color: var(--hud-faint); margin-bottom: 5px; }
+.help-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .help-list li { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-.help-keys { display: flex; align-items: center; gap: 2px; width: 86px; flex: none; flex-wrap: wrap; }
+.help-keys { display: flex; align-items: center; gap: 2px; width: 100px; flex: none; }
 .help-label { color: #c4c6cf; white-space: nowrap; }
 .help-dash { color: var(--hud-faint); margin: 0 1px; }
 kbd {
