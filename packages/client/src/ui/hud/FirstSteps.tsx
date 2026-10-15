@@ -18,7 +18,8 @@ export function FirstSteps() {
   if (me.level > 1 || me.xp > 0) { markSeen(name); return null; }
   const close = () => { markSeen(name); setClosed(true); };
   return (
-    <div class="first-steps" role="note" aria-label="Primeiros passos">
+    // A altura vira --first-steps-h: os avisos do topo descem para baixo do cartão em vez de ficarem atrás dele.
+    <div class="first-steps" role="note" aria-label="Primeiros passos" ref={(el) => { if (el) document.documentElement.style.setProperty("--first-steps-h", `${el.offsetHeight}px`); }}>
       <div class="first-steps-title">Primeiros passos</div>
       <ul>
         <li><b>Andar:</b> W A S D, setas ou clique no chão.</li>
