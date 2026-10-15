@@ -79,6 +79,15 @@ de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do ser
 | Fuzz `proto` (3 488 mensagens malformadas em 90 s, todos os 23 tipos) | nenhuma exceção no log, `/health` ok, conexão mantida. A 66 msg/s o servidor derruba o cliente (limite de 60/s, correto); string de 5 000 caracteres excede o tamanho máximo do WebSocket (conexão fechada, servidor de pé) |
 | Fuzz `inventory` (5 849 movimentos mochila/equip/depot com índices e contagens inválidos) | nenhum item aumentou, nenhum uid repetido, nenhuma exceção |
 
+## Resultados — ciclo 5 (2026-10-15)
+
+| Verificação | Resultado |
+|---|---|
+| Unitários | 497/497 |
+| E2E | 28/28 em `proposta/todas`; novos `speech.spec.ts` (balões de fala) e checagem do balão azul em `party.spec.ts` |
+| Novato sem admin: aceitar "Ratos no Celeiro", matar 5 ratos e entregar (servidor limpo, seguir alvo ligado por padrão) | cavaleiro 56 s · paladino 49 s · feiticeiro 50 s · druida 53 s, todos nível 2, 0 mortes. Antes do padrão "seguir": cavaleiro e druida passavam de 10 min sem concluir |
+| `party.spec.ts` em `--repeat-each` no mesmo servidor | instável: personagens do teste anterior ficam 20 s no mundo (alguns perseguindo) e comem os ratos da floresta, então `targetNearest` não acha alvo. Na suíte normal passa. Causa vista em captura e no helper, não corrigida |
+
 ### Como ler falhas do E2E com a máquina ocupada
 
 Duas falhas desta rodada vieram de CPU saturada (testes unitários de outra revisão rodando junto): o log do servidor

@@ -90,6 +90,7 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | C | #44 Tela de desconectado avisa quando o servidor voltou | ✅ | servidor derrubado e religado com jogador dentro |
 | F | #45 Phaser num chunk próprio; `/assets/*` immutable | ✅ | curl dos cabeçalhos; E2E confere `/ranking` |
 | C | Rastreador de missões: com a missão pronta, mostra "→ Fale com <NPC que deu a missão>" | ✅ | `e2e/quests.spec.ts` (texto + captura `quest-ready`) |
+| C | Chat sobre a cabeça do personagem (estilo Tibia): geral amarelo, grupo azul-claro, itálico menor que o nome, até 3 linhas, some sozinho, texto longo vira "…" (90 caracteres) | ✅ | `e2e/speech.spec.ts` (novo) + `party.spec.ts` |
 | F | `tools/fuzz.mjs` (protocolo e inventário) | ✅ | 3 488 mensagens inválidas e 5 849 movimentos sem exceção nem duplicação |
 
 ## Próximos (ordem sugerida)
@@ -100,17 +101,16 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | E | #13 Timeout da predição baseado na latência medida | ✅ | `predictor.test.ts`: 60 ms → 450 ms (igual); 600 ms → >1,2 s; teto 2 s. E2E de movimento ok |
 | A | #11 Saída voluntária em combate: o personagem fica RECONNECT_S (20 s) no mundo, como numa queda (pode morrer); relogin/kick cancelam | ✅ | `WorldRoom.test.ts` (4 casos: permanência, fora de combate/morto, relogin, kick) |
 
-## Precisa de decisão 🧭
+## Decididas ✅ e ainda pendentes 🧭
 
-Cada proposta de balanço está pronta numa branch própria (a partir desta), testada e conferida no jogo — basta
-escolher. `proposta/todas` junta as três (unitários e E2E completos passando; as branches recebem por merge tudo o que entra
-nesta).
+As três propostas de balanço foram **aceitas pelo dono do jogo** e já estão nesta branch (merges `proposta/31`, `32` e
+`33`). `proposta/todas` continua existindo e recebe por merge tudo o que entra aqui.
 
-| Item | Branch | O que muda |
+| Item | O que mudou | Status |
 |---|---|---|
-| #31 Ouro sem destino no lv 25+ | `proposta/31-tier4-a-venda` | tier 4 nas lojas (Bento / Tomé / Dona Marta): kit completo 22–27 mil; tier 5 segue recompensa |
-| #32 Fim de jogo (lv 40+) | `proposta/32-mais-espiritos` | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) |
-| #33 Magos e paladino | `proposta/33-vida-magos` | magos 6 de vida/level (lv 30: 295 → 324; 7 quebrava a meta da Cura); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) |
+| #31 Ouro sem destino no lv 25+ | tier 4 nas lojas (Bento / Tomé / Dona Marta): kit completo 22–27 mil; tier 5 segue recompensa | ✅ |
+| #32 Fim de jogo (lv 40+) | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) | ✅ |
+| #33 Magos e paladino | magos 6 de vida/level (lv 30: 295 → 324); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) | ✅ |
 
 Outra decisão (operação): as sessões de conta ficam só na memória do servidor — depois de cada deploy/reinício todo
 mundo digita a senha de novo. Dá para persistir a sessão (só o hash do token no SQLite, com a mesma expiração de 30
