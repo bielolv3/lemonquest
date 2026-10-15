@@ -26,6 +26,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
     title: "Janelas",
     rows: [
       { keys: ["Enter"], label: "Abrir/enviar chat" },
+      { keys: ["/ajuda"], label: "Comandos do chat (grupo…)" },
       { keys: ["M"], label: "Mapa do mundo" },
       { keys: ["K"], label: "Habilidades" },
       { keys: ["L"], label: "Diário de missões" },
