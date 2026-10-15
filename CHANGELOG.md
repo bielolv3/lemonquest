@@ -17,6 +17,8 @@
   barra lateral), alinhados com os outros cartões.
 - Desconectado (servidor reiniciado, rede caiu): a tela agora diz **"Aguardando o servidor voltar…"** e depois **"O
   servidor está no ar. Pode voltar."** (consulta `/health` a cada 3 s) — antes não dava para saber quando clicar.
+- Janela estreita (meia tela, barra lateral aberta): o chat cobria as 3 primeiras magias da barra; agora ele sobe para
+  cima dela quando não cabe ao lado.
 - **Volume do som**: o botão ♪ abre um painel com volume (0–100%, lembrado) e mudo — antes era só ligar/desligar.
 - Chat: **/ajuda** (ou /comandos, /help) lista os comandos de grupo e lembra das magias e do F1; admins veem também
   os comandos de admin. "Comando desconhecido." agora sugere o /ajuda.
