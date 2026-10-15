@@ -66,7 +66,7 @@ function MatchBar() {
         </div>
         <div class="arena-pause-members">
           {s.members.map((m) => (
-            <span key={m.name} class={m.alive ? "" : "out"}>
+            <span key={m.name} class={m.alive ? "" : "out"} data-tip={m.ready ? "Pronto" : m.alive ? "Ainda não clicou em Pronto" : "Fora da partida (caiu ou desistiu)"}>
               {m.ready ? "✓" : m.alive ? "…" : "✗"} {m.name}
               {m.alive && m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: ganha só o ouro das ondas`}> sem XP</span>}
             </span>
