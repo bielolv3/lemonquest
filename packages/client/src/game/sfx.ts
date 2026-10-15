@@ -1,5 +1,5 @@
 // Efeitos sonoros (Web Audio). Carregamento preguiçoso; o contexto só destrava na primeira interação.
-import { persistedBool } from "../ui/hud/store.ts";
+import { persistedBool, persistedJson } from "../ui/hud/store.ts";
 
 const BASE = `${import.meta.env.BASE_URL}ninja/Audio/`;
 const S = "Sounds/";
@@ -43,8 +43,11 @@ export type SfxName = keyof typeof SOUNDS;
 
 /** Mudo (persistido). */
 export const mutedStore = persistedBool("muted", false);
+/** Volume geral 0–100 (persistido; 100 = o volume de antes). */
+export const volumeStore = persistedJson("sound", { volume: 100 });
 
 const VOLUME = 0.4;
+const masterGain = () => (mutedStore.get() ? 0 : VOLUME * Math.max(0, Math.min(100, volumeStore.get().volume)) / 100);
 const MIN_GAP_MS = 45;
 
 class Sfx {
@@ -67,7 +70,9 @@ class Sfx {
     };
     window.addEventListener("pointerdown", unlock, true);
     window.addEventListener("keydown", unlock, true);
-    mutedStore.subscribe((m) => { if (this.gain) this.gain.gain.value = m ? 0 : VOLUME; });
+    const apply = () => { if (this.gain) this.gain.gain.value = masterGain(); };
+    mutedStore.subscribe(apply);
+    volumeStore.subscribe(apply);
   }
 
   private ensure(): AudioContext | null {
@@ -78,7 +83,7 @@ class Sfx {
     try {
       this.ctx = new AudioContext();
       this.gain = this.ctx.createGain();
-      this.gain.gain.value = mutedStore.get() ? 0 : VOLUME;
+      this.gain.gain.value = masterGain();
       this.gain.connect(this.ctx.destination);
     } catch { this.ctx = null; }
     return this.ctx;
@@ -102,7 +107,7 @@ class Sfx {
 
   /** Toca um som; se ainda não carregou, dispara o carregamento e fica em silêncio desta vez. */
   play(name: SfxName, opts: { volume?: number; rate?: number } = {}) {
-    if (!this.unlocked || mutedStore.get()) return;
+    if (!this.unlocked || masterGain() === 0) return;
     const ctx = this.ensure();
     if (!ctx || !this.gain) return;
     const now = performance.now();
