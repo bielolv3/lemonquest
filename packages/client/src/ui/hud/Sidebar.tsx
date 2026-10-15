@@ -6,7 +6,8 @@ import { Backpack } from "./Backpack.tsx";
 import { BattleList } from "./BattleList.tsx";
 import { EquipmentPanel } from "./EquipmentPanel.tsx";
 import { HelpPopover } from "./HelpPopover.tsx";
-import { mutedStore } from "../../game/sfx.ts";
+import { SoundPopover } from "./SoundPopover.tsx";
+import { mutedStore, volumeStore } from "../../game/sfx.ts";
 import { PixelIcon } from "./icons.tsx";
 import { setHudInsets } from "./layout.ts";
 import { panelOrderStore, panelPinsStore, type PanelId } from "./panels.ts";
@@ -19,7 +20,7 @@ import { useStore } from "./store.ts";
 import { outfitOpen, toggleOutfit } from "../outfit/outfit.ts";
 import { questLogOpen, toggleQuestLog } from "../quests/quests.ts";
 import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
-import { helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, toggle } from "./uiState.ts";
+import { helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, soundOpen, toggle } from "./uiState.ts";
 import { meStore } from "./world.ts";
 
 export function Sidebar() {
@@ -27,6 +28,8 @@ export function Sidebar() {
   const skills = useStore(skillsOpen);
   const help = useStore(helpOpen);
   const muted = useStore(mutedStore);
+  const volume = useStore(volumeStore).volume;
+  const sound = useStore(soundOpen);
   const outfit = useStore(outfitOpen);
   const questLog = useStore(questLogOpen);
   const achOpen = useStore(achievementsOpen);
@@ -104,13 +107,21 @@ export function Sidebar() {
         <button class="rail-btn" onClick={openWorldMap} data-tip="Mapa do mundo" data-tip-sub="Tecla M">
           <PixelIcon name="map" size={14} />
         </button>
-        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => toggle(helpOpen)} data-tip="Atalhos" data-tip-sub="Tecla ?">
+        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => { soundOpen.set(false); toggle(helpOpen); }} data-tip="Atalhos" data-tip-sub="Tecla ?">
           <span class="rail-q">?</span>
         </button>
-        <button class={`rail-btn${muted ? "" : " active"}`} onClick={() => mutedStore.set((m) => !m)} data-tip={muted ? "Som desligado" : "Som ligado"} data-tip-sub="Clique para alternar">
-          <span class="rail-q">{muted ? "×" : "♪"}</span>
+        <button
+          class={`rail-btn${muted || volume === 0 ? "" : " active"}`}
+          onClick={() => { helpOpen.set(false); toggle(soundOpen); }}
+          data-tip="Som"
+          data-tip-sub={muted ? "Mudo" : `Volume ${volume}%`}
+          aria-expanded={sound}
+          aria-label="Som"
+        >
+          <span class="rail-q">{muted || volume === 0 ? "×" : "♪"}</span>
         </button>
         {help && <HelpPopover />}
+        {sound && <SoundPopover />}
       </nav>
       {showVitals && <CompactVitals />}
       <aside
