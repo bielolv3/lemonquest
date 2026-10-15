@@ -14,6 +14,7 @@ export const ITEMS_FX: Record<string, ItemDef> = {
   mana_potion: { id: "mana_potion", name: "Poção de Mana", kind: "potion", stackable: true, value: 45, use: { mana: 50, cooldownMs: 1000 }, icon },
   mana_pot: { id: "mana_pot", name: "Poção de Mana", kind: "potion", stackable: true, maxStack: 10, value: 40, use: { mana: 30, cooldownMs: 1000 }, icon },
   bread: { id: "bread", name: "Pão", kind: "food", stackable: true, value: 5, use: { food: { hpPerTick: 1, manaPerTick: 1, durationMs: 600_000 }, cooldownMs: 1000 }, icon },
+  meat: { id: "meat", name: "Carne Assada", kind: "food", stackable: true, value: 12, use: { food: { hpPerTick: 3, manaPerTick: 0, durationMs: 240_000 }, cooldownMs: 1000 }, icon },
   steak: { id: "steak", name: "Bife", kind: "food", stackable: true, value: 50, use: { food: { hpPerTick: 6, manaPerTick: 0, durationMs: 720_000 }, cooldownMs: 1000 }, icon },
   bone: { id: "bone", name: "Osso", kind: "material", stackable: true, value: 10, icon },
   sword: { id: "sword", name: "Espada", kind: "weapon", slot: "weapon", weaponType: "sword", stats: { attack: 20 }, value: 100, vocations: ["knight"], icon },

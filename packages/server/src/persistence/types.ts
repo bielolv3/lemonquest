@@ -44,6 +44,8 @@ export interface CharacterData {
   week?: { id: string; xp: number; kills: number; fish: number; bosses: number };
   /** Desafios da semana: semana ISO, level no começo dela (meta de XP), desafios resgatados e bônus. */
   challenges?: { week: string; level: number; claimed: string[]; bonus: boolean };
+  /** Bônus de login: último dia de jogo (troca às 6h de Brasília) e quantos dias seguidos. */
+  login?: { day: string; streak: number };
   /** Lista de amigos (nomes de personagem; /amigo): avisos de entrada e saída. */
   friends?: string[];
   /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */

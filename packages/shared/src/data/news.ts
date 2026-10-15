@@ -12,6 +12,20 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-15b",
+    date: "15 de outubro (à noite)",
+    title: "Desafios, bestiário e chefes na agenda",
+    items: [
+      "Desafios da semana: abra o diário (L) e clique em Desafios semanais. Três metas que zeram toda segunda, com bônus por cumprir todas.",
+      "Ranking semanal: XP, abates, peixes e chefes (zeram na segunda-feira), e uma categoria nova de Pescador.",
+      "Bestiário (tecla B): veja vida, dano e o que cada monstro solta. Os que você ainda não derrotou aparecem como ???.",
+      "Chefes na agenda: o Lich do Pântano (quarta 20h) e o Rei Goblin (domingo 20h) acordam com bônus de loot.",
+      "Bônus de login: entre em dias seguidos para ganhar prêmios, com um maior no 7º dia.",
+      "Poção automática (botão ⚗): bebe vida ou mana sozinha abaixo do limite que você escolher.",
+      "Acessibilidade (botão Aa): texto maior, alto contraste e animações reduzidas. E esta tela de Novidades fica no botão da ajuda (F1).",
+    ],
+  },
+  {
     id: "2026-10-15",
     date: "15 de outubro",
     title: "Mais coisas para fazer com os amigos",

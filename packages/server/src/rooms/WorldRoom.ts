@@ -22,6 +22,7 @@ import { statusLines } from "../systems/status.ts";
 import { TradeSystem } from "../systems/trade.ts";
 import { EventSystem } from "../systems/events.ts";
 import { rollWeek } from "../systems/weekly.ts";
+import { grantLoginBonus } from "../systems/loginBonus.ts";
 import { ChallengeSystem } from "../systems/challenges.ts";
 import { FishingSystem } from "../systems/fishing.ts";
 import { FoodSystem } from "../systems/food.ts";
@@ -605,8 +606,19 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       } satisfies NoticeMsg);
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
-    this.social.onJoin(p);
     this.events.sendTo(sid);
+    // Avisos de entrada (amigos online e bônus de login) saem ~3 s depois: o chat e os avisos do cliente só passam a
+    // escutar depois da entrada, então o que sai na hora se perde.
+    this.clock.setTimeout(() => {
+      const pl = this.state.players.get(sid);
+      if (!pl) return;
+      this.social.onJoin(pl);
+      // Bônus de dias seguidos. Desligado nos testes (E2E e unitários contam ouro/itens do kit inicial): LEMONQUEST_LOGIN_BONUS=0.
+      if (!e2eMode() && process.env.LEMONQUEST_LOGIN_BONUS !== "0") {
+        const r = this.records.get(sid);
+        if (r) grantLoginBonus({ send: (id, type, msg) => this.clients.getById(id)?.send(type, msg), inventory: this.inventory }, pl, r);
+      }
+    }, 3000);
     this.joins++;
     this.peakOnline = Math.max(this.peakOnline, this.state.players.size);
   }
