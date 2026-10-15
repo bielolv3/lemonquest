@@ -105,6 +105,23 @@ skill 10/20/30/45/60 nos levels 1/8/15/25/35; "ideal" = um jogador sem disputa d
 | 32 | Sem conteúdo acima do lv 40 (só 3 spawns de espírito de chama) | 🧭 |
 | 33 | Magos frágeis em corpo a corpo no lv 25+; paladino sem armadura tier 3 | 🧭 |
 
+### Ciclo 4 — tour visual de todas as telas (1366×768 e 1440×900) e partidas por robô
+
+Capturas de cada tela (conta, personagem, janelas K/O/L/J/R/F1/M, cada NPC, morte, Coliseu, treino, missões) e um
+robô que joga **sem comandos de admin** (anda, ataca o mais perto, magia de dano, poção).
+
+| # | Achado | Evidência | Status |
+|---|---|---|---|
+| 34 | **P2** Fundo próprio das janelas (0,93–0,97) perdia para o `.hud-card` (0,85) | `getComputedStyle`: todas 0,85; mesma especificidade e os CSS das janelas carregam antes do `hud.css` | ✅ `.hud-card.<janela>` |
+| 35 | **P2** Depot inutilizável à primeira vista em tela < 860 px: a mochila (de onde se arrasta) começa dobrada | captura 1366×768 | ✅ abre a mochila enquanto o depot está aberto |
+| 36 | **P3** Ajuda F1 sem L, I, Q/E, F5–F8; teclas quebravam linha ("W A S / D") | captura | ✅ |
+| 37 | **P3** Banner da zona (z 40) por cima de janelas (30) e do cartão de missão (27) | capturas do treino e da missão | ✅ z 8 |
+| 38 | **P3** Nomes longos cortados na loja; "0 / 1.310 pts" em duas linhas; coluna Lv repetida no ranking de level | capturas | ✅ |
+
+Robô (5 min, os quatro juntos disputando os mesmos ratos): todos chegam ao level 2–3, **sem mortes**; sozinho, o
+feiticeiro faz ~63 XP/min no level 1–2. No level 7 só contra lobos (bando de 3, sem recuar e com "seguir" ligado,
+inclusive os magos): 1–4 mortes em 4 min — mede o robô, que não foge, mais do que o jogo; não justifica mexer de novo.
+
 ### Não confirmado
 
 - **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.

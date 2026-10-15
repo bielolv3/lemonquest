@@ -71,6 +71,18 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | D | #29 Armas tier 1 +1/+2 de ataque; lobo vida 80 / dano [6,15] | ✅ | unitários (metas de magias do lv 1 ≥ 1,5×); E2E 25/25 |
 | D | #30 Druida: Lasca de Gelo (exori frigo), espelho da Bola de Fogo | ✅ | conferido no jogo: 8 de mana, rato 25 → 3 |
 
+### Ciclo 4 — tour visual e robô
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| C | #34 Fundo próprio das janelas | ✅ | `getComputedStyle` 0,85 → 0,94/0,96 |
+| C | #35 Depot abre a mochila dobrada e devolve ao fechar | ✅ | `e2e/depot.spec.ts` (novo) |
+| C | #36 Ajuda F1 completa e agrupada | ✅ | captura |
+| C | #37 Banner da zona abaixo das janelas | ✅ | capturas do treino/missão |
+| C | #38 Loja/conquistas/ranking: textos cortados ou duplicados | ✅ | capturas |
+| F | Robô que joga sem admin (4 vocações) | ✅ | lv 1→2–3 em 5 min sem mortes |
+| F | E2E do chão resistente a monstro no tile | ✅ | 3/3 repetido |
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |

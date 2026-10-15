@@ -1,5 +1,22 @@
 # Changelog
 
+## [Não lançado] — 2026-10-14 · ciclo 4 (polimento da noite)
+
+### Interface
+- Ajuda de atalhos (F1) agrupada em Movimento / Combate / Janelas e com as teclas que faltavam: L (missões),
+  I (equipamento e mochila), Q/E (poções), F5–F7 (modo de luta), F8 (seguir o alvo).
+- Janelas (missões, conquistas, ranking, NPC, Coliseu, roupas, treino, diálogo de item, menu de contexto) com o
+  fundo próprio, mais opaco: antes todas saíam com o fundo genérico translúcido e o mapa aparecia por trás do texto.
+- Depot: abrir o Guarda-Volumes abre a mochila (e a barra lateral, se recolhida) para dar de onde arrastar; ao
+  fechar, tudo volta como estava. Em telas baixas a mochila começa dobrada e o depot parecia não funcionar.
+- Loja: nomes longos quebram em duas linhas ("Poção de Vida Média" e "Poção de Mana Média" saíam iguais, cortados).
+- Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
+- Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
+
+### Engenharia
+- E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
+- E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
+
 ## [Não lançado] — 2026-10-14 · ciclo 3 (polimento)
 
 ### Interface

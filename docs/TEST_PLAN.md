@@ -66,6 +66,16 @@ com a Espada Longa; depois do ajuste, a arma nunca fica abaixo do punho.
 Uma primeira medição de 10 min foi descartada: o computador entrou em suspensão no meio (passo com "ida e volta"
 de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do servidor).
 
+## Resultados — ciclo 4 (2026-10-14, noite)
+
+| Verificação | Resultado |
+|---|---|
+| Unitários | 493/493 |
+| E2E | 26 testes (novo: `depot.spec.ts`); `ground.spec.ts` 3/3 em repetição depois de repetir o clique de pegar |
+| Tour visual 1366×768 / 1440×900 (scripts no scratchpad: conta → personagem → cada janela → cada NPC → morte) | achados #34–#38, corrigidos e recapturados |
+| Fundo das janelas (`getComputedStyle`) | 0,85 em todas → 0,94 (missões) / 0,96 (conquistas, ranking) |
+| Robô sem admin, 4 vocações, 5 min | level 2–3, 0 mortes |
+
 ### Como ler falhas do E2E com a máquina ocupada
 
 Duas falhas desta rodada vieram de CPU saturada (testes unitários de outra revisão rodando junto): o log do servidor
