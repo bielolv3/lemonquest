@@ -2,8 +2,8 @@
 import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  C2S, S2C, TILE_SIZE, NPC_RANGE,
-  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  C2S, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
+  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
@@ -40,6 +40,10 @@ import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
 import { pushToast } from "../ui/toasts.ts";
 import { playersStore, selectMe } from "../ui/hud/world.ts";
 import { inventoryStore } from "../ui/items/inventory.ts";
+import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
+import { guideTarget } from "../ui/hud/guide.ts";
+import { getHudInsets } from "../ui/hud/layout.ts";
+import { GuideArrow } from "../game/guide.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -107,6 +111,7 @@ export class WorldScene extends Phaser.Scene {
   /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
   private groundWalkTimer = 0;
   private butterflies!: Butterflies;
+  private guide!: GuideArrow;
   /** Escuridão do ciclo dia/noite + luzes dinâmicas (game/lighting.ts). */
   private lightField!: LightField;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
@@ -227,6 +232,7 @@ export class WorldScene extends Phaser.Scene {
     this.disposers.push(() => setGroundBridge(null));
     const homes = [this.world.spawn, ...["herbalist", "shop"].map((id) => this.npcs.tileOf(id)).filter((t): t is { x: number; y: number } => !!t)];
     this.butterflies = new Butterflies(this, this.worldLayer, homes);
+    this.guide = new GuideArrow(this, this.uiLayer);
     this.setupPointer();
     this.disposers.push(subscribeTarget((t) => this.onStoreTarget(t)));
     // Janela foi para um monitor com outra escala: textos existentes na nova resolução (os novos já nascem nela).
@@ -305,6 +311,7 @@ export class WorldScene extends Phaser.Scene {
     msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
     msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
     msg<ChatMessage>(S2C.Chat, (m) => this.onChatBubble(m));
+    msg<EmoteMsg>(S2C.Emote, (m) => { const e = EMOTES.find((x) => x.id === m.emote); if (e) this.actors.get(m.id)?.emote(e.glyph, e.color); });
     msg<NpcSayMsg>(S2C.NpcSay, (m) => this.npcs.say(m.npcId, m.text));
     msg<NpcOpenMsg>(S2C.NpcOpen, (m) => this.npcs.say(m.npcId, m.greeting));
     msg<LootMsg>(S2C.Loot, (m) => this.onLoot(m));
@@ -802,6 +809,8 @@ export class WorldScene extends Phaser.Scene {
       monsters: () => [...this.creatureKnown].filter(([id]) => !this.dying.has(id))
         .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),
       ground: () => this.ground?.all() ?? [],
+      /** Seta-guia do novato (null = escondida). */
+      guide: () => this.guide?.shown ?? null,
       /** Falas visíveis sobre a cabeça dos jogadores (balões do chat). */
       speech: () => [...this.actors.values()].flatMap((a) => a.speechLines().map((l) => ({ from: a.name, ...l }))),
       target: () => this.curTarget,
@@ -852,6 +861,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.npcs.update(dt, me);
     this.npcs.placeUi(zoom, dt, (wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
+    this.updateGuide(me, dt);
     this.checkPendingNpc();
     this.checkPendingPickup();
     this.ground.update(dt, me ? { tx: me.tileX, ty: me.tileY } : null, (wx, wy) => ({ x: this.pcam.toScreenX(wx), y: this.pcam.toScreenY(wy) }), zoom);
@@ -872,6 +882,20 @@ export class WorldScene extends Phaser.Scene {
       for (const [id, g] of this.gone) if (now - g.at > 2500) this.gone.delete(id);
       if (this.dying.size > 200) this.dying.clear();
     }
+  }
+
+  /** Seta-guia da primeira missão (só personagem novo): aponta o Capitão ou a floresta, conforme o andamento. */
+  private updateGuide(me: Actor | undefined, dt: number) {
+    const inset = getHudInsets();
+    const area = { w: this.scale.width, h: this.scale.height, right: inset.right, bottom: inset.bottom };
+    const st = selectMe(playersStore.get());
+    const target = me && st ? guideTarget(st.level, questStore.get(), inventoryCounter()) : null;
+    const tile = target ? (target.kind === "npc" ? this.npcs.tileOf(target.id) : target) : null;
+    if (!me || !target || !tile) { this.guide.update(dt, null, area); return; }
+    const dist = Math.max(Math.abs(me.tileX - tile.x), Math.abs(me.tileY - tile.y));
+    // Perto do destino a seta já cumpriu o papel (e o "!" do NPC aparece sobre ele).
+    if (dist <= 2) { this.guide.update(dt, null, area); return; }
+    this.guide.update(dt, { sx: this.pcam.toScreenX((tile.x + 0.5) * TILE_SIZE), sy: this.pcam.toScreenY(tile.y * TILE_SIZE), dist, label: target.label }, area);
   }
 
   /** Avança a predição local (pode iniciar um passo). */
@@ -1224,6 +1248,7 @@ export class WorldScene extends Phaser.Scene {
     this.loot?.destroy();
     this.ground?.destroy();
     this.butterflies?.destroy();
+    this.guide?.destroy();
     this.lightField?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();

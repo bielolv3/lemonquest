@@ -55,6 +55,7 @@ export const SPEECH_COLOR_PARTY = "#7fd8ff";
 const SPEECH_GAP = 5;
 const SPEECH_MAX = 3;
 const SPEECH_FADE_MS = 500;
+const EMOTE_MS = 2200;
 const SPEECH_WRAP_W = 190;
 /** Fala longa vira "…" no balão (o chat guarda o texto inteiro): 200 caracteres cobririam ~8 linhas de tela. */
 const SPEECH_MAX_CHARS = 90;
@@ -215,8 +216,21 @@ export class Actor {
       color, stroke: "#101018", strokeThickness: 3, align: "center",
       wordWrap: { width: SPEECH_WRAP_W, useAdvancedWrap: true }, resolution: textRes(),
     }).setOrigin(0.5, 1);
+    this.pushSpeech(obj, speechMs(t));
+  }
+
+  /** Emote: símbolo maior, sem itálico, que some mais rápido que uma fala. */
+  emote(glyph: string, color: string) {
+    const obj = this.deps.scene.add.text(0, 0, glyph, {
+      fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "17px", fontStyle: "bold",
+      color, stroke: "#101018", strokeThickness: 4, align: "center", resolution: textRes(),
+    }).setOrigin(0.5, 1);
+    this.pushSpeech(obj, EMOTE_MS);
+  }
+
+  private pushSpeech(obj: Phaser.GameObjects.Text, ttl: number) {
     this.deps.uiLayer.add(obj);
-    this.speech.push({ text: obj, age: 0, ttl: speechMs(t) });
+    this.speech.push({ text: obj, age: 0, ttl });
     while (this.speech.length > SPEECH_MAX) this.speech.shift()!.text.destroy();
     this.applyVisible();
   }

@@ -1,3 +1,4 @@
+import { e2eMode } from "../e2e.ts";
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "@colyseus/core";
 import {
   C2S, CLOSE_KICKED, CYCLE_START_MS, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
@@ -16,6 +17,7 @@ import { MonsterManager, parseSafeZones, parseSpawns } from "../systems/monsters
 import { CombatSystem, attackProfile, playerArmor } from "../systems/combat.ts";
 import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState, type ChatHooks } from "../systems/chat.ts";
+import { SocialSystem } from "../systems/social.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
@@ -38,7 +40,7 @@ import { AchievementSystem, setActiveAchievements } from "../systems/achievement
 import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
-import { getCharacterByName, getKv, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction } from "../persistence/db.ts";
+import { getCharacterByName, getKv, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import { isValidStart, reachableFrom } from "../world/tiles.ts";
@@ -46,8 +48,12 @@ import { isValidStart, reachableFrom } from "../world/tiles.ts";
 export const AUTOSAVE_MS = 15_000;
 /** Intervalo de sincronização do relógio do mundo (ciclo dia/noite). */
 export const WORLD_TIME_SYNC_MS = 5_000;
-/** Segundos que um jogador que caiu (Wi-Fi) continua no mundo esperando a reconexão automática do SDK. */
-export const RECONNECT_S = 20;
+/**
+ * Segundos que um jogador que caiu (Wi-Fi) continua no mundo esperando a reconexão automática do SDK.
+ * Só no modo E2E dá para encurtar (LEMONQUEST_RECONNECT_S): personagens de testes anteriores somem logo em vez de
+ * ficarem 20 s no mundo competindo pelos monstros do teste seguinte. Em produção é sempre 20.
+ */
+export const RECONNECT_S = e2eMode() && Number(process.env.LEMONQUEST_RECONNECT_S) > 0 ? Number(process.env.LEMONQUEST_RECONNECT_S) : 20;
 /** Fechamento da sessão antiga quando o mesmo personagem entra em outro lugar: CLOSE_REPLACED (shared). */
 export const REPLACED_REASON = "Sua conta entrou em outro lugar";
 /** Motivo padrão do /kick sem motivo (vai no frame de fechamento). */
@@ -101,6 +107,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private quests!: QuestSystem;
   private ach!: AchievementSystem;
   private party!: PartySystem;
+  private social!: SocialSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
@@ -350,7 +357,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       for (const line of helpLines(p.name)) send(p.id, S2C.Notice, { text: line, kind: "info", log: true } satisfies NoticeMsg);
       return true;
     };
-    const command = (p: PlayerState, text: string) => help(p, text) || this.party.command(p, text) || handleAdminCommand(p, text, {
+    this.social = new SocialSystem({
+      players: () => this.state.players.values(),
+      record: (id) => this.records.get(id),
+      send, broadcast,
+      exists: (name) => [...this.state.players.values()].find((q) => nameKey(q.name) === nameKey(name))?.name ?? getCharacterByName(name)?.name,
+      muted: (pl) => muteRemaining(this.records.get(pl.id)),
+    });
+    const command = (p: PlayerState, text: string) => help(p, text) || this.social.command(p, text) || this.party.command(p, text) || handleAdminCommand(p, text, {
       send, broadcast,
       players: () => this.state.players.values(),
       record: (id) => this.records.get(id),
@@ -521,6 +535,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       } satisfies NoticeMsg);
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
+    this.social.onJoin(p);
   }
 
   /** Aplica e limpa o treino offline do registro (chamado no onJoin, antes de o jogador entrar no mundo). */
@@ -719,6 +734,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["chat", () => clearChatState(sid)],
         ["achievements", () => this.ach.removePlayer(sid)],
         ["party", () => this.party.removePlayer(sid)],
+        ["social", () => { const pl = this.state.players.get(sid); if (pl) this.social.onLeave(pl); }],
       ];
       for (const [k, fn] of steps) runSafe(`saída/${k}`, fn, this.errors);
       this.throttle.clearPrefix(`${sid}:`);

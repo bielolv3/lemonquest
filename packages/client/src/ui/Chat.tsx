@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { C2S, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
+import { C2S, EMOTES, MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { isTyping } from "./focus.ts";
 import { persistedBool, useStore } from "./hud/store.ts";
@@ -45,6 +45,7 @@ export function Chat() {
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState<Tab>("global");
   const [partyUnread, setPartyUnread] = useState(0);
+  const [emotesOpen, setEmotesOpen] = useState(false);
   const party = useStore(partyStore);
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -110,6 +111,19 @@ export function Chat() {
     return () => document.removeEventListener("mousedown", onDown, true);
   }, []);
 
+  useEffect(() => {
+    if (!emotesOpen) return;
+    const onDown = (e: MouseEvent) => { if (!(e.target as HTMLElement | null)?.closest?.(".emote-wrap")) setEmotesOpen(false); };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, [emotesOpen]);
+
+  const sendEmote = (id: string) => {
+    const msg: ChatSendMsg = { text: `/e ${id}`, channel: "global" };
+    session.room?.send(C2S.Chat, msg);
+    setEmotesOpen(false);
+  };
+
   const close = () => {
     setText("");
     input.current?.blur();
@@ -154,6 +168,19 @@ export function Chat() {
           </button>
         </div>
         <span class="chat-hint">{typing ? "Esc fecha" : "Enter para falar"}</span>
+        <span class="emote-wrap">
+          <button class="chat-fold emote-btn" onClick={() => setEmotesOpen((o) => !o)} aria-expanded={emotesOpen} aria-label="Emotes" data-tip="Emotes" data-tip-sub="/e nome">☺</button>
+          {emotesOpen && (
+            <div class="emote-pop" role="menu" aria-label="Emotes">
+              {EMOTES.map((e) => (
+                <button key={e.id} role="menuitem" class="emote-item" onClick={() => sendEmote(e.id)} data-emote={e.id}>
+                  <span class="emote-glyph" style={{ color: e.color }}>{e.glyph}</span>
+                  <span class="emote-name">{e.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </span>
         <button
           class="chat-fold"
           onClick={() => collapsedStore.set((c) => !c)}
@@ -174,6 +201,8 @@ export function Chat() {
               <span class="chat-text chat-feed" style={{ color: m.feed.rarity ? rarityColor(m.feed.rarity) : FEED_COLOR[m.feed.kind] }}>
                 <b class="chat-from">[Servidor]</b> {m.text}
               </span>
+            ) : m.channel === "whisper" ? (
+              <span class="chat-text"><b class="chat-from">{m.from === session.myName ? `Você → ${m.to}` : `${m.from} sussurra`}</b> {m.text}</span>
             ) : m.channel === "system" || (m.channel === "party" && !m.from) ? (
               <span class="chat-text">{m.text}</span>
             ) : (

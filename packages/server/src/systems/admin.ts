@@ -88,6 +88,7 @@ export const HELP_COMMANDS = ["/ajuda", "/comandos", "/help"] as const;
 export function helpLines(name: string, env: Env = process.env): string[] {
   const lines = [
     "Grupo: /convidar <nome> · /aceitar [nome] · /recusar [nome] · /sair · /expulsar <nome> · /lider <nome> · /desfazer",
+    "Social: /w <nome> <mensagem> sussurra · /r <mensagem> responde · /amigo <nome> adiciona ou remove · /amigos lista · /e <emote> (botão ☺ no chat).",
     "Magias: digite as palavras (ex.: exura) ou use as teclas 1–8. Todos os atalhos de teclado: F1.",
   ];
   if (isAdmin(name, env)) lines.push(`Admin: ${ADMIN_COMMANDS.join(" ")}`);

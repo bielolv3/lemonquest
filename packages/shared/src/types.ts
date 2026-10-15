@@ -23,13 +23,15 @@ export const VOCATIONS: Vocation[] = ["knight", "paladin", "sorcerer", "druid"];
 /** Postura de combate (estilo Tibia). */
 export type FightStance = "offensive" | "balanced" | "defensive";
 
-export type ChatChannel = "global" | "party" | "system";
+export type ChatChannel = "global" | "party" | "system" | "whisper";
 
 export interface ChatMessage {
   from: string;
   text: string;
   channel: ChatChannel;
   ts: number;
+  /** Sussurro: nome do destinatário (`from` = quem sussurrou). */
+  to?: string;
 }
 
 /**

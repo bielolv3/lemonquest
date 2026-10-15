@@ -150,6 +150,8 @@ export const S2C = {
   Feed: "feed",
   /** Fala ambiente de NPC (balão sobre a cabeça). */
   NpcSay: "npcSay",
+  /** Emote de um jogador (ícone sobre a cabeça). */
+  Emote: "emote",
   /** Abrir a escolha de skill da estátua de treino offline. */
   TrainingOpen: "trainingOpen",
   /** Resumo do treino offline ao entrar no jogo. */
@@ -261,6 +263,7 @@ export interface LootMsg {
 }
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
 export interface NpcSayMsg { npcId: string; text: string }
+export interface EmoteMsg { id: string; emote: string }
 export interface TrainingOpenMsg { statueId: string }
 export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }
 export interface ArenaLobbySummary { id: string; leader: string; members: string[]; max: number; avgLevel: number }

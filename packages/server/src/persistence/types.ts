@@ -40,6 +40,8 @@ export interface CharacterData {
   };
   /** Roupas/addons/títulos liberados: "outfit:x", "addon:x:1|2", "title:x". */
   unlocks?: string[];
+  /** Lista de amigos (nomes de personagem; /amigo): avisos de entrada e saída. */
+  friends?: string[];
   /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */
   muted?: { until: number; by: string };
   /** Missões (systems/quests.ts): progresso das ativas, concluídas, rastreadas e recompensas diárias do dia. */
