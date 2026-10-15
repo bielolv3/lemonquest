@@ -56,6 +56,8 @@ const SPEECH_GAP = 5;
 const SPEECH_MAX = 3;
 const SPEECH_FADE_MS = 500;
 const SPEECH_WRAP_W = 190;
+/** Fala longa vira "…" no balão (o chat guarda o texto inteiro): 200 caracteres cobririam ~8 linhas de tela. */
+const SPEECH_MAX_CHARS = 90;
 const speechMs = (text: string) => Math.min(9000, 3500 + text.length * 60);
 
 /** Escudinho 7×8 (gerado uma vez). */
@@ -205,8 +207,9 @@ export class Actor {
 
   /** Mostra uma fala sobre a cabeça. */
   speak(text: string, color = SPEECH_COLOR) {
-    const t = text.trim();
-    if (!t) return;
+    const full = text.trim();
+    if (!full) return;
+    const t = full.length > SPEECH_MAX_CHARS ? `${full.slice(0, SPEECH_MAX_CHARS - 1).trimEnd()}…` : full;
     const obj = this.deps.scene.add.text(0, 0, t, {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "10px", fontStyle: "italic",
       color, stroke: "#101018", strokeThickness: 3, align: "center",

@@ -26,8 +26,12 @@ test("chat sobre a cabeça: geral em amarelo para os dois e fala some sozinha", 
     for (const p of [a, b]) {
       await expect.poll(() => speech(p)).toEqual([expect.objectContaining({ from: pa.name, text: "ola mundo", color: "#ffe84d" })]);
     }
+    // Fala longa é encurtada no balão (o chat guarda o texto inteiro).
+    await say(a, "x".repeat(150));
+    await expect.poll(async () => (await speech(b)).at(-1)?.text.length).toBe(90);
+    expect((await speech(b)).at(-1)!.text.endsWith("…")).toBe(true);
     // Some sozinha (3,5 s + fade).
-    await expect.poll(() => speech(b), { timeout: 10_000 }).toEqual([]);
+    await expect.poll(() => speech(b), { timeout: 15_000 }).toEqual([]);
   } finally {
     await ca.close(); await cb.close();
   }
