@@ -87,7 +87,8 @@ export const NPCS: Record<string, NpcDef> = {
     greeting: "Ah, um novato. Quer aprender a mirar de verdade? Tenho arcos e equipamento de patrulheiro. Compro peles e ossos também.",
     shop: {
       sells: sells("short_bow", "hunting_bow", "long_bow", "composite_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
-        "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
+        "hunter_helmet", "hunter_armor", "hunter_legs", "hunter_boots", "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots",
+        "health_potion", "meat", "fish", "beaf", "yakitori"),
       buys: ["material", "food"],
     },
     idleLines: [

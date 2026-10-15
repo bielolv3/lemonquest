@@ -54,8 +54,8 @@ export function xpForLevel(level: number): number {
 const VOC_GROWTH: Record<Vocation, { hp: number; mana: number }> = {
   knight: { hp: 15, mana: 5 },
   paladin: { hp: 10, mana: 15 },
-  sorcerer: { hp: 5, mana: 30 },
-  druid: { hp: 5, mana: 30 },
+  sorcerer: { hp: 6, mana: 30 },
+  druid: { hp: 6, mana: 30 },
 };
 
 /** HP/mana máximos por vocação e level. Ajustável no balanceamento (M7). */

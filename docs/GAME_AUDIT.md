@@ -103,7 +103,7 @@ skill 10/20/30/45/60 nos levels 1/8/15/25/35; "ideal" = um jogador sem disputa d
 | 30 | Druida sem magia de dano barata no início (feiticeiro tem Bola de Fogo) | ✅ Lasca de Gelo (exori frigo) |
 | 31 | Sem destino para o ouro depois do tier 3 (tier 4–5 não vendidos) | ✅ na branch `proposta/31-tier4-a-venda`: tier 4 nas lojas (kit completo 22–27 mil); tier 5 segue só loot/chefe/baú |
 | 32 | Sem conteúdo acima do lv 40 (só 3 spawns de espírito de chama) | ✅ na branch `proposta/32-mais-espiritos`: 7 espíritos em 2 bandos (4 + 3). 7 num bando só dava ~180 de dano/s ao chegar (cavaleiro lv 40 cai em ~4 s); um spawn novo na lista do gerador mudava ~3 mil tiles (264 de colisão) — por isso o ponto novo entra só como objeto, no fim (0 tiles alterados) |
-| 33 | Magos frágeis em corpo a corpo no lv 25+; paladino sem armadura tier 3 | 🧭 |
+| 33 | Magos frágeis em corpo a corpo no lv 25+; paladino sem armadura tier 3 | ✅ na branch `proposta/33-vida-magos`: magos 6 de vida/level (7 quebrava a meta da Cura: 27,7% no lv 30); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) |
 
 ### Ciclo 4 — tour visual de todas as telas (1366×768 e 1440×900) e partidas por robô
 

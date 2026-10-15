@@ -185,3 +185,16 @@ describe("ícones de materiais", () => {
     for (const n of MATERIAL_ICONS) expect(ITEMS[n]?.icon.frame, n).toBe(mats.frames[n]);
   });
 });
+
+describe("cobertura de armaduras", () => {
+  it("cada vocação tem elmo, armadura, calças e botas próprios (ou gerais) em todos os tiers (lv 1/8/15/25/35)", () => {
+    const fits = (d: ItemDef, v: Vocation) => !d.vocations || d.vocations.includes(v);
+    for (const v of VOCATIONS) {
+      for (const level of [1, 8, 15, 25, 35]) {
+        for (const slot of ["helmet", "armor", "legs", "boots"] as const) {
+          expect(all.some((d) => d.slot === slot && d.level === level && fits(d, v)), `${v} ${slot} lv ${level}`).toBe(true);
+        }
+      }
+    }
+  });
+});
