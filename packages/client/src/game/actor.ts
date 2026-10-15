@@ -48,6 +48,15 @@ const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
 /** Membros do seu grupo: nome verde-claro + escudinho ao lado. */
 export const PARTY_NAME_COLOR = "#9dff8a";
 const PARTY_SHIELD_TEX = "party-shield";
+/** Fala sobre a cabeça (estilo Tibia): amarelo com contorno, empilha até SPEECH_MAX linhas e some sozinha. */
+const SPEECH_COLOR = "#ffe84d";
+export const SPEECH_COLOR_PARTY = "#7fd8ff";
+/** Espaço entre o nome e a fala (o nome é bold branco; a fala é itálico menor, para não confundir). */
+const SPEECH_GAP = 5;
+const SPEECH_MAX = 3;
+const SPEECH_FADE_MS = 500;
+const SPEECH_WRAP_W = 190;
+const speechMs = (text: string) => Math.min(9000, 3500 + text.length * 60);
 
 /** Escudinho 7×8 (gerado uma vez). */
 function ensurePartyShield(scene: Phaser.Scene) {
@@ -98,6 +107,10 @@ export class Actor {
   /** Marca de grupo (escudinho) e cor original do nome. */
   private partyIcon: Phaser.GameObjects.Image | null = null;
   private baseNameColor = "#ffffff";
+  /** Falas ativas, da mais antiga para a mais nova. */
+  private speech: { text: Phaser.GameObjects.Text; age: number; ttl: number }[] = [];
+  /** Nome do jogador (o label pode ter o título numa 2ª linha). */
+  readonly name: string;
 
   // HP
   private hpTarget = 1;
@@ -122,6 +135,7 @@ export class Actor {
     opts: ActorOpts = {},
   ) {
     const { scene } = deps;
+    this.name = name;
     this.tileX = x; this.tileY = y;
     this.rx = x * TILE_SIZE; this.ry = y * TILE_SIZE;
     this.facing = dirToFacing(dir);
@@ -187,6 +201,38 @@ export class Actor {
   private placePartyIcon() {
     if (!this.partyIcon) return;
     this.partyIcon.setPosition(Math.round(this.label.x - this.label.displayWidth / 2 - 2), Math.round(this.label.y - this.label.displayHeight / 2));
+  }
+
+  /** Mostra uma fala sobre a cabeça. */
+  speak(text: string, color = SPEECH_COLOR) {
+    const t = text.trim();
+    if (!t) return;
+    const obj = this.deps.scene.add.text(0, 0, t, {
+      fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "10px", fontStyle: "italic",
+      color, stroke: "#101018", strokeThickness: 3, align: "center",
+      wordWrap: { width: SPEECH_WRAP_W, useAdvancedWrap: true }, resolution: textRes(),
+    }).setOrigin(0.5, 1);
+    this.deps.uiLayer.add(obj);
+    this.speech.push({ text: obj, age: 0, ttl: speechMs(t) });
+    while (this.speech.length > SPEECH_MAX) this.speech.shift()!.text.destroy();
+    this.applyVisible();
+  }
+
+  /** Avança o tempo das falas e as empilha acima do nome (a mais nova embaixo). */
+  private placeSpeech(dtMs: number) {
+    if (!this.speech.length) return;
+    let top = this.label.y - this.label.displayHeight - SPEECH_GAP;
+    this.speech = this.speech.filter((s) => {
+      s.age += dtMs;
+      if (s.age >= s.ttl) { s.text.destroy(); return false; }
+      return true;
+    });
+    for (let i = this.speech.length - 1; i >= 0; i--) {
+      const s = this.speech[i]!;
+      const left = s.ttl - s.age;
+      s.text.setAlpha(left < SPEECH_FADE_MS ? left / SPEECH_FADE_MS : 1).setPosition(Math.round(this.label.x), Math.round(top));
+      top -= s.text.displayHeight + 1;
+    }
   }
 
   setName(name: string, color?: string) {
@@ -284,6 +330,7 @@ export class Actor {
     const v = !this.culled && !this.ghosted;
     this.root.setVisible(v);
     this.label.setVisible(v);
+    for (const s of this.speech) s.text.setVisible(v);
     this.partyIcon?.setVisible(v);
     this.barBg.setVisible(v && !this.noBar);
     this.barGhost.setVisible(v && !this.noBar);
@@ -299,6 +346,7 @@ export class Actor {
       this.barBg.setVisible(false); this.barGhost.setVisible(false); this.barFill.setVisible(false);
       this.label.setPosition(Math.round(sx), Math.round(sy) - 1);
       this.placePartyIcon();
+      this.placeSpeech(dtMs);
       return;
     }
     // Barra: anima largura e fantasma de dano.
@@ -322,6 +370,7 @@ export class Actor {
     if (col !== this.lastBarColor) { this.lastBarColor = col; this.barFill.setTint(col); }
     this.label.setPosition(Math.round(sx), y0 - 1);
     this.placePartyIcon();
+    this.placeSpeech(dtMs);
   }
 
   /** Último tile da fila (para onde o ator está indo). */
@@ -487,6 +536,7 @@ export class Actor {
   destroy() {
     this.root.destroy();
     this.label.destroy();
+    for (const s of this.speech) s.text.destroy();
     this.partyIcon?.destroy();
     this.barBg.destroy();
     this.barGhost.destroy();

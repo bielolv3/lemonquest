@@ -3,11 +3,11 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, S2C, TILE_SIZE, NPC_RANGE,
-  spellDef, spellsFor, type AttackMsg, type CombatEvent, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
-import { Actor, createCharacterAnims, type ActorDeps } from "../game/actor.ts";
+import { Actor, createCharacterAnims, SPEECH_COLOR_PARTY, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
 import { allCreatureSheets, creatureVisual, levelColor, levelDifficulty, sheetTrim } from "../game/creatures.ts";
 import { Butterflies } from "../game/ambient.ts";
@@ -304,12 +304,19 @@ export class WorldScene extends Phaser.Scene {
     msg<SpellCastMsg>(S2C.SpellCast, (m) => this.onSpellCast(m));
     msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
     msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
+    msg<ChatMessage>(S2C.Chat, (m) => this.onChatBubble(m));
     msg<NpcSayMsg>(S2C.NpcSay, (m) => this.npcs.say(m.npcId, m.text));
     msg<NpcOpenMsg>(S2C.NpcOpen, (m) => this.npcs.say(m.npcId, m.greeting));
     msg<LootMsg>(S2C.Loot, (m) => this.onLoot(m));
     msg<DiedMsg>(S2C.Died, (m) => this.onDied(m.killerName, m.lostXp));
     msg<CreatureDiedMsg>(S2C.CreatureDied, (m) => this.onCreatureDied(m));
     room.onLeave(() => { if (this.room === room) this.unbindRoom(); });
+  }
+
+  /** Fala do canal geral (amarelo) ou do grupo (azul) aparece sobre a cabeça de quem falou (estilo Tibia). */
+  private onChatBubble(m: ChatMessage) {
+    if (m.channel !== "global" && m.channel !== "party") return;
+    for (const a of this.actors.values()) if (a.name === m.from) { a.speak(m.text, m.channel === "party" ? SPEECH_COLOR_PARTY : undefined); return; }
   }
 
   /** Guarda o onChange de uma entidade (troca o anterior, se o mesmo id reaparecer). */
