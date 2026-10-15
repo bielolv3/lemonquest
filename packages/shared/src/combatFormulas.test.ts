@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  VOCATIONS, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
+  VOCATIONS, baseStats, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
   xpForLevel,
 } from "./index.ts";
 
@@ -92,5 +92,15 @@ describe("combat formulas", () => {
     expect(regenAmount(150, 1, false)).toBe(2);
     expect(regenAmount(150, 1, true)).toBe(6);
     expect(regenAmount(10, 1, false)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("baseStats", () => {
+  it("magos ganham 6 de vida por level (lv 30: 324), ainda bem abaixo do paladino e do cavaleiro", () => {
+    expect(baseStats("sorcerer", 1).maxHp).toBe(150);
+    expect(baseStats("sorcerer", 30).maxHp).toBe(324);
+    expect(baseStats("druid", 30).maxHp).toBe(324);
+    expect(baseStats("paladin", 30).maxHp).toBeGreaterThan(baseStats("druid", 30).maxHp);
+    expect(baseStats("knight", 30).maxHp).toBeGreaterThan(baseStats("paladin", 30).maxHp);
   });
 });
