@@ -802,6 +802,8 @@ export class WorldScene extends Phaser.Scene {
       monsters: () => [...this.creatureKnown].filter(([id]) => !this.dying.has(id))
         .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),
       ground: () => this.ground?.all() ?? [],
+      /** Falas visíveis sobre a cabeça dos jogadores (balões do chat). */
+      speech: () => [...this.actors.values()].flatMap((a) => a.speechLines().map((l) => ({ from: a.name, ...l }))),
       target: () => this.curTarget,
       textResolutions: () => sceneTexts(this).reduce<Record<string, number>>((acc, t) => { acc[t.style.resolution] = (acc[t.style.resolution] ?? 0) + 1; return acc; }, {}),
       walkable: (x: number, y: number) => this.world.grid.isWalkable(x, y),

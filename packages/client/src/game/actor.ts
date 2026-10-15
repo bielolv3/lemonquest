@@ -218,6 +218,11 @@ export class Actor {
     this.applyVisible();
   }
 
+  /** Falas ativas (para o probe dos testes E2E). */
+  speechLines(): { text: string; color: string }[] {
+    return this.speech.map((s) => ({ text: s.text.text, color: String(s.text.style.color) }));
+  }
+
   /** Avança o tempo das falas e as empilha acima do nome (a mais nova embaixo). */
   private placeSpeech(dtMs: number) {
     if (!this.speech.length) return;

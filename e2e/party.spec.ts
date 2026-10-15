@@ -54,6 +54,9 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     // Chat do grupo: B fala na aba Grupo, A recebe na aba Grupo (não no Geral).
     await b.locator(".chat-tab", { hasText: "Grupo" }).click();
     await say(b, "bora caçar");
+    // Balão sobre a cabeça de B, em azul-claro (grupo), visível para A.
+    await expect.poll(() => a.evaluate(() => (window as any).__lq.speech()))
+      .toEqual([expect.objectContaining({ from: pb.name, text: "bora caçar", color: "#7fd8ff" })]);
     const tabA = a.locator(".chat-tab", { hasText: "Grupo" });
     await expect(tabA.locator(".chat-unread")).toBeVisible();
     await expect(a.locator(".chat-log")).not.toContainText("bora caçar");
