@@ -47,8 +47,8 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
       await expect(panel.locator(`.party-member[data-member="${pa.name}"] .party-crown`)).toHaveText("♛");
     }
     // Mesmo grupo no estado sincronizado.
+    await expect.poll(async () => (await meState(a))!.partyId).not.toBe("");
     const partyA = (await meState(a))!.partyId as string;
-    expect(partyA).not.toBe("");
     await expect.poll(async () => (await meState(b))!.partyId).toBe(partyA);
 
     // Chat do grupo: B fala na aba Grupo, A recebe na aba Grupo (não no Geral).
