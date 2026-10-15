@@ -1,0 +1,75 @@
+// Eventos semanais: janelas de tempo com bônus (XP e/ou chance de loot). Horário do servidor (fuso da máquina).
+
+export interface GameEventDef {
+  id: string;
+  name: string;
+  desc: string;
+  /** Multiplicador da XP de abates (1 = normal). */
+  xpMult: number;
+  /** Multiplicador da chance de cada item do loot (1 = normal; a chance nunca passa de 100%). */
+  lootMult: number;
+  /** Dia da semana (0 = domingo … 6 = sábado), hora e minuto de início, e duração em minutos. */
+  day: number;
+  hour: number;
+  minute?: number;
+  durationMin: number;
+}
+
+export const WEEKLY_EVENTS: readonly GameEventDef[] = [
+  { id: "mare_de_tesouros", name: "Maré de Tesouros", desc: "Chance de loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 12, durationMin: 60 },
+  { id: "noite_de_cacada", name: "Noite de Caçada", desc: "XP em dobro", xpMult: 2, lootMult: 1, day: 5, hour: 19, durationMin: 60 },
+  { id: "tarde_de_sabado", name: "Tarde de Sábado", desc: "XP ×1,5 e loot +25%", xpMult: 1.5, lootMult: 1.25, day: 6, hour: 14, durationMin: 120 },
+];
+
+/** Evento em andamento (agendado ou disparado por admin). */
+export interface ActiveEvent {
+  id: string;
+  name: string;
+  desc: string;
+  xpMult: number;
+  lootMult: number;
+  /** Fim, em ms epoch. */
+  until: number;
+}
+
+export const eventDef = (id: string): GameEventDef | undefined => WEEKLY_EVENTS.find((e) => e.id === id);
+
+export function toActive(def: GameEventDef, until: number): ActiveEvent {
+  return { id: def.id, name: def.name, desc: def.desc, xpMult: def.xpMult, lootMult: def.lootMult, until };
+}
+
+/** Evento agendado que está valendo em `now` (considera o de ontem que atravessa a meia-noite). Null se nenhum. */
+export function scheduledEvent(now: Date, defs: readonly GameEventDef[] = WEEKLY_EVENTS): ActiveEvent | null {
+  for (const def of defs) {
+    for (const back of [0, 1]) {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back, def.hour, def.minute ?? 0, 0, 0);
+      if (start.getDay() !== def.day) continue;
+      const end = start.getTime() + def.durationMin * 60_000;
+      if (start.getTime() <= now.getTime() && now.getTime() < end) return toActive(def, end);
+    }
+  }
+  return null;
+}
+
+/** Próximo início de evento agendado depois de `now` (para o /evento mostrar "próximo"). */
+export function nextScheduled(now: Date, defs: readonly GameEventDef[] = WEEKLY_EVENTS): { def: GameEventDef; at: number } | null {
+  let best: { def: GameEventDef; at: number } | null = null;
+  for (const def of defs) {
+    for (let ahead = 0; ahead <= 7; ahead++) {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ahead, def.hour, def.minute ?? 0, 0, 0);
+      if (start.getDay() !== def.day || start.getTime() <= now.getTime()) continue;
+      if (!best || start.getTime() < best.at) best = { def, at: start.getTime() };
+      break;
+    }
+  }
+  return best;
+}
+
+/** "XP ×2 · loot ×1,5" (só o que está acima de 1, vírgula decimal). */
+export function eventBonusText(e: Pick<ActiveEvent, "xpMult" | "lootMult">): string {
+  const fmt = (n: number) => String(n).replace(".", ",");
+  const parts: string[] = [];
+  if (e.xpMult > 1) parts.push(`XP ×${fmt(e.xpMult)}`);
+  if (e.lootMult > 1) parts.push(`loot ×${fmt(e.lootMult)}`);
+  return parts.join(" · ");
+}

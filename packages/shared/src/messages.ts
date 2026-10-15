@@ -180,6 +180,8 @@ export const S2C = {
   Party: "party",
   /** Estado da troca (convite recebido, janela aberta ou fechada). */
   Trade: "trade",
+  /** Evento com bônus em andamento (ou null quando termina). */
+  Event: "event",
   /** Convite para um grupo (toast com Aceitar/Recusar). */
   PartyInvite: "partyInvite",
 } as const;
@@ -268,6 +270,7 @@ export interface LootMsg {
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
 export interface NpcSayMsg { npcId: string; text: string }
 export interface EmoteMsg { id: string; emote: string }
+export interface EventMsg { active: import("./data/events.ts").ActiveEvent | null }
 export interface TrainingOpenMsg { statueId: string }
 export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }
 export interface ArenaLobbySummary { id: string; leader: string; members: string[]; max: number; avgLevel: number }

@@ -80,11 +80,11 @@ export function createItem(d: ItemDef, count: number, rng: () => number, o: { bo
 export interface LootRoll { items: ItemInstance[]; gold: number }
 
 /** Rola o loot de um abate. Moedas de ouro da tabela vão para o ouro. */
-export function rollLoot(def: MonsterDef, rng: () => number, defs: ItemDefs): LootRoll {
+export function rollLoot(def: MonsterDef, rng: () => number, defs: ItemDefs, chanceMult = 1): LootRoll {
   let gold = def.gold ? rollInt(def.gold[0], def.gold[1], rng) : 0;
   const items: ItemInstance[] = [];
   for (const e of def.loot ?? []) {
-    if (!(rng() < e.chance)) continue;
+    if (!(rng() < Math.min(1, e.chance * chanceMult))) continue;
     const count = rollInt(e.min ?? 1, e.max ?? e.min ?? 1, rng);
     if (count <= 0) continue;
     if (e.itemId === GOLD_ID) { gold += count; continue; }
@@ -102,6 +102,8 @@ export interface LootOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   rng?: () => number;
+  /** Multiplicador da chance de cada item do loot (evento com bônus). Ausente = 1. */
+  lootMult?: () => number;
   /** Itens no chão (systems/ground.ts): o que não coube cai no tile de quem matou (protegido por 60 s). */
   ground?: { placeLoot: (p: PlayerState, item: ItemInstance) => boolean };
 }
@@ -146,7 +148,7 @@ export class LootSystem {
     const { x, y } = m.s;
     const def = m.def;
     if (def.boss) this.feed(`☠️ ${p.name} derrotou ${def.name}!`, "boss");
-    const roll = rollLoot(def, this.rng, this.o.inventory.defs);
+    const roll = rollLoot(def, this.rng, this.o.inventory.defs, this.o.lootMult?.() ?? 1);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
     const got: ItemInstance[] = [];
     let lost = 0, fell = 0;

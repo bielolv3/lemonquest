@@ -91,6 +91,8 @@ export interface CombatHooks {
   interceptDeath?: (p: PlayerState, killerName: string) => boolean;
   /** Ajusta a XP de um abate (XP compartilhada do grupo). Recebe as partes pelo dano; retorna as partes finais. */
   xpShares?: (m: Monster, shares: Map<string, number>, now: number) => Map<string, number>;
+  /** Multiplicador da XP de abates (evento com bônus). Ausente = 1. */
+  xpMult?: () => number;
   /** Jogador participou do combate agora (deu dano num monstro selvagem ou curou outro jogador). */
   onActivity?: (playerId: string, now: number) => void;
 }
@@ -335,9 +337,10 @@ export class CombatSystem {
     this.o.monsters.kill(m, now);
     for (const p of this.o.players()) if (p.targetId === id) p.targetId = "";
     this.after.push(() => this.o.broadcast(S2C.CreatureDied, { id, x, y, defId } satisfies CreatureDiedMsg));
+    const mult = Math.max(1, this.hooks.xpMult?.() ?? 1);
     for (const [pid, amount] of shares) {
       const p = this.o.getPlayer(pid);
-      if (p) this.gainXp(p, amount, x, y);
+      if (p) this.gainXp(p, mult > 1 ? Math.round(amount * mult) : amount, x, y);
     }
   }
 

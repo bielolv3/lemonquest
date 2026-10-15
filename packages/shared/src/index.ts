@@ -19,3 +19,4 @@ export * from "./ranking.ts";
 export * from "./party.ts";
 export * from "./emotes.ts";
 export * from "./trade.ts";
+export * from "./data/events.ts";

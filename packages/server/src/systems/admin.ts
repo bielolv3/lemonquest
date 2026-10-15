@@ -20,7 +20,7 @@ export const MAX_KICK_REASON_BYTES = 100;
 /** Este personagem é admin? (vale em produção; não depende de LEMONQUEST_DEV_COMMANDS). */
 export const isAdmin = (name: string, env: Env = process.env): boolean => devAdmins(env).has(nameKey(name));
 
-export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp", "/desbloquear", "/status"] as const;
+export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp", "/desbloquear", "/status", "/evento"] as const;
 
 export interface AdminContext {
   send: (sessionId: string, type: string, msg: unknown) => void;
@@ -42,6 +42,8 @@ export interface AdminContext {
   devTp?: (p: PlayerState) => boolean;
   /** Concede roupa/addon/título (online: avisa o jogador). true = era novo. */
   grantUnlock?: (rec: CharacterRecord, unlockId: string, online?: PlayerState) => boolean;
+  /** /evento: dispara/encerra eventos com bônus (systems/events.ts). */
+  events?: { ids: () => string[]; start: (id: string, minutes: number) => string | null; stop: () => boolean; status: () => string[] };
   /** Linhas do /status (números do servidor). */
   status?: () => string[];
   env?: Env;
@@ -156,6 +158,24 @@ export function handleAdminCommand(p: PlayerState, text: string, ctx: AdminConte
       ctx.broadcast(S2C.Announce, { text: msg, from: p.name } satisfies AnnounceMsg);
       ctx.broadcast(S2C.Feed, { text: `📢 ${msg}`, kind: "info" } satisfies FeedMsg);
       audit(`/anuncio ${msg}`);
+      break;
+    }
+    case "/evento": {
+      const ev = ctx.events;
+      if (!ev) { reply("Eventos indisponíveis.", "warn"); break; }
+      const sub = (words[0] ?? "").toLowerCase();
+      if (!sub) { for (const l of ev.status()) reply(l); reply(`Uso: /evento <${ev.ids().join("|")}> [minutos] · /evento parar`); break; }
+      if (sub === "parar" || sub === "stop") {
+        audit("/evento parar");
+        reply(ev.stop() ? "Evento encerrado." : "Nenhum evento em andamento.", "good");
+        break;
+      }
+      const min = words[1] === undefined ? 60 : /^\d+$/.test(words[1]) ? Number(words[1]) : NaN;
+      if (!(min >= 1 && min <= 24 * 60)) { reply("Minutos de 1 a 1440. Uso: /evento <nome> [minutos]", "warn"); break; }
+      const text = ev.start(sub, min);
+      if (!text) { reply(`Evento desconhecido: ${sub}. Disponíveis: ${ev.ids().join(", ")}`, "warn"); break; }
+      audit(`/evento ${sub} ${min} min`);
+      reply(text, "good");
       break;
     }
     case "/status": {

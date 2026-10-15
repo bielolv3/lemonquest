@@ -6,6 +6,7 @@ import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { PartyInvites } from "./party/PartyInvites.tsx";
 import { TradeWindow } from "./trade/TradeWindow.tsx";
+import { EventBadge } from "./events/EventBadge.tsx";
 import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { CombatOverlays } from "./combat/CombatOverlays.tsx";
@@ -30,6 +31,7 @@ export function App() {
       <Toasts />
       <PartyInvites />
       <TradeWindow />
+      <EventBadge />
       <Chat />
       <WorldMapOverlay />
       <ZoneBanner />

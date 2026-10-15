@@ -1,7 +1,7 @@
 import { e2eMode } from "../e2e.ts";
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "@colyseus/core";
 import {
-  C2S, CLOSE_KICKED, CYCLE_START_MS, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
+  C2S, CLOSE_KICKED, CYCLE_START_MS, WEEKLY_EVENTS, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
@@ -20,6 +20,7 @@ import { handleChat, clearChatState, type ChatHooks } from "../systems/chat.ts";
 import { SocialSystem } from "../systems/social.ts";
 import { statusLines } from "../systems/status.ts";
 import { TradeSystem } from "../systems/trade.ts";
+import { EventSystem } from "../systems/events.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
@@ -111,6 +112,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private party!: PartySystem;
   private social!: SocialSystem;
   private trade!: TradeSystem;
+  private events!: EventSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
@@ -247,7 +249,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onUnlock: (id, unlockId) => this.onUnlock(id, unlockId),
       onComplete: (id, _q, bounty) => { if (!bounty) this.ach?.event(id, "quest"); },
     });
-    this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground });
+    this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground, lootMult: () => this.events?.lootMult() ?? 1 });
     this.regen = new RegenSystem({
       inCombat: (id, now) => this.combat.inCombat(id, now),
       inPz: (x, y) => this.monsters.inPz(x, y),
@@ -283,6 +285,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       attackRange: (p) => this.combat.attackOf(p).range,
     });
     this.combat.hooks = {
+      xpMult: () => this.events?.xpMult() ?? 1,
       damageTakenPct: (id) => this.conditions.damageTakenPct(id),
       manaShield: (id) => this.conditions.manaShield(id),
       onAutoAttack: (p) => {
@@ -366,6 +369,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       for (const line of helpLines(p.name)) send(p.id, S2C.Notice, { text: line, kind: "info", log: true } satisfies NoticeMsg);
       return true;
     };
+    this.events = new EventSystem({ broadcast, send });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
       inArena: (id) => this.arena.inMatch(id), save: (id) => this.save(id),
@@ -388,6 +392,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       resetCode: (account, by) => createResetCode(account, by),
       devTp: (pl) => isDevAdmin(pl.name),
       status: () => this.statusLines(),
+      events: {
+        ids: () => WEEKLY_EVENTS.map((e) => e.id),
+        start: (id, min) => { const a = this.events.start(id, min); return a ? `${a.name} iniciado por ${min} min (XP ×${a.xpMult}, loot ×${a.lootMult}).` : null; },
+        stop: () => this.events.stop(),
+        status: () => this.events.statusLines(),
+      },
       grantUnlock: (rec, id, online) => (online ? this.ach.grantTo(online, rec, id, true) : grantUnlock(rec, id)),
     }) || handleDevCommand(p, text, {
       inventory: this.inventory, send,
@@ -448,6 +458,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["quests", () => this.quests.tick(this.tickNow, players())],
       ["party", () => this.party.sync(this.tickNow)],
       ["trade", () => this.trade.tick()],
+      ["events", () => this.events.tick(this.tickNow)],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
       ["combat.flush", () => this.combat.flush()],
       ["ground", () => this.ground.tick(this.tickNow)],
@@ -567,6 +578,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
     this.social.onJoin(p);
+    this.events.sendTo(sid);
     this.joins++;
     this.peakOnline = Math.max(this.peakOnline, this.state.players.size);
   }

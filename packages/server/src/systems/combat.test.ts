@@ -18,6 +18,22 @@ function setup(over: Parameters<typeof def>[0] = {}, extra: Partial<Parameters<t
 }
 
 describe("player combat", () => {
+  it("evento com bônus: a XP do abate é multiplicada (hooks.xpMult); sem o gancho ou com ×1 não muda", () => {
+    const run = (mult?: number) => {
+      const w = setup({ hp: 20, xp: 40, armor: 0 });
+      if (mult !== undefined) w.combat.hooks = { xpMult: () => mult };
+      const p = w.add(player("k", 11, 10, { name: "Leo", hp: 100 }));
+      w.combat.onAttack(p, { targetId: w.m.s.id });
+      w.run(PLAYER_ATTACK_MS * 6);
+      return (w.sent.find((s) => s.type === S2C.XpGain)!.msg as { amount: number }).amount;
+    };
+    expect(run()).toBe(40);
+    expect(run(1)).toBe(40);
+    expect(run(2)).toBe(80);
+    expect(run(1.5)).toBe(60);
+    expect(run(0.5)).toBe(40); // nunca reduz
+  });
+
   it("knight kills a monster: batched combat events, xp, multi level up, notices", () => {
     const w = setup({ hp: 20, xp: xpForLevel(6) + 5, armor: 0 });
     const p = w.add(player("k", 11, 10, { name: "Leo", hp: 100 }));
