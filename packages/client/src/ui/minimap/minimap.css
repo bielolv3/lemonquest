@@ -25,7 +25,8 @@
 
 /* ---------- Banner de zona ---------- */
 .zone-banner {
-  position: fixed; top: 22%; left: 50%; transform: translateX(-50%); z-index: 40; pointer-events: none !important;
+  /* Abaixo das janelas, cartões e chat (é texto do mundo, não da interface); centrado na área de jogo, sem a barra lateral. */
+  position: fixed; top: 22%; left: calc((100vw - var(--hud-right, 0px)) / 2); transform: translateX(-50%); z-index: 8; pointer-events: none !important;
   font-size: clamp(28px, 5vw, 56px); font-weight: 600; letter-spacing: 3px; text-align: center; white-space: nowrap;
   color: #f3e6b8; text-shadow: 0 0 2px #000, 0 3px 0 #000, 0 0 24px rgba(217, 164, 65, .55);
   animation: zone-banner-life 2.4s ease-in-out forwards;
