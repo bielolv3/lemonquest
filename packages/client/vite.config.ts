@@ -11,7 +11,18 @@ export default defineConfig(({ command }) => ({
   plugins: [preact()],
   // Build: pasta curada (tools/build-public.mjs). Dev: assets/ completo.
   publicDir: command === "build" ? buildPublic() : "../../assets",
-  build: { rollupOptions: { input: { main: resolve(__dirname, "index.html"), ranking: resolve(__dirname, "ranking.html") } } },
+  build: {
+    // (Um bloco só: com rollupOptions E rolldownOptions juntos, o Vite 8 ficava só com o segundo e a página do ranking
+    // sumia do build.)
+    rolldownOptions: {
+      input: { main: resolve(__dirname, "index.html"), ranking: resolve(__dirname, "ranking.html") },
+      // Phaser (~1,1 MB) num pedaço próprio: muda só quando a dependência muda, então fica no cache do navegador
+      // (/assets/* é immutable) e um deploy novo baixa só o código do jogo.
+      output: { codeSplitting: { groups: [{ name: "phaser", test: /node_modules[\\/]phaser[\\/]/ }] } },
+    },
+    // O pedaço do Phaser passa de 500 kB sozinho; acima disso o aviso só repetiria o óbvio.
+    chunkSizeWarningLimit: 1400,
+  },
   server: {
     host: lan ? true : "localhost",
     port: 3000,
