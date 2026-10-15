@@ -102,6 +102,11 @@ escolher. `proposta/todas` junta as três (unitários 495/495, E2E 26/26).
 | #32 Fim de jogo (lv 40+) | `proposta/32-mais-espiritos` | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) |
 | #33 Magos e paladino | `proposta/33-vida-magos` | magos 6 de vida/level (lv 30: 295 → 324; 7 quebrava a meta da Cura); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) |
 
+Outra decisão (operação): as sessões de conta ficam só na memória do servidor — depois de cada deploy/reinício todo
+mundo digita a senha de novo. Dá para persistir a sessão (só o hash do token no SQLite, com a mesma expiração de 30
+min sem uso), mas mexe em autenticação; não fiz sem pedido. Enquanto isso, a tela de desconectado avisa quando o
+servidor voltou.
+
 Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
 novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
 | Configuração de produção: | |
