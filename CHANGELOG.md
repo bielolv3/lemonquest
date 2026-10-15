@@ -20,6 +20,10 @@
   leste. O mapa (tiles, colisão, decoração) não muda: o ponto novo entra só como objeto no fim do gerador.
 
 ### Engenharia
+- Arquivos do cliente com hash no nome (`/assets/*`) ficam 1 ano no cache do navegador (antes revalidavam a cada
+  visita); `index.html`, mapa e sprites continuam revalidando, então um deploy novo chega no próximo F5. Sem o Caddy
+  (`deploy/docker/docker-compose.https.yml`) o servidor não comprime nada (~2,4 MB de JS + mapa por carga) — o
+  Caddy já faz `encode zstd gzip`.
 - E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
 - E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
 
