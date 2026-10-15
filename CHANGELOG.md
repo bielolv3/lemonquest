@@ -1,5 +1,30 @@
 # Changelog
 
+## [Não lançado] — 2026-10-15 · ciclo 6 (retenção e qualidade de vida)
+
+### Jogo
+- **Desafios da semana** (diário de missões > "Desafios semanais"): Caçada (150 abates), Pescaria (12 peixes) e
+  Evolução (um level de XP), medidos desde a segunda-feira, com resgate manual e bônus por cumprir os três. Resgate
+  só se a mochila comportar os itens (tudo ou nada).
+- **Ranking semanal** (XP, abates, peixes, chefes) que zera na virada da semana ISO, e categoria geral **Pescador**.
+  A janela e a página pública mostram "zera em…".
+- **Bestiário** (tecla B): abates por monstro, vida, XP, dano e tabela de drops; o que ainda não foi derrotado fica
+  como "???" com o level à mostra.
+- **Chefes na agenda**: Despertar do Lich (quarta 20h) e Caçada ao Rei Goblin (domingo 20h) convocam o chefe no spawn
+  (com loot +50%). `/evento <nome>` também convoca.
+- **Bônus de login** por dias seguidos (ciclo de 7 dias; dia 7 é o maior; faltar um dia volta ao dia 1). O dia de
+  jogo troca às 6h de Brasília, como as recompensas diárias.
+
+### Interface
+- **Poção automática** (botão ⚗): limite de vida e de mana (0–90%) que bebe a primeira poção da mochila sozinho.
+- **Acessibilidade** (botão Aa): texto maior nas janelas de leitura, alto contraste e animações reduzidas.
+- **Novidades**: tela que abre uma vez por versão (e pelo botão da ajuda).
+- **Aviso fora da aba**: o título da aba ganha "(2)" com sussurro, convite de troca/grupo, amigo entrando e evento.
+
+### Servidor
+- O evento disparado por `/evento` sobrevive a reinício. Avisos de entrada (amigos online, bônus de login) saem 3 s
+  depois da entrada: antes se perdiam porque o chat do cliente ainda não escutava.
+
 ## [Não lançado] — 2026-10-15 · ciclo 5
 
 ### Interface

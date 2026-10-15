@@ -108,6 +108,25 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | D | Respawn não trava com jogador parado no spawn (druida novato 4/6 → 8/8) | ✅ | `monsters.test.ts` (2 novos), 8 execuções do robô |
 | F | E2E isolado: reconexão de 2 s em modo E2E; `party`/`ground` 10/10 em repetição | ✅ | `--repeat-each=5` |
 
+### Ciclo 6 — retenção e qualidade de vida (2026-10-15)
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| D | Desafios da semana (3 metas + bônus, resgate tudo-ou-nada) | ✅ | `challenges.test.ts` (6), `e2e/challenges.spec.ts` |
+| D | Ranking semanal (XP, abates, peixes, chefes) + categoria Pescador | ✅ | `weekly.test.ts` (shared e server), `achievements.test.ts` |
+| D | Chefes na agenda (Lich qua 20h, Rei Goblin dom 20h) + `/evento` convoca | ✅ | `monsters.test.ts` (`callBoss`), `events.test.ts` |
+| D | Bônus de login por dias seguidos (7 dias) | ✅ | `loginBonus.test.ts` (6) + conferido num servidor real (ouro e aviso; sem repetir no dia) |
+| C | Bestiário (tecla B) com abates por monstro e drops | ✅ | `bestiaryLogic.test.ts`, `achievements.test.ts`, `e2e/bestiary.spec.ts` |
+| C | Poção automática por % | ✅ | `autoPotion.test.ts` |
+| C | Acessibilidade: texto maior, alto contraste, animações reduzidas | ✅ | `a11yLogic.test.ts` (efeito visual não conferido em captura) |
+| C | Tela de Novidades; aviso fora da aba | ✅ | `news.test.ts`, `newsLogic.test.ts`, `attentionLogic.test.ts` |
+| F | Evento manual persistido (reinício) | ✅ | `events.test.ts` |
+| A | Avisos de entrada perdidos (cliente ainda não escutava): agora 3 s depois | ✅ | conferido num servidor real |
+
+Ficou de fora de propósito: painel web de admin (os comandos `/status` e `/evento` bastam por enquanto), teste visual
+automático por comparação de imagens, mercado entre jogadores, guilda, receitas, resistências de monstros e prestígio
+(sistemas inteiros que pedem decisão de design).
+
 Já existiam (conferido no código, sem mudança): cadeia de missões até o level 35 (12 missões), texto flutuante de dano
 por tipo/crítico, mapa-múndi em tela cheia (tecla M), chefes de zona e Coliseu até a onda 30 com Lich e Rei Goblin.
 
