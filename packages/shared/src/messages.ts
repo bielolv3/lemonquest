@@ -54,6 +54,8 @@ export const C2S = {
   Party: "party",
   /** Troca entre jogadores (convite, oferta, confirmação, cancelar). */
   Trade: "trade",
+  /** Lançar a linha de pesca num tile de água. */
+  Fish: "fish",
 } as const;
 
 /** Ações de missão. accept/turnIn exigem a janela do NPC que dá a missão aberta (e perto). */
@@ -180,6 +182,8 @@ export const S2C = {
   Party: "party",
   /** Estado da troca (convite recebido, janela aberta ou fechada). */
   Trade: "trade",
+  /** Alguém lançou a linha: boia no tile de água durante `ms`. */
+  FishCast: "fishCast",
   /** Evento com bônus em andamento (ou null quando termina). */
   Event: "event",
   /** Convite para um grupo (toast com Aceitar/Recusar). */
@@ -270,6 +274,9 @@ export interface LootMsg {
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }
 export interface NpcSayMsg { npcId: string; text: string }
 export interface EmoteMsg { id: string; emote: string }
+export interface FishMsg { x: number; y: number }
+/** `ms` = 0 cancela a boia. */
+export interface FishCastMsg { id: string; x: number; y: number; ms: number }
 export interface EventMsg { active: import("./data/events.ts").ActiveEvent | null }
 export interface TrainingOpenMsg { statueId: string }
 export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }

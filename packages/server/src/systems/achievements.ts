@@ -12,7 +12,7 @@ import type { PlayerState } from "../state.ts";
 import type { CharacterData, CharacterRecord } from "../persistence/types.ts";
 
 export type AchievementEventType =
-  | "kill" | "death" | "steps" | "gold" | "eat" | "drop" | "pickup" | "offline" | "quest" | "party_kill" | "arena" | "check";
+  | "kill" | "death" | "steps" | "gold" | "eat" | "drop" | "pickup" | "offline" | "quest" | "party_kill" | "arena" | "check" | "fish";
 
 export interface AchievementEventData {
   /** kill: tipo do monstro e se é chefe. */
@@ -30,7 +30,7 @@ type Ach = NonNullable<CharacterData["ach"]>;
 
 /** Contadores simples (stats) que cada evento soma. */
 const COUNTER: Partial<Record<AchievementEventType, string>> = {
-  death: "deaths", steps: "steps", gold: "gold", eat: "foods", drop: "drops", pickup: "pickups", quest: "quests", party_kill: "party",
+  death: "deaths", steps: "steps", gold: "gold", eat: "foods", drop: "drops", pickup: "pickups", quest: "quests", party_kill: "party", fish: "fish",
 };
 
 export interface AchievementOptions {

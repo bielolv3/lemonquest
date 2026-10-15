@@ -88,7 +88,7 @@ export const NPCS: Record<string, NpcDef> = {
     shop: {
       sells: sells("short_bow", "hunting_bow", "long_bow", "composite_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
         "hunter_helmet", "hunter_armor", "hunter_legs", "hunter_boots", "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots",
-        "health_potion", "meat", "fish", "beaf", "yakitori"),
+        "health_potion", "meat", "fish", "beaf", "yakitori", "fishing_rod"),
       buys: ["material", "food"],
     },
     idleLines: [

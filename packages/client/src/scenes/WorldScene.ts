@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
-  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
@@ -44,6 +44,7 @@ import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
 import { guideTarget } from "../ui/hud/guide.ts";
 import { getHudInsets } from "../ui/hud/layout.ts";
 import { GuideArrow } from "../game/guide.ts";
+import { FishBobbers } from "../game/fishing.ts";
 import { requestTrade } from "../ui/trade/trade.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
@@ -113,6 +114,7 @@ export class WorldScene extends Phaser.Scene {
   private groundWalkTimer = 0;
   private butterflies!: Butterflies;
   private guide!: GuideArrow;
+  private bobbers!: FishBobbers;
   /** Escuridão do ciclo dia/noite + luzes dinâmicas (game/lighting.ts). */
   private lightField!: LightField;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
@@ -234,6 +236,7 @@ export class WorldScene extends Phaser.Scene {
     const homes = [this.world.spawn, ...["herbalist", "shop"].map((id) => this.npcs.tileOf(id)).filter((t): t is { x: number; y: number } => !!t)];
     this.butterflies = new Butterflies(this, this.worldLayer, homes);
     this.guide = new GuideArrow(this, this.uiLayer);
+    this.bobbers = new FishBobbers(this, this.uiLayer);
     this.setupPointer();
     this.disposers.push(subscribeTarget((t) => this.onStoreTarget(t)));
     // Janela foi para um monitor com outra escala: textos existentes na nova resolução (os novos já nascem nela).
@@ -312,6 +315,7 @@ export class WorldScene extends Phaser.Scene {
     msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
     msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
     msg<ChatMessage>(S2C.Chat, (m) => this.onChatBubble(m));
+    msg<FishCastMsg>(S2C.FishCast, (m) => this.bobbers.cast(m));
     msg<EmoteMsg>(S2C.Emote, (m) => { const e = EMOTES.find((x) => x.id === m.emote); if (e) this.actors.get(m.id)?.emote(e.glyph, e.color); });
     msg<NpcSayMsg>(S2C.NpcSay, (m) => this.npcs.say(m.npcId, m.text));
     msg<NpcOpenMsg>(S2C.NpcOpen, (m) => this.npcs.say(m.npcId, m.greeting));
@@ -603,6 +607,12 @@ export class WorldScene extends Phaser.Scene {
         if (items.length) openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, items);
         return;
       }
+      // Botão direito na água: pescar (precisa da Vara de Pesca; o servidor avisa se faltar algo).
+      if (right && this.world.water.isWater(t.x, t.y)) {
+        const ev = ptr.event as MouseEvent;
+        openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, [{ label: "Pescar", run: () => this.room?.send(C2S.Fish, { x: t.x, y: t.y }) }]);
+        return;
+      }
       if (!this.room) return;
       // Item no chão: direito / Ctrl+clique / duplo clique = pegar; arrastar até a mochila = pegar; clique = andar.
       const gid = this.ground.topAt(t.x, t.y);
@@ -812,6 +822,9 @@ export class WorldScene extends Phaser.Scene {
       ground: () => this.ground?.all() ?? [],
       /** Seta-guia do novato (null = escondida). */
       guide: () => this.guide?.shown ?? null,
+      /** Água (pesca) e quantas boias estão na tela. */
+      isWater: (x: number, y: number) => this.world.water.isWater(x, y),
+      bobbers: () => this.bobbers?.count ?? 0,
       /** Falas visíveis sobre a cabeça dos jogadores (balões do chat). */
       speech: () => [...this.actors.values()].flatMap((a) => a.speechLines().map((l) => ({ from: a.name, ...l }))),
       target: () => this.curTarget,
@@ -863,6 +876,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs.update(dt, me);
     this.npcs.placeUi(zoom, dt, (wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
     this.updateGuide(me, dt);
+    this.bobbers.update((wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
     this.checkPendingNpc();
     this.checkPendingPickup();
     this.ground.update(dt, me ? { tx: me.tileX, ty: me.tileY } : null, (wx, wy) => ({ x: this.pcam.toScreenX(wx), y: this.pcam.toScreenY(wy) }), zoom);
@@ -1250,6 +1264,7 @@ export class WorldScene extends Phaser.Scene {
     this.ground?.destroy();
     this.butterflies?.destroy();
     this.guide?.destroy();
+    this.bobbers?.destroy();
     this.lightField?.destroy();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.unbindRoom();

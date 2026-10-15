@@ -153,6 +153,11 @@ const food = (id: string, name: string, icon: ItemIcon, value: number, level: nu
 // iniciais (lv 1)
 food("nuts", "Nozes", img("Food/Nut.png"), 5, undefined, 1, 1, 3, "Petisco simples. Um pouco de vida e mana.");
 food("fish", "Peixe Grelhado", img("Food/Fish.png"), 8, undefined, 2, 0, 3, "Peixe fresco do rio.");
+// pesca: vara (vendida pelo Tomé) e o que o rio dá
+add({ id: "fishing_rod", name: "Vara de Pesca", kind: "material", stackable: true, maxStack: 1, value: 60, icon: img("Weapons/Stick/Sprite.png", 0xa8782f), description: "Clique com o botão direito na água, perto da margem, para pescar." });
+food("trout", "Truta", img("Food/Fish.png", 0x9fc8e8), 14, undefined, 3, 0, 4, "Truta fresca, pescada na hora.");
+food("salmon", "Salmão", img("Food/Fish.png", 0xff9c7a), 40, 5, 5, 1, 6, "Rico e saboroso. Dá vida e um pouco de mana.");
+add({ id: "golden_fish", name: "Peixe Dourado", kind: "material", stackable: true, value: 220, icon: img("Food/Fish.png", 0xffd447), description: "Raro. Os mercadores pagam bem por ele." });
 food("meat", "Carne Assada", img("Food/Meat.png"), 12, undefined, 3, 0, 4, "Um pedaço de carne bem passado.");
 // foco em mana
 food("honey", "Mel", img("Food/Honey.png"), 35, 5, 1, 3, 4, "Doce e revigorante. Favorece a mana.");

@@ -73,6 +73,30 @@ export class CollisionGrid {
   }
 }
 
+/** Tiles de água (camada "ground" com gid do tileset "TilesetWater"): onde dá para pescar. Servidor e cliente usam a mesma. */
+export class WaterGrid {
+  constructor(readonly width: number, readonly height: number, private readonly water: Uint8Array) {}
+
+  static fromTiled(map: TiledMap): WaterGrid {
+    const water = new Uint8Array(map.width * map.height);
+    const ts = map.tilesets?.find((t) => t.name === "TilesetWater");
+    const ground = map.layers.find((l) => l.type === "tilelayer" && l.name === "ground")?.data;
+    if (ts && ground) {
+      const lo = ts.firstgid, hi = ts.firstgid + (ts.tilecount ?? 0) - 1;
+      for (let i = 0; i < water.length; i++) {
+        const g = (ground[i] ?? 0) & 0x1fffffff;
+        if (g >= lo && g <= hi) water[i] = 1;
+      }
+    }
+    return new WaterGrid(map.width, map.height, water);
+  }
+
+  isWater(x: number, y: number): boolean {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return false;
+    return this.water[y * this.width + x] === 1;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Velocidade do chão (estilo Tibia). Servidor e cliente constroem a MESMA grade a partir do mapa.
 // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ export type AchMetric =
   | "kills" | "bosses" | "bestiary" | "boss:goblin_king" | "boss:swamp_lich"
   | "level" | "melee" | "distance" | "magic" | "shield"
   | "arena" | "gold" | "deaths" | "steps" | "foods" | "drops" | "pickups" | "offline" | "explore" | "equipped"
-  | "quests" | "party";
+  | "quests" | "party" | "fish";
 
 export interface AchievementDef {
   id: string;
@@ -45,6 +45,8 @@ export const TITLES: Record<string, string> = {
   magnata: "o Magnata",
   heroi_povo: "Herói do Povo",
   arquimago: "o Arquimago",
+  pescador: "o Pescador",
+  mestre_pescador: "Mestre Pescador",
 };
 export const MAX_TITLE_LEN = 24;
 
@@ -97,6 +99,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   a("deaths_10", "Persistente", "Morra 10 vezes", "🪦", 10, "deaths", 10, { rewards: ["outfit:bruxo", "title:persistente"] }),
   a("deaths_50", "Mártir", "Morra 50 vezes", "😵", 20, "deaths", 50, { rewards: ["addon:bruxo:1"] }),
   a("food_50", "Gourmet", "Coma 50 comidas", "🍖", 10, "foods", 50, { rewards: ["outfit:druida"] }),
+  a("fish_10", "Pescador", "Pesque 10 peixes", "🎣", 5, "fish", 10, { rewards: ["title:pescador"] }),
+  a("fish_100", "Mestre Pescador", "Pesque 100 peixes", "🐟", 20, "fish", 100, { rewards: ["title:mestre_pescador"] }),
   a("food_200", "Pança de Ferro", "Coma 200 comidas", "🍗", 25, "foods", 200, { rewards: ["addon:druida:1"] }),
   a("offline_12h", "Treinador Dedicado", "Treine offline por 12 horas no total", "🛌", 30, "offline", 720, { rewards: ["addon:druida:2"] }),
   // Itens
