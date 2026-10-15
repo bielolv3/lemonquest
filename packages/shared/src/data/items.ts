@@ -300,13 +300,20 @@ buildSet({ prefix: "mithril", tier: 5, palette: "mithril", slots: MELEE, shapes:
   names: ["Elmo de Mithril", "Armadura de Mithril", "Grevas de Mithril", "Botas de Mithril", "Escudo de Mithril"],
   vocations: ["knight"], extra: { boots: { speed: 6 }, shield: { shield: 5 }, helmet: { melee: 1 }, armor: { hpMax: 60 } }, blurb: "Mithril: leve como couro, duro como diamante." });
 
-// Paladino (4 peças, sem escudo: arcos usam as duas mãos). Armadura total 4 / 7.
+// Paladino (4 peças, sem escudo: arcos usam as duas mãos). Armadura total 4 / 5 / 7 / 9 — antes só tiers 2 e 4: do
+// level 8 ao 25 o paladino ficava com 4 de armadura (cavaleiro 7) e no fim de jogo sem peça própria.
 buildSet({ prefix: "ranger", tier: 2, palette: "iron", slots: GEAR4, shapes: {}, armor: [1, 2, 1, 0], values: [100, 300, 200, 100],
   names: ["Capuz de Patrulheiro", "Colete de Patrulheiro", "Calças de Patrulheiro", "Botas de Patrulheiro"],
   vocations: ["paladin"], extra: { helmet: { distance: 1 }, boots: { speed: 3 } }, blurb: "Leve e silencioso, para quem atira de longe." });
+buildSet({ prefix: "hunter", tier: 3, palette: "steel", slots: GEAR4, shapes: {}, armor: [1, 2, 1, 1], values: [550, 1500, 950, 500],
+  names: ["Capuz de Caçador", "Gibão de Caçador", "Calças de Caçador", "Botas de Caçador"],
+  vocations: ["paladin"], extra: { helmet: { distance: 1 }, boots: { speed: 4 } }, blurb: "Couro reforçado de quem vive na mata." });
 buildSet({ prefix: "sniper", tier: 4, palette: "mithril", slots: GEAR4, shapes: { helmet: "helmet_full", armor: "armor_plate" }, armor: [2, 3, 1, 1], values: [1700, 4800, 3100, 1400],
   names: ["Elmo de Franco-Atirador", "Couraça de Franco-Atirador", "Calças de Franco-Atirador", "Botas de Franco-Atirador"],
   vocations: ["paladin"], extra: { helmet: { distance: 1 }, armor: { distance: 1 }, boots: { speed: 5 } }, blurb: "Camuflagem e proteção para o arqueiro experiente." });
+buildSet({ prefix: "master_archer", tier: 5, palette: "dragon", slots: GEAR4, shapes: { helmet: "helmet_full", armor: "armor_plate", legs: "legs_greaves" }, armor: [2, 4, 2, 1], values: [6500, 16000, 9500, 5000],
+  names: ["Elmo do Arqueiro-Mestre", "Couraça do Arqueiro-Mestre", "Grevas do Arqueiro-Mestre", "Botas do Arqueiro-Mestre"],
+  vocations: ["paladin"], extra: { helmet: { distance: 2 }, armor: { distance: 1, hpMax: 40 }, boots: { speed: 6 } }, blurb: "Escamas de dragão sobre couro fino: nada escapa à sua mira." });
 
 // Magos (sorcerer/druid): 4 peças com manaMax e magic. Armadura total 3 / 4 / 6 / 8.
 const MAGE: Vocation[] = ["sorcerer", "druid"];

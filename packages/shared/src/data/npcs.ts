@@ -82,7 +82,8 @@ export const NPCS: Record<string, NpcDef> = {
     id: "old_hunter", name: "Velho Caçador Tomé", sprite: C + "Hunter/SpriteSheet.png",
     greeting: "Ah, um novato. Quer aprender a mirar de verdade? Tenho arcos e equipamento de patrulheiro. Compro peles e ossos também.",
     shop: {
-      sells: sells("short_bow", "hunting_bow", "long_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
+      sells: sells("short_bow", "hunting_bow", "long_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
+        "hunter_helmet", "hunter_armor", "hunter_legs", "hunter_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
       buys: ["material", "food"],
     },
     idleLines: [

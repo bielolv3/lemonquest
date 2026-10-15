@@ -13,6 +13,12 @@
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
 
+### Jogabilidade (proposta #33)
+- Feiticeiro e druida ganham 6 de vida por level (antes 5): no level 30, 324 em vez de 295.
+- Paladino ganha os conjuntos que faltavam: **Caçador** (level 15, vendido pelo Velho Caçador Tomé; botas na aranha,
+  capuz no morcego) e **Arqueiro-Mestre** (level 35: homem-lagarto, espírito de chama e Rei Goblin). Antes o
+  paladino ficava do level 8 ao 25 com o conjunto de Patrulheiro (armadura 4; cavaleiro 7) e sem peça de fim de jogo.
+
 ### Engenharia
 - E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
 - E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
