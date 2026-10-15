@@ -42,7 +42,7 @@ describe("chat", () => {
     handleChat({ broadcast } as any, client, { name: "Ana" } as any, { text: "/level 30", channel: "global" });
     expect(broadcast).not.toHaveBeenCalled();
     expect(sent).toHaveLength(2);
-    expect(sent[0][1]).toMatchObject({ text: "Comando desconhecido." });
+    expect(sent[0][1]).toMatchObject({ text: "Comando desconhecido. Digite /ajuda para ver os comandos." });
   });
   it("remove caracteres de controle/formatação", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
