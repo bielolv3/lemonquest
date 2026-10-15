@@ -33,6 +33,11 @@
   rato com ~3 de vida; feiticeiro 41–73 s). À distância, seguir só aproxima até o alcance. Quem já tem personagem fica
   com o modo que escolheu.
 
+### Economia (proposta #31)
+- Tier 4 (level 25) à venda: Bento (armas de todas as vocações e o conjunto de Aço), Velho Caçador Tomé (Arco
+  Composto, conjunto de Franco-Atirador) e Dona Marta (Varinha Flamejante, Bastão do Pântano, conjunto Arcano).
+  Conjunto completo: 22–27 mil de ouro. O tier 5 continua só no loot, nos chefes e nos baús.
+
 ### Engenharia
 - Arquivos do cliente com hash no nome (`/assets/*`) ficam 1 ano no cache do navegador (antes revalidavam a cada
   visita); `index.html`, mapa e sprites continuam revalidando, então um deploy novo chega no próximo F5. Sem o Caddy
