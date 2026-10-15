@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { activateSlot, ACTION_SLOTS, cooldownStore, flashStore, shakeStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
 import { useStore } from "./store.ts";
 import { meStore } from "./world.ts";
+import { swapSlots } from "./castbar.ts";
 
 export function ActionBar() {
   const slots = useStore(slotsStore);
@@ -46,6 +47,7 @@ const fmtCd = (ms: number) => `${(ms / 1000).toFixed(ms % 1000 ? 1 : 0).replace(
 function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotProps) {
   const el = useRef<HTMLButtonElement>(null);
   const first = useRef(true);
+  const [over, setOver] = useState(false);
 
   // Reinicia a animação de "pressionado" a cada flash.
   useEffect(() => {
@@ -83,12 +85,17 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
   return (
     <button
       ref={el}
-      class={`slot action-slot${action ? " filled" : ""}${active ? " cooling" : ""}${locked ? " locked" : ""}${noMana ? " nomana" : ""}`}
+      class={`slot action-slot${over ? " drop-over" : ""}${action ? " filled" : ""}${active ? " cooling" : ""}${locked ? " locked" : ""}${noMana ? " nomana" : ""}`}
       style={action?.color ? ({ "--el": action.color } as any) : undefined}
       onClick={() => activateSlot(index)}
+      draggable={!!action}
+      onDragStart={(e) => { e.dataTransfer?.setData("text/plain", String(index)); if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"; }}
+      onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const from = Number(e.dataTransfer?.getData("text/plain")); if (Number.isInteger(from)) swapSlots(from, index); }}
       onAnimationEnd={(e) => (e.currentTarget as HTMLElement).classList.remove("flash", "shake")}
       data-tip={action ? action.label : `Atalho ${key}`}
-      data-tip-sub={action ? sub : "Vazio"}
+      data-tip-sub={action ? sub : "Vazio · arraste uma magia para cá"}
       data-tip-words={action?.words}
       data-tip-desc={action?.desc ? (locked ? `${action.desc} (Requer level ${action.level})` : action.desc) : undefined}
     >

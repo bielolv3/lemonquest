@@ -11,6 +11,7 @@ import { pushToast } from "../toasts.ts";
 import {
   ACTION_SLOTS, cooldownStore, onSlotActivate, setCooldownAt, setSlotAction, shakeSlot, type Cooldown,
 } from "./actionbar.ts";
+import { arrange, parseOrder, swapped } from "./slotOrder.ts";
 import { spellIcon } from "./spellIcons.ts";
 import { createStore } from "./store.ts";
 import { getTarget } from "./target.ts";
@@ -42,16 +43,36 @@ export function setCastTransport(fn: (m: CastMsg) => void): void { transport = f
 
 export const spellInSlot = (slot: number): SpellDef | null => slotSpells[slot] ?? null;
 
+/** Ordem salva da barra por personagem (arrastar e soltar). */
+const orderKey = () => `lemonquest.actionbar.${(session.myName || "?").normalize("NFC").toLowerCase()}`;
+const loadOrder = () => { try { return parseOrder(localStorage.getItem(orderKey())); } catch { return null; } };
+const saveOrder = () => { try { localStorage.setItem(orderKey(), JSON.stringify(slotSpells.map((s) => s?.id ?? null))); } catch { /* indisponível */ } };
+
+function publishSlot(i: number) {
+  const s = slotSpells[i];
+  setSlotAction(i, s ? {
+    label: s.name, mana: s.mana, spellId: s.id, words: s.words, desc: s.description, level: s.level,
+    cooldownMs: s.cooldownMs, fx: s.fx, color: cssColor(PAL[s.fx]?.main ?? 0xffffff),
+    icon: spellIcon(s.fx, s.target),
+  } : null);
+}
+
 function fillSlots(vocation: string) {
   const list = spellsFor(vocation as never).slice(0, ACTION_SLOTS);
-  slotSpells = Array.from({ length: ACTION_SLOTS }, (_, i) => list[i] ?? null);
-  slotSpells.forEach((s, i) => {
-    setSlotAction(i, s ? {
-      label: s.name, mana: s.mana, spellId: s.id, words: s.words, desc: s.description, level: s.level,
-      cooldownMs: s.cooldownMs, fx: s.fx, color: cssColor(PAL[s.fx]?.main ?? 0xffffff),
-      icon: spellIcon(s.fx, s.target),
-    } : null);
-  });
+  const byId = new Map(list.map((s) => [s.id, s]));
+  slotSpells = arrange(list.map((s) => s.id), loadOrder(), ACTION_SLOTS).map((id) => (id ? byId.get(id) ?? null : null));
+  slotSpells.forEach((_, i) => publishSlot(i));
+}
+
+/** Troca duas magias de lugar na barra (arrastar e soltar): leva junto a recarga e grava a ordem do personagem. */
+export function swapSlots(a: number, b: number): void {
+  if (a === b || a < 0 || b < 0 || a >= ACTION_SLOTS || b >= ACTION_SLOTS) return;
+  slotSpells = swapped(slotSpells, a, b);
+  const cds = cooldownStore.get();
+  const ca = cds[a] ?? null, cb = cds[b] ?? null;
+  setCooldownAt(a, cb); setCooldownAt(b, ca);
+  publishSlot(a); publishSlot(b);
+  saveOrder();
 }
 
 function fail(slot: number, reason: CastFailReason) {

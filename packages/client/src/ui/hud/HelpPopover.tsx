@@ -15,7 +15,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
   {
     title: "Combate",
     rows: [
-      { keys: ["1", "–", "8"], label: "Magias da barra" },
+      { keys: ["1", "–", "8"], label: "Magias da barra (arraste para reordenar)" },
       { keys: ["Q", "E"], label: "Poção de vida / mana" },
       { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
       { keys: ["F8"], label: "Seguir o alvo" },

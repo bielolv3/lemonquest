@@ -328,6 +328,8 @@
 }
 .action-bar:hover { background: var(--hud-bg); }
 .action-slot { width: 42px; height: 42px; padding: 0; cursor: pointer; overflow: hidden; }
+.action-slot.filled { cursor: grab; }
+.action-slot.drop-over { outline: 2px solid #ffd447; outline-offset: -2px; background: rgba(255, 212, 71, 0.15); }
 .action-slot:not(.filled)::before {
   content: ""; width: 10px; height: 10px; opacity: 0.35;
   background: linear-gradient(var(--hud-line-hi), var(--hud-line-hi)) center / 10px 2px no-repeat,
