@@ -98,6 +98,17 @@ node tools/loadtest.mjs http://127.0.0.1:2872 --bots 10 --secs 130         # bot
 
 O desempenho sai no log do servidor (`[tick] … média X ms, máx Y ms`, a cada 60 s fora de produção).
 
+### Fuzz do protocolo
+
+```bash
+E2E_PORT=2872 E2E_SKIP_BUILD=1 E2E_ADMINS="Fuzz Inv" node e2e/start-server.mjs                   # outro terminal
+node tools/fuzz.mjs http://127.0.0.1:2872 --mode proto --secs 90                                 # lixo em todas as mensagens
+node tools/fuzz.mjs http://127.0.0.1:2872 --mode inventory --secs 180 --name "Fuzz Inv"          # mochila/equip/depot
+```
+
+O servidor não pode cair nem registrar exceção (confira o log); no modo `inventory` a soma de cada item nunca passa
+do inicial e nenhum uid se repete (sai com código 1 se acontecer).
+
 ### Auditoria e roadmap
 
 Diagnóstico técnico/gameplay em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md), prioridades e status em

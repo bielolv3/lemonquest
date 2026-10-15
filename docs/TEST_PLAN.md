@@ -10,6 +10,7 @@
 | E2E | `npm run test:e2e` | Playwright/Chromium contra servidor de teste (porta 2851, banco temporário): login/conta, mundo, chão, painéis, grupo, coliseu, treino, conquistas, missões |
 | Benchmark manual | `npx tsx packages/server/src/systems/pathfinding.bench.ts` | custo do A* (µs por caminho) |
 | Carga | servidor E2E (`E2E_PORT=2872 E2E_SKIP_BUILD=1 node e2e/start-server.mjs`) + `node tools/loadtest.mjs http://127.0.0.1:2872 --bots 10 --secs 130` | tick do servidor (log `[tick]`), ida e volta de um passo |
+| Fuzz | servidor E2E com `E2E_ADMINS="Fuzz Inv"` + `node tools/fuzz.mjs <url> --mode proto` / `--mode inventory --name "Fuzz Inv"` | servidor não cai nem registra exceção; inventário sem duplicação |
 | CI | `.github/workflows/ci.yml` | typecheck + unitários + build + Docker `/health` + E2E |
 
 Rodar o jogo isolado para testes manuais (não toca no banco real):
@@ -75,6 +76,8 @@ de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do ser
 | Tour visual 1366×768 / 1440×900 (scripts no scratchpad: conta → personagem → cada janela → cada NPC → morte) | achados #34–#38, corrigidos e recapturados |
 | Fundo das janelas (`getComputedStyle`) | 0,85 em todas → 0,94 (missões) / 0,96 (conquistas, ranking) |
 | Robô sem admin, 4 vocações, 5 min | level 2–3, 0 mortes |
+| Fuzz `proto` (3 488 mensagens malformadas em 90 s, todos os 23 tipos) | nenhuma exceção no log, `/health` ok, conexão mantida. A 66 msg/s o servidor derruba o cliente (limite de 60/s, correto); string de 5 000 caracteres excede o tamanho máximo do WebSocket (conexão fechada, servidor de pé) |
+| Fuzz `inventory` (5 849 movimentos mochila/equip/depot com índices e contagens inválidos) | nenhum item aumentou, nenhum uid repetido, nenhuma exceção |
 
 ### Como ler falhas do E2E com a máquina ocupada
 
