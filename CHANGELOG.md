@@ -29,6 +29,9 @@
   visita); `index.html`, mapa e sprites continuam revalidando, então um deploy novo chega no próximo F5. Sem o Caddy
   (`deploy/docker/docker-compose.https.yml`) o servidor não comprime nada (~2,4 MB de JS + mapa por carga) — o
   Caddy já faz `encode zstd gzip`.
+- Phaser num arquivo próprio (1,2 MB) separado do código do jogo (265 kB): com o cache longo, um deploy novo faz os
+  jogadores baixarem só o código do jogo. O E2E agora confere que a página pública `/ranking` existe (a segunda
+  entrada do build chegou a sumir nessa mudança).
 - E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
 - E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
 
