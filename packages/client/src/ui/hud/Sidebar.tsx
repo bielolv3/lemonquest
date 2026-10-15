@@ -8,6 +8,7 @@ import { EquipmentPanel } from "./EquipmentPanel.tsx";
 import { HelpPopover } from "./HelpPopover.tsx";
 import { SoundPopover } from "./SoundPopover.tsx";
 import { AutoPotionPopover } from "./AutoPotionPopover.tsx";
+import { A11yPopover } from "./A11yPopover.tsx";
 import { autoPotionStore } from "../items/autoPotion.ts";
 import { mutedStore, volumeStore } from "../../game/sfx.ts";
 import { PixelIcon } from "./icons.tsx";
@@ -22,7 +23,7 @@ import { useStore } from "./store.ts";
 import { outfitOpen, toggleOutfit } from "../outfit/outfit.ts";
 import { questLogOpen, toggleQuestLog } from "../quests/quests.ts";
 import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
-import { autoOpen, helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, soundOpen, toggle } from "./uiState.ts";
+import { a11yOpen, autoOpen, helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, soundOpen, toggle } from "./uiState.ts";
 import { meStore } from "./world.ts";
 
 export function Sidebar() {
@@ -33,6 +34,7 @@ export function Sidebar() {
   const volume = useStore(volumeStore).volume;
   const sound = useStore(soundOpen);
   const autoPop = useStore(autoOpen);
+  const a11yPop = useStore(a11yOpen);
   const autoCfg = useStore(autoPotionStore);
   const outfit = useStore(outfitOpen);
   const questLog = useStore(questLogOpen);
@@ -111,12 +113,12 @@ export function Sidebar() {
         <button class="rail-btn" onClick={openWorldMap} data-tip="Mapa do mundo" data-tip-sub="Tecla M">
           <PixelIcon name="map" size={14} />
         </button>
-        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => { soundOpen.set(false); autoOpen.set(false); toggle(helpOpen); }} data-tip="Atalhos" data-tip-sub="Tecla ?">
+        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => { soundOpen.set(false); autoOpen.set(false); a11yOpen.set(false); toggle(helpOpen); }} data-tip="Atalhos" data-tip-sub="Tecla ?">
           <span class="rail-q">?</span>
         </button>
         <button
           class={`rail-btn${muted || volume === 0 ? "" : " active"}`}
-          onClick={() => { helpOpen.set(false); autoOpen.set(false); toggle(soundOpen); }}
+          onClick={() => { helpOpen.set(false); autoOpen.set(false); a11yOpen.set(false); toggle(soundOpen); }}
           data-tip="Som"
           data-tip-sub={muted ? "Mudo" : `Volume ${volume}%`}
           aria-expanded={sound}
@@ -126,7 +128,7 @@ export function Sidebar() {
         </button>
         <button
           class={`rail-btn${autoCfg.hp || autoCfg.mana ? " active" : ""}`}
-          onClick={() => { helpOpen.set(false); soundOpen.set(false); toggle(autoOpen); }}
+          onClick={() => { helpOpen.set(false); soundOpen.set(false); a11yOpen.set(false); toggle(autoOpen); }}
           data-tip="Poção automática"
           data-tip-sub={autoCfg.hp || autoCfg.mana ? `Vida ${autoCfg.hp ? autoCfg.hp + "%" : "off"} · Mana ${autoCfg.mana ? autoCfg.mana + "%" : "off"}` : "Desligada"}
           aria-expanded={autoPop}
@@ -134,6 +136,17 @@ export function Sidebar() {
         >
           <span class="rail-q">⚗</span>
         </button>
+        <button
+          class="rail-btn"
+          onClick={() => { helpOpen.set(false); soundOpen.set(false); autoOpen.set(false); toggle(a11yOpen); }}
+          data-tip="Acessibilidade"
+          data-tip-sub="Texto, contraste e animações"
+          aria-expanded={a11yPop}
+          aria-label="Acessibilidade"
+        >
+          <span class="rail-q">Aa</span>
+        </button>
+        {a11yPop && <A11yPopover />}
         {autoPop && <AutoPotionPopover />}
         {help && <HelpPopover />}
         {sound && <SoundPopover />}

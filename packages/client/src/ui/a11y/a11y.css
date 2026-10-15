@@ -1,0 +1,18 @@
+/* Acessibilidade: texto maior nas janelas de leitura, alto contraste e animações reduzidas. Lidas de <html data-*>. */
+
+/* Texto maior: `zoom` só nas janelas de leitura (o layout do HUD e a câmera do jogo não mudam). */
+html[data-text="1"] :is(.chat-log, .toast, .npc-window, .quest-log, .news-window, .challenges-window, .trade-window, .bestiary-win, .help-pop, .party-invite, .trade-invite) { zoom: 1.15; }
+html[data-text="2"] :is(.chat-log, .toast, .npc-window, .quest-log, .news-window, .challenges-window, .trade-window, .bestiary-win, .help-pop, .party-invite, .trade-invite) { zoom: 1.3; }
+
+/* Alto contraste: fundos opacos, texto claro e bordas visíveis. */
+html[data-contrast="high"] :is(.panel, .hud-card) { background: #05060a !important; border-color: #f2f2f2 !important; backdrop-filter: none; }
+html[data-contrast="high"] :is(.panel, .hud-card, .chat-text, .chat-line, .trade-item, .be-item, .ch-desc, .ch-sub, .news-entry li) { color: #ffffff; }
+html[data-contrast="high"] :is(.ch-desc, .ch-sub, .be-lv, .be-kills, .trade-empty, .trade-hint, .news-date, .be-progress) { color: #dfe6ff; }
+html[data-contrast="high"] .chat-line { text-shadow: 0 0 3px #000, 0 1px 0 #000; }
+html[data-contrast="high"] :is(button, .btn, .quest-btn, .party-btn):focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
+html[data-contrast="high"] .chat-line.whisper :is(.chat-text, .chat-from) { color: #f0c8ff; }
+
+/* Animações reduzidas (equivale ao prefers-reduced-motion, mas por escolha do jogador). */
+html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+}

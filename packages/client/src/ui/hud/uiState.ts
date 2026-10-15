@@ -12,5 +12,6 @@ export const skillsOpen = persistedBool("skills", false);
 export const helpOpen = createStore(false);
 export const soundOpen = createStore(false);
 export const autoOpen = createStore(false);
+export const a11yOpen = createStore(false);
 
 export const toggle = (s: { set(fn: (v: boolean) => boolean): void }) => s.set((v) => !v);
