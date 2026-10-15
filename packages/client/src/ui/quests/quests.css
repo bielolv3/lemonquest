@@ -51,6 +51,7 @@
 .qt-name.ready::after { content: " — entregar"; color: #8fd18f; font-weight: 500; }
 .qt-step { display: flex; justify-content: space-between; gap: 6px; color: #d9d7cc; text-shadow: 0 1px 0 #000; padding-left: 6px; }
 .qt-step.done { color: #8fd18f; }
+.qt-hint { padding-left: 6px; color: #ffd447; font-size: 11px; text-shadow: 0 1px 0 #000; }
 .qt-step > span:last-child { font-variant-numeric: tabular-nums; }
 .qt-step.bump > span:last-child { animation: qt-bump 450ms ease-out; }
 @keyframes qt-bump { 0% { color: #fff; transform: scale(1.25); } 100% { transform: scale(1); } }

@@ -1,5 +1,5 @@
 // Rastreador compacto (canto superior esquerdo, até 3 missões) e cartão "Missão concluída".
-import { questDef, questReady } from "@lemonquest/shared";
+import { NPCS, questDef, questReady } from "@lemonquest/shared";
 import { useEffect, useRef } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { inventoryStore } from "../items/inventory.ts";
@@ -52,6 +52,7 @@ export function QuestTracker() {
                     <span>{l.max > 1 ? `${l.cur}/${l.max}` : l.done ? "✓" : "…"}</span>
                   </div>
                 ))}
+                {ready && NPCS[def.giver] && <div class="qt-hint">→ Fale com {NPCS[def.giver]!.name}</div>}
               </li>
             );
           })}

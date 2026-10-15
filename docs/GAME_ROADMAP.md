@@ -89,6 +89,7 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | C | #43 Volume do som | ✅ | E2E novo em `world.spec.ts` |
 | C | #44 Tela de desconectado avisa quando o servidor voltou | ✅ | servidor derrubado e religado com jogador dentro |
 | F | #45 Phaser num chunk próprio; `/assets/*` immutable | ✅ | curl dos cabeçalhos; E2E confere `/ranking` |
+| C | Rastreador de missões: com a missão pronta, mostra "→ Fale com <NPC que deu a missão>" | ✅ | `e2e/quests.spec.ts` (texto + captura `quest-ready`) |
 | F | `tools/fuzz.mjs` (protocolo e inventário) | ✅ | 3 488 mensagens inválidas e 5 849 movimentos sem exceção nem duplicação |
 
 ## Próximos (ordem sugerida)

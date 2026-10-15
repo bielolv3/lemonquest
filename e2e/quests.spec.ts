@@ -62,6 +62,9 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   }
   await expect(tracker).toContainText("5/5", { timeout: 10_000 });
   await expect.poll(() => marker(page, "guard_captain")).toBe("ready");
+  // O rastreador diz onde entregar.
+  await expect(tracker.locator(".qt-hint")).toHaveText("→ Fale com Capitão Rodrigo");
+  await snap(page, "quest-ready");
 
   const gold0 = (await inventory(page))!.gold;
   // O kit inicial já traz poções de vida: a recompensa (5) é conferida pelo total.
