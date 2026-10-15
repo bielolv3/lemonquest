@@ -43,7 +43,7 @@ function QuestLogDialog() {
       <div class="ql-body">
         <div class="ql-list">
           <div class="ql-group">Ativas ({active.length})</div>
-          {active.length === 0 && <div class="hud-empty">Nenhuma. Procure NPCs com “!”.</div>}
+          {active.length === 0 && <div class="hud-empty">Nenhuma. Procure NPCs com “!”.</div>}
           {active.map(({ def: d, a }) => {
             const ready = questReady(d, a.progress, count);
             return (
