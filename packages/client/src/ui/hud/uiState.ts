@@ -10,5 +10,6 @@ export const sidebarOpen = persistedBool("sidebar", true, window.innerWidth < NA
 
 export const skillsOpen = persistedBool("skills", false);
 export const helpOpen = createStore(false);
+export const soundOpen = createStore(false);
 
 export const toggle = (s: { set(fn: (v: boolean) => boolean): void }) => s.set((v) => !v);
