@@ -38,5 +38,9 @@ test("conquista: primeiro abate → toast, janela J, roupa bloqueada, ranking", 
   await expect(rank.locator(".rank-table tbody tr").first()).toBeVisible();
   const json = await (await page.request.get("/api/ranking")).json();
   expect(json.categories.map((c: any) => c.id)).toContain("level");
+  // Página pública do ranking (segunda entrada do build: já sumiu do dist uma vez).
+  const pageRes = await page.request.get("/ranking");
+  expect(pageRes.ok()).toBe(true);
+  expect(await pageRes.text()).toContain('id="grid"');
   expect(await me(page)).toBeTruthy();
 });
