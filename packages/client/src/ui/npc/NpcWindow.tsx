@@ -2,7 +2,8 @@
 import { DEPOT_SIZE, itemDef, type NpcOpenMsg } from "@lemonquest/shared";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { sectionsStore } from "../hud/Section.tsx";
-import { useStore } from "../hud/store.ts";
+import { persistedBool, useStore } from "../hud/store.ts";
+import { meStore } from "../hud/world.ts";
 import { sidebarOpen } from "../hud/uiState.ts";
 import { npcBuys } from "../items/actions.ts";
 import { GoldLabel, Coin } from "../items/Gold.tsx";
@@ -73,10 +74,24 @@ function Typewriter({ text, nonce }: { text: string; nonce: number }) {
   );
 }
 
+/** Loja: esconder o que a sua vocação não usa (o Bento vende de tudo para todas). */
+const mineOnlyStore = persistedBool("shopMineOnly", true);
+
 function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
   const [qty, setQty] = useState<Record<string, number>>({});
-  const rows = m.shop!.sells;
+  const me = useStore(meStore);
+  const mineOnly = useStore(mineOnlyStore);
+  const usable = (id: string) => { const v = itemDef(id)?.vocations; return !v || !me || v.includes(me.vocation); };
+  const others = m.shop!.sells.filter((r) => !usable(r.itemId)).length;
+  const rows = mineOnly ? m.shop!.sells.filter((r) => usable(r.itemId)) : m.shop!.sells;
   return (
+    <>
+    {others > 0 && (
+      <label class="shop-filter">
+        <input type="checkbox" checked={mineOnly} onChange={(e) => mineOnlyStore.set((e.currentTarget as HTMLInputElement).checked)} />
+        Só da minha vocação <small>({others} {others === 1 ? "item escondido" : "itens escondidos"})</small>
+      </label>
+    )}
     <ul class="shop-list">
       {rows.map((r) => {
         const def = itemDef(r.itemId);
@@ -86,6 +101,7 @@ function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
         const total = r.price * q;
         const afford = gold >= total;
         const set = (v: number) => setQty((s) => ({ ...s, [r.itemId]: Math.max(1, Math.min(max, v)) }));
+        const needLv = def?.level && me && def.level > me.level ? def.level : 0;
         return (
           <li key={r.itemId} class="shop-row">
             <div
@@ -99,7 +115,7 @@ function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
               <ItemIcon def={def} box={32} count={false} framed />
             </div>
             <div class="shop-main">
-              <div class="shop-name">{def?.name ?? r.itemId}</div>
+              <div class="shop-name">{def?.name ?? r.itemId}{needLv > 0 && <span class="shop-lv" data-tip={`Precisa do level ${needLv}`}> Lv {needLv}</span>}</div>
               <div class="shop-price"><Coin size={14} /><span class={afford ? "" : "bad"}>{fmtNum(r.price)}</span>{q > 1 && <small> · total {fmtNum(total)}</small>}</div>
             </div>
             {stack && (
@@ -116,6 +132,7 @@ function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
         );
       })}
     </ul>
+    </>
   );
 }
 
