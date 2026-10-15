@@ -12,9 +12,9 @@
 - Loja: nomes longos quebram em duas linhas ("Poção de Vida Média" e "Poção de Mana Média" saíam iguais, cortados).
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
-- Personagem novo: os avisos do topo ("Missão aceita", "Teleportado…") ficavam **atrás** do cartão de primeiros
-  passos; agora aparecem logo abaixo dele. Avisos e barra/faixas do Coliseu ficam centrados na área de jogo (sem a
-  barra lateral), alinhados com os outros cartões.
+- Cartão de **primeiros passos** no canto inferior direito: no topo ele cobria os avisos e o caminho do novato (o
+  Capitão fica a noroeste, os ratos ao norte) — o clique para andar até lá caía no cartão e o personagem não saía do
+  lugar. Avisos e barra/faixas do Coliseu ficam centrados na área de jogo (sem a barra lateral).
 - Desconectado (servidor reiniciado, rede caiu): a tela agora diz **"Aguardando o servidor voltar…"** e depois **"O
   servidor está no ar. Pode voltar."** (consulta `/health` a cada 3 s) — antes não dava para saber quando clicar.
 - Janela estreita (meia tela, barra lateral aberta): o chat cobria as 3 primeiras magias da barra; agora ele sobe para
