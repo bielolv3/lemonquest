@@ -102,7 +102,8 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 ## Precisa de decisão 🧭
 
 Cada proposta de balanço está pronta numa branch própria (a partir desta), testada e conferida no jogo — basta
-escolher. `proposta/todas` junta as três (unitários 495/495, E2E 26/26).
+escolher. `proposta/todas` junta as três (unitários e E2E completos passando; as branches recebem por merge tudo o que entra
+nesta).
 
 | Item | Branch | O que muda |
 |---|---|---|
@@ -117,7 +118,11 @@ servidor voltou.
 
 Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
 novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
-| Configuração de produção: | |
+
+Configuração de produção:
+
+| Item | O que fazer |
+|---|---|
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
 
