@@ -93,11 +93,17 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 
 ## Precisa de decisão 🧭
 
-| Item | Opções |
-|---|---|
-| #31 Ouro sem destino no lv 25+ | vender tier 4 no Bento (11–13 mil: ~1–2 h de jogo) **ou** manter tier 4–5 como recompensa e criar outro gasto |
-| #32 Fim de jogo (lv 40+) | mais spawns de espírito de chama (3 → ~8) ou um monstro lv 45–48 (~650 vida, ~850 XP) |
-| #33 Magos no lv 25+ | vida por level de feiticeiro/druida 5 → 7 (lv 30: 295 → 353); conjunto tier 3 para paladino |
+Cada proposta de balanço está pronta numa branch própria (a partir desta), testada e conferida no jogo — basta
+escolher. `proposta/todas` junta as três (unitários 495/495, E2E 26/26).
+
+| Item | Branch | O que muda |
+|---|---|---|
+| #31 Ouro sem destino no lv 25+ | `proposta/31-tier4-a-venda` | tier 4 nas lojas (Bento / Tomé / Dona Marta): kit completo 22–27 mil; tier 5 segue recompensa |
+| #32 Fim de jogo (lv 40+) | `proposta/32-mais-espiritos` | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) |
+| #33 Magos e paladino | `proposta/33-vida-magos` | magos 6 de vida/level (lv 30: 295 → 324; 7 quebrava a meta da Cura); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) |
+
+Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
+novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
 | Configuração de produção: | |
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
