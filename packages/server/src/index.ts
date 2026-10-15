@@ -102,7 +102,13 @@ if (SERVE_CLIENT) {
   // O mapa vem de assets/maps (o MESMO arquivo que o servidor carrega) — cliente e servidor nunca dessincronizam.
   app.use("/maps", express.static(path.join(root, "assets/maps"), { fallthrough: false }));
   app.get("/ranking", (_req, res) => { res.sendFile(path.join(dist, "ranking.html")); });
-  app.use(express.static(dist));
+  // /assets/* tem hash do conteúdo no nome (Vite): pode ficar 1 ano no cache sem nem revalidar. O resto (index.html,
+  // sprites do pacote) continua revalidando por ETag — um deploy novo chega no próximo F5.
+  app.use(express.static(dist, {
+    setHeaders: (res, file) => {
+      if (path.relative(dist, file).split(path.sep)[0] === "assets") res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  }));
 }
 
 // --- Colyseus ---------------------------------------------------------------------------------------------------------
