@@ -1,7 +1,7 @@
 // Missões: aceitar "Ratos no Celeiro" com o Capitão, matar os ratos (level 30 + seguir), entregar e ver a recompensa.
 // Quadro de Recompensas: as 3 recompensas do dia aparecem e dá para aceitar uma.
 import { expect, test, type Page } from "@playwright/test";
-import { clickTile, enterGame, inventory, me, monsters, setLevel, snap, targetNearest, teleport, walkableNear } from "./helpers.ts";
+import { clickTile, enterGame, inventory, me, monsters, setChase, setLevel, snap, targetNearest, teleport, walkableNear } from "./helpers.ts";
 
 const RAT_SPAWNS = [{ x: 70, y: 62 }, { x: 26, y: 72 }];
 
@@ -42,7 +42,7 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   await win.getByRole("button", { name: "Fechar" }).click();
 
   // Matar 5 ratos (alterna entre os dois spawns se acabarem).
-  await page.keyboard.press("F8");
+  await setChase(page, true);
   const progress = async () => Number((await tracker.locator(".qt-step span").last().textContent())?.split("/")[0] ?? 0);
   let spawn = 0;
   const deadline = Date.now() + 200_000;

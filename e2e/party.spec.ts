@@ -1,6 +1,6 @@
 // Grupo (party): convite pelo menu do botão direito → aceitar → painel com os dois → chat do grupo → XP compartilhada.
 import { expect, test, type Page } from "@playwright/test";
-import { clickTile, enterGame, me, meState, monsters, say, setLevel, targetNearest, teleport, walkableNear, waitSettled } from "./helpers.ts";
+import { clickTile, enterGame, me, meState, monsters, say, setChase, setLevel, targetNearest, teleport, waitSettled, walkableNear } from "./helpers.ts";
 
 /** Floresta ao norte da vila: spawn de ratos/gosmas (mapa: rat em 70,62). */
 const FOREST = { x: 70, y: 62 };
@@ -62,7 +62,7 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     await expect(a.locator(".chat-line.party.sys", { hasText: "entrou no grupo" })).toBeVisible();
 
     // XP compartilhada: B ataca um monstro (fica "ativo"), para de atacar; depois A mata outro sozinho e os dois ganham.
-    await b.keyboard.press("F8");
+    await setChase(b, true);
     await expect.poll(async () => (await monsters(b)).length, { timeout: 15_000 }).toBeGreaterThan(0);
     const xpB0 = await xpOf(b);
     await targetNearest(b);
@@ -72,7 +72,7 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
       return xpOf(b);
     }, { timeout: 60_000 }).toBeGreaterThan(xpB0);
     // B sem alvo daqui em diante (Esc limpa o alvo; tira o seguir).
-    await b.keyboard.press("F8");
+    await setChase(b, false);
     await b.keyboard.press("Escape");
     await expect.poll(() => b.evaluate(() => (window as any).__lq.target())).toBeFalsy();
     // Volta para perto de A (dentro de 12 sqm do abate).
@@ -81,7 +81,7 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     await teleport(b, back.x, back.y);
 
     const xpA1 = await xpOf(a), xpB1 = await xpOf(b);
-    await a.keyboard.press("F8");
+    await setChase(a, true);
     await expect.poll(async () => (await monsters(a)).length, { timeout: 15_000 }).toBeGreaterThan(0);
     // A mata (se o alvo morrer na mão de outro jogador ainda no mundo de um teste anterior, mira no próximo). A segue o
     // alvo (F8) e pode se afastar: B vai junto, senão fica fora dos 12 sqm da divisão e o teste mede a distância.
