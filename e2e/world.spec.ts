@@ -100,3 +100,28 @@ test("botão direito no próprio personagem: menu 'Trocar roupa'", async ({ page
   await page.getByRole("menuitem", { name: "Trocar roupa" }).or(page.getByText("Trocar roupa")).first().click();
   await expect(page.getByRole("dialog", { name: "Roupas" })).toBeVisible();
 });
+
+test("som: o botão ♪ abre volume e mudo; o volume fica lembrado e as setas continuam andando", async ({ page }) => {
+  await enterGame(page);
+  await waitSettled(page);
+  await page.getByRole("button", { name: "Som", exact: true }).click();
+  const slider = page.getByRole("slider", { name: "Volume" });
+  const bb = (await slider.boundingBox())!;
+  await page.mouse.click(bb.x + bb.width * 0.3, bb.y + bb.height / 2);
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("lemonquest.ui.sound") ?? "{}").volume as number | undefined);
+  await expect.poll(saved).toBeLessThan(50);
+  const vol = await saved();
+  // O controle soltou o foco: a seta anda (e não mexe no volume).
+  const x0 = (await me(page))!.x;
+  await page.keyboard.down("ArrowRight");
+  await expect.poll(async () => (await me(page))!.x).not.toBe(x0);
+  await page.keyboard.up("ArrowRight");
+  expect(await saved()).toBe(vol);
+  await page.getByRole("checkbox", { name: "Mudo" }).check();
+  await expect(page.getByRole("button", { name: "Som", exact: true })).toHaveText("×");
+  await page.reload();
+  await page.getByRole("button", { name: /Jogar com/ }).click();
+  await page.waitForFunction(() => !!(window as any).__lq?.me(), null, { timeout: 30_000 });
+  expect(await saved()).toBe(vol);
+  await expect(page.getByRole("button", { name: "Som", exact: true })).toHaveText("×");
+});
