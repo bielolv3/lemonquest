@@ -89,7 +89,7 @@ function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
     {others > 0 && (
       <label class="shop-filter">
         <input type="checkbox" checked={mineOnly} onChange={(e) => mineOnlyStore.set((e.currentTarget as HTMLInputElement).checked)} />
-        Só da minha vocação <small>({others} {others === 1 ? "item escondido" : "itens escondidos"})</small>
+        Só da minha vocação <small>({others} {mineOnly ? (others === 1 ? "item escondido" : "itens escondidos") : (others === 1 ? "é de outra vocação" : "são de outras vocações")})</small>
       </label>
     )}
     <ul class="shop-list">
