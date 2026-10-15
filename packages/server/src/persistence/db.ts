@@ -132,6 +132,16 @@ const MIGRATIONS: Migration[] = [
      owner TEXT,                       -- nome (minúsculo) com prioridade...
      owner_until INTEGER               -- ...até este epoch ms
    );`,
+  // v6: sessões de conta sobrevivem a reinícios. Só o hash SHA-256 do token vai para o disco (o token fica com o cliente).
+  `CREATE TABLE account_sessions (
+     token_hash TEXT PRIMARY KEY,
+     account_id INTEGER NOT NULL,
+     account TEXT NOT NULL,
+     weak_password INTEGER NOT NULL,
+     created INTEGER NOT NULL,         -- epoch ms
+     expires INTEGER NOT NULL          -- epoch ms (inatividade)
+   );
+   CREATE INDEX account_sessions_account ON account_sessions(account_id);`,
 ];
 
 export interface AccountRow {
@@ -340,6 +350,39 @@ export function getKv(key: string): string | undefined {
 
 export function setKv(key: string, value: string): void {
   getDb().prepare("INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+export interface SessionRow { token_hash: string; account_id: number; account: string; weak_password: number; created: number; expires: number }
+
+export function insertSessionRow(r: SessionRow): void {
+  getDb().prepare("INSERT OR REPLACE INTO account_sessions (token_hash, account_id, account, weak_password, created, expires) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(r.token_hash, r.account_id, r.account, r.weak_password, r.created, r.expires);
+}
+
+export function getSessionRow(tokenHash: string): SessionRow | undefined {
+  return getDb().prepare("SELECT * FROM account_sessions WHERE token_hash = ?").get(tokenHash) as SessionRow | undefined;
+}
+
+export function updateSessionExpires(tokenHash: string, expires: number): void {
+  getDb().prepare("UPDATE account_sessions SET expires = ? WHERE token_hash = ?").run(expires, tokenHash);
+}
+
+export function deleteSessionRow(tokenHash: string): void {
+  getDb().prepare("DELETE FROM account_sessions WHERE token_hash = ?").run(tokenHash);
+}
+
+export function deleteSessionRowsOfAccount(accountId: number): void {
+  getDb().prepare("DELETE FROM account_sessions WHERE account_id = ?").run(accountId);
+}
+
+export function deleteExpiredSessionRows(now: number): void {
+  getDb().prepare("DELETE FROM account_sessions WHERE expires <= ?").run(now);
+}
+
+/** Hashes das sessões da conta, da mais antiga para a mais nova. */
+export function listSessionHashesOfAccount(accountId: number): string[] {
+  return (getDb().prepare("SELECT token_hash FROM account_sessions WHERE account_id = ? ORDER BY created, rowid").all(accountId) as { token_hash: string }[])
+    .map((r) => r.token_hash);
 }
 
 export interface GroundRow {

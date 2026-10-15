@@ -112,10 +112,9 @@ As três propostas de balanço foram **aceitas pelo dono do jogo** e já estão 
 | #32 Fim de jogo (lv 40+) | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) | ✅ |
 | #33 Magos e paladino | magos 6 de vida/level (lv 30: 295 → 324); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) | ✅ |
 
-Outra decisão (operação): as sessões de conta ficam só na memória do servidor — depois de cada deploy/reinício todo
-mundo digita a senha de novo. Dá para persistir a sessão (só o hash do token no SQLite, com a mesma expiração de 30
-min sem uso), mas mexe em autenticação; não fiz sem pedido. Enquanto isso, a tela de desconectado avisa quando o
-servidor voltou.
+Sessões de conta persistidas (antes ficavam só na memória e todo mundo digitava a senha de novo a cada reinício): ✅
+tabela `account_sessions` guarda só o hash do token; mesma expiração de 30 min sem uso. Testado com reinício real do
+servidor (a mesma sessão voltou a valer) e em `auth.test.ts` (3 casos novos).
 
 Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
 novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).

@@ -7,8 +7,9 @@ import {
   type LoginRequest, type PlayRequest, type PlayResponse, type ResetPasswordRequest,
 } from "@lemonquest/shared";
 import {
-  countCharacters, createAccount, createCharacter, deleteCharacterArchived, deleteResetCode, findAccount,
-  getCharacterByName, getResetCode, listCharacters, nameKey, setResetCode, updatePassword,
+  countCharacters, createAccount, createCharacter, deleteCharacterArchived, deleteExpiredSessionRows, deleteResetCode,
+  deleteSessionRow, deleteSessionRowsOfAccount, findAccount, getCharacterByName, getResetCode, getSessionRow,
+  insertSessionRow, listCharacters, listSessionHashesOfAccount, nameKey, setResetCode, updatePassword, updateSessionExpires,
 } from "./db.ts";
 import { FailureLimiter, RateCounter } from "./ratelimit.ts";
 import type { CharacterRecord } from "./types.ts";
@@ -65,9 +66,12 @@ const pendingByKey = new Map<string, string>();
 /** Personagens no mundo: name_key -> sessionId dono. */
 const online = new Map<string, string>();
 
-interface AccountSessionEntry { accountId: number; account: string; weakPassword: boolean; created: number; expires: number }
-/** Sessões de conta em memória: token aleatório (32 bytes) → conta. */
+/** `saved` = última expiração gravada no banco (a renovação só é regravada quando passa de SESSION_SAVE_EVERY_MS). */
+interface AccountSessionEntry { accountId: number; account: string; weakPassword: boolean; created: number; expires: number; saved: number }
+/** Sessões de conta: token aleatório (32 bytes) → conta. Cache em memória; a fonte é a tabela account_sessions (só o hash do token). */
 const sessions = new Map<string, AccountSessionEntry>();
+const SESSION_SAVE_EVERY_MS = 60_000;
+const hashToken = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
 
 const ipFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_LOCK_MS);
 const accountFails = new FailureLimiter(LOGIN_MAX_FAILS, LOGIN_FAIL_WINDOW_MS, LOGIN_LOCK_MS);
@@ -151,6 +155,7 @@ function sweep(now: number) {
   if (now - lastSweep < 60_000) return;
   lastSweep = now;
   for (const [t, s] of sessions) if (s.expires <= now) sessions.delete(t);
+  deleteExpiredSessionRows(now);
   for (const l of [ipFails, accountFails, resetIpFails, resetAccountFails]) l.sweep(now);
   for (const c of [creations, charCreations, deletions]) c.sweep(now);
 }
@@ -167,21 +172,38 @@ function issueToken(name: string, weakPassword: boolean, now: number): string {
 }
 
 function openSession(accountId: number, account: string, weakPassword: boolean, now: number): string {
-  const mine = [...sessions].filter(([, s]) => s.accountId === accountId).sort((a, b) => a[1].created - b[1].created);
-  while (mine.length >= MAX_SESSIONS_PER_ACCOUNT) sessions.delete(mine.shift()![0]);
+  const mine = listSessionHashesOfAccount(accountId);
+  while (mine.length >= MAX_SESSIONS_PER_ACCOUNT) {
+    const old = mine.shift()!;
+    deleteSessionRow(old);
+    for (const [t] of sessions) if (hashToken(t) === old) sessions.delete(t);
+  }
   const token = crypto.randomBytes(32).toString("base64url");
-  sessions.set(token, { accountId, account, weakPassword, created: now, expires: now + SESSION_IDLE_MS });
+  const expires = now + SESSION_IDLE_MS;
+  sessions.set(token, { accountId, account, weakPassword, created: now, expires, saved: expires });
+  insertSessionRow({ token_hash: hashToken(token), account_id: accountId, account, weak_password: weakPassword ? 1 : 0, created: now, expires });
   return token;
 }
 
-/** Sessão válida (e renovada: expiração conta a partir do último uso). */
+/** Sessão válida (e renovada: expiração conta a partir do último uso). Depois de um reinício, recarrega do banco. */
 function touchSession(token: unknown, now: number): AccountSessionEntry | null {
   if (typeof token !== "string" || token.length > 100) return null;
-  const s = sessions.get(token);
-  if (!s) return null;
-  if (s.expires <= now) { sessions.delete(token); return null; }
+  let s = sessions.get(token);
+  if (!s) {
+    const r = getSessionRow(hashToken(token));
+    if (!r) return null;
+    s = { accountId: r.account_id, account: r.account, weakPassword: !!r.weak_password, created: r.created, expires: r.expires, saved: r.expires };
+    sessions.set(token, s);
+  }
+  if (s.expires <= now) { dropSession(token); return null; }
   s.expires = now + SESSION_IDLE_MS;
+  if (s.expires - s.saved >= SESSION_SAVE_EVERY_MS) { updateSessionExpires(hashToken(token), s.expires); s.saved = s.expires; }
   return s;
+}
+
+function dropSession(token: string) {
+  sessions.delete(token);
+  deleteSessionRow(hashToken(token));
 }
 
 export function summarize(rec: CharacterRecord): CharacterSummary {
@@ -356,6 +378,7 @@ export async function createResetCode(accountName: string, by: string, now = Dat
 /** Derruba todas as sessões de conta abertas (senha trocada). */
 function closeAccountSessions(accountId: number) {
   for (const [t, s] of sessions) if (s.accountId === accountId) sessions.delete(t);
+  deleteSessionRowsOfAccount(accountId);
 }
 
 /** Derruba uma sessão do jogo (o index registra o kick da sala; ausente nos testes de auth puros). */
@@ -476,7 +499,7 @@ export async function handleDeleteCharacter(req: DeleteCharacterRequest, ctx: Lo
 
 /** POST /api/logout — encerra a sessão da conta. */
 export function handleLogout(req: { session?: unknown }): { ok: true } {
-  if (typeof req?.session === "string") sessions.delete(req.session);
+  if (typeof req?.session === "string") dropSession(req.session);
   return { ok: true };
 }
 

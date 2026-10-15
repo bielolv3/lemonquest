@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_CHARACTERS_PER_ACCOUNT, type AccountSession } from "@lemonquest/shared";
-import { getCharacterByName, initDb, saveCharacter } from "./db.ts";
+import crypto from "node:crypto";
+import { getCharacterByName, getSessionRow, initDb, saveCharacter } from "./db.ts";
 import {
   CHAR_CREATE_MAX_PER_HOUR, CREATE_MAX_PER_HOUR, LOGIN_LOCK_MS, LOGIN_MAX_FAILS, SESSION_IDLE_MS, claimOnline, consumeToken,
   handleCreateCharacter, handleLogin, handleLogout, handlePlay, handleResume, normalizeAccount, normalizeName, onlineOwner,
@@ -155,6 +156,52 @@ describe("auth: contas", () => {
     const b = okSession(await handleLogin({ account: "conta", password: "segredo1" }, { now }));
     expect(handleLogout({ session: b.session })).toEqual({ ok: true });
     expect(handleResume({ session: b.session }, { now })).toEqual({ ok: false, error: "invalid_session" });
+  });
+
+  it("sessão sobrevive a reinício do servidor (só o hash do token vai para o banco), expira e logout valem depois", async () => {
+    let t = 10_000_000;
+    const now = () => t;
+    const a = okSession(await create("conta", "segredo1", "1.1.1.1", now));
+    const b = okSession(await handleLogin({ account: "conta", password: "segredo1" }, { now }));
+    // O banco guarda o hash do token, nunca o token em claro.
+    const sha = (x: string) => crypto.createHash("sha256").update(x).digest("hex");
+    for (const x of [a.session, b.session]) {
+      expect(getSessionRow(sha(x))).toBeDefined();
+      expect(getSessionRow(x)).toBeUndefined();
+    }
+    // "Reinício": a memória some, o banco fica.
+    resetAuthState();
+    expect(handleResume({ session: a.session }, { now })).toMatchObject({ ok: true, account: "conta" });
+    // Logout depois do reinício também vale.
+    expect(handleLogout({ session: b.session })).toEqual({ ok: true });
+    resetAuthState();
+    expect(handleResume({ session: b.session }, { now })).toEqual({ ok: false, error: "invalid_session" });
+    // A expiração por inatividade continua valendo, mesmo recarregada do banco.
+    t += SESSION_IDLE_MS + 1;
+    resetAuthState();
+    expect(handleResume({ session: a.session }, { now })).toEqual({ ok: false, error: "invalid_session" });
+    // Token desconhecido segue recusado.
+    expect(handleResume({ session: "x".repeat(43) }, { now })).toEqual({ ok: false, error: "invalid_session" });
+  });
+
+  it("sessão: a renovação por uso persiste (reinício depois de uso recente não derruba)", async () => {
+    let t = 10_000_000;
+    const now = () => t;
+    const a = okSession(await create("conta", "segredo1", "1.1.1.1", now));
+    t += SESSION_IDLE_MS - 1000;
+    expect(handleResume({ session: a.session }, { now })).toMatchObject({ ok: true }); // renova e grava
+    t += SESSION_IDLE_MS - 1000;
+    resetAuthState(); // reinício: sem a renovação gravada, a sessão já teria vencido
+    expect(handleResume({ session: a.session }, { now })).toMatchObject({ ok: true });
+  });
+
+  it("sessão: mais de 8 por conta derruba a mais antiga, também no banco", async () => {
+    let t = 10_000_000;
+    const now = () => t++;
+    const first = okSession(await create("conta", "segredo1", "1.1.1.1", now));
+    for (let i = 0; i < 8; i++) okSession(await handleLogin({ account: "conta", password: "segredo1" }, { now }));
+    resetAuthState();
+    expect(handleResume({ session: first.session }, { now })).toEqual({ ok: false, error: "invalid_session" });
   });
 
   it("resumo traz treino offline e online", async () => {

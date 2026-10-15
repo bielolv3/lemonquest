@@ -1,5 +1,17 @@
 # Changelog
 
+## [Não lançado] — 2026-10-15 · ciclo 5
+
+### Interface
+- **Chat sobre a cabeça do personagem**, como no Tibia: o canal geral aparece em amarelo e o do grupo em azul-claro,
+  em itálico e menor que o nome (para não confundir com o nick), com até 3 linhas empilhadas. Some sozinho; texto
+  longo vira "…" no balão (o chat guarda o inteiro).
+
+### Servidor
+- **Sessões de conta sobrevivem a reinício/deploy**: ninguém precisa digitar a senha de novo. Só o hash SHA-256 do
+  token vai para o SQLite (tabela `account_sessions`, migração v6); a validade segue 30 min sem uso, logout e troca
+  de senha invalidam, e continuam no máximo 8 sessões por conta.
+
 ## [Não lançado] — 2026-10-14 · ciclo 4 (polimento da noite)
 
 ### Interface
