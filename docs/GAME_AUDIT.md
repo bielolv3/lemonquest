@@ -148,11 +148,13 @@ inclusive os magos): 1–4 mortes em 4 min — mede o robô, que não foge, mais
 
 ## 5. Notas por área
 
+Nota inicial → nota depois dos 4 ciclos (2026-10-15).
+
 | Área | Nota | Base |
 |---|---|---|
 | Arquitetura | 8/10 | servidor autoritativo, sistemas isolados e testáveis; `WorldScene.ts` (1,1 mil linhas) concentra muito |
-| Estabilidade | 8/10 | sem erros no console; testes amplos; janelas de perda de dados pequenas (itens 4, 17) |
-| Segurança | 6→8/10 | o item 1 era grave; resolvido junto com 9 e 15 |
-| Desempenho | não medido em carga | só microbenchmark do A*; sem perfil de FPS com muitos jogadores |
-| Game feel / UI | 8/10 | HUD caprichado, feedback de dano/morte/XP; ruído de efeitos remotos (item 2) |
-| Acessibilidade | 5/10 | dificuldade só por cor do nome; foco visível fraco em inputs; sem toque |
+| Estabilidade | 8 → 9/10 | sem erros no console; chão e personagem gravados juntos (4), backup atômico (17); fuzz do protocolo e do inventário sem exceção nem duplicação |
+| Segurança | 6 → 8/10 | nomes de admin reservados (1), sósias (9), limite de chat (15), cabeçalhos (23), dependências 15 → 0 avisos (24) |
+| Desempenho | ? → 8/10 | carga com 10 bots: tick médio 0,2 ms (orçamento 50 ms); A* 30× mais rápido; heap do cliente plano; deploy baixa só o código do jogo. FPS com GPU ainda não medido |
+| Game feel / UI | 8 → 9/10 | efeitos remotos filtrados (2), tour visual de todas as telas (#34–#45), novato sem travas na primeira missão (#39, #46), volume |
+| Acessibilidade | 5 → 7/10 | dificuldade em texto e "!" (não só cor), foco visível no teclado, atalhos completos no F1 e /ajuda; sem toque (fora do escopo) |
