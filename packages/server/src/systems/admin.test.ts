@@ -318,6 +318,16 @@ describe("admin + dev fora de produção", () => {
   });
 });
 
+describe("/status", () => {
+  it("admin vê as linhas do servidor; jogador comum não tem o comando", () => {
+    const { ctx, replies, ps } = fakeCtx();
+    ctx.status = () => ["linha 1", "linha 2"];
+    expect(handleAdminCommand(ps[0], "/status", ctx)).toBe(true);
+    expect(replies()).toEqual(["linha 1", "linha 2"]);
+    expect(handleAdminCommand(ps[1], "/status", ctx)).toBe(false);
+  });
+});
+
 describe("/ajuda", () => {
   it("jogador vê os comandos de grupo e o F1; só admin vê a lista de admin", () => {
     const player = helpLines("Bia", PROD), admin = helpLines("Leo", PROD);

@@ -2,6 +2,8 @@
 
 export class ErrorLog {
   private readonly last = new Map<string, { at: number; suppressed: number }>();
+  /** Total de erros reportados (inclusive os suprimidos do log). */
+  total = 0;
 
   constructor(
     private readonly intervalMs = 10_000,
@@ -11,6 +13,7 @@ export class ErrorLog {
 
   /** Loga no máximo 1 erro por `intervalMs` por chave (conta os suprimidos). */
   report(key: string, err: unknown): void {
+    this.total++;
     const now = this.now();
     const e = this.last.get(key);
     if (e && now - e.at < this.intervalMs) { e.suppressed++; return; }

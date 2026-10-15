@@ -20,7 +20,7 @@ export const MAX_KICK_REASON_BYTES = 100;
 /** Este personagem é admin? (vale em produção; não depende de LEMONQUEST_DEV_COMMANDS). */
 export const isAdmin = (name: string, env: Env = process.env): boolean => devAdmins(env).has(nameKey(name));
 
-export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp", "/desbloquear"] as const;
+export const ADMIN_COMMANDS = ["/kick", "/mute", "/unmute", "/anuncio", "/online", "/resetsenha", "/tp", "/desbloquear", "/status"] as const;
 
 export interface AdminContext {
   send: (sessionId: string, type: string, msg: unknown) => void;
@@ -42,6 +42,8 @@ export interface AdminContext {
   devTp?: (p: PlayerState) => boolean;
   /** Concede roupa/addon/título (online: avisa o jogador). true = era novo. */
   grantUnlock?: (rec: CharacterRecord, unlockId: string, online?: PlayerState) => boolean;
+  /** Linhas do /status (números do servidor). */
+  status?: () => string[];
   env?: Env;
   now?: () => number;
   log?: (line: string) => void;
@@ -154,6 +156,10 @@ export function handleAdminCommand(p: PlayerState, text: string, ctx: AdminConte
       ctx.broadcast(S2C.Announce, { text: msg, from: p.name } satisfies AnnounceMsg);
       ctx.broadcast(S2C.Feed, { text: `📢 ${msg}`, kind: "info" } satisfies FeedMsg);
       audit(`/anuncio ${msg}`);
+      break;
+    }
+    case "/status": {
+      for (const l of ctx.status?.() ?? ["Status indisponível."]) reply(l);
       break;
     }
     case "/online": {

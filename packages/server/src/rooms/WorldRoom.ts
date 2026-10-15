@@ -18,6 +18,7 @@ import { CombatSystem, attackProfile, playerArmor } from "../systems/combat.ts";
 import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState, type ChatHooks } from "../systems/chat.ts";
 import { SocialSystem } from "../systems/social.ts";
+import { statusLines } from "../systems/status.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
@@ -109,6 +110,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private party!: PartySystem;
   private social!: SocialSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
+  /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
+  private readonly tickRing = new Float32Array(600);
+  private tickRingN = 0;
+  private readonly bootAt = Date.now();
+  private peakOnline = 0;
+  private joins = 0;
   private records = new Map<string, CharacterRecord>(); // sessionId -> registro
   /** sessionId -> nome (dono do "online"), gravado logo no início do onJoin. */
   private names = new Map<string, string>();
@@ -374,6 +381,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       teleportNear: (admin, target) => this.teleportNear(admin, target),
       resetCode: (account, by) => createResetCode(account, by),
       devTp: (pl) => isDevAdmin(pl.name),
+      status: () => this.statusLines(),
       grantUnlock: (rec, id, online) => (online ? this.ach.grantTo(online, rec, id, true) : grantUnlock(rec, id)),
     }) || handleDevCommand(p, text, {
       inventory: this.inventory, send,
@@ -466,11 +474,26 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private trackPerf(ms: number, now: number) {
     const s = this.perf;
     s.n++; s.sum += ms; if (ms > s.max) s.max = ms;
+    this.tickRing[this.tickRingN++ % this.tickRing.length] = ms;
     if (now - s.since < PERF_LOG_MS) return;
     if (DEV || s.max > PERF_PROD_MIN_MAX_MS) {
       console.log(`[tick] ${s.n} ticks: média ${(s.sum / s.n).toFixed(3)} ms, máx ${s.max.toFixed(2)} ms — ${this.monsters.size} monstros, ${this.state.players.size} jogadores`);
     }
     this.perf = { n: 0, sum: 0, max: 0, since: now };
+  }
+
+  /** Linhas do /status (admin). */
+  statusLines(): string[] {
+    const n = Math.min(this.tickRingN, this.tickRing.length);
+    let sum = 0, max = 0;
+    for (let i = 0; i < n; i++) { sum += this.tickRing[i]!; if (this.tickRing[i]! > max) max = this.tickRing[i]!; }
+    const mem = process.memoryUsage();
+    return statusLines({
+      uptimeMs: Date.now() - this.bootAt, online: this.state.players.size, peakOnline: this.peakOnline, joins: this.joins,
+      monsters: this.monsters.size, pendingRespawns: this.monsters.pendingRespawns, groundItems: this.ground.size,
+      tickAvgMs: n ? sum / n : 0, tickMaxMs: max, tickBudgetMs: TICK_MS,
+      rssMb: Math.round(mem.rss / 1048576), heapMb: Math.round(mem.heapUsed / 1048576), errors: this.errors.total,
+    });
   }
 
   /** Erros em onMessage/onJoin/onLeave/clock/tick (o Colyseus embrulha tudo com isto): loga e segue. */
@@ -536,6 +559,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
     this.social.onJoin(p);
+    this.joins++;
+    this.peakOnline = Math.max(this.peakOnline, this.state.players.size);
   }
 
   /** Aplica e limpa o treino offline do registro (chamado no onJoin, antes de o jogador entrar no mundo). */
