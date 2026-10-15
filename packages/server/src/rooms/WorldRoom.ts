@@ -386,7 +386,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       getPlayer, record: (id) => this.records.get(id), send, inventory: this.inventory,
       gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y), save: (id) => this.save(id),
     });
-    this.events = new EventSystem({ broadcast, send, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
+    this.events = new EventSystem({ broadcast, send, onStart: (ev) => { if (ev.boss) this.monsters.callBoss(ev.boss); }, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
       inArena: (id) => this.arena.inMatch(id), save: (id) => this.save(id),

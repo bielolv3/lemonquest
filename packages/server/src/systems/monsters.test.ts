@@ -96,6 +96,22 @@ describe("spawns", () => {
     expect(w.mm.size).toBe(0);
   });
 
+  it("callBoss: convoca o chefe no spawn dele, avisa, não duplica e cancela o respawn pendente", () => {
+    const notices: string[] = [];
+    const w = world({ grid: openGrid(30, 10), spawns: [sp(5, 5, 1, 1, "rei")], defs: () => def({ id: "rei", boss: true, name: "Rei", respawnMs: 7_200_000, aggroRange: 0 }), notice: (t) => notices.push(t) });
+    w.mm.spawnAll();
+    expect(notices).toEqual(["Rei apareceu!"]);
+    expect(w.mm.callBoss("rei", w.now())).toBe("alive"); // já está vivo
+    w.mm.kill([...w.mm.all()][0]!, w.now());
+    expect(w.mm.pendingRespawns).toBe(1); // volta só daqui a 2 h
+    expect(w.mm.callBoss("rei", w.now())).toBe("spawned");
+    expect(w.mm.size).toBe(1);
+    expect(w.mm.pendingRespawns).toBe(0); // o respawn de 2 h foi cancelado
+    expect(notices).toEqual(["Rei apareceu!", "Rei apareceu!"]);
+    expect(w.mm.callBoss("rei", w.now())).toBe("alive");
+    expect(w.mm.callBoss("outro", w.now())).toBe("unknown"); // sem spawn desse monstro
+  });
+
   it("announces bosses globally", () => {
     const notices: string[] = [];
     const w2 = world({ grid: openGrid(10, 10), spawns: [sp(5, 5)], defs: () => def({ boss: true, name: "Rei" }), notice: (t) => notices.push(t) });

@@ -84,6 +84,22 @@ describe("EventSystem", () => {
   });
 });
 
+describe("EventSystem: chefe do evento", () => {
+  it("onStart roda uma vez no início (agendado ou manual) com o chefe do evento", () => {
+    const started: string[] = [];
+    const ev = new EventSystem({ broadcast: () => {}, send: () => {}, now: () => at(17, 0), onStart: (e) => started.push(`${e.id}:${e.boss ?? "-"}`) });
+    ev.tick(at(17, 0)); // sexta 17h: nenhum evento agendado
+    expect(started).toEqual([]);
+    ev.start("despertar_do_lich", 30, at(17, 5)); // manual, mesmo fora da janela do Lich
+    expect(started).toEqual(["despertar_do_lich:swamp_lich"]);
+    ev.tick(at(17, 10));
+    expect(started).toHaveLength(1); // não repete
+    ev.stop(at(17, 20));
+    ev.tick(at(19, 0)); // entra a Noite de Caçada agendada (sem chefe)
+    expect(started.at(-1)).toBe("noite_de_cacada:-");
+  });
+});
+
 describe("EventSystem: persistência do evento manual", () => {
   const mk = (kv: { v?: string }, t: number) => new EventSystem({
     broadcast: () => {}, send: () => {}, now: () => t,

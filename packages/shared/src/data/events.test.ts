@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { WEEKLY_EVENTS, eventBonusText, nextScheduled, scheduledEvent, type GameEventDef } from "./events.ts";
+import { MONSTERS } from "./monsters.ts";
 
 // 2026-10-14 é uma quarta-feira (dia 3); 2026-10-16, sexta (5); 2026-10-17, sábado (6).
 const at = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min, 0, 0);
@@ -33,10 +34,26 @@ describe("eventos semanais", () => {
   });
 
   it("próximo evento: o mais cedo depois de agora", () => {
-    const n = nextScheduled(at(2026, 10, 14, 13, 0))!; // quarta depois da Maré: o próximo é sexta
-    expect(n.def.id).toBe("noite_de_cacada");
-    expect(n.at).toBe(at(2026, 10, 16, 19, 0).getTime());
-    expect(nextScheduled(at(2026, 10, 17, 15, 0))!.def.id).toBe("mare_de_tesouros"); // sábado depois das 14h → quarta
+    const n = nextScheduled(at(2026, 10, 14, 13, 0))!; // quarta depois da Maré (12h): o próximo é o Lich, às 20h
+    expect(n.def.id).toBe("despertar_do_lich");
+    expect(n.at).toBe(at(2026, 10, 14, 20, 0).getTime());
+    expect(nextScheduled(at(2026, 10, 14, 21, 0))!.def.id).toBe("noite_de_cacada"); // depois do Lich: sexta
+    expect(nextScheduled(at(2026, 10, 17, 17, 0))!.def.id).toBe("cacada_ao_rei"); // sábado depois das 16h: domingo 20h
+    expect(nextScheduled(at(2026, 10, 18, 22, 0))!.def.id).toBe("mare_de_tesouros"); // domingo à noite: quarta 12h
+  });
+
+  it("eventos de chefe: o chefe existe no catálogo e as janelas não se sobrepõem", () => {
+    const withBoss = WEEKLY_EVENTS.filter((e) => e.boss);
+    expect(withBoss.map((e) => e.boss).sort()).toEqual(["goblin_king", "swamp_lich"]);
+    for (const e of withBoss) expect(MONSTERS[e.boss!]?.boss, e.boss).toBe(true);
+    // Nenhuma janela começa dentro de outra no mesmo dia (scheduledEvent devolve só uma).
+    for (const a of WEEKLY_EVENTS) for (const b of WEEKLY_EVENTS) {
+      if (a === b || a.day !== b.day) continue;
+      const as = a.hour * 60 + (a.minute ?? 0), bs = b.hour * 60 + (b.minute ?? 0);
+      expect(as + a.durationMin <= bs || bs + b.durationMin <= as, `${a.id} × ${b.id}`).toBe(true);
+    }
+    expect(scheduledEvent(at(2026, 10, 14, 20, 30))).toMatchObject({ id: "despertar_do_lich", boss: "swamp_lich" });
+    expect(scheduledEvent(at(2026, 10, 18, 21, 0))).toMatchObject({ id: "cacada_ao_rei", boss: "goblin_king" }); // domingo
   });
 
   it("texto do bônus: só o que passa de 1, com vírgula decimal", () => {

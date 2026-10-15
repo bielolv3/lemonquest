@@ -13,11 +13,15 @@ export interface GameEventDef {
   hour: number;
   minute?: number;
   durationMin: number;
+  /** Chefe (id em MONSTERS) que o evento convoca no começo, no spawn dele (se não houver um vivo). */
+  boss?: string;
 }
 
 export const WEEKLY_EVENTS: readonly GameEventDef[] = [
   { id: "mare_de_tesouros", name: "Maré de Tesouros", desc: "Chance de loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 12, durationMin: 60 },
   { id: "noite_de_cacada", name: "Noite de Caçada", desc: "XP em dobro", xpMult: 2, lootMult: 1, day: 5, hour: 19, durationMin: 60 },
+  { id: "despertar_do_lich", name: "Despertar do Lich", desc: "O Lich do Pântano acordou! Loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 20, durationMin: 60, boss: "swamp_lich" },
+  { id: "cacada_ao_rei", name: "Caçada ao Rei Goblin", desc: "O Rei Goblin voltou às Ruínas! Loot +50%", xpMult: 1, lootMult: 1.5, day: 0, hour: 20, durationMin: 90, boss: "goblin_king" },
   { id: "tarde_de_sabado", name: "Tarde de Sábado", desc: "XP ×1,5 e loot +25%", xpMult: 1.5, lootMult: 1.25, day: 6, hour: 14, durationMin: 120 },
 ];
 
@@ -30,12 +34,14 @@ export interface ActiveEvent {
   lootMult: number;
   /** Fim, em ms epoch. */
   until: number;
+  /** Chefe convocado ao começar (ver GameEventDef.boss). */
+  boss?: string;
 }
 
 export const eventDef = (id: string): GameEventDef | undefined => WEEKLY_EVENTS.find((e) => e.id === id);
 
 export function toActive(def: GameEventDef, until: number): ActiveEvent {
-  return { id: def.id, name: def.name, desc: def.desc, xpMult: def.xpMult, lootMult: def.lootMult, until };
+  return { id: def.id, name: def.name, desc: def.desc, xpMult: def.xpMult, lootMult: def.lootMult, until, ...(def.boss ? { boss: def.boss } : {}) };
 }
 
 /** Evento agendado que está valendo em `now` (considera o de ontem que atravessa a meia-noite). Null se nenhum. */

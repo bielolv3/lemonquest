@@ -313,6 +313,21 @@ export class MonsterManager {
     }
   }
 
+  /**
+   * Evento de chefe: faz nascer já o chefe `defId` no spawn dele (a mais de RESPAWN_FORCE_DIST tiles de jogadores) e
+   * cancela o respawn pendente desse spawn. "alive" = já há um vivo (nada muda); "unknown" = sem spawn/definição ou sem tile livre.
+   */
+  callBoss(defId: string, now = this.now()): "spawned" | "alive" | "unknown" {
+    const def = this.def(defId);
+    const sp = this.o.spawns.find((x) => x.defId === defId);
+    if (!def || !sp) return "unknown";
+    for (const m of this.list.values()) if (m.def.id === defId) return "alive";
+    for (let i = this.respawns.length - 1; i >= 0; i--) if (this.respawns[i]!.spawn === sp) this.respawns.splice(i, 1);
+    if (this.spawnOne(sp, def, now, RESPAWN_FORCE_DIST)) return "spawned";
+    this.respawns.push({ spawn: sp, at: now + RESPAWN_RETRY_MS, due: now + RESPAWN_RETRY_MS }); // sem tile livre agora: tenta de novo
+    return "unknown";
+  }
+
   private def(id: string): MonsterDef | undefined {
     const d = (this.o.defs ?? monsterDef)(id);
     if (!d && !this.warned.has(id)) {

@@ -6,6 +6,8 @@ export interface EventHost {
   broadcast(type: string, msg: unknown): void;
   send(id: string, type: string, msg: unknown): void;
   now?(): number;
+  /** Um evento novo começou (agendado ou manual): o servidor convoca o chefe, se houver. */
+  onStart?(ev: ActiveEvent): void;
   /** Guarda o evento manual (JSON) para sobreviver a reinício; ausente = só memória. */
   store?: { get(): string | undefined; set(value: string): void };
 }
@@ -55,6 +57,7 @@ export class EventSystem {
     if (want && want.id !== prev?.id) {
       this.o.broadcast(S2C.Announce, { text: `Evento: ${want.name}! ${want.desc} (até ${hhmm(want.until)})`, from: "Evento" } satisfies AnnounceMsg);
       this.o.broadcast(S2C.Feed, { text: `★ ${want.name}: ${want.desc}`, kind: "info" } satisfies FeedMsg);
+      this.o.onStart?.(want);
     }
     this.o.broadcast(S2C.Event, { active: want } satisfies EventMsg);
   }
