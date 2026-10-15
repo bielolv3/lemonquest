@@ -13,6 +13,10 @@
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
 
+### Fim de jogo (proposta #32)
+- Espíritos de chama (lv 38–40): de 3 para 7, em dois bandos — 4 no lugar de sempre e 3 num ponto novo das ruínas a
+  leste. O mapa (tiles, colisão, decoração) não muda: o ponto novo entra só como objeto no fim do gerador.
+
 ### Engenharia
 - E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
 - E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
