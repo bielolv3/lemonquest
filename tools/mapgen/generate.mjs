@@ -132,7 +132,7 @@ const spawns = [
   // swamp 10-25
   ['snake', 4, 5, 10, 116, 52], ['spider', 4, 5, 14, 132, 58], ['snake', 4, 5, 16, 142, 72], ['spider', 4, 5, 18, 118, 84], ['skeleton', 3, 5, 20, 148, 62], ['bat', 4, 5, 22, 126, 76],
   // ruins 25-40
-  ['goblin', 4, 5, 25, 96, 24], ['goblin', 4, 5, 27, 110, 32], ['ghost', 3, 5, 30, 100, 10], ['ghost', 3, 5, 31, 124, 34], ['lizardman', 4, 5, 33, 148, 24], ['flame_spirit', 3, 5, 38, 148, 10],
+  ['goblin', 4, 5, 25, 96, 24], ['goblin', 4, 5, 27, 110, 32], ['ghost', 3, 5, 30, 100, 10], ['ghost', 3, 5, 31, 124, 34], ['lizardman', 4, 5, 33, 148, 24], ['flame_spirit', 4, 5, 38, 148, 10],
   ['lizardman', 3, 5, 35, 140, 38],
   // bosses
   ['goblin_king', 1, 3, 40, 128, 19], ['swamp_lich', 1, 3, 25, 146, 88],
@@ -662,6 +662,13 @@ console.log('polish', JSON.stringify(polishInfo.stats));
 for (const [id, x, y] of npcs) map.tileObj('npc', x, y, { npcId: id }, id);
 for (const [x, y, tx, ty] of portals) map.tileObj('portal', x, y, { toX: tx, toY: ty }, 'portal');
 for (const [m, count, radius, level, x, y] of spawns) map.tileObj('monster_spawn', x, y, { monster: m, count, radius, level }, m);
+// Spawns acrescentados depois do mapa pronto: entram só como objeto (sem clareira, trilha nem proteção de decoração),
+// para não consumir o gerador aleatório e não mexer em nenhum tile — o mapa de quem já joga fica idêntico. O lugar
+// precisa ser andável e alcançável (conferido à mão). Fim de jogo (lv 40+): antes eram só 3 espíritos de chama.
+const lateSpawns = [
+  ['flame_spirit', 3, 5, 40, 154, 34], // ruínas a leste, 10+ tiles dos homens-lagarto
+];
+for (const [m, count, radius, level, x, y] of lateSpawns) map.tileObj('monster_spawn', x, y, { monster: m, count, radius, level }, m);
 
 // zones (rectangles)
 const MUS = (f) => f;

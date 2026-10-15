@@ -38,6 +38,10 @@
   Composto, conjunto de Franco-Atirador) e Dona Marta (Varinha Flamejante, Bastão do Pântano, conjunto Arcano).
   Conjunto completo: 22–27 mil de ouro. O tier 5 continua só no loot, nos chefes e nos baús.
 
+### Fim de jogo (proposta #32)
+- Espíritos de chama (lv 38–40): de 3 para 7, em dois bandos — 4 no lugar de sempre e 3 num ponto novo das ruínas a
+  leste. O mapa (tiles, colisão, decoração) não muda: o ponto novo entra só como objeto no fim do gerador.
+
 ### Engenharia
 - Arquivos do cliente com hash no nome (`/assets/*`) ficam 1 ano no cache do navegador (antes revalidavam a cada
   visita); `index.html`, mapa e sprites continuam revalidando, então um deploy novo chega no próximo F5. Sem o Caddy
