@@ -22,12 +22,17 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Falar com NPC | clique no NPC |
 | Largar item no chão | arraste da mochila/equipamento para o mundo (até 3 tiles; `Shift` escolhe a quantidade) |
 | Pegar item do chão | clique direito, duplo clique ou `Ctrl`+clique no item (ou arraste para a mochila) |
-| Chat | `Enter` |
+| Magias da barra | `1`–`8` (ou digite as palavras mágicas no chat, ex.: `exura`) |
+| Poção de vida / mana | `Q` / `E` |
+| Seguir o alvo | `F8` |
+| Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
 | Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
 | Mapa | `M` |
+| Volume / mudo | botão ♪ na barra de botões à direita |
 | Ajuda com todos os atalhos | `F1` ou `?` |
 
-Itens no chão somem em 10 min (raros ou melhores: 20 min) e também ao reiniciar o servidor (não são salvos).
+Itens no chão somem em 10 min (raros ou melhores: 20 min). Eles sobrevivem a um reinício do servidor, mas o tempo com
+o servidor desligado também conta.
 
 Não use a mesma senha do trabalho: a rede do escritório não é criptografada (HTTP).
 
