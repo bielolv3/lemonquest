@@ -1,7 +1,9 @@
 // Janela de NPC: fala com digitação, abas Comprar / Vender / Depot.
 import { DEPOT_SIZE, itemDef, type NpcOpenMsg } from "@lemonquest/shared";
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { sectionsStore } from "../hud/Section.tsx";
 import { useStore } from "../hud/store.ts";
+import { sidebarOpen } from "../hud/uiState.ts";
 import { npcBuys } from "../items/actions.ts";
 import { GoldLabel, Coin } from "../items/Gold.tsx";
 import { defOf, depotStore, inventoryStore } from "../items/inventory.ts";
@@ -166,6 +168,20 @@ function SellList({ m }: { m: NpcOpenMsg }) {
 
 function DepotGrid() {
   const depot = useStore(depotStore);
+  // Itens vão e vêm arrastando da mochila: com ela dobrada (padrão em tela baixa) ou a barra recolhida, o depot não
+  // tinha de onde receber. Abre as duas enquanto o depot está aberto e devolve como estavam ao fechar.
+  useEffect(() => {
+    const hadSide = sidebarOpen.get(), hadBp = sectionsStore.get().backpack;
+    if (!hadSide) sidebarOpen.set(true);
+    if (!hadBp) sectionsStore.set((s) => ({ ...s, backpack: true }));
+    // Depois da animação de abrir a seção (senão rola até onde ela ainda era só o cabeçalho).
+    const t = setTimeout(() => document.querySelector('.hud-panel [data-panel-id="backpack"]')?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 250);
+    return () => {
+      clearTimeout(t);
+      if (!hadBp) sectionsStore.set((s) => ({ ...s, backpack: false }));
+      if (!hadSide) sidebarOpen.set(false);
+    };
+  }, []);
   return (
     <div class="depot">
       <div class="depot-hint">Arraste itens entre a mochila e o depot · Shift para dividir pilhas</div>
