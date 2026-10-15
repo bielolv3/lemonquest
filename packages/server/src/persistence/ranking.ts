@@ -1,17 +1,18 @@
 // Ranking público: top 10 por categoria a partir dos personagens salvos. Cache de 30 s. Só nomes de personagens.
 import {
-  RANKING_CACHE_S, RANKING_LIMIT, SKILL_START,
+  RANKING_CACHE_S, RANKING_LIMIT, SKILL_START, weekEndsAt, weekGain, weekId,
   type RankingCategory, type RankingCategoryId, type RankingEntry, type RankingResponse,
 } from "@lemonquest/shared";
 import { achievementPoints } from "../systems/achievements.ts";
+import { weeklyCounters } from "../systems/weekly.ts";
 import { getKv, listRankingRows, type RankingRow } from "./db.ts";
 
 interface CatDef {
   id: RankingCategoryId;
   title: string;
   unit: string;
-  /** Valor do personagem; <= 0 = fora do ranking. */
-  value: (r: RankingRow) => number;
+  /** Valor do personagem; <= 0 = fora do ranking. `week` = id da semana atual (categorias semanais). */
+  value: (r: RankingRow, week: string) => number;
   /** Desempate (maior vence), depois nome. */
   tie?: (r: RankingRow) => number;
 }
@@ -29,13 +30,20 @@ const CATS: CatDef[] = [
   { id: "magic", title: "Magic Level", unit: "ML", value: skill("magic") },
   { id: "melee", title: "Corpo a corpo", unit: "skill", value: skill("melee") },
   { id: "distance", title: "Distância", unit: "skill", value: skill("distance") },
+  { id: "fish", title: "Pescador", unit: "peixes", value: (r) => r.data.ach?.stats?.fish ?? 0 },
+  // Semanais: ganho desde a segunda-feira (zeram na virada; quem não jogou na semana não aparece).
+  { id: "week_xp", title: "Semana: XP", unit: "XP", value: (r, w) => weekGain(r.data.week, weeklyCounters(r), w, "xp") },
+  { id: "week_kills", title: "Semana: abates", unit: "abates", value: (r, w) => weekGain(r.data.week, weeklyCounters(r), w, "kills") },
+  { id: "week_fish", title: "Semana: peixes", unit: "peixes", value: (r, w) => weekGain(r.data.week, weeklyCounters(r), w, "fish") },
+  { id: "week_bosses", title: "Semana: chefes", unit: "chefes", value: (r, w) => weekGain(r.data.week, weeklyCounters(r), w, "bosses") },
 ];
 
 /** Monta a resposta a partir das linhas (puro; testável). */
 export function buildRanking(rows: RankingRow[], arenaServerBest: number, now: number): RankingResponse {
+  const week = weekId(new Date(now));
   const categories: RankingCategory[] = CATS.map((c) => {
     const scored = rows
-      .map((r) => ({ r, v: Math.floor(c.value(r)), t: c.tie?.(r) ?? 0 }))
+      .map((r) => ({ r, v: Math.floor(c.value(r, week)), t: c.tie?.(r) ?? 0 }))
       .filter((x) => x.v > 0)
       .sort((a, b) => b.v - a.v || b.t - a.t || a.r.name.localeCompare(b.r.name, "pt-BR"))
       .slice(0, RANKING_LIMIT);
@@ -44,7 +52,7 @@ export function buildRanking(rows: RankingRow[], arenaServerBest: number, now: n
     }));
     return { id: c.id, title: c.title, unit: c.unit, entries };
   });
-  return { generatedAt: now, arenaServerBest, categories };
+  return { generatedAt: now, arenaServerBest, weekEndsAt: weekEndsAt(new Date(now)), categories };
 }
 
 let cache: { at: number; body: string } | null = null;

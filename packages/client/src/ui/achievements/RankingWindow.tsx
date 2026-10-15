@@ -1,6 +1,6 @@
 // Janela de ranking (tecla R): top 10 por categoria, recorde do Coliseu. Dados de GET /api/ranking (cache de 30 s).
 import { useEffect, useState } from "preact/hooks";
-import type { RankingCategoryId } from "@lemonquest/shared";
+import { timeLeftText, type RankingCategoryId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
 import { fmtNum, loadRanking, rankingOpen, rankingStore } from "./achievements.ts";
 import "./achievements.css";
@@ -52,6 +52,7 @@ function RankingDialog() {
         )}
       </div>
       <div class="rank-foot">
+        {data && cat.startsWith("week_") && <span data-testid="week-reset">Zera em <b>{timeLeftText(data.weekEndsAt, Date.now())}</b> (segunda 00h)</span>}
         {data && <span>Recorde do Coliseu: <b>{data.arenaServerBest > 0 ? `${data.arenaServerBest} ondas` : "—"}</b></span>}
         <a href={PAGE_URL} target="_blank" rel="noopener">Página pública</a>
       </div>

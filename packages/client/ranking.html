@@ -28,7 +28,8 @@
       var base = location.port === "3000" ? location.protocol + "//" + location.hostname + ":2567" : "";
       fetch(base + "/api/ranking").then(function (r) { return r.json(); }).then(function (d) {
         var best = d.arenaServerBest > 0 ? d.arenaServerBest + " ondas" : "—";
-        document.getElementById("sub").textContent = "Recorde do Coliseu: " + best;
+        var left = Math.max(0, Math.floor((d.weekEndsAt - Date.now()) / 3600000));
+        document.getElementById("sub").textContent = "Recorde do Coliseu: " + best + " · as categorias \"Semana\" zeram em " + Math.floor(left / 24) + " d " + (left % 24) + " h (segunda 00h)";
         var g = document.getElementById("grid");
         d.categories.forEach(function (c) {
           var s = document.createElement("section");

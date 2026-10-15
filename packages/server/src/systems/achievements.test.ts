@@ -516,7 +516,8 @@ describe("ranking", () => {
     const res = buildRanking(rows, 17, 1234);
     expect(res.generatedAt).toBe(1234);
     expect(res.arenaServerBest).toBe(17);
-    expect(res.categories.map((c) => c.id)).toEqual(["level", "points", "arena", "bosses", "magic", "melee", "distance"]);
+    expect(res.categories.map((c) => c.id)).toEqual(["level", "points", "arena", "bosses", "magic", "melee", "distance", "fish", "week_xp", "week_kills", "week_fish", "week_bosses"]);
+    expect(res.weekEndsAt).toBeGreaterThan(1234);
     const cat = (id: string) => res.categories.find((c) => c.id === id)!;
     expect(cat("level").entries).toHaveLength(10);
     expect(cat("level").entries.map((e) => e.name).slice(0, 3)).toEqual(["B", "C", "A"]); // empate 50: nome
@@ -527,6 +528,33 @@ describe("ranking", () => {
     expect(cat("magic").entries.map((e) => [e.name, e.value])).toEqual([["A", 5]]);
     expect(cat("melee").entries.map((e) => [e.name, e.value])).toEqual([["A", 40]]); // 10 = valor inicial, fora
     expect(cat("distance").entries.map((e) => [e.name, e.value])).toEqual([["D", 11]]);
+  });
+
+  it("pescador (geral) e categorias semanais: só o ganho desde a linha de base desta semana", () => {
+    const now = new Date(2026, 9, 14, 12).getTime(); // quarta-feira, semana 2026-W42
+    const w = "2026-W42";
+    const base = (xp: number, kills: number, fish: number, bosses: number, id = w) => ({ id, xp, kills, fish, bosses });
+    const rows = [
+      // A: ganhou 500 de XP, 10 abates, 5 peixes, 1 chefe nesta semana (xp = level*100 = 3000).
+      row("A", 30, { week: base(2500, 90, 7, 4), ach: { done: {}, stats: { kills: 100, fish: 12, bosses: 5 }, killed: [] } }),
+      // B: muito XP no total, mas a linha de base é da semana passada (não jogou nesta): 0 em tudo.
+      row("B", 50, { week: base(100, 0, 0, 0, "2026-W41"), ach: { done: {}, stats: { kills: 900, fish: 300 }, killed: [] } }),
+      // C: sem linha de base alguma.
+      row("C", 20, { ach: { done: {}, stats: { fish: 40 }, killed: [] } }),
+      // D: ganhou 100 de XP e 3 peixes.
+      row("D", 10, { week: base(900, 5, 0, 0), ach: { done: {}, stats: { kills: 5, fish: 3 }, killed: [] } }),
+    ];
+    const res = buildRanking(rows, 0, now);
+    const cat = (id: string) => res.categories.find((c) => c.id === id)!;
+    expect(cat("fish").entries.map((e) => [e.name, e.value])).toEqual([["B", 300], ["C", 40], ["A", 12], ["D", 3]]);
+    expect(cat("week_xp").entries.map((e) => [e.name, e.value])).toEqual([["A", 500], ["D", 100]]);
+    expect(cat("week_kills").entries.map((e) => [e.name, e.value])).toEqual([["A", 10]]);
+    expect(cat("week_fish").entries.map((e) => [e.name, e.value])).toEqual([["A", 5], ["D", 3]]);
+    expect(cat("week_bosses").entries.map((e) => [e.name, e.value])).toEqual([["A", 1]]);
+    expect(res.weekEndsAt).toBe(new Date(2026, 9, 19).getTime());
+    // Na semana seguinte tudo zera até alguém ganhar algo.
+    const next = buildRanking(rows, 0, new Date(2026, 9, 20, 12).getTime());
+    expect(next.categories.find((c) => c.id === "week_xp")!.entries).toEqual([]);
   });
 
   it("endpoint: JSON com recorde do servidor, só nomes de personagem (nunca de conta) e cache de 30 s", () => {

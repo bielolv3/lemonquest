@@ -21,6 +21,7 @@ import { SocialSystem } from "../systems/social.ts";
 import { statusLines } from "../systems/status.ts";
 import { TradeSystem } from "../systems/trade.ts";
 import { EventSystem } from "../systems/events.ts";
+import { rollWeek } from "../systems/weekly.ts";
 import { FishingSystem } from "../systems/fishing.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
@@ -115,6 +116,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private trade!: TradeSystem;
   private events!: EventSystem;
   private fishing!: FishingSystem;
+  private weeklyAt = 0;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
@@ -470,6 +472,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["trade", () => this.trade.tick()],
       ["fishing", () => this.fishing.tick()],
       ["events", () => this.events.tick(this.tickNow)],
+      // Virada da semana com o jogador online: renova a linha de base (no máximo 1×/min).
+      ["weekly", () => {
+        if (this.tickNow - this.weeklyAt < 60_000) return;
+        this.weeklyAt = this.tickNow;
+        const now = new Date(this.tickNow);
+        for (const rec of this.records.values()) rollWeek(rec, now);
+      }],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
       ["combat.flush", () => this.combat.flush()],
       ["ground", () => this.ground.tick(this.tickNow)],
@@ -571,6 +580,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.fight.load(p, rec.data.stance, rec.data.chase);
     this.food.load(p.id, rec.data, Date.now());
     this.quests.load(p, rec.data.quests);
+    rollWeek(rec, new Date());
     this.records.set(sid, rec);
     this.state.players.set(sid, p);
     this.conditions.refreshPlayer(p.id); // velocidade do equipamento

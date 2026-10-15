@@ -40,6 +40,8 @@ export interface CharacterData {
   };
   /** Roupas/addons/títulos liberados: "outfit:x", "addon:x:1|2", "title:x". */
   unlocks?: string[];
+  /** Linha de base da semana (ranking e missões semanais): contadores no começo da semana ISO `id`. */
+  week?: { id: string; xp: number; kills: number; fish: number; bosses: number };
   /** Lista de amigos (nomes de personagem; /amigo): avisos de entrada e saída. */
   friends?: string[];
   /** Silenciado por um admin (/mute): não fala no chat até `until` (ms epoch). Sobrevive a relog. */

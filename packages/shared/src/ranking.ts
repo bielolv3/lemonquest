@@ -3,7 +3,9 @@ export const RANKING_LIMIT = 10;
 /** Cache do servidor (e max-age do cabeçalho), em segundos. */
 export const RANKING_CACHE_S = 30;
 
-export type RankingCategoryId = "level" | "points" | "arena" | "bosses" | "magic" | "melee" | "distance";
+export type RankingCategoryId =
+  | "level" | "points" | "arena" | "bosses" | "magic" | "melee" | "distance" | "fish"
+  | "week_xp" | "week_kills" | "week_fish" | "week_bosses";
 
 export interface RankingEntry {
   rank: number;
@@ -26,5 +28,7 @@ export interface RankingResponse {
   generatedAt: number;
   /** Recorde do servidor no Coliseu (ondas vencidas), persistido. */
   arenaServerBest: number;
+  /** Fim da semana (ms epoch): as categorias "week_*" zeram nesse instante. */
+  weekEndsAt: number;
   categories: RankingCategory[];
 }
