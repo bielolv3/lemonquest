@@ -82,6 +82,14 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | C | #38 Loja/conquistas/ranking: textos cortados ou duplicados | ✅ | capturas |
 | F | Robô que joga sem admin (4 vocações) | ✅ | lv 1→2–3 em 5 min sem mortes |
 | F | E2E do chão resistente a monstro no tile | ✅ | 3/3 repetido |
+| C | #39 Avisos do topo abaixo do cartão de primeiros passos | ✅ | medição: aviso em y 211, cartão até 203 |
+| C | #40 Chat sobe para cima da barra de magias em janela estreita | ✅ | 960 / 1100 / 1366 px sem sobreposição |
+| C | #41 Loja: "Só da minha vocação" e "Lv N" | ✅ | no jogo: 18 de 35 itens para o mago |
+| C | #42 /ajuda | ✅ | `admin.test.ts`; no jogo como jogador e admin |
+| C | #43 Volume do som | ✅ | E2E novo em `world.spec.ts` |
+| C | #44 Tela de desconectado avisa quando o servidor voltou | ✅ | servidor derrubado e religado com jogador dentro |
+| F | #45 Phaser num chunk próprio; `/assets/*` immutable | ✅ | curl dos cabeçalhos; E2E confere `/ranking` |
+| F | `tools/fuzz.mjs` (protocolo e inventário) | ✅ | 3 488 mensagens inválidas e 5 849 movimentos sem exceção nem duplicação |
 
 ## Próximos (ordem sugerida)
 
