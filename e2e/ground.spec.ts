@@ -12,6 +12,17 @@ async function slotOf(page: Page, defId: string): Promise<number> {
   return ((await inventory(page))?.backpack ?? []).findIndex((s) => s?.defId === defId);
 }
 
+/** Repete o clique até o item chegar na mochila: um monstro que passe pelo tile (o canto é fora da vila) faz o clique
+ *  virar ataque. */
+async function pickUntil(page: Page, defId: string, click: () => Promise<void>): Promise<void> {
+  await expect.poll(async () => {
+    if ((await countOf(page, defId)) >= 1) return 1;
+    await click();
+    await page.waitForTimeout(700);
+    return countOf(page, defId);
+  }, { timeout: 15_000, intervals: [200] }).toBe(1);
+}
+
 /** Arrasta o item da mochila até o tile (x,y) do mundo e espera ele aparecer no chão. */
 async function dropToTile(page: Page, defId: string, x: number, y: number): Promise<void> {
   const i = await slotOf(page, defId);
@@ -57,22 +68,21 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
     await expect.poll(async () => (await ground(b)).some((g) => g.defId === items[0]), { timeout: 10_000 }).toBe(true);
     await snap(b, "ground-item-seen-by-b");
     await waitSettled(b);
-    await clickTile(b, drop.x, drop.y, { button: "right" });
-    await expect.poll(() => countOf(b, items[0]!), { timeout: 10_000 }).toBe(1);
+    await pickUntil(b, items[0]!, () => clickTile(b, drop.x, drop.y, { button: "right" }));
     await expect.poll(async () => (await ground(a)).filter((g) => g.x === drop.x && g.y === drop.y).length, { timeout: 10_000 }).toBe(0);
 
     // 2) Ctrl + clique
     await dropToTile(a, items[1]!, drop.x, drop.y);
     await expect.poll(async () => (await ground(b)).some((g) => g.defId === items[1]), { timeout: 10_000 }).toBe(true);
-    await clickTile(b, drop.x, drop.y, { modifiers: ["Control"] });
-    await expect.poll(() => countOf(b, items[1]!), { timeout: 10_000 }).toBe(1);
+    await pickUntil(b, items[1]!, () => clickTile(b, drop.x, drop.y, { modifiers: ["Control"] }));
 
     // 3) duplo clique
     await dropToTile(a, items[2]!, drop.x, drop.y);
     await expect.poll(async () => (await ground(b)).some((g) => g.defId === items[2]), { timeout: 10_000 }).toBe(true);
-    const c = await tileToClient(b, drop.x, drop.y);
-    await b.mouse.dblclick(c.x, c.y);
-    await expect.poll(() => countOf(b, items[2]!), { timeout: 10_000 }).toBe(1);
+    await pickUntil(b, items[2]!, async () => {
+      const c = await tileToClient(b, drop.x, drop.y);
+      await b.mouse.dblclick(c.x, c.y);
+    });
     // O duplo clique não fez o personagem andar até o tile do item.
     await expect.poll(async () => (await b.evaluate(() => (window as any).__lq.me().x))).toBe(base.x + 2);
 
