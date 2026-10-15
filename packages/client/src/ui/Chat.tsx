@@ -6,11 +6,36 @@ import { persistedBool, useStore } from "./hud/store.ts";
 import { FEED_COLOR, onFeed } from "./items/loot.ts";
 import { rarityColor } from "./items/itemInfo.ts";
 import { partyStore } from "./party/party.ts";
+import { subscribeHudInsets } from "./hud/layout.ts";
 import { inTab, pushLine, type Line, type Tab } from "./chatLines.ts";
 
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 const collapsedStore = persistedBool("chatCollapsed", false);
+
+/**
+ * Janela estreita (meia tela, barra lateral aberta): a barra de magias centrada na área de jogo passa por baixo do
+ * chat. Nesse caso o chat sobe para cima dela. Mede depois das transições de largura/posição (220 ms).
+ */
+function useLiftOverDock(chat: { current: HTMLDivElement | null }): number {
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    let t = 0;
+    const check = () => {
+      const dock = document.querySelector(".bottom-dock")?.getBoundingClientRect(), el = chat.current;
+      if (!dock || !el || dock.width === 0) return;
+      const chatRight = el.getBoundingClientRect().left + el.offsetWidth;
+      setLift(chatRight + 6 > dock.left ? Math.ceil(dock.height) + 8 : 0);
+    };
+    const later = () => { clearTimeout(t); t = window.setTimeout(check, 260); };
+    check();
+    later();
+    window.addEventListener("resize", later);
+    const off = subscribeHudInsets(later);
+    return () => { clearTimeout(t); window.removeEventListener("resize", later); off(); };
+  }, []);
+  return lift;
+}
 
 export function Chat() {
   const [lines, setLines] = useState<Line[]>([]);
@@ -27,6 +52,8 @@ export function Chat() {
   const log = useRef<HTMLDivElement>(null);
   const collapsedRef = useRef(collapsed);
   collapsedRef.current = collapsed;
+  const root = useRef<HTMLDivElement>(null);
+  const lift = useLiftOverDock(root);
 
   useEffect(() => session.onRoom((room) => {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
@@ -106,7 +133,7 @@ export function Chat() {
   };
 
   return (
-    <div class={`panel chat${collapsed ? " collapsed" : ""}${typing ? " typing" : ""}`}>
+    <div ref={root} class={`panel chat${collapsed ? " collapsed" : ""}${typing ? " typing" : ""}`} style={lift ? { bottom: `${10 + lift}px` } : undefined}>
       <div class="chat-head">
         <div class="chat-tabs" role="tablist">
           <button class={`chat-tab${tab === "global" ? " active" : ""}`} role="tab" aria-selected={tab === "global"} onClick={() => { setTab("global"); collapsedStore.set(false); }}>
