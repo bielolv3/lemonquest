@@ -93,6 +93,28 @@ Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). S
 | C | Chat sobre a cabeça do personagem (estilo Tibia): geral amarelo, grupo azul-claro, itálico menor que o nome, até 3 linhas, some sozinho, texto longo vira "…" (90 caracteres) | ✅ | `e2e/speech.spec.ts` (novo) + `party.spec.ts` |
 | F | `tools/fuzz.mjs` (protocolo e inventário) | ✅ | 3 488 mensagens inválidas e 5 849 movimentos sem exceção nem duplicação |
 
+### Ciclo 5 — funcionalidades novas (2026-10-15)
+
+| Etapa | Item | Status | Validação |
+|---|---|---|---|
+| C | Seta-guia do novato (Capitão → floresta → Capitão) | ✅ | `guide.test.ts`, `e2e/guide.spec.ts` |
+| C | Emotes (`/e`, botão ☺), sussurro (`/w`, `/r`) e amigos (`/amigo`, `/amigos`) | ✅ | `social.test.ts` (10), `e2e/social.spec.ts` |
+| C | Troca entre jogadores (janela, confirmação dupla, troca atômica) | ✅ | `trade.test.ts` (11), `e2e/trade.spec.ts` |
+| C | Pesca: vara, boia, 3 peixes, conquistas | ✅ | `fishing.test.ts` (9), `water.test.ts` (mapa real), `e2e/fishing.spec.ts` |
+| C | Barra de ações: arrastar para reordenar (salva por personagem) | ✅ | `slotOrder.test.ts` |
+| D | Eventos semanais com bônus de XP/loot + `/evento` (admin) + etiqueta no HUD | ✅ | `events.test.ts` (shared e server), `combat.test.ts` |
+| F | `/status` do admin | ✅ | `admin.test.ts`, `status.test.ts` |
+| F | `tools/newbie.mjs` (`npm run newbie`): regressão da 1ª missão nas 4 vocações | ✅ | 4/4 em 49–56 s |
+| D | Respawn não trava com jogador parado no spawn (druida novato 4/6 → 8/8) | ✅ | `monsters.test.ts` (2 novos), 8 execuções do robô |
+| F | E2E isolado: reconexão de 2 s em modo E2E; `party`/`ground` 10/10 em repetição | ✅ | `--repeat-each=5` |
+
+Já existiam (conferido no código, sem mudança): cadeia de missões até o level 35 (12 missões), texto flutuante de dano
+por tipo/crítico, mapa-múndi em tela cheia (tecla M), chefes de zona e Coliseu até a onda 30 com Lich e Rei Goblin.
+
+Ficou de fora (precisa de mapa/arte novos): **dungeon instanciada própria** (o Coliseu e os chefes de zona cobrem o
+conteúdo para grupo), **mineração** (só a pesca foi feita) e **casas com decoração** (o depot já guarda itens; casa
+pede áreas no mapa e itens colocáveis no mundo).
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |

@@ -7,6 +7,33 @@
   em itálico e menor que o nome (para não confundir com o nick), com até 3 linhas empilhadas. Some sozinho; texto
   longo vira "…" no balão (o chat guarda o inteiro).
 
+- **Seta-guia do novato** (até o level 3, enquanto a 1ª missão não acaba): aponta o Capitão, depois a floresta dos
+  ratos e de volta ao Capitão; na borda da tela mostra a distância em passos.
+- **Emotes** (`/e coracao`, `/e rir`... ou o botão ☺ do chat): ícone sobre a cabeça por ~2 s (8 emotes).
+- **Sussurro** (`/w Nome mensagem`, `/r` responde) e **amigos** (`/amigo Nome` adiciona/remove, `/amigos` lista com
+  ● online / ○ offline; aviso quando um amigo entra ou sai). Nomes com espaço funcionam.
+- **Troca entre jogadores** (botão direito > "Trocar itens"): janela com a oferta dos dois (itens + ouro); os dois
+  confirmam e a troca é atômica (nada muda se a mochila de alguém encher); qualquer mudança zera as confirmações;
+  cancela por distância, morte, Coliseu ou saída.
+- **Pesca**: Vara de Pesca (Velho Caçador Tomé), botão direito na água perto da margem, 5 s parado (andar ou apanhar
+  solta a linha); truta, salmão e peixe dourado (raro); a chance de morder cresce com os peixes pescados; conquistas
+  "Pescador" e "Mestre Pescador".
+- **Barra de ações editável**: arraste uma magia para outro slot (a ordem fica salva por personagem).
+- **Eventos semanais com bônus** (etiqueta ★ no topo): Maré de Tesouros (quarta 12h, loot +50%), Noite de Caçada (sexta
+  19h, XP ×2) e Tarde de Sábado (14h–16h, XP ×1,5 e loot +25%). Admin: `/evento` mostra o andamento, `/evento <nome>
+  [min]` dispara na hora e `/evento parar` encerra.
+
+### Jogo
+- **Druida novato não ficava mais sem o 5º rato**: o respawn só acontecia com ninguém a 7 tiles, então quem esperava
+  parado no centro do spawn o impedia de voltar. Respawn adiado por mais de 30 s agora nasce, a mais de 3 tiles do
+  jogador (chefes seguem só a regra de 7). Primeira missão do druida: 4 de 6 → 8 de 8.
+
+### Ferramentas e testes
+- `npm run newbie` (`tools/newbie.mjs`): robô novato sem admin nas 4 vocações; sai com erro se alguma não entregar.
+- Admin: `/status` (uptime, online e pico, monstros, tick médio/máx, memória, erros).
+- E2E: em modo E2E a janela de reconexão cai de 20 para 2 s (`LEMONQUEST_RECONNECT_S`; em produção segue 20): sem
+  personagens fantasmas do teste anterior. Playwright com 1 worker por padrão; Vitest com metade dos núcleos.
+
 ### Servidor
 - **Sessões de conta sobrevivem a reinício/deploy**: ninguém precisa digitar a senha de novo. Só o hash SHA-256 do
   token vai para o SQLite (tabela `account_sessions`, migração v6); a validade segue 30 min sem uso, logout e troca

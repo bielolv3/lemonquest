@@ -95,6 +95,18 @@ npx playwright show-report        # relatório HTML (playwright-report/); screen
   `--trace on` grava traces (desligados por padrão: deixam o carregamento muito lento com vários workers).
 - Rodar um arquivo/teste: `npm run test:e2e -- e2e/arena.spec.ts -g "solo"`.
 
+### Robô novato (regressão da primeira missão)
+
+```bash
+npm run newbie                          # sobe um servidor de teste próprio e roda as 4 vocações (sai com erro se alguma não entregar a missão)
+node tools/newbie.mjs --voc druid --limit 120 --out shots   # só uma vocação, com capturas
+```
+
+### Peso dos testes no PC
+
+O Playwright usa **1 worker** por padrão (cada teste abre 1–2 navegadores; vários em paralelo travam PCs comuns).
+Suba com `E2E_WORKERS=3 npm run test:e2e` se a máquina aguentar. O Vitest usa metade dos núcleos (`VITEST_MAX_WORKERS`).
+
 ### Teste de carga
 
 ```bash

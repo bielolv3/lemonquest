@@ -86,7 +86,7 @@ de 21 min nos bots e janelas de 60 s com 951 ticks em vez de ~1200 no log do ser
 | Unitários | 497/497 |
 | E2E | 28/28 em `proposta/todas`; novos `speech.spec.ts` (balões de fala) e checagem do balão azul em `party.spec.ts` |
 | Novato sem admin: aceitar "Ratos no Celeiro", matar 5 ratos e entregar (servidor limpo, seguir alvo ligado por padrão) | cavaleiro 56 s · paladino 49 s · feiticeiro 50 s · druida 53 s, todos nível 2, 0 mortes. Antes do padrão "seguir": cavaleiro e druida passavam de 10 min sem concluir |
-| `party.spec.ts` em `--repeat-each` no mesmo servidor | instável: personagens do teste anterior ficam 20 s no mundo (alguns perseguindo) e comem os ratos da floresta, então `targetNearest` não acha alvo. Na suíte normal passa. Causa vista em captura e no helper, não corrigida |
+| `party.spec.ts` e `ground.spec.ts` em `--repeat-each=5` | **10/10** depois que, em modo E2E, quem fecha a aba some em 2 s (antes ficava 20 s no mundo e competia pelos ratos). Histórico: instável: personagens do teste anterior ficam 20 s no mundo (alguns perseguindo) e comem os ratos da floresta, então `targetNearest` não acha alvo. Na suíte normal passa. Causa vista em captura e no helper, não corrigida |
 
 ### Como ler falhas do E2E com a máquina ocupada
 
