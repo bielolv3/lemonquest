@@ -26,6 +26,13 @@ export const PZ_ZONE_NAMES = ["Vila de Pedra Clara"];
 /** Raio (Chebyshev) sem jogadores exigido para um respawn ("fora da tela", como no Tibia). */
 export const RESPAWN_PLAYER_DIST = 7;
 export const RESPAWN_RETRY_MS = 5000;
+/**
+ * Respawn adiado por jogador perto por mais que isto (a partir de quando venceu) nasce mesmo assim, mas nunca a menos
+ * de RESPAWN_FORCE_DIST tiles: senão quem fica parado no meio do spawn esperando o bicho voltar o impede de voltar
+ * (novato atrás do 5º rato da primeira missão). Chefes seguem só com a regra normal.
+ */
+export const RESPAWN_FORCE_AFTER_MS = 30_000;
+export const RESPAWN_FORCE_DIST = 3;
 /** Monstros ociosos sem jogador a esta distância dormem (não pensam nem andam). */
 export const SLEEP_DIST = 16;
 
@@ -170,7 +177,7 @@ export class MonsterManager {
   private readonly mask: Uint8Array;
   private readonly occ = new Map<number, Monster>();
   private readonly list = new Map<string, Monster>();
-  private readonly respawns: { spawn: SpawnPoint; at: number }[] = [];
+  private readonly respawns: { spawn: SpawnPoint; at: number; due: number }[] = [];
   private readonly warned = new Set<string>();
   private nextId = 1;
   private readonly errors: ErrorLog;
@@ -302,7 +309,7 @@ export class MonsterManager {
     for (const sp of this.o.spawns) {
       const def = this.def(sp.defId);
       if (!def) continue;
-      for (let i = 0; i < sp.count; i++) if (!this.spawnOne(sp, def, now)) this.respawns.push({ spawn: sp, at: now + RESPAWN_RETRY_MS });
+      for (let i = 0; i < sp.count; i++) if (!this.spawnOne(sp, def, now)) this.respawns.push({ spawn: sp, at: now + RESPAWN_RETRY_MS, due: now + RESPAWN_RETRY_MS });
     }
   }
 
@@ -316,7 +323,7 @@ export class MonsterManager {
   }
 
   /** Tile livre aleatório no raio do spawn; `awayFromPlayers` exige nenhum jogador a RESPAWN_PLAYER_DIST. */
-  findSpawnTile(sp: SpawnPoint, awayFromPlayers: boolean, def?: MonsterDef): Point | null {
+  findSpawnTile(sp: SpawnPoint, awayFromPlayers: boolean, def?: MonsterDef, minPlayerDist = RESPAWN_PLAYER_DIST): Point | null {
     const r = sp.radius;
     // Bonecos de treino nascem dentro da PZ do centro de treinamento (os demais monstros nunca).
     const blocked = (x: number, y: number) => def?.stationary
@@ -324,7 +331,7 @@ export class MonsterManager {
       : this.blockedForMonster(x, y);
     const ok = (x: number, y: number) =>
       this.grid.isWalkable(x, y) && this.inBounds(x, y) && !blocked(x, y) &&
-      (!awayFromPlayers || this.nearestPlayerDist(x, y) > RESPAWN_PLAYER_DIST);
+      (!awayFromPlayers || this.nearestPlayerDist(x, y) > minPlayerDist);
     for (let i = 0; i < 40; i++) {
       const x = sp.x + Math.floor(this.rng() * (2 * r + 1)) - r;
       const y = sp.y + Math.floor(this.rng() * (2 * r + 1)) - r;
@@ -335,8 +342,8 @@ export class MonsterManager {
     return null;
   }
 
-  private spawnOne(sp: SpawnPoint, def: MonsterDef, now: number): Monster | null {
-    const t = this.findSpawnTile(sp, true, def);
+  private spawnOne(sp: SpawnPoint, def: MonsterDef, now: number, minPlayerDist = RESPAWN_PLAYER_DIST): Monster | null {
+    const t = this.findSpawnTile(sp, true, def, minPlayerDist);
     if (!t) return null;
     const s = new MonsterState();
     s.id = `m${this.nextId++}`;
@@ -372,7 +379,7 @@ export class MonsterManager {
       return;
     }
     if (m.arenaId) return; // onda do coliseu: sem respawn
-    this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs });
+    this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs, due: now + m.def.respawnMs });
   }
 
   /**
@@ -497,7 +504,8 @@ export class MonsterManager {
       if (now < r.at) continue;
       const def = this.def(r.spawn.defId);
       if (!def) { this.respawns.splice(i, 1); continue; }
-      if (this.spawnOne(r.spawn, def, now)) this.respawns.splice(i, 1);
+      const forced = !def.boss && now - r.due >= RESPAWN_FORCE_AFTER_MS;
+      if (this.spawnOne(r.spawn, def, now, forced ? RESPAWN_FORCE_DIST : RESPAWN_PLAYER_DIST)) this.respawns.splice(i, 1);
       else r.at = now + RESPAWN_RETRY_MS;
     }
   }

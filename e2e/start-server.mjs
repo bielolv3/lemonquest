@@ -29,6 +29,8 @@ const env = {
   LEMONQUEST_DB: path.join(tmp, "e2e.db"),
   LEMONQUEST_BACKUP_DIR: path.join(tmp, "backups"),
   LEMONQUEST_DEV_COMMANDS: "1",
+  // Quem fecha a aba some em 2 s (em vez de 20): sem personagens fantasmas competindo pelos monstros do teste seguinte.
+  LEMONQUEST_RECONNECT_S: process.env.LEMONQUEST_RECONNECT_S ?? "2",
   LEMONQUEST_ADMINS: process.env.E2E_ADMINS ?? "",
 };
 const tsx = path.join(root, "node_modules", "tsx", "dist", "cli.mjs");

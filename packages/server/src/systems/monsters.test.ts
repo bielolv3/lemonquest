@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { S2C, type TiledMap } from "@lemonquest/shared";
-import { RESPAWN_PLAYER_DIST, cheb, parseSafeZones, parseSpawns, type SpawnPoint } from "./monsters.ts";
+import { RESPAWN_FORCE_AFTER_MS, RESPAWN_FORCE_DIST, RESPAWN_PLAYER_DIST, cheb, parseSafeZones, parseSpawns, type SpawnPoint } from "./monsters.ts";
 import { LEASH_DIST, LOST_TARGET_MS } from "./ai.ts";
 import { def, grid, openGrid, player, world } from "./testkit.ts";
 
@@ -71,6 +71,29 @@ describe("spawns", () => {
     w.run(6000);
     expect(w.mm.size).toBe(1);
     expect([...w.collection.keys()][0]).toMatch(/^m\d+$/);
+  });
+
+  it("jogador parado perto não trava o respawn para sempre: passada a espera, nasce, mas a mais de 3 tiles", () => {
+    const w = world({ grid: openGrid(40, 10), spawns: [sp(5, 5, 1, 4)], defs: () => def({ respawnMs: 1000, aggroRange: 0 }) });
+    w.mm.spawnAll();
+    const m = [...w.mm.all()][0];
+    w.mm.kill(m, w.now());
+    const p = w.add(player("p", 5, 5)); // parado no centro do spawn
+    w.run(RESPAWN_FORCE_AFTER_MS - 2000);
+    expect(w.mm.size).toBe(0); // ainda dentro da espera normal
+    w.run(10_000);
+    expect(w.mm.size).toBe(1);
+    const born = [...w.mm.all()][0]!;
+    expect(cheb(born.s.x, born.s.y, p.x, p.y)).toBeGreaterThan(RESPAWN_FORCE_DIST);
+  });
+
+  it("chefe não usa o respawn forçado (segue só a regra de 7 tiles)", () => {
+    const w = world({ grid: openGrid(40, 10), spawns: [sp(5, 5, 1, 4)], defs: () => def({ respawnMs: 1000, aggroRange: 0, boss: true, name: "Rei" }) });
+    w.mm.spawnAll();
+    w.mm.kill([...w.mm.all()][0]!, w.now());
+    w.add(player("p", 5, 5));
+    w.run(RESPAWN_FORCE_AFTER_MS + 20_000);
+    expect(w.mm.size).toBe(0);
   });
 
   it("announces bosses globally", () => {
