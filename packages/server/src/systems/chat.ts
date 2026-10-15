@@ -1,5 +1,7 @@
 import type { Client, Room } from "@colyseus/core";
 import { MAX_CHAT_LEN, S2C, type ChatMessage, type ChatSendMsg, type NoticeMsg } from "@lemonquest/shared";
+
+export const UNKNOWN_COMMAND = "Comando desconhecido. Digite /ajuda para ver os comandos.";
 import type { PlayerState } from "../state.ts";
 
 const RATE_MAX = 5;
@@ -43,7 +45,7 @@ export function handleChat(room: Room, client: Client, from: PlayerState, msg: C
   const text = sanitizeText(msg.text.slice(0, MAX_CHAT_LEN * 4)).trim().slice(0, MAX_CHAT_LEN).trim();
   if (!text) return;
   if (text.startsWith("/")) {
-    if (!hooks.command?.(from, text)) client.send(S2C.Notice, { text: "Comando desconhecido.", kind: "warn" } satisfies NoticeMsg);
+    if (!hooks.command?.(from, text)) client.send(S2C.Notice, { text: UNKNOWN_COMMAND, kind: "warn" } satisfies NoticeMsg);
     return;
   }
   // Magia: as palavras aparecem sobre o conjurador via S2C.SpellCast (cliente), nunca no log do chat.

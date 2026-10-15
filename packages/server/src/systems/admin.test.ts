@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLOSE_KICKED, S2C } from "@lemonquest/shared";
-import { MAX_KICK_REASON_BYTES, clipBytes, handleAdminCommand, isAdmin, muteRemaining, type AdminContext } from "./admin.ts";
+import { ADMIN_COMMANDS, MAX_KICK_REASON_BYTES, clipBytes, handleAdminCommand, helpLines, isAdmin, muteRemaining, type AdminContext } from "./admin.ts";
 import { handleChat } from "./chat.ts";
 import { WorldRoom } from "../rooms/WorldRoom.ts";
 import { createAccountWithCharacter, getCharacterByName, initDb } from "../persistence/db.ts";
@@ -56,7 +56,7 @@ describe("admin: quem pode", () => {
     const client = { sessionId: "b", send: (type: string, m: any) => sent.push([type, m]) } as any;
     const room = { broadcast: vi.fn() } as any;
     handleChat(room, client, bia, { text: "/online", channel: "global" }, { command: (p, text) => handleAdminCommand(p, text, t.ctx) });
-    expect(sent).toEqual([[S2C.Notice, { text: "Comando desconhecido.", kind: "warn" }]]);
+    expect(sent).toEqual([[S2C.Notice, { text: "Comando desconhecido. Digite /ajuda para ver os comandos.", kind: "warn" }]]);
     expect(room.broadcast).not.toHaveBeenCalled();
   });
 
@@ -217,8 +217,8 @@ describe("admin: na sala (produção, sem comandos de dev)", () => {
     say(cl, "/online");
     say(cl, "/level 99");
     say(cb, "/online");
-    expect(notices(cl)).toEqual(["Online (2): Bia (1), Leo (1)", "Comando desconhecido."]);
-    expect(notices(cb)).toEqual(["Comando desconhecido."]);
+    expect(notices(cl)).toEqual(["Online (2): Bia (1), Leo (1)", "Comando desconhecido. Digite /ajuda para ver os comandos."]);
+    expect(notices(cb)).toEqual(["Comando desconhecido. Digite /ajuda para ver os comandos."]);
   });
 
   it("/kick fecha com CLOSE_KICKED + motivo; sem reconexão automática", () => {
@@ -315,5 +315,15 @@ describe("admin + dev fora de produção", () => {
     expect(notices(cl)).toContain(`Teleportado para ${sp.x},${sp.y}.`);
     say("/online");
     expect(notices(cl)).toContain("Online (1): Leo (20)");
+  });
+});
+
+describe("/ajuda", () => {
+  it("jogador vê os comandos de grupo e o F1; só admin vê a lista de admin", () => {
+    const player = helpLines("Bia", PROD), admin = helpLines("Leo", PROD);
+    expect(player.join(" ")).toContain("/convidar");
+    expect(player.join(" ")).toContain("F1");
+    expect(player.join(" ")).not.toContain("/kick");
+    for (const c of ADMIN_COMMANDS) expect(admin.join(" ")).toContain(c);
   });
 });
