@@ -83,9 +83,15 @@ test("grupo: convidar, aceitar, painel, chat do grupo e XP compartilhada", async
     const xpA1 = await xpOf(a), xpB1 = await xpOf(b);
     await a.keyboard.press("F8");
     await expect.poll(async () => (await monsters(a)).length, { timeout: 15_000 }).toBeGreaterThan(0);
-    // A mata (se o alvo morrer na mão de outro jogador ainda no mundo de um teste anterior, mira no próximo).
+    // A mata (se o alvo morrer na mão de outro jogador ainda no mundo de um teste anterior, mira no próximo). A segue o
+    // alvo (F8) e pode se afastar: B vai junto, senão fica fora dos 12 sqm da divisão e o teste mede a distância.
     await expect.poll(async () => {
       if ((await xpOf(a)) > xpA1) return true;
+      const pa = (await me(a))!, pbNow = (await me(b))!;
+      if (Math.max(Math.abs(pa.x - pbNow.x), Math.abs(pa.y - pbNow.y)) > 5) {
+        const t = (await walkableNear(b, pa.x, pa.y, 2)).find((w) => w.x !== pa.x || w.y !== pa.y);
+        if (t) await teleport(b, t.x, t.y);
+      }
       const t = await a.evaluate(() => (window as any).__lq.target() as string);
       if (!t || !(await monsters(a)).some((m) => m.id === t)) await targetNearest(a, undefined, 3000).catch(() => "");
       return false;
