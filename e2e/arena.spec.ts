@@ -1,7 +1,7 @@
 // Coliseu: janela do Mestre (lobbies), partida solo (ondas, pausa com vendedor, Pronto, desistir → resultado) e grupo
 // com dois navegadores.
 import { expect, test, type Page } from "@playwright/test";
-import { clickTile, enterGame, me, meState, monsters, setLevel, snap, targetNearest, teleport, tileToClient, walkableNear } from "./helpers.ts";
+import { clickTile, enterGame, me, meState, monsters, setChase, setLevel, snap, targetNearest, teleport, tileToClient, walkableNear } from "./helpers.ts";
 
 const MASTER = { x: 87, y: 108 };
 
@@ -66,7 +66,7 @@ async function clearWave(page: Page): Promise<void> {
 test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 2 → desistir → resultado", async ({ page }) => {
   await enterGame(page, "knight");
   await setLevel(page, 40);
-  await page.keyboard.press("F8"); // seguir o alvo
+  await setChase(page, true);
   await openArena(page);
   const win = page.getByRole("dialog", { name: "Coliseu" });
   await expect(win).toContainText("Arenas livres");
@@ -215,6 +215,6 @@ test("coliseu: cair na arena não tem penalidade (sem perda de XP) e mostra o re
   expect(after.level).toBe(before.level);
   expect(after.xp).toBeGreaterThanOrEqual(before.xp);
   expect(after.hp).toBeGreaterThan(0);
-  const pos = (await me(page))!;
-  expect(Math.max(Math.abs(pos.x - MASTER.x), Math.abs(pos.y - MASTER.y))).toBeLessThan(12);
+  // O cartão pode chegar antes da posição nova (a saída é um teleporte): espera o personagem aparecer na saída.
+  await expect.poll(async () => { const pos = (await me(page))!; return Math.max(Math.abs(pos.x - MASTER.x), Math.abs(pos.y - MASTER.y)); }, { timeout: 10_000 }).toBeLessThan(12);
 });

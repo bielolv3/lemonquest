@@ -43,7 +43,9 @@ export class FightModeSystem {
   /** Carrega postura/perseguição salvas. */
   load(p: PlayerState, stance?: unknown, chase?: unknown): void {
     p.stance = STANCES.includes(stance as FightStance) ? (stance as FightStance) : "balanced";
-    p.chase = chase === true;
+    // Personagem novo (nunca salvou o modo): cavaleiro começa seguindo o alvo — corpo a corpo parado não alcança o rato
+    // que foge com pouca vida, e o novato não conhece o F8 (robô: 2 ratos em 10 min). Quem já escolheu fica como está.
+    p.chase = chase === undefined ? p.vocation === "knight" : chase === true;
   }
 
   /** C2S.FightMode */
