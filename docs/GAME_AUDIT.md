@@ -101,7 +101,7 @@ skill 10/20/30/45/60 nos levels 1/8/15/25/35; "ideal" = um jogador sem disputa d
 |---|---|---|
 | 29 | Faixa 5–10 lenta (tier 1 empatava com o punho no lv 7; lobo pesado para magos) | arma tier 1 ✅; lobo ✅ (vida 80, dano [6,15]) |
 | 30 | Druida sem magia de dano barata no início (feiticeiro tem Bola de Fogo) | ✅ Lasca de Gelo (exori frigo) |
-| 31 | Sem destino para o ouro depois do tier 3 (tier 4–5 não vendidos) | 🧭 |
+| 31 | Sem destino para o ouro depois do tier 3 (tier 4–5 não vendidos) | ✅ na branch `proposta/31-tier4-a-venda`: tier 4 nas lojas (kit completo 22–27 mil); tier 5 segue só loot/chefe/baú |
 | 32 | Sem conteúdo acima do lv 40 (só 3 spawns de espírito de chama) | 🧭 |
 | 33 | Magos frágeis em corpo a corpo no lv 25+; paladino sem armadura tier 3 | 🧭 |
 

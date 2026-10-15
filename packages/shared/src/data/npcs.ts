@@ -39,8 +39,12 @@ export const NPCS: Record<string, NpcDef> = {
         "longsword", "hand_axe", "hunting_bow", "oak_wand", "thorn_rod",
         "bronze_helmet", "bronze_armor", "bronze_legs", "bronze_boots", "bronze_shield",
         // tier 3 (lv 15): só armas — depois que o punho deixou de acompanhar o level, a arma do tier importa e a de
-        // tier 3 não caía de nenhum monstro para cavaleiro e feiticeiro (tiers 4–5 continuam só no loot/baús).
+        // tier 3 não caía de nenhum monstro para cavaleiro e feiticeiro.
         "iron_sword", "war_hammer", "long_bow", "storm_wand", "frost_rod",
+        // tier 4 (lv 25): destino para o ouro que sobra a partir do lv 20 (11–13 mil: ~1–2 h de jogo). O tier 5 continua
+        // só no loot, nos chefes e nos baús.
+        "steel_blade", "battle_axe", "composite_bow", "ember_wand", "moss_rod",
+        "steel_helmet", "steel_armor", "steel_legs", "steel_boots", "steel_shield",
       ),
       buys: ["weapon", "shield", "helmet", "armor", "legs", "boots", "ring", "amulet", "material"],
     },
@@ -82,7 +86,8 @@ export const NPCS: Record<string, NpcDef> = {
     id: "old_hunter", name: "Velho Caçador Tomé", sprite: C + "Hunter/SpriteSheet.png",
     greeting: "Ah, um novato. Quer aprender a mirar de verdade? Tenho arcos e equipamento de patrulheiro. Compro peles e ossos também.",
     shop: {
-      sells: sells("short_bow", "hunting_bow", "long_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
+      sells: sells("short_bow", "hunting_bow", "long_bow", "composite_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
+        "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots", "health_potion", "meat", "fish", "beaf", "yakitori"),
       buys: ["material", "food"],
     },
     idleLines: [
@@ -100,6 +105,7 @@ export const NPCS: Record<string, NpcDef> = {
         "apprentice_wand", "oak_wand", "storm_wand", "twig_rod", "thorn_rod", "frost_rod",
         "apprentice_helmet", "apprentice_armor", "apprentice_legs", "apprentice_boots",
         "adept_helmet", "adept_armor", "adept_legs", "adept_boots",
+        "ember_wand", "moss_rod", "arcane_helmet", "arcane_armor", "arcane_legs", "arcane_boots",
       ),
       buys: ["material", "potion", "food"],
     },

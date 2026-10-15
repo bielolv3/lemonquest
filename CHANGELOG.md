@@ -13,6 +13,11 @@
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
 
+### Economia (proposta #31)
+- Tier 4 (level 25) à venda: Bento (armas de todas as vocações e o conjunto de Aço), Velho Caçador Tomé (Arco
+  Composto, conjunto de Franco-Atirador) e Dona Marta (Varinha Flamejante, Bastão do Pântano, conjunto Arcano).
+  Conjunto completo: 22–27 mil de ouro. O tier 5 continua só no loot, nos chefes e nos baús.
+
 ### Engenharia
 - E2E novo do depot (abre a mochila dobrada, guarda um item arrastando, devolve a mochila dobrada).
 - E2E do chão: repete o clique de pegar se um monstro passar pelo tile.
