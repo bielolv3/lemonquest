@@ -1,6 +1,7 @@
 // Cola de atalhos de teclado.
 import { useEffect, useRef } from "preact/hooks";
 import { helpOpen } from "./uiState.ts";
+import { newsOpen } from "../news/news.ts";
 
 const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
   {
@@ -72,6 +73,7 @@ export function HelpPopover() {
           </ul>
         </section>
       ))}
+      <button class="btn help-news" onClick={() => { helpOpen.set(false); newsOpen.set(true); }}>Novidades</button>
     </div>
   );
 }
