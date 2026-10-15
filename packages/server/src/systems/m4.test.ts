@@ -192,13 +192,13 @@ describe("fight modes", () => {
     return { w, m, mv, fight, p, step };
   }
 
-  it("modo de luta salvo é mantido; personagem novo: cavaleiro começa seguindo o alvo, os outros parados", () => {
+  it("modo de luta salvo é mantido; personagem novo começa seguindo o alvo", () => {
     const w = world({ grid: openGrid(10, 10), spawns: [], defs: () => def({}) });
     const fight = new FightModeSystem({ movement: new MovementSystem(openGrid(10, 10)), monsters: w.mm, attackRange: () => 1 });
     const k = player("k", 1, 1, { vocation: "knight" }), s = player("s", 2, 2, { vocation: "sorcerer" });
     fight.load(k, undefined, undefined);
     fight.load(s, undefined, undefined);
-    expect([k.chase, s.chase]).toEqual([true, false]);
+    expect([k.chase, s.chase]).toEqual([true, true]);
     fight.load(k, "offensive", false);
     fight.load(s, "defensive", true);
     expect([k.chase, k.stance, s.chase, s.stance]).toEqual([false, "offensive", true, "defensive"]);

@@ -148,7 +148,7 @@ export async function walkableNear(page: Page, x: number, y: number, r = 3): Pro
   }, [x, y, r] as const);
 }
 
-/** Liga/desliga "seguir o alvo" (F8) até o estado pedido — o padrão depende da vocação (cavaleiro novo já segue). */
+/** Liga/desliga "seguir o alvo" (F8) até o estado pedido (personagem novo já começa seguindo). */
 export async function setChase(page: Page, on: boolean): Promise<void> {
   await expect.poll(async () => {
     if (((await meState(page))?.chase ?? false) !== on) await page.keyboard.press("F8");

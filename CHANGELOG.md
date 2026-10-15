@@ -28,9 +28,10 @@
   um mago via 35 itens, metade espadas e arcos; e um "Lv N" em vermelho marca o que pede level acima do seu.
 
 ### Jogabilidade
-- **Cavaleiro novo começa com "seguir o alvo" ligado** (F8): parado, o corpo a corpo não alcançava o rato que foge
-  com pouca vida e a primeira missão não andava (robô novato: 2 ratos em 10 min; paladino e magos em ~1,5 min). Quem
-  já tem personagem fica com o modo que escolheu.
+- **Personagem novo começa com "seguir o alvo" ligado** (F8): parado, ninguém alcançava o rato que foge com pouca
+  vida e a primeira missão emperrava (robô novato: cavaleiro 2 ratos e druida 4 em 10 min — a Lasca de Gelo deixa o
+  rato com ~3 de vida; feiticeiro 41–73 s). À distância, seguir só aproxima até o alcance. Quem já tem personagem fica
+  com o modo que escolheu.
 
 ### Engenharia
 - Arquivos do cliente com hash no nome (`/assets/*`) ficam 1 ano no cache do navegador (antes revalidavam a cada
