@@ -3,7 +3,7 @@ import {
   ACHIEVEMENTS, BESTIARY_IDS, C2S, OUTFIT_LIST, RANKING_CACHE_S, S2C, TITLES, defaultOutfit, isFreeOutfit, isValidUnlockId,
   resolveUnlockArg, type AchievementsMsg,
 } from "@lemonquest/shared";
-import { AchievementSystem, achievementEvent, grantUnlock, onUnlock, setActiveAchievements } from "./achievements.ts";
+import { AchievementSystem, achievementEvent, bestiaryOf, grantUnlock, onUnlock, setActiveAchievements } from "./achievements.ts";
 import { handleAdminCommand, type AdminContext } from "./admin.ts";
 import { isOutfitUnlocked } from "./outfit.ts";
 import { WorldRoom } from "../rooms/WorldRoom.ts";
@@ -91,6 +91,17 @@ function setup(opts: { explore?: number; equipped?: number } = {}) {
 }
 
 describe("conquistas: eventos", () => {
+  it("bestiário: conta abates por tipo (chefes incluídos) e quem já tinha a lista antiga aparece com pelo menos 1", () => {
+    const t = setup();
+    for (let i = 0; i < 3; i++) t.sys.event("s1", "kill", { defId: "rat" });
+    t.sys.event("s1", "kill", { defId: "swamp_lich", boss: true });
+    t.rec.data.ach!.killed.push("wolf"); // derrotado antes de existir o contador
+    t.sys.sendState("s1");
+    const st = t.sent.filter(([, ty]) => ty === S2C.Achievements).at(-1)![2] as AchievementsMsg;
+    expect(st.bestiary).toEqual({ rat: 3, swamp_lich: 1, wolf: 1 });
+    expect(bestiaryOf({ done: {}, stats: {}, killed: [] })).toEqual({});
+  });
+
   it("kill: primeiro abate dá a conquista, o toast e a recompensa (addon); não repete", () => {
     const t = setup();
     t.sys.event("s1", "kill", { defId: "rat" });

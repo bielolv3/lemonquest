@@ -115,6 +115,7 @@ export class AchievementSystem {
     switch (type) {
       case "kill": {
         a.stats.kills = (a.stats.kills ?? 0) + 1;
+        if (d.defId) a.stats[`k:${d.defId}`] = (a.stats[`k:${d.defId}`] ?? 0) + 1; // bestiário: abates por tipo
         if (d.boss) {
           a.stats.bosses = (a.stats.bosses ?? 0) + 1;
           if (d.defId) a.stats[`boss:${d.defId}`] = (a.stats[`boss:${d.defId}`] ?? 0) + 1;
@@ -260,13 +261,27 @@ export class AchievementSystem {
       const v = Math.floor(this.metric(p, rec, def.metric));
       if (v > 0) progress[def.id] = v;
     }
-    return { done: { ...a.done }, progress, points, unlocks: [...(rec.data.unlocks ?? [])], title: a.title ?? "" };
+    return { done: { ...a.done }, progress, points, unlocks: [...(rec.data.unlocks ?? [])], title: a.title ?? "", bestiary: bestiaryOf(a) };
   }
 
   sendState(id: string): void {
     const m = this.state(id);
     if (m) this.o.send(id, S2C.Achievements, m);
   }
+}
+
+/**
+ * Bestiário do personagem: id → abates. Vem dos contadores `k:<id>`; quem derrotou o monstro antes de existir o
+ * contador (lista `killed`) aparece com pelo menos 1. Chefes vêm de `boss:<id>`.
+ */
+export function bestiaryOf(a: NonNullable<CharacterData["ach"]>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const id of a.killed ?? []) out[id] = Math.max(1, a.stats[`k:${id}`] ?? 0);
+  for (const [k, v] of Object.entries(a.stats)) {
+    if (k.startsWith("k:") && v > 0) out[k.slice(2)] = Math.max(out[k.slice(2)] ?? 0, v);
+    else if (k.startsWith("boss:") && v > 0) out[k.slice(5)] = Math.max(out[k.slice(5)] ?? 0, v);
+  }
+  return out;
 }
 
 /** Pontos de conquista de um registro (ranking). */

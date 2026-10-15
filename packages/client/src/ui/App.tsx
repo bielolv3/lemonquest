@@ -9,6 +9,7 @@ import { TradeWindow } from "./trade/TradeWindow.tsx";
 import { EventBadge } from "./events/EventBadge.tsx";
 import { NewsWindow } from "./news/NewsWindow.tsx";
 import { ChallengesWindow } from "./challenges/ChallengesWindow.tsx";
+import { BestiaryWindow } from "./bestiary/Bestiary.tsx";
 import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { CombatOverlays } from "./combat/CombatOverlays.tsx";
@@ -36,6 +37,7 @@ export function App() {
       <EventBadge />
       <NewsWindow />
       <ChallengesWindow />
+      <BestiaryWindow />
       <Chat />
       <WorldMapOverlay />
       <ZoneBanner />

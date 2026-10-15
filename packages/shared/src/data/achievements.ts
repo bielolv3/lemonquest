@@ -207,4 +207,6 @@ export interface AchievementsMsg {
   unlocks: string[];
   /** Título ativo (id) ou "". */
   title: string;
+  /** Bestiário: id do monstro já derrotado → quantos abates (chefes incluídos). Ausente = ainda não derrotou. */
+  bestiary?: Record<string, number>;
 }

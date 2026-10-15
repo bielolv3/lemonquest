@@ -21,6 +21,7 @@ import { ArenaWindow } from "../arena/ArenaWindow.tsx";
 import { ArenaHud } from "../arena/ArenaHud.tsx";
 import { TrainingWindow } from "../training/TrainingWindow.tsx";
 import { helpOpen, skillsOpen, soundOpen, toggle } from "./uiState.ts";
+import { toggleBestiary } from "../bestiary/Bestiary.tsx";
 import { OutfitWindow } from "../outfit/OutfitWindow.tsx";
 import { ContextMenu } from "../outfit/ContextMenu.tsx";
 import { toggleOutfit } from "../outfit/outfit.ts";
@@ -90,6 +91,7 @@ function useHudKeys() {
       if (e.code === "KeyL") { e.preventDefault(); toggleQuestLog(); return; }
       if (e.code === "KeyJ") { e.preventDefault(); toggleAchievements(); return; }
       if (e.code === "KeyR") { e.preventDefault(); toggleRanking(); return; }
+      if (e.code === "KeyB") { e.preventDefault(); toggleBestiary(); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); soundOpen.set(false); toggle(helpOpen); return; }
       if (e.key === "Escape") {
         if (closeTopOverlay()) return;

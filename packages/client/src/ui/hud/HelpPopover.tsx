@@ -35,6 +35,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["O"], label: "Roupas e addons" },
       { keys: ["J"], label: "Conquistas" },
       { keys: ["R"], label: "Ranking" },
+      { keys: ["B"], label: "Bestiário" },
       { keys: ["F1"], label: "Esta ajuda (ou ?)" },
     ],
   },
