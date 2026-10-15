@@ -15,6 +15,8 @@
 - Personagem novo: os avisos do topo ("Missão aceita", "Teleportado…") ficavam **atrás** do cartão de primeiros
   passos; agora aparecem logo abaixo dele. Avisos e barra/faixas do Coliseu ficam centrados na área de jogo (sem a
   barra lateral), alinhados com os outros cartões.
+- Desconectado (servidor reiniciado, rede caiu): a tela agora diz **"Aguardando o servidor voltar…"** e depois **"O
+  servidor está no ar. Pode voltar."** (consulta `/health` a cada 3 s) — antes não dava para saber quando clicar.
 - **Volume do som**: o botão ♪ abre um painel com volume (0–100%, lembrado) e mudo — antes era só ligar/desligar.
 - Chat: **/ajuda** (ou /comandos, /help) lista os comandos de grupo e lembra das magias e do F1; admins veem também
   os comandos de admin. "Comando desconhecido." agora sugere o /ajuda.
