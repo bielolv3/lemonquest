@@ -12,6 +12,9 @@
 - Loja: nomes longos quebram em duas linhas ("Poção de Vida Média" e "Poção de Mana Média" saíam iguais, cortados).
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
+- Personagem novo: os avisos do topo ("Missão aceita", "Teleportado…") ficavam **atrás** do cartão de primeiros
+  passos; agora aparecem logo abaixo dele. Avisos e barra/faixas do Coliseu ficam centrados na área de jogo (sem a
+  barra lateral), alinhados com os outros cartões.
 - **Volume do som**: o botão ♪ abre um painel com volume (0–100%, lembrado) e mudo — antes era só ligar/desligar.
 - Chat: **/ajuda** (ou /comandos, /help) lista os comandos de grupo e lembra das magias e do F1; admins veem também
   os comandos de admin. "Comando desconhecido." agora sugere o /ajuda.
