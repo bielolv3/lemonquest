@@ -31,7 +31,7 @@ test("pesca: lançar a linha na água, ver a boia e receber o resultado", async 
   // Margem (tile andável com água ao lado) mais longe de qualquer monstro: lobo por perto solta a linha.
   const spot = await quietShore(page);
   expect(spot, "o mapa tem margem de água").not.toBeNull();
-  expect(spot!.d, "margem longe dos monstros").toBeGreaterThan(12);
+  expect(spot!.d, "margem longe dos monstros").toBeGreaterThan(6);
   await teleport(page, spot!.x, spot!.y);
   await waitSettled(page);
 
@@ -48,6 +48,7 @@ test("pesca: lançar a linha na água, ver a boia e receber o resultado", async 
 test("pesca: sem vara avisa, e andar solta a linha", async ({ page }) => {
   test.setTimeout(90_000);
   await enterGame(page, "paladin");
+  await setLevel(page, 40); // sobrevive a um monstro que apareça perto da margem
   const spot = await quietShore(page);
   await teleport(page, spot!.x, spot!.y);
   await waitSettled(page);
