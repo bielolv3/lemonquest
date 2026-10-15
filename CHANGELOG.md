@@ -27,6 +27,11 @@
 - Loja: caixa **"Só da minha vocação"** (ligada por padrão, lembrada) esconde o que a sua vocação não usa — no Bento
   um mago via 35 itens, metade espadas e arcos; e um "Lv N" em vermelho marca o que pede level acima do seu.
 
+### Jogabilidade
+- **Cavaleiro novo começa com "seguir o alvo" ligado** (F8): parado, o corpo a corpo não alcançava o rato que foge
+  com pouca vida e a primeira missão não andava (robô novato: 2 ratos em 10 min; paladino e magos em ~1,5 min). Quem
+  já tem personagem fica com o modo que escolheu.
+
 ### Engenharia
 - Arquivos do cliente com hash no nome (`/assets/*`) ficam 1 ano no cache do navegador (antes revalidavam a cada
   visita); `index.html`, mapa e sprites continuam revalidando, então um deploy novo chega no próximo F5. Sem o Caddy
