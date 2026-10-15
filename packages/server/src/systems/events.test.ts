@@ -84,6 +84,42 @@ describe("EventSystem", () => {
   });
 });
 
+describe("EventSystem: persistência do evento manual", () => {
+  const mk = (kv: { v?: string }, t: number) => new EventSystem({
+    broadcast: () => {}, send: () => {}, now: () => t,
+    store: { get: () => kv.v, set: (v) => { kv.v = v; } },
+  });
+
+  it("o evento disparado por admin volta depois de um reinício e some quando vence", () => {
+    const kv: { v?: string } = {};
+    const a = mk(kv, at(16, 0));
+    a.start("mare_de_tesouros", 60, at(16, 0)); // 16h–17h (sexta: a agenda só tem evento às 19h)
+    expect(JSON.parse(kv.v!).id).toBe("mare_de_tesouros");
+    const b = mk(kv, at(16, 20)); // "reinício" no meio do evento
+    b.tick(at(16, 20));
+    expect(b.active?.id).toBe("mare_de_tesouros");
+    expect(b.lootMult()).toBe(1.5);
+    const c = mk(kv, at(17, 30)); // reiniciou depois do fim
+    c.tick(at(17, 30));
+    expect(c.active).toBeNull();
+  });
+
+  it("parar apaga o que estava salvo; lixo no armazenamento é ignorado", () => {
+    const kv: { v?: string } = {};
+    const a = mk(kv, at(18, 0));
+    a.start("noite_de_cacada", 30, at(18, 0));
+    a.stop(at(18, 5));
+    expect(kv.v).toBe("null");
+    expect(mk(kv, at(18, 6)).active).toBeNull();
+    for (const bad of ["não é json", '{"id":"nada","until":999999999999999}', '{"id":"noite_de_cacada"}']) {
+      const k2 = { v: bad };
+      const x = mk(k2, at(18, 0));
+      x.tick(at(18, 0));
+      expect(x.active).toBeNull();
+    }
+  });
+});
+
 describe("loot com bônus de evento", () => {
   const def: any = { id: "m", loot: [{ itemId: "bone", chance: 0.4 }] };
   // Sorteio fixo 0,5: com chance 0,4 não cai; com ×1,5 (0,6) cai.

@@ -6,6 +6,8 @@ export interface EventHost {
   broadcast(type: string, msg: unknown): void;
   send(id: string, type: string, msg: unknown): void;
   now?(): number;
+  /** Guarda o evento manual (JSON) para sobreviver a reinício; ausente = só memória. */
+  store?: { get(): string | undefined; set(value: string): void };
 }
 
 const CHECK_MS = 1000;
@@ -18,7 +20,23 @@ export class EventSystem {
   /** Janelas agendadas que terminam até aqui foram encerradas por um admin e não valem. */
   private suppressedUntil = 0;
 
-  constructor(private readonly o: EventHost) {}
+  constructor(private readonly o: EventHost) {
+    this.manual = this.load();
+  }
+
+  private load(): ActiveEvent | null {
+    try {
+      const raw = this.o.store?.get();
+      const v = raw ? (JSON.parse(raw) as Partial<ActiveEvent>) : null;
+      const def = v && typeof v.id === "string" ? eventDef(v.id) : undefined;
+      if (!def || typeof v?.until !== "number" || v.until <= this.now()) return null;
+      return toActive(def, v.until);
+    } catch {
+      return null;
+    }
+  }
+
+  private persist() { this.o.store?.set(JSON.stringify(this.manual)); }
 
   private now() { return this.o.now?.() ?? Date.now(); }
 
@@ -26,7 +44,7 @@ export class EventSystem {
   tick(now = this.now()): void {
     if (now < this.nextCheck) return;
     this.nextCheck = now + CHECK_MS;
-    if (this.manual && this.manual.until <= now) this.manual = null;
+    if (this.manual && this.manual.until <= now) { this.manual = null; this.persist(); }
     let sched = scheduledEvent(new Date(now));
     if (sched && sched.until <= this.suppressedUntil) sched = null;
     const want = this.manual ?? sched;
@@ -46,6 +64,7 @@ export class EventSystem {
     const def = eventDef(id);
     if (!def || !(minutes >= 1)) return null;
     this.manual = toActive(def, now + Math.floor(minutes) * 60_000);
+    this.persist();
     this.nextCheck = 0;
     this.tick(now);
     return this.manual;
@@ -56,6 +75,7 @@ export class EventSystem {
     if (!this.current) return false;
     this.suppressedUntil = Math.max(this.suppressedUntil, this.current.until);
     this.manual = null;
+    this.persist();
     this.nextCheck = 0;
     this.tick(now);
     return true;

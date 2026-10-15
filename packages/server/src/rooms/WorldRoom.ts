@@ -378,7 +378,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onCatch: (p) => this.ach.event(p.id, "fish"),
       inArena: (id) => this.arena.inMatch(id),
     });
-    this.events = new EventSystem({ broadcast, send });
+    this.events = new EventSystem({ broadcast, send, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
       inArena: (id) => this.arena.inMatch(id), save: (id) => this.save(id),
