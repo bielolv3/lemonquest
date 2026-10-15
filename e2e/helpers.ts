@@ -148,6 +148,26 @@ export async function walkableNear(page: Page, x: number, y: number, r = 3): Pro
   }, [x, y, r] as const);
 }
 
+/**
+ * Dois tiles vizinhos (A, B) livres e longe de qualquer outro jogador: os testes rodam em paralelo e todo personagem novo
+ * nasce no mesmo spawn, então um par fixo se atropela (o clique direito pegaria o jogador errado). `mine` = ids a ignorar.
+ */
+export async function quietPair(page: Page, cx: number, cy: number, mine: string[], radius = 14, clear = 5): Promise<[Tile, Tile]> {
+  const pair = await page.evaluate(([cx, cy, mine, radius, clear]) => {
+    const lq = (window as any).__lq;
+    const others = (lq.players() as { id: string; x: number; y: number }[]).filter((p) => !(mine as string[]).includes(p.id));
+    const free = (x: number, y: number) => lq.walkable(x, y) && others.every((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > (clear as number));
+    const spots: { a: { x: number; y: number }; b: { x: number; y: number } }[] = [];
+    for (let dy = -(radius as number); dy <= (radius as number); dy++) for (let dx = -(radius as number); dx <= (radius as number); dx++) {
+      const a = { x: (cx as number) + dx, y: (cy as number) + dy }, b = { x: a.x + 1, y: a.y };
+      if (free(a.x, a.y) && free(b.x, b.y)) spots.push({ a, b });
+    }
+    return spots.length ? spots[Math.floor(Math.random() * spots.length)]! : null;
+  }, [cx, cy, mine, radius, clear] as const);
+  if (!pair) throw new Error("nenhum par de tiles livre perto de " + cx + "," + cy);
+  return [pair.a, pair.b];
+}
+
 /** Liga/desliga "seguir o alvo" (F8) até o estado pedido (personagem novo já começa seguindo). */
 export async function setChase(page: Page, on: boolean): Promise<void> {
   await expect.poll(async () => {

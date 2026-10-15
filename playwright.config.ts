@@ -9,7 +9,8 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   fullyParallel: true,
   // CI (2 vCPUs, sem GPU): com 2 workers os testes de 2 navegadores ficam sem CPU e o personagem não "assenta".
-  workers: process.env.CI ? 1 : 3,
+  // Padrão 1: cada teste abre 1–2 navegadores e vários em paralelo travam PCs comuns. Suba com E2E_WORKERS=3 se a máquina aguentar.
+  workers: process.env.CI ? 1 : Number(process.env.E2E_WORKERS) || 1,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   outputDir: "test-results",

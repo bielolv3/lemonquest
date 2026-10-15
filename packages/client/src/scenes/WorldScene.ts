@@ -44,6 +44,7 @@ import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
 import { guideTarget } from "../ui/hud/guide.ts";
 import { getHudInsets } from "../ui/hud/layout.ts";
 import { GuideArrow } from "../game/guide.ts";
+import { requestTrade } from "../ui/trade/trade.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -594,11 +595,11 @@ export class WorldScene extends Phaser.Scene {
         ]);
         return;
       }
-      // Botão direito em outro jogador: menu do grupo (convidar / expulsar / passar liderança).
+      // Botão direito em outro jogador: grupo (convidar / expulsar / passar liderança) e troca de itens.
       const other = right ? this.playerAtTile(t.x, t.y) : null;
       if (other) {
         const ev = ptr.event as MouseEvent;
-        const items = this.partyMenu(other);
+        const items = [...this.partyMenu(other), { label: "Trocar itens", run: () => requestTrade(other) }];
         if (items.length) openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, items);
         return;
       }

@@ -52,6 +52,8 @@ export const C2S = {
   AchievementsRequest: "achievementsRequest",
   /** Grupo (party): convidar/aceitar/recusar/sair/expulsar/passar liderança/desfazer. */
   Party: "party",
+  /** Troca entre jogadores (convite, oferta, confirmação, cancelar). */
+  Trade: "trade",
 } as const;
 
 /** Ações de missão. accept/turnIn exigem a janela do NPC que dá a missão aberta (e perto). */
@@ -176,6 +178,8 @@ export const S2C = {
   Achievements: "achievements",
   /** Estado do SEU grupo (party), enviado ao mudar (null = sem grupo). */
   Party: "party",
+  /** Estado da troca (convite recebido, janela aberta ou fechada). */
+  Trade: "trade",
   /** Convite para um grupo (toast com Aceitar/Recusar). */
   PartyInvite: "partyInvite",
 } as const;

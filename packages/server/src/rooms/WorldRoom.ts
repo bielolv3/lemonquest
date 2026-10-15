@@ -1,7 +1,7 @@
 import { e2eMode } from "../e2e.ts";
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "@colyseus/core";
 import {
-  C2S, CLOSE_KICKED, CYCLE_START_MS, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
+  C2S, CLOSE_KICKED, CYCLE_START_MS, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
@@ -19,6 +19,7 @@ import { RegenSystem } from "../systems/regen.ts";
 import { handleChat, clearChatState, type ChatHooks } from "../systems/chat.ts";
 import { SocialSystem } from "../systems/social.ts";
 import { statusLines } from "../systems/status.ts";
+import { TradeSystem } from "../systems/trade.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
 import { SkillSystem } from "../systems/skills.ts";
@@ -63,7 +64,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -109,6 +110,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private ach!: AchievementSystem;
   private party!: PartySystem;
   private social!: SocialSystem;
+  private trade!: TradeSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
@@ -364,6 +366,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       for (const line of helpLines(p.name)) send(p.id, S2C.Notice, { text: line, kind: "info", log: true } satisfies NoticeMsg);
       return true;
     };
+    this.trade = new TradeSystem({
+      getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
+      inArena: (id) => this.arena.inMatch(id), save: (id) => this.save(id),
+    });
     this.social = new SocialSystem({
       players: () => this.state.players.values(),
       record: (id) => this.records.get(id),
@@ -420,6 +426,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
     this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
     this.on<PartyActionMsg>(C2S.Party, (p, m) => this.party.onAction(p, m));
+    this.on<TradeMsg>(C2S.Trade, (p, m) => this.trade.onMessage(p, m));
     this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
     this.on<SetTitleMsg>(C2S.SetTitle, (p, m) => { this.ach.onSetTitle(p, m); });
     this.on<unknown>(C2S.AchievementsRequest, (p) => { this.ach.sendState(p.id); });
@@ -440,6 +447,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["npcs", () => this.npcs.tick(this.tickNow)],
       ["quests", () => this.quests.tick(this.tickNow, players())],
       ["party", () => this.party.sync(this.tickNow)],
+      ["trade", () => this.trade.tick()],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
       ["combat.flush", () => this.combat.flush()],
       ["ground", () => this.ground.tick(this.tickNow)],
@@ -758,6 +766,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["fight", () => this.fight.removePlayer(sid)],
         ["chat", () => clearChatState(sid)],
         ["achievements", () => this.ach.removePlayer(sid)],
+        ["trade", () => this.trade.removePlayer(sid)],
         ["party", () => this.party.removePlayer(sid)],
         ["social", () => { const pl = this.state.players.get(sid); if (pl) this.social.onLeave(pl); }],
       ];

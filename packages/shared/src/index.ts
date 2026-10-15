@@ -18,3 +18,4 @@ export * from "./data/achievements.ts";
 export * from "./ranking.ts";
 export * from "./party.ts";
 export * from "./emotes.ts";
+export * from "./trade.ts";

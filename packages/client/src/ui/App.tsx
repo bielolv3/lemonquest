@@ -5,6 +5,7 @@ import { useLoginReady } from "./loading.ts";
 import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { PartyInvites } from "./party/PartyInvites.tsx";
+import { TradeWindow } from "./trade/TradeWindow.tsx";
 import { Hud } from "./hud/Hud.tsx";
 import { TeleportFade } from "./fx/TeleportFade.tsx";
 import { CombatOverlays } from "./combat/CombatOverlays.tsx";
@@ -28,6 +29,7 @@ export function App() {
       <Hud />
       <Toasts />
       <PartyInvites />
+      <TradeWindow />
       <Chat />
       <WorldMapOverlay />
       <ZoneBanner />

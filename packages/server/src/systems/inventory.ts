@@ -320,6 +320,49 @@ export class InventorySystem {
     return { ...it, count };
   }
 
+  // --- troca entre jogadores (systems/trade.ts) ------------------------------------------
+
+  /** Item da mochila pelo uid (sem remover). */
+  findByUid(id: string, uid: string): ItemInstance | undefined {
+    return this.inv.get(id)?.backpack.find((it) => it?.uid === uid) ?? undefined;
+  }
+
+  /**
+   * Troca atômica: `a` entrega `give.a` (+ `gold.a`) e recebe `give.b` (+ `gold.b`), e vice-versa. Tudo ou nada:
+   * "gone" = alguma oferta não vale mais (item sumiu/mudou, ouro insuficiente); "full" = não cabe na mochila de
+   * alguém; nos dois casos nada muda. Itens do equipamento não entram (só mochila). Ouro trocado não conta como ganho.
+   */
+  swap(a: PlayerState, offerA: { items: { uid: string; count: number }[]; gold: number }, b: PlayerState, offerB: { items: { uid: string; count: number }[]; gold: number }): "ok" | "gone" | "full" {
+    const ia = this.inv.get(a.id), ib = this.inv.get(b.id);
+    if (!ia || !ib) return "gone";
+    const valid = (inv: Inventory, o: { items: { uid: string; count: number }[]; gold: number }) =>
+      isInt(o.gold) && o.gold >= 0 && o.gold <= inv.gold &&
+      new Set(o.items.map((x) => x.uid)).size === o.items.length &&
+      o.items.every((x) => { const it = inv.backpack.find((y) => y?.uid === x.uid); return !!it && isInt(x.count) && x.count >= 1 && x.count <= it.count && it.defId !== GOLD_ID; });
+    if (!valid(ia, offerA) || !valid(ib, offerB)) return "gone";
+    const snap = (inv: Inventory) => ({ backpack: inv.backpack.map((it) => (it ? { ...it, bonuses: it.bonuses.map((x) => ({ ...x })) } : null)), gold: inv.gold });
+    const sa = snap(ia), sb = snap(ib);
+    const restore = (inv: Inventory, s: ReturnType<typeof snap>) => { inv.backpack.splice(0, inv.backpack.length, ...s.backpack); inv.gold = s.gold; };
+    const take = (inv: Inventory, items: { uid: string; count: number }[]): ItemInstance[] =>
+      items.map((x) => {
+        const i = inv.backpack.findIndex((y) => y?.uid === x.uid);
+        const it = inv.backpack[i]!;
+        it.count -= x.count;
+        const out = { ...it, count: x.count, bonuses: it.bonuses.map((q) => ({ ...q })) };
+        if (it.count <= 0) { inv.backpack[i] = null; out.uid = it.uid; } else out.uid = newUid();
+        return out;
+      });
+    const outA = take(ia, offerA.items), outB = take(ib, offerB.items);
+    ia.gold += offerB.gold - offerA.gold;
+    ib.gold += offerA.gold - offerB.gold;
+    let left = 0;
+    for (const it of outB) left += this.addItem(a, it);
+    for (const it of outA) left += this.addItem(b, it);
+    if (left > 0) { restore(ia, sa); restore(ib, sb); return "full"; }
+    this.dirty.add(a.id); this.dirty.add(b.id);
+    return "ok";
+  }
+
   // --- chão (systems/ground.ts) ---------------------------------------------------------
 
   /** Item em `from` (mochila/equipamento), sem remover. */
