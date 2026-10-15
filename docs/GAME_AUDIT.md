@@ -118,6 +118,14 @@ robô que joga **sem comandos de admin** (anda, ataca o mais perto, magia de dan
 | 37 | **P3** Banner da zona (z 40) por cima de janelas (30) e do cartão de missão (27) | capturas do treino e da missão | ✅ z 8 |
 | 38 | **P3** Nomes longos cortados na loja; "0 / 1.310 pts" em duas linhas; coluna Lv repetida no ranking de level | capturas | ✅ |
 
+| 39 | **P2** Personagem novo não via os avisos do topo: ficavam atrás do cartão "Primeiros passos" (z 26, avisos sem z-index) | captura | ✅ avisos descem para baixo do cartão |
+| 40 | **P2** Meia tela (960 px) com barra lateral: o chat cobria as magias 1–3 | captura + medição | ✅ chat sobe para cima da barra quando não cabe ao lado |
+| 41 | **P3** Bento lista 35 itens para qualquer vocação (metade inútil para um mago) | captura | ✅ filtro "Só da minha vocação" + "Lv N" no que pede level |
+| 42 | **P3** Sem como descobrir os comandos de grupo no jogo; "Comando desconhecido." sem pista | código | ✅ /ajuda (/comandos, /help) |
+| 43 | **P3** Som só liga/desliga (escritório: quer baixo, não mudo) | código | ✅ volume 0–100% lembrado |
+| 44 | **P3** Tela de desconectado não dizia quando o servidor voltou (deploy) | simulação: servidor derrubado e religado | ✅ consulta /health a cada 3 s |
+| 45 | **P3** Deploy fazia baixar 1,46 MB de JS de novo (Phaser junto com o jogo; tudo revalidando) | build + curl | ✅ Phaser num chunk próprio + `/assets/*` immutable (o ranking.html chegou a sumir do build nessa troca — pego e coberto no E2E) |
+
 Robô (5 min, os quatro juntos disputando os mesmos ratos): todos chegam ao level 2–3, **sem mortes**; sozinho, o
 feiticeiro faz ~63 XP/min no level 1–2. No level 7 só contra lobos (bando de 3, sem recuar e com "seguir" ligado,
 inclusive os magos): 1–4 mortes em 4 min — mede o robô, que não foge, mais do que o jogo; não justifica mexer de novo.
