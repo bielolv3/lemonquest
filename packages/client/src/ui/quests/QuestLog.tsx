@@ -3,6 +3,7 @@ import { MAX_TRACKED_QUESTS, QUEST_LIST, npcDef, questDef, questReady, unlockTex
 import { useEffect, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { inventoryStore } from "../items/inventory.ts";
+import { challengesOpen, toggleChallenges } from "../challenges/challenges.ts";
 import { inventoryCounter, questAction, questLogOpen, questStore, rewardText, stepLines } from "./quests.ts";
 import "./quests.css";
 
@@ -23,7 +24,7 @@ function QuestLogDialog() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); questLogOpen.set(false); }
+      if (e.key === "Escape" && !challengesOpen.get()) { e.preventDefault(); e.stopImmediatePropagation(); questLogOpen.set(false); } // a janela de desafios (por cima) fecha primeiro
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -38,6 +39,7 @@ function QuestLogDialog() {
       <div class="win-title">
         <span class="win-grip" />
         <span>Diário de missões</span>
+        <button class="quest-btn ql-weekly" onClick={toggleChallenges} data-tip="Desafios da semana" data-tip-sub="Metas que zeram na segunda-feira">Desafios semanais</button>
         <button class="win-close" onClick={() => questLogOpen.set(false)} data-tip="Fechar" data-tip-sub="Esc" aria-label="Fechar">×</button>
       </div>
       <div class="ql-body">

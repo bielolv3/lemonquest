@@ -1,7 +1,7 @@
 import { e2eMode } from "../e2e.ts";
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "@colyseus/core";
 import {
-  C2S, CLOSE_KICKED, CYCLE_START_MS, WEEKLY_EVENTS, WaterGrid, type FishMsg, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
+  C2S, CLOSE_KICKED, CYCLE_START_MS, WEEKLY_EVENTS, WaterGrid, type ChallengeActionMsg, type FishMsg, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
@@ -22,6 +22,7 @@ import { statusLines } from "../systems/status.ts";
 import { TradeSystem } from "../systems/trade.ts";
 import { EventSystem } from "../systems/events.ts";
 import { rollWeek } from "../systems/weekly.ts";
+import { ChallengeSystem } from "../systems/challenges.ts";
 import { FishingSystem } from "../systems/fishing.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
@@ -67,7 +68,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -117,6 +118,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private events!: EventSystem;
   private fishing!: FishingSystem;
   private weeklyAt = 0;
+  private challenges!: ChallengeSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
@@ -380,6 +382,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onCatch: (p) => this.ach.event(p.id, "fish"),
       inArena: (id) => this.arena.inMatch(id),
     });
+    this.challenges = new ChallengeSystem({
+      getPlayer, record: (id) => this.records.get(id), send, inventory: this.inventory,
+      gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y), save: (id) => this.save(id),
+    });
     this.events = new EventSystem({ broadcast, send, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
@@ -449,6 +455,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<PartyActionMsg>(C2S.Party, (p, m) => this.party.onAction(p, m));
     this.on<TradeMsg>(C2S.Trade, (p, m) => this.trade.onMessage(p, m));
     this.on<FishMsg>(C2S.Fish, (p, m) => this.fishing.onMessage(p, m));
+    this.on<ChallengeActionMsg>(C2S.Challenge, (p, m) => this.challenges.onMessage(p, m));
     this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
     this.on<SetTitleMsg>(C2S.SetTitle, (p, m) => { this.ach.onSetTitle(p, m); });
     this.on<unknown>(C2S.AchievementsRequest, (p) => { this.ach.sendState(p.id); });

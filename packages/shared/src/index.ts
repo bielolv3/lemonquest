@@ -22,3 +22,4 @@ export * from "./trade.ts";
 export * from "./data/events.ts";
 export * from "./data/news.ts";
 export * from "./data/weekly.ts";
+export * from "./data/challenges.ts";

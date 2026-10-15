@@ -54,6 +54,8 @@ export const C2S = {
   Party: "party",
   /** Troca entre jogadores (convite, oferta, confirmação, cancelar). */
   Trade: "trade",
+  /** Desafios da semana: listar ou resgatar. */
+  Challenge: "challenge",
   /** Lançar a linha de pesca num tile de água. */
   Fish: "fish",
 } as const;
@@ -182,6 +184,8 @@ export const S2C = {
   Party: "party",
   /** Estado da troca (convite recebido, janela aberta ou fechada). */
   Trade: "trade",
+  /** Desafios da semana (progresso e resgates). */
+  Challenges: "challenges",
   /** Alguém lançou a linha: boia no tile de água durante `ms`. */
   FishCast: "fishCast",
   /** Evento com bônus em andamento (ou null quando termina). */

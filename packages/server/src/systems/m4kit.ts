@@ -9,6 +9,9 @@ const icon = { url: "x.png" };
 export const ITEMS_FX: Record<string, ItemDef> = {
   gold_coin: { id: "gold_coin", name: "Ouro", kind: "material", stackable: true, maxStack: 1_000_000, value: 1, icon },
   hp_pot: { id: "hp_pot", name: "Poção de Vida", kind: "potion", stackable: true, value: 40, use: { heal: 50, cooldownMs: 1000 }, icon },
+  health_potion: { id: "health_potion", name: "Poção de Vida", kind: "potion", stackable: true, value: 40, use: { heal: 100, cooldownMs: 1000 }, icon },
+  health_potion_medium: { id: "health_potion_medium", name: "Poção de Vida Média", kind: "potion", stackable: true, value: 120, use: { heal: 180, cooldownMs: 1000 }, icon },
+  mana_potion: { id: "mana_potion", name: "Poção de Mana", kind: "potion", stackable: true, value: 45, use: { mana: 50, cooldownMs: 1000 }, icon },
   mana_pot: { id: "mana_pot", name: "Poção de Mana", kind: "potion", stackable: true, maxStack: 10, value: 40, use: { mana: 30, cooldownMs: 1000 }, icon },
   bread: { id: "bread", name: "Pão", kind: "food", stackable: true, value: 5, use: { food: { hpPerTick: 1, manaPerTick: 1, durationMs: 600_000 }, cooldownMs: 1000 }, icon },
   steak: { id: "steak", name: "Bife", kind: "food", stackable: true, value: 50, use: { food: { hpPerTick: 6, manaPerTick: 0, durationMs: 720_000 }, cooldownMs: 1000 }, icon },
