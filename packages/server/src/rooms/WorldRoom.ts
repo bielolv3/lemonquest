@@ -31,7 +31,7 @@ import { QuestSystem, type ZoneRect } from "../systems/quests.ts";
 import { killCredit, type Monster } from "../systems/monsters.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
-import { handleAdminCommand, muteRemaining } from "../systems/admin.ts";
+import { HELP_COMMANDS, handleAdminCommand, helpLines, muteRemaining } from "../systems/admin.ts";
 import { grantUnlock } from "../systems/achievements.ts";
 import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
 import { AchievementSystem, setActiveAchievements } from "../systems/achievements.ts";
@@ -345,7 +345,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     // Comandos com "/": de ADMIN (LEMONQUEST_ADMINS, também em produção) e de DEV (só com LEMONQUEST_DEV_COMMANDS=1,
     // fora de produção). Quem não pode → "Comando desconhecido." (chat.ts).
-    const command = (p: PlayerState, text: string) => this.party.command(p, text) || handleAdminCommand(p, text, {
+    const help = (p: PlayerState, text: string) => {
+      if (!(HELP_COMMANDS as readonly string[]).includes(text.trim().split(/\s+/)[0]!.toLowerCase())) return false;
+      for (const line of helpLines(p.name)) send(p.id, S2C.Notice, { text: line, kind: "info", log: true } satisfies NoticeMsg);
+      return true;
+    };
+    const command = (p: PlayerState, text: string) => help(p, text) || this.party.command(p, text) || handleAdminCommand(p, text, {
       send, broadcast,
       players: () => this.state.players.values(),
       record: (id) => this.records.get(id),
