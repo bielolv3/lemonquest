@@ -19,11 +19,19 @@
   servidor está no ar. Pode voltar."** (consulta `/health` a cada 3 s) — antes não dava para saber quando clicar.
 - Janela estreita (meia tela, barra lateral aberta): o chat cobria as 3 primeiras magias da barra; agora ele sobe para
   cima dela quando não cabe ao lado.
+- Tela de morte mostra uma **dica** para quem está começando (até o level 10): poção no Q, um monstro por vez,
+  descansar na vila, o "!" da lista de batalha.
 - **Volume do som**: o botão ♪ abre um painel com volume (0–100%, lembrado) e mudo — antes era só ligar/desligar.
 - Chat: **/ajuda** (ou /comandos, /help) lista os comandos de grupo e lembra das magias e do F1; admins veem também
   os comandos de admin. "Comando desconhecido." agora sugere o /ajuda.
 - Loja: caixa **"Só da minha vocação"** (ligada por padrão, lembrada) esconde o que a sua vocação não usa — no Bento
   um mago via 35 itens, metade espadas e arcos; e um "Lv N" em vermelho marca o que pede level acima do seu.
+
+### Jogabilidade
+- **Personagem novo começa com "seguir o alvo" ligado** (F8): parado, ninguém alcançava o rato que foge com pouca
+  vida e a primeira missão emperrava (robô novato: cavaleiro 2 ratos e druida 4 em 10 min — a Lasca de Gelo deixa o
+  rato com ~3 de vida; feiticeiro 41–73 s). À distância, seguir só aproxima até o alcance. Quem já tem personagem fica
+  com o modo que escolheu.
 
 ### Jogabilidade (proposta #33)
 - Feiticeiro e druida ganham 6 de vida por level (antes 5): no level 30, 324 em vez de 295.

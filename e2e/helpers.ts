@@ -148,6 +148,15 @@ export async function walkableNear(page: Page, x: number, y: number, r = 3): Pro
   }, [x, y, r] as const);
 }
 
+/** Liga/desliga "seguir o alvo" (F8) até o estado pedido (personagem novo já começa seguindo). */
+export async function setChase(page: Page, on: boolean): Promise<void> {
+  await expect.poll(async () => {
+    if (((await meState(page))?.chase ?? false) !== on) await page.keyboard.press("F8");
+    await page.waitForTimeout(250);
+    return (await meState(page))?.chase ?? false;
+  }, { timeout: 10_000 }).toBe(on);
+}
+
 /** Clica no monstro mais perto até virar o alvo. */
 /** `timeoutMs`: quanto esperar até haver alvo (curto em laços que também vigiam outra coisa, como a pausa do Coliseu). */
 export async function targetNearest(page: Page, filter?: (defId: string) => boolean, timeoutMs = 30_000): Promise<string> {

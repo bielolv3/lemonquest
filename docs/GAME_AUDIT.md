@@ -119,6 +119,7 @@ robô que joga **sem comandos de admin** (anda, ataca o mais perto, magia de dan
 | 38 | **P3** Nomes longos cortados na loja; "0 / 1.310 pts" em duas linhas; coluna Lv repetida no ranking de level | capturas | ✅ |
 
 | 39 | **P1** Cartão "Primeiros passos" no topo bloqueava o novato: cobria os avisos e o caminho até o Capitão (noroeste) e a floresta (norte); o clique para andar caía no cartão | robô novato sem admin: 74 s parado tentando andar até o Capitão | ✅ cartão no canto inferior direito; E2E novo |
+| 46 | **P1** Cavaleiro e druida de level 1 não conseguiam fazer a primeira missão: ratos fogem com 15% de vida e, sem "seguir" (F8, desligado por padrão), não dá para alcançá-los (a Lasca de Gelo deixa o rato com ~3) | robô novato sem admin: cavaleiro 2 ratos e druida 4 em 10 min; paladino 105 s, feiticeiro 41–433 s | ✅ personagem novo começa seguindo o alvo (`m4.test.ts`) |
 | 40 | **P2** Meia tela (960 px) com barra lateral: o chat cobria as magias 1–3 | captura + medição | ✅ chat sobe para cima da barra quando não cabe ao lado |
 | 41 | **P3** Bento lista 35 itens para qualquer vocação (metade inútil para um mago) | captura | ✅ filtro "Só da minha vocação" + "Lv N" no que pede level |
 | 42 | **P3** Sem como descobrir os comandos de grupo no jogo; "Comando desconhecido." sem pista | código | ✅ /ajuda (/comandos, /help) |

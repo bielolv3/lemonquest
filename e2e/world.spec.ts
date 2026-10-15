@@ -1,6 +1,6 @@
 // Mundo: andar (teclado e clique), atacar um monstro, magia na tecla 1 e janela de roupas (O).
 import { expect, test } from "@playwright/test";
-import { clickTile, enterGame, me, meState, monsters, say, setLevel, targetNearest, teleport, tileToClient, walkableNear, waitSettled } from "./helpers.ts";
+import { clickTile, enterGame, me, meState, monsters, say, setChase, setLevel, targetNearest, teleport, tileToClient, waitSettled, walkableNear } from "./helpers.ts";
 
 /** Floresta ao norte da vila: spawn de ratos/gosmas (mapa: rat em 70,62). */
 const FOREST = { x: 70, y: 62 };
@@ -29,7 +29,7 @@ test("atacar e matar um monstro na floresta", async ({ page }) => {
   const spot = (await walkableNear(page, FOREST.x, FOREST.y, 4))[0]!;
   await teleport(page, spot.x, spot.y);
   // Modo seguir (F8): o cavaleiro persegue o alvo.
-  await page.keyboard.press("F8");
+  await setChase(page, true);
   await expect(page.locator(".fm-btn.chase")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await monsters(page)).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const xp0 = (await meState(page))!.xp as number;
