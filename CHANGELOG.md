@@ -12,6 +12,8 @@
 - Loja: nomes longos quebram em duas linhas ("Poção de Vida Média" e "Poção de Mana Média" saíam iguais, cortados).
 - Nome da zona ao entrar numa área passa por baixo das janelas e cartões (antes cobria a janela aberta por 2 s).
 - Conquistas: "0 / 1.310 pts" numa linha só; ranking de level sem a coluna "Lv" repetida.
+- Loja: caixa **"Só da minha vocação"** (ligada por padrão, lembrada) esconde o que a sua vocação não usa — no Bento
+  um mago via 35 itens, metade espadas e arcos; e um "Lv N" em vermelho marca o que pede level acima do seu.
 
 ### Jogabilidade (proposta #33)
 - Feiticeiro e druida ganham 6 de vida por level (antes 5): no level 30, 324 em vez de 295.
