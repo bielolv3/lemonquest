@@ -83,6 +83,17 @@ function matchOnlinePrefix(words: string[], players: PlayerState[]): { target: P
   return null;
 }
 
+/** /ajuda (/comandos, /help): os comandos de jogador; para admins, também os de admin. Linhas para o log do chat. */
+export const HELP_COMMANDS = ["/ajuda", "/comandos", "/help"] as const;
+export function helpLines(name: string, env: Env = process.env): string[] {
+  const lines = [
+    "Grupo: /convidar <nome> · /aceitar [nome] · /recusar [nome] · /sair · /expulsar <nome> · /lider <nome> · /desfazer",
+    "Magias: digite as palavras (ex.: exura) ou use as teclas 1–8. Todos os atalhos de teclado: F1.",
+  ];
+  if (isAdmin(name, env)) lines.push(`Admin: ${ADMIN_COMMANDS.join(" ")}`);
+  return lines;
+}
+
 /** Trata um comando de admin. true = era um comando de admin (tratado); false = não é admin/não é comando de admin. */
 export function handleAdminCommand(p: PlayerState, text: string, ctx: AdminContext): boolean {
   const env = ctx.env ?? process.env;
