@@ -49,7 +49,10 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
       ...(await a.evaluate(() => (window as any).__lq.players() as { x: number; y: number }[])),
       ...(await ground(a)),
     ];
-    const clear = (x: number, y: number) => busy.every((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > 1);
+    // Monstro por perto também atrapalha: o clique vira ataque e o loot dele cai no tile (visto: lodo na mochila).
+    const mobs = await a.evaluate(() => (window as any).__lq.monsters() as { x: number; y: number }[]);
+    const near = (o: { x: number; y: number }, x: number, y: number, d: number) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= d;
+    const clear = (x: number, y: number) => !busy.some((o) => near(o, x, y, 1)) && !mobs.some((o) => near(o, x, y, 6));
     const spots = (await walkableNear(a, 60, 80, 8)).filter((t, _i, all) =>
       all.some((o) => o.x === t.x + 1 && o.y === t.y) && all.some((o) => o.x === t.x + 2 && o.y === t.y)
       && clear(t.x, t.y) && clear(t.x + 1, t.y) && clear(t.x + 2, t.y));
