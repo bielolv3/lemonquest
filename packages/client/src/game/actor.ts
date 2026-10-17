@@ -42,16 +42,22 @@ export interface ActorOpts {
   trim?: { top: number; bottom: number };
   /** Sem barra de HP (NPCs). */
   noBar?: boolean;
+  /** Nome e barra com a cor da vida, como no Tibia (jogadores): verde cheio → vermelho. Ignora nameColor. */
+  hpName?: boolean;
 }
 
 const BAR_COLORS = { hi: 0x3fae4a, mid: 0xd9b43a, low: 0xc9433f };
+/** Faixas de vida do Tibia (fração mínima → cor), usadas no nome e na barra dos jogadores. */
+const HP_TIERS: readonly [number, number][] = [[0.92, 0x00c000], [0.6, 0x60c060], [0.3, 0xc0c000], [0.08, 0xc03030], [0, 0xc00000]];
+const hpTierColor = (p: number): number => HP_TIERS.find(([min]) => p >= min)![1];
+const cssHex = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
 /** Membros do seu grupo: nome verde-claro + escudinho ao lado. */
 export const PARTY_NAME_COLOR = "#9dff8a";
 const PARTY_SHIELD_TEX = "party-shield";
-/** Fala sobre a cabeça (estilo Tibia): amarelo com contorno, empilha até SPEECH_MAX linhas e some sozinha. */
+/** Fala sobre a cabeça (estilo Tibia): amarelo com contorno, sem itálico, empilha até SPEECH_MAX linhas e some sozinha. */
 const SPEECH_COLOR = "#ffe84d";
 export const SPEECH_COLOR_PARTY = "#7fd8ff";
-/** Espaço entre o nome e a fala (o nome é bold branco; a fala é itálico menor, para não confundir). */
+/** Espaço entre o nome e a fala (o nome de jogador tem a cor da vida; a fala é amarela e menor, para não confundir). */
 const SPEECH_GAP = 5;
 const SPEECH_MAX = 3;
 const SPEECH_FADE_MS = 500;
@@ -91,6 +97,8 @@ export class Actor {
   ghosted = false;
   /** Sem barra de HP (NPCs). */
   readonly noBar: boolean;
+  /** Nome/barra na cor da vida (jogadores). */
+  private readonly hpName: boolean;
 
   readonly root: Phaser.GameObjects.Container;
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -144,6 +152,7 @@ export class Actor {
     this.facing = dirToFacing(dir);
     this.scale = opts.scale ?? 1;
     this.noBar = !!opts.noBar;
+    this.hpName = !!opts.hpName;
     const fh = look.sheet.frameHeight;
     this.contentH = opts.trim ? opts.trim.bottom - opts.trim.top : fh;
     this.baseY = opts.trim ? (fh - opts.trim.bottom) * this.scale : 0;
@@ -161,7 +170,7 @@ export class Actor {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif",
       fontSize: `${opts.fontSize ?? 11}px`,
       fontStyle: "bold",
-      color: (this.baseNameColor = opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff")),
+      color: (this.baseNameColor = this.hpName ? cssHex(hpTierColor(1)) : opts.nameColor ?? (isMe ? "#ffe066" : "#ffffff")),
       stroke: "#101018",
       strokeThickness: opts.fontSize && opts.fontSize < 11 ? 2 : 3,
       resolution: textRes(),
@@ -182,14 +191,14 @@ export class Actor {
     if (this.label.text !== t) this.label.setText(t);
   }
 
-  /** Membro do meu grupo: escudinho ao lado do nome e (para os outros) nome verde-claro. */
+  /** Membro do meu grupo: escudinho ao lado do nome e (para os outros, se o nome não segue a vida) nome verde-claro. */
   setParty(on: boolean) {
     if (on === !!this.partyIcon) return;
     if (on) {
       ensurePartyShield(this.deps.scene);
       this.partyIcon = this.deps.scene.add.image(0, 0, PARTY_SHIELD_TEX).setOrigin(1, 0.5).setScale(2);
       this.deps.uiLayer.add(this.partyIcon);
-      if (!this.isMe) this.label.setColor(PARTY_NAME_COLOR);
+      if (!this.isMe && !this.hpName) this.label.setColor(PARTY_NAME_COLOR);
       this.placePartyIcon();
       this.applyVisible();
     } else {
@@ -212,14 +221,14 @@ export class Actor {
     if (!full) return;
     const t = full.length > SPEECH_MAX_CHARS ? `${full.slice(0, SPEECH_MAX_CHARS - 1).trimEnd()}…` : full;
     const obj = this.deps.scene.add.text(0, 0, t, {
-      fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "10px", fontStyle: "italic",
+      fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "10px",
       color, stroke: "#101018", strokeThickness: 3, align: "center",
       wordWrap: { width: SPEECH_WRAP_W, useAdvancedWrap: true }, resolution: textRes(),
     }).setOrigin(0.5, 1);
     this.pushSpeech(obj, speechMs(t));
   }
 
-  /** Emote: símbolo maior, sem itálico, que some mais rápido que uma fala. */
+  /** Emote: símbolo maior, em negrito, que some mais rápido que uma fala. */
   emote(glyph: string, color: string) {
     const obj = this.deps.scene.add.text(0, 0, glyph, {
       fontFamily: "Verdana, Tahoma, system-ui, sans-serif", fontSize: "17px", fontStyle: "bold",
@@ -388,8 +397,12 @@ export class Actor {
     const fw = Math.round(w * this.hpShown), gw = Math.round(w * Math.max(this.hpGhost, this.hpShown));
     this.barGhost.setPosition(x0 + 1, y0 + 1).setScale(gw, inner).setVisible(gw > fw);
     this.barFill.setPosition(x0 + 1, y0 + 1).setScale(fw, inner).setVisible(fw > 0);
-    const col = this.hpTarget > 0.6 ? this.colors.hi : this.hpTarget > 0.3 ? this.colors.mid : this.colors.low;
-    if (col !== this.lastBarColor) { this.lastBarColor = col; this.barFill.setTint(col); }
+    const col = this.hpName ? hpTierColor(this.hpTarget) : this.hpTarget > 0.6 ? this.colors.hi : this.hpTarget > 0.3 ? this.colors.mid : this.colors.low;
+    if (col !== this.lastBarColor) {
+      this.lastBarColor = col;
+      this.barFill.setTint(col);
+      if (this.hpName) this.label.setColor((this.baseNameColor = cssHex(col)));
+    }
     this.label.setPosition(Math.round(sx), y0 - 1);
     this.placePartyIcon();
     this.placeSpeech(dtMs);

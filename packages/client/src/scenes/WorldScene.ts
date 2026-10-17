@@ -375,7 +375,7 @@ export class WorldScene extends Phaser.Scene {
   addPlayer(id: string, p: PlayerView) {
     if (this.actors.has(id)) return;
     const isMe = id === this.myId;
-    const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir);
+    const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir, { hpName: true });
     this.lookSig.set(id, `${p.outfit}|${p.addons}`);
     actor.setTitle(p.title ?? "");
     actor.setHp(p.hp, p.maxHp, true);
