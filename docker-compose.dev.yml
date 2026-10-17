@@ -1,0 +1,50 @@
+# The Lemon Quest — ambiente de DESENVOLVIMENTO em Docker (código montado do disco, recarrega sozinho ao salvar).
+#   Subir:      docker compose -f docker-compose.dev.yml up -d
+#   Logs:       docker compose -f docker-compose.dev.yml logs -f
+#   Parar:      docker compose -f docker-compose.dev.yml stop
+#   Abrir:      http://localhost:3100   (servidor do jogo na 2568)
+#
+# Pode rodar junto com o de produção (docker-compose.yml, porta 2567): as portas e o banco são separados.
+# O 1º start instala as dependências (npm ci) num volume próprio — leva alguns minutos; os seguintes são rápidos.
+
+# Projeto separado do de produção: sem isto os dois compose (mesma pasta) viram o mesmo projeto "lemonquest" e cada um
+# trata o container do outro como órfão (um `--remove-orphans` derrubaria o outro).
+name: lemonquest-dev
+
+services:
+  lemonquest-dev:
+    image: node:24-bookworm
+    container_name: lemonquest-dev
+    working_dir: /app
+    init: true
+    command: >
+      sh -c "if ! cmp -s package-lock.json node_modules/.lq-lock; then npm ci --no-audit --no-fund && cp package-lock.json node_modules/.lq-lock; fi
+      && exec npm run dev"
+    ports:
+      - "3100:3000"     # cliente (Vite, hot reload) — 3100 no host: a 3000 costuma estar ocupada por outros projetos
+      - "2568:2567"     # servidor do jogo (tsx watch)
+    environment:
+      TZ: "America/Sao_Paulo"
+      PORT: "2567"
+      VITE_SERVER_PORT: "2568"       # o navegador fala com o servidor pela porta do host
+      LEMONQUEST_DEV_LAN: "1"        # Vite escuta em 0.0.0.0 (necessário dentro do container)
+      LEMONQUEST_DEV_POLL: "1"       # Vite por polling (bind mount do Windows)
+      CHOKIDAR_USEPOLLING: "1"       # idem para o tsx watch do servidor (o bind mount não repassa eventos de arquivo)
+      CHOKIDAR_INTERVAL: "1000"      # padrão é 100 ms: sem isto o polling come ~40% de CPU parado
+      LEMONQUEST_DB: "/app/docker-data-dev/lemonquest.db"
+      LEMONQUEST_BACKUP_DIR: "/app/docker-data-dev/backups"
+      LEMONQUEST_ADMINS: "Leonardo"
+      LEMONQUEST_DEV_COMMANDS: "1"   # /level, /item... (só em dev)
+    volumes:
+      - .:/app
+      # node_modules do Linux ficam em volumes (não misturam com os do Windows na pasta do projeto)
+      - lq-dev-node-modules:/app/node_modules
+      - lq-dev-node-modules-client:/app/packages/client/node_modules
+      - lq-dev-node-modules-server:/app/packages/server/node_modules
+      - lq-dev-node-modules-shared:/app/packages/shared/node_modules
+
+volumes:
+  lq-dev-node-modules:
+  lq-dev-node-modules-client:
+  lq-dev-node-modules-server:
+  lq-dev-node-modules-shared:

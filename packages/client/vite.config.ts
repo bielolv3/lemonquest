@@ -26,6 +26,12 @@ export default defineConfig(({ command }) => ({
   server: {
     host: lan ? true : "localhost",
     port: 3000,
+    // Docker de dev no Windows: o bind mount nem sempre avisa mudanças de arquivo, então olha por polling — só o código.
+    // Fazer polling de assets/ (milhares de PNGs pelo bind mount) deixava cada página levando >10 s; o publicDir é lido
+    // na hora a cada pedido, então não precisa ser vigiado.
+    watch: process.env.LEMONQUEST_DEV_POLL === "1"
+      ? { usePolling: true, interval: 1000, binaryInterval: 5000, ignored: ["**/assets/**", "**/node_modules/**", "**/docker-data*/**", "**/.git/**", "**/test-results/**", "**/playwright-report/**"] }
+      : undefined,
     fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/data/**", "**/*.db*", "**/.env*"] },
   },
 }));
