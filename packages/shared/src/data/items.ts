@@ -114,8 +114,8 @@ const gear = (shape: GearShape | "ring" | "amulet", tier: GearTier): ItemIcon =>
 
 /** Ícones de materiais: atlas tools/icons/materials.mjs (assets/icons/materials.png, 16x16, 8 colunas; ordem = esta lista). */
 export const MATERIAL_ICONS = ["cheese","slime_goo","herb","bee_sting","wolf_pelt","wolf_fang","snake_skin","spider_silk","spider_eye","bat_wing","bone","goblin_tooth","ectoplasm","lizard_scale","ember"] as const;
-const matIcon = (name: (typeof MATERIAL_ICONS)[number]): ItemIcon =>
-  ({ url: "icons/materials.png", frame: MATERIAL_ICONS.indexOf(name), frameWidth: 16, frameHeight: 16 });
+const matIcon = (name: (typeof MATERIAL_ICONS)[number], tint?: number): ItemIcon =>
+  ({ url: "icons/materials.png", frame: MATERIAL_ICONS.indexOf(name), frameWidth: 16, frameHeight: 16, ...(tint === undefined ? {} : { tint }) });
 
 const N = "ninja/Items/";
 const img = (path: string, tint?: number): ItemIcon => (tint === undefined ? { url: N + path } : { url: N + path, tint });
@@ -123,8 +123,9 @@ const img = (path: string, tint?: number): ItemIcon => (tint === undefined ? { u
 const ITEM_LIST: ItemDef[] = [];
 const add = (d: ItemDef): void => { ITEM_LIST.push(d); };
 
-// Níveis e preços por tier (1..5). Preço base; a loja compra a ~30%.
-const TIER_LEVEL = [1, 8, 15, 25, 35];
+// Níveis e preços por tier (1..7). Preço base; a loja compra a ~30%. Tiers 6 e 7 só caem das hunts de fim de jogo
+// (orcs, minotauros, ciclopes, dragões, demônios).
+const TIER_LEVEL = [1, 8, 15, 25, 35, 50, 70];
 
 // ---------------------------------------------------------------------------
 // Moeda, poções e comida
@@ -150,6 +151,8 @@ const food = (id: string, name: string, icon: ItemIcon, value: number, level: nu
     id, name, kind: "food", stackable: true, value, ...(level ? { level } : {}),
     use: { food: { hpPerTick: hp, manaPerTick: mana, durationMs: minutes * 60_000 }, cooldownMs: 1000 }, icon, description,
   });
+// Presunto de Dragão (lv 30): cai dos dragões, como no Tibia.
+food("dragon_ham", "Presunto de Dragão", img("Food/Meat.png", 0xff8a6a), 150, 30, 12, 4, 10, "Carne defumada de dragão. Muita vida.");
 // iniciais (lv 1)
 food("nuts", "Nozes", img("Food/Nut.png"), 5, undefined, 1, 1, 3, "Petisco simples. Um pouco de vida e mana.");
 food("fish", "Peixe Grelhado", img("Food/Fish.png"), 8, undefined, 2, 0, 3, "Peixe fresco do rio.");
@@ -196,6 +199,16 @@ mat("gem_green", "Esmeralda", img("Resource/GemGreen.png"), 400, "Gema verde lap
 mat("gem_yellow", "Topázio", img("Resource/GemYellow.png"), 600, "Gema amarela lapidada.", 50);
 mat("gem_purple", "Ametista", img("Resource/GemPurple.png"), 900, "Gema roxa lapidada.", 50);
 mat("mithril_bar", "Barra de Mithril", img("Resource/BarMithril.png"), 2500, "Metal raríssimo azul-esverdeado.", 50);
+// Fim de jogo (Terras Selvagens: Fortaleza Orc, Labirinto dos Minotauros, Monte Ciclope, Vale dos Dragões e Abismo)
+mat("orc_leather", "Couro de Orc", matIcon("wolf_pelt", 0x8fc078), 380, "Couro grosso e malcheiroso de orc.");
+mat("minotaur_horn", "Chifre de Minotauro", matIcon("wolf_fang", 0xe8d8b0), 480, "Chifre curvo, troféu de caçadores.");
+mat("cyclops_eye", "Olho de Ciclope", matIcon("spider_eye", 0xffa060), 650, "Enorme e ainda úmido.");
+mat("bonelord_eye", "Olho Maligno", matIcon("spider_eye", 0xff4060), 750, "Pisca mesmo depois de arrancado.");
+mat("dragon_scale", "Escama de Dragão", matIcon("lizard_scale", 0x60d060), 1100, "Escama verde, dura como aço.");
+mat("red_dragon_scale", "Escama de Dragão Vermelho", matIcon("lizard_scale", 0xff5040), 2200, "Quente ao toque. Ferreiros brigam por ela.");
+mat("behemoth_claw", "Garra de Behemoth", matIcon("wolf_fang", 0x9aa4b4), 2600, "Garra do tamanho de uma espada curta.");
+mat("demon_horn", "Chifre de Demônio", matIcon("wolf_fang", 0xe03030), 3500, "Ainda cheira a enxofre.");
+mat("demonic_essence", "Essência Demoníaca", matIcon("ember", 0xc040ff), 4000, "Uma chama roxa que sussurra.");
 
 // Chaves e itens de missão
 add({ id: "crypt_key", name: "Chave da Cripta", kind: "key", value: 0, icon: img("Treasure/SilverKey.png"), description: "Abre o portão selado da Cripta. Cai do Lich do Pântano." });
@@ -205,6 +218,9 @@ add({
   description: "Prêmio do Quadro de Recompensas. Use para abrir: poções, comida, ouro e, com sorte, um equipamento incomum ou melhor.",
 });
 add({ id: "goblin_crown", name: "Coroa do Rei Goblin", kind: "quest", value: 0, icon: img("Treasure/GoldCup.png"), description: "Prova de que o Rei Goblin caiu." });
+add({ id: "horned_fox_tail", name: "Cauda da Raposa Chifruda", kind: "quest", value: 0, icon: matIcon("wolf_pelt", 0xffa040), description: "Prova de que a Raposa Chifruda caiu." });
+add({ id: "demodras_head", name: "Cabeça de Demodras", kind: "quest", value: 0, icon: matIcon("lizard_scale", 0xff3020), description: "Prova de que Demodras caiu." });
+add({ id: "orshabaal_brain", name: "Cérebro de Orshabaal", kind: "quest", value: 0, icon: img("Food/Meat.png", 0xff80b0), description: "Ainda pulsa. Prova de que Orshabaal caiu." });
 
 // ---------------------------------------------------------------------------
 // Armas
@@ -230,6 +246,10 @@ weapon("steel_blade", "Lâmina de Aço", "sword", "knight", img(W + "BigSword/Sp
 weapon("battle_axe", "Machado de Batalha", "axe", "knight", img(W + "Axe/Sprite.png", 0xb0c0d8), 4, 62, 13000, "Enorme e brutal. Duas mãos.", { twoHanded: true });
 weapon("mithril_katana", "Katana de Mithril", "sword", "knight", img(W + "Katana/Sprite.png", 0x70f0e0), 5, 70, 38000, "Leve como pluma, afiada como a noite.", { stats: { melee: 2, crit: 2 } });
 weapon("dragon_axe", "Machado do Dragão", "axe", "knight", img(W + "Axe/Sprite.png", 0xff6a5a), 5, 84, 46000, "Forjado no sopro de um dragão. Duas mãos.", { twoHanded: true, stats: { melee: 2, crit: 3 } });
+weapon("fire_sword", "Espada de Fogo", "sword", "knight", img(W + "Sword2/Sprite.png", 0xff7030), 6, 96, 90000, "A lâmina arde sem se consumir.", { kind: "fire", stats: { melee: 2, crit: 2 } });
+weapon("giant_sword", "Espada Gigante", "sword", "knight", img(W + "BigSword/Sprite.png", 0xd8d0c0), 6, 112, 100000, "Pesada demais para um homem comum. Duas mãos.", { twoHanded: true, stats: { melee: 2, crit: 3 } });
+weapon("magic_longsword", "Espada Longa Mágica", "sword", "knight", img(W + "Sword2/Sprite.png", 0x9a7aff), 7, 130, 190000, "Runas antigas brilham ao longo do fio.", { stats: { melee: 3, crit: 3 } });
+weapon("demon_axe", "Machado Demoníaco", "axe", "knight", img(W + "Axe/Sprite.png", 0xb02040), 7, 150, 210000, "Arrancado das mãos de um demônio. Duas mãos.", { twoHanded: true, stats: { melee: 3, crit: 4 } });
 
 // Paladino (arcos, alcance 6, físico, duas mãos).
 const BOW = { range: 6, twoHanded: true } as const;
@@ -238,6 +258,8 @@ weapon("hunting_bow", "Arco de Caça", "bow", "paladin", img(W + "Bow2/Sprite.pn
 weapon("long_bow", "Arco Longo", "bow", "paladin", img(W + "Bow/Sprite.png", 0xd0b070), 3, 32, 3000, "Alcança longe com força.", { ...BOW, stats: { distance: 1 } });
 weapon("composite_bow", "Arco Composto", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xb0c0d8), 4, 46, 11000, "Chifre, madeira e tendão.", { ...BOW, stats: { distance: 2 } });
 weapon("elven_bow", "Arco Élfico", "bow", "paladin", img(W + "Bow2/Sprite.png", 0x70f0e0), 5, 62, 38000, "Canta quando a corda é solta.", { ...BOW, stats: { distance: 3, crit: 2 } });
+weapon("royal_crossbow", "Besta Real", "bow", "paladin", img(W + "Bow/Sprite.png", 0xf0c060), 6, 80, 90000, "Dourada e precisa, feita para a guarda do rei.", { ...BOW, stats: { distance: 3, crit: 3 } });
+weapon("celestial_bow", "Arco Celestial", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xc8e8ff), 7, 100, 190000, "Dizem que a corda é um raio de luar.", { ...BOW, stats: { distance: 4, crit: 3 } });
 
 // Feiticeiro (varinhas, alcance 4, energia/fogo).
 const WAND = { range: 4 } as const;
@@ -246,6 +268,8 @@ weapon("oak_wand", "Varinha de Carvalho", "wand", "sorcerer", img(W + "MagicWand
 weapon("storm_wand", "Varinha da Tempestade", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0x80b8ff), 3, 25, 3000, "Raios curtos e nervosos.", { ...WAND, kind: "energy", stats: { magic: 1 } });
 weapon("ember_wand", "Varinha Flamejante", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff8040), 4, 38, 11000, "Quente ao toque.", { ...WAND, kind: "fire", stats: { magic: 2, manaMax: 40 } });
 weapon("inferno_wand", "Varinha do Inferno", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff3030), 5, 52, 38000, "Guarda uma chama que não morre.", { ...WAND, kind: "fire", stats: { magic: 3, manaMax: 80 } });
+weapon("starstorm_wand", "Varinha da Tempestade Estelar", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xb0a0ff), 6, 68, 90000, "Estrelas cadentes presas num cristal.", { ...WAND, kind: "energy", stats: { magic: 4, manaMax: 120 } });
+weapon("destruction_wand", "Varinha da Destruição", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff5020), 7, 86, 190000, "Feita com o chifre de um demônio.", { ...WAND, kind: "fire", stats: { magic: 5, manaMax: 160 } });
 
 // Druida (bastões, alcance 4, gelo/terra).
 weapon("twig_rod", "Graveto Encantado", "rod", "druid", img(W + "Stick/Sprite.png"), 1, 7, 70, "Um graveto que ainda lembra da floresta.", { ...WAND, kind: "ice" });
@@ -253,6 +277,8 @@ weapon("thorn_rod", "Bastão de Espinhos", "rod", "druid", img(W + "Stick/Sprite
 weapon("frost_rod", "Bastão de Gelo", "rod", "druid", img(W + "Stick/Sprite.png", 0x90d8ff), 3, 25, 3000, "Cristais de gelo no topo.", { ...WAND, kind: "ice", stats: { magic: 1 } });
 weapon("moss_rod", "Bastão do Pântano", "rod", "druid", img(W + "Stick/Sprite.png", 0x50a070), 4, 38, 11000, "Cheira a terra úmida.", { ...WAND, kind: "earth", stats: { magic: 2, manaMax: 40 } });
 weapon("glacier_rod", "Bastão Glacial", "rod", "druid", img(W + "Stick/Sprite.png", 0xc8f4ff), 5, 52, 38000, "Frio de mil invernos.", { ...WAND, kind: "ice", stats: { magic: 3, manaMax: 80 } });
+weapon("northwind_rod", "Bastão do Vento Norte", "rod", "druid", img(W + "Stick/Sprite.png", 0x9ad0ff), 6, 68, 90000, "O vento do norte dorme dentro dele.", { ...WAND, kind: "ice", stats: { magic: 4, manaMax: 120 } });
+weapon("ancient_root_rod", "Bastão de Raiz Ancestral", "rod", "druid", img(W + "Stick/Sprite.png", 0x60c040), 7, 86, 190000, "Brotou no coração do Abismo e não morreu.", { ...WAND, kind: "earth", stats: { magic: 5, manaMax: 160 } });
 
 // ---------------------------------------------------------------------------
 // Armaduras
@@ -304,6 +330,14 @@ buildSet({ prefix: "steel", tier: 4, palette: "steel", slots: MELEE, shapes: { h
 buildSet({ prefix: "mithril", tier: 5, palette: "mithril", slots: MELEE, shapes: { helmet: "helmet_horned", armor: "armor_plate", legs: "legs_greaves", shield: "shield_tower" }, armor: [2, 5, 3, 1, 3], values: [7500, 17500, 10000, 5000, 10000],
   names: ["Elmo de Mithril", "Armadura de Mithril", "Grevas de Mithril", "Botas de Mithril", "Escudo de Mithril"],
   vocations: ["knight"], extra: { boots: { speed: 6 }, shield: { shield: 5 }, helmet: { melee: 1 }, armor: { hpMax: 60 } }, blurb: "Mithril: leve como couro, duro como diamante." });
+// Fim de jogo (só cai de monstros): tier 6 = Coroa (lv 50), tier 7 = Demônio (lv 70). Sem botas: as Botas da Pressa
+// (todas as vocações) ocupam esse lugar.
+buildSet({ prefix: "crown", tier: 6, palette: "gold", slots: ["helmet", "armor", "legs", "shield"], shapes: { helmet: "helmet_full", armor: "armor_plate", legs: "legs_greaves", shield: "shield_kite" }, armor: [3, 6, 4, 4], values: [24000, 56000, 32000, 32000],
+  names: ["Elmo da Coroa", "Armadura da Coroa", "Grevas da Coroa", "Escudo da Coroa"],
+  vocations: ["knight"], extra: { helmet: { melee: 1 }, armor: { hpMax: 120 }, shield: { shield: 6 } }, blurb: "Usada pela guarda real de outras eras." });
+buildSet({ prefix: "demon", tier: 7, palette: "dragon", slots: ["helmet", "armor", "legs", "shield"], shapes: { helmet: "helmet_horned", armor: "armor_plate", legs: "legs_greaves", shield: "shield_tower" }, armor: [4, 8, 5, 5], values: [60000, 140000, 80000, 80000],
+  names: ["Elmo Demoníaco", "Armadura de Placas Mágica", "Grevas Demoníacas", "Escudo Demoníaco"],
+  vocations: ["knight"], extra: { helmet: { melee: 2 }, armor: { hpMax: 200 }, shield: { shield: 8 } }, blurb: "Forjada no Abismo. Poucos sobrevivem para vesti-la." });
 
 // Paladino (4 peças, sem escudo: arcos usam as duas mãos). Armadura total 4 / 5 / 7 / 9 — antes só tiers 2 e 4: do
 // level 8 ao 25 o paladino ficava com 4 de armadura (cavaleiro 7) e no fim de jogo sem peça própria.
@@ -319,6 +353,12 @@ buildSet({ prefix: "sniper", tier: 4, palette: "mithril", slots: GEAR4, shapes: 
 buildSet({ prefix: "master_archer", tier: 5, palette: "dragon", slots: GEAR4, shapes: { helmet: "helmet_full", armor: "armor_plate", legs: "legs_greaves" }, armor: [2, 4, 2, 1], values: [6500, 16000, 9500, 5000],
   names: ["Elmo do Arqueiro-Mestre", "Couraça do Arqueiro-Mestre", "Grevas do Arqueiro-Mestre", "Botas do Arqueiro-Mestre"],
   vocations: ["paladin"], extra: { helmet: { distance: 2 }, armor: { distance: 1, hpMax: 40 }, boots: { speed: 6 } }, blurb: "Escamas de dragão sobre couro fino: nada escapa à sua mira." });
+buildSet({ prefix: "royal", tier: 6, palette: "gold", slots: ["helmet", "armor", "legs"], shapes: { helmet: "helmet_full", armor: "armor_plate", legs: "legs_greaves" }, armor: [3, 5, 3], values: [22000, 52000, 30000],
+  names: ["Elmo Real", "Armadura Real", "Grevas Reais"],
+  vocations: ["paladin"], extra: { helmet: { distance: 2 }, armor: { distance: 1, hpMax: 80 }, legs: { distance: 1 } }, blurb: "Ouro e aço para os arqueiros do rei." });
+buildSet({ prefix: "dragon_scale", tier: 7, palette: "dragon", slots: ["helmet", "armor", "legs"], shapes: { helmet: "helmet_horned", armor: "armor_plate", legs: "legs_greaves" }, armor: [4, 7, 4], values: [55000, 130000, 75000],
+  names: ["Elmo de Escamas de Dragão", "Cota de Escamas de Dragão", "Grevas de Escamas de Dragão"],
+  vocations: ["paladin"], extra: { helmet: { distance: 2 }, armor: { distance: 2, hpMax: 140 }, legs: { distance: 1, crit: 1 } }, blurb: "Escamas de dragão vermelho, leves e quase impenetráveis." });
 
 // Magos (sorcerer/druid): 4 peças com manaMax e magic. Armadura total 3 / 4 / 6 / 8.
 const MAGE: Vocation[] = ["sorcerer", "druid"];
@@ -332,6 +372,16 @@ mageSet("apprentice", 2, "leather", ["Chapéu de Aprendiz", "Túnica de Aprendiz
 mageSet("adept", 3, "steel", ["Chapéu de Adepto", "Manto de Adepto", "Calças de Adepto", "Botas de Adepto"], [1, 2, 1, 0], [500, 1400, 1000, 600], [16, 32, 20, 12], [1, 1, 0, 0], 4);
 mageSet("arcane", 4, "arcane", ["Chapéu Arcano", "Manto Arcano", "Calças Arcanas", "Botas Arcanas"], [1, 3, 1, 1], [1800, 5200, 3400, 2600], [28, 56, 35, 21], [1, 1, 1, 0], 5);
 mageSet("archmage", 5, "gold", ["Chapéu do Arquimago", "Manto do Arquimago", "Calças do Arquimago", "Botas do Arquimago"], [2, 3, 2, 1], [5500, 15000, 9500, 5000], [44, 88, 55, 33], [2, 2, 1, 0], 6);
+// Fim de jogo: 3 peças (as Botas da Pressa ocupam o lugar das botas).
+const mageSet3 = (prefix: string, tier: number, palette: GearTier, names: string[], armor: number[], values: number[], mana: number[], magic: number[], blurb: string): void =>
+  buildSet({ prefix, tier, palette, slots: ["helmet", "armor", "legs"], shapes: { helmet: "helmet_wizard", armor: "armor_robe" }, armor, values, vocations: MAGE, names,
+    extra: { helmet: { manaMax: mana[0]!, magic: magic[0]! }, armor: { manaMax: mana[1]!, magic: magic[1]! }, legs: { manaMax: mana[2]!, magic: magic[2]! } }, blurb });
+mageSet3("mystic", 6, "mithril", ["Turbante Místico", "Manto Azul", "Calças Relampejantes"], [2, 4, 2], [20000, 50000, 28000], [70, 140, 85], [2, 3, 1], "Seda azul tecida com fios de relâmpago.");
+mageSet3("ferumbras", 7, "arcane", ["Chapéu de Ferumbras", "Manto Celestial", "Calças Celestiais"], [3, 5, 3], [50000, 120000, 70000], [100, 200, 120], [3, 4, 2], "Dizem que pertenceu ao maior feiticeiro que já existiu.");
+
+// Botas da Pressa: o item mais cobiçado do fim de jogo (todas as vocações).
+add({ id: "boots_haste", name: "Botas da Pressa", kind: "boots", slot: "boots", icon: gear("boots", "gold"), level: 50, stats: { armor: 1, speed: 12 }, value: 60000,
+  description: "Quem calça não anda: voa. Caem de behemoths e demônios." });
 
 // ---------------------------------------------------------------------------
 // Anéis e amuletos (level 10+)
@@ -348,6 +398,11 @@ trinket("amulet_arcano", "Amuleto Arcano", "amulet", "arcane", 15, { manaMax: 70
 trinket("amulet_protecao", "Amuleto de Proteção", "amulet", "iron", 20, { armor: 2, hpMax: 40 }, 3000, "Um escudo invisível no peito.");
 trinket("amulet_lich", "Amuleto do Lich", "amulet", "arcane", 28, { magic: 2, manaMax: 100 }, 12000, "Arrancado do pescoço do Lich do Pântano.");
 trinket("amulet_goblin_king", "Amuleto do Rei Goblin", "amulet", "gold", 38, { armor: 3, hpMax: 150, melee: 2 }, 30000, "Roubado por goblins, usado por um rei.");
+trinket("amulet_minotaur", "Amuleto do Labirinto", "amulet", "bronze", 48, { hpMax: 120, melee: 1, distance: 1, magic: 1 }, 36000, "Cai da Raposa Chifruda, a rainha do Labirinto.");
+trinket("ring_might", "Anel da Força", "ring", "mithril", 50, { crit: 4, melee: 2, distance: 2, magic: 1 }, 40000, "Cada golpe pesa o dobro.");
+trinket("amulet_dragon", "Amuleto de Escamas", "amulet", "dragon", 55, { armor: 4, hpMax: 200 }, 45000, "Escamas de dragão costuradas em couro.");
+trinket("ring_demodras", "Anel de Demodras", "ring", "dragon", 70, { crit: 6, hpRegen: 4, manaRegen: 4 }, 120000, "Um anel quente que nunca esfria.");
+trinket("amulet_orshabaal", "Amuleto de Orshabaal", "amulet", "arcane", 90, { armor: 6, hpMax: 400, manaMax: 200, magic: 2, melee: 2, distance: 2 }, 300000, "O olhar do demônio ainda vive na pedra.");
 
 /** Catálogo (derivado das listas acima). */
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(ITEM_LIST.map((d) => [d.id, d]));

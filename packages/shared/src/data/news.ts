@@ -12,6 +12,29 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-17b",
+    date: "17 de outubro (à tarde)",
+    title: "Terras Selvagens: o mapa dobrou de tamanho",
+    items: [
+      "Passe pelas trilhas a leste das Ruínas ou do Pântano e chegue às Terras Selvagens, a nova área de fim de jogo (lv 40+).",
+      "Hunts clássicas: Fortaleza Orc, Labirinto dos Minotauros, Monte Ciclope, Cemitério dos Olhos, Forte Negro e Vale dos Dragões.",
+      "Lá embaixo, o Abismo: behemoths, demônios e o temido Orshabaal. Só com grupo!",
+      "Chefes novos: Raposa Chifruda (no Labirinto), Demodras (terça 20h) e Orshabaal (sábado 21h).",
+      "Posto da Fronteira: vila protegida no meio das Terras, com loja, depósito e uma batedora que indica as hunts.",
+      "Equipamentos novos de lv 50 e 70, como Espada de Fogo, Armadura de Placas Mágica e as famosas Botas da Pressa.",
+    ],
+  },
+  {
+    id: "2026-10-17",
+    date: "17 de outubro",
+    title: "Sete roupas novas",
+    items: [
+      "Roupas novas: Nórdico, Mendigo, Domador de Feras, Caçador de Demônios, Peregrino, Senhor da Guerra e Monge.",
+      "Cada uma tem 2 addons, como no Tibia. Abra a janela de roupas para ver o que libera cada uma.",
+      "Conquistas novas para liberar tudo: chefes repetidos, level 75, 80 de corpo a corpo, 60 de escudo, meditação offline e mais.",
+    ],
+  },
+  {
     id: "2026-10-15b",
     date: "15 de outubro (à noite)",
     title: "Desafios, bestiário e chefes na agenda",

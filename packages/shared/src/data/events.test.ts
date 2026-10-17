@@ -38,13 +38,16 @@ describe("eventos semanais", () => {
     expect(n.def.id).toBe("despertar_do_lich");
     expect(n.at).toBe(at(2026, 10, 14, 20, 0).getTime());
     expect(nextScheduled(at(2026, 10, 14, 21, 0))!.def.id).toBe("noite_de_cacada"); // depois do Lich: sexta
-    expect(nextScheduled(at(2026, 10, 17, 17, 0))!.def.id).toBe("cacada_ao_rei"); // sábado depois das 16h: domingo 20h
-    expect(nextScheduled(at(2026, 10, 18, 22, 0))!.def.id).toBe("mare_de_tesouros"); // domingo à noite: quarta 12h
+    expect(nextScheduled(at(2026, 10, 17, 17, 0))!.def.id).toBe("invasao_de_orshabaal"); // sábado depois das 16h: 21h
+    expect(nextScheduled(at(2026, 10, 17, 23, 0))!.def.id).toBe("cacada_ao_rei"); // sábado depois de Orshabaal: domingo 20h
+    expect(nextScheduled(at(2026, 10, 19, 12, 0))!.def.id).toBe("furia_de_demodras"); // segunda: terça 20h
+    expect(nextScheduled(at(2026, 10, 18, 22, 0))!.def.id).toBe("furia_de_demodras"); // domingo à noite: terça 20h
+    expect(nextScheduled(at(2026, 10, 20, 22, 0))!.def.id).toBe("mare_de_tesouros"); // terça depois de Demodras: quarta 12h
   });
 
   it("eventos de chefe: o chefe existe no catálogo e as janelas não se sobrepõem", () => {
     const withBoss = WEEKLY_EVENTS.filter((e) => e.boss);
-    expect(withBoss.map((e) => e.boss).sort()).toEqual(["goblin_king", "swamp_lich"]);
+    expect(withBoss.map((e) => e.boss).sort()).toEqual(["demodras", "goblin_king", "orshabaal", "swamp_lich"]);
     for (const e of withBoss) expect(MONSTERS[e.boss!]?.boss, e.boss).toBe(true);
     // Nenhuma janela começa dentro de outra no mesmo dia (scheduledEvent devolve só uma).
     for (const a of WEEKLY_EVENTS) for (const b of WEEKLY_EVENTS) {

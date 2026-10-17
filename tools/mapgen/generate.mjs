@@ -6,6 +6,7 @@ import { Tilesets, GameMap, mulberry32, noise2, fbm, blobTable, blobMask, bfs, r
 import { S } from './stamps.mjs';
 import { createLemon } from './lemon.mjs';
 import { polish } from './polish.mjs';
+import { expand } from './expansion.mjs';
 import { PNG } from 'pngjs';
 
 const SEED = 20260611;
@@ -764,13 +765,17 @@ let walk = 0, reached = 0;
 for (let i = 0; i < W * H; i++) { if (map.layers.collision[i] === 0) walk++; if (reach[i] || arenaReach[i]) reached++; }
 console.log(`BFS ok: ${reached} reachable tiles of ${walk} walkable (${((reached / walk) * 100).toFixed(1)}%)`);
 
+// ===================================================================== TERRAS SELVAGENS (expansão a leste: tools/mapgen/expansion.mjs)
+// O mapa acima (160 colunas) fica intacto e validado; a expansão o copia para um mapa mais largo e desenha as colunas novas.
+const big = expand({ old: map, ts, S, L: LEMON, OW_H, spawnTile: SPAWN, oldPortals: portals }).map;
+
 // ===================================================================== OUTPUT
 fs.mkdirSync(MAPS_DIR, { recursive: true });
-fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(map.toTiled()));
+fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(big.toTiled()));
 { const cp = LEMON.set.croppedPng(); const out = new PNG({ width: cp.width, height: cp.height }); out.data = Buffer.from(cp.data); const dir = path.join(MAPS_DIR, '../tiles'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'lemon-terrain.png'), PNG.sync.write(out)); }
-const a = renderPreview(map, path.join(MAPS_DIR, 'preview.png'));
-const b = renderPreview(map, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
+const a = renderPreview(big, path.join(MAPS_DIR, 'preview.png'));
+const b = renderPreview(big, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
 if (process.argv.includes('--debug')) {
-  renderPreview(map, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true });
+  renderPreview(big, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true });
 }
-console.log(`world.json ${W}x${H}; preview ${a.W}x${a.H}; small ${b.W}x${b.H}; objects ${map.objects.length}`);
+console.log(`world.json ${big.w}x${big.h}; preview ${a.W}x${a.H}; small ${b.W}x${b.H}; objects ${big.objects.length}`);

@@ -23,6 +23,9 @@ export const WEEKLY_EVENTS: readonly GameEventDef[] = [
   { id: "despertar_do_lich", name: "Despertar do Lich", desc: "O Lich do Pântano acordou! Loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 20, durationMin: 60, boss: "swamp_lich" },
   { id: "cacada_ao_rei", name: "Caçada ao Rei Goblin", desc: "O Rei Goblin voltou às Ruínas! Loot +50%", xpMult: 1, lootMult: 1.5, day: 0, hour: 20, durationMin: 90, boss: "goblin_king" },
   { id: "tarde_de_sabado", name: "Tarde de Sábado", desc: "XP ×1,5 e loot +25%", xpMult: 1.5, lootMult: 1.25, day: 6, hour: 14, durationMin: 120 },
+  // Raids das Terras Selvagens, como no Tibia: o chefe aparece no covil dele na hora marcada.
+  { id: "furia_de_demodras", name: "Fúria de Demodras", desc: "Demodras acordou no Vale dos Dragões! Loot +50%", xpMult: 1, lootMult: 1.5, day: 2, hour: 20, durationMin: 90, boss: "demodras" },
+  { id: "invasao_de_orshabaal", name: "Invasão de Orshabaal", desc: "Orshabaal subiu do Abismo! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 6, hour: 21, durationMin: 90, boss: "orshabaal" },
 ];
 
 /** Evento em andamento (agendado ou disparado por admin). */

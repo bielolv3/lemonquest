@@ -77,6 +77,7 @@ const strip = (url: string, size: number, frames: number, extra: Partial<Creatur
 
 const M = "ninja/Actor/Monster/";
 const B = "ninja/Actor/Boss/";
+const C = "ninja/Actor/Character/";
 
 /** Catálogo de monstros. Ids batem com `monster` dos spawns do mapa (world.json). */
 export const MONSTERS: Record<string, MonsterDef> = {
@@ -325,6 +326,239 @@ export const MONSTERS: Record<string, MonsterDef> = {
     ],
     sprite: strip(B + "GiantSpirit/Idle.png", 50, 5, { tint: 0xb090e0, scale: 1.5 }),
   },
+  // ------------------------------------------------------------------ Terras Selvagens (fim de jogo, lv 40-100)
+  // Hunts nostálgicas do Tibia: Fortaleza Orc, Labirinto dos Minotauros, Monte Ciclope, Cemitério dos Olhos,
+  // Vale dos Dragões e o Abismo (demônios + Orshabaal).
+  orc_warrior: {
+    id: "orc_warrior", name: "Orc Guerreiro", level: 42, hp: 700, xp: 900, damage: [40, 80], damageKind: "physical", armor: 12,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 80_000,
+    gold: [100, 200],
+    loot: [
+      { itemId: "orc_leather", chance: 0.45 },
+      { itemId: "meat", chance: 0.2, min: 1, max: 2 },
+      { itemId: "health_potion_large", chance: 0.08 },
+      { itemId: "steel_shield", chance: 0.03 },
+      { itemId: "battle_axe", chance: 0.012 },
+      { itemId: "mithril_helmet", chance: 0.01 },
+      { itemId: "crown_helmet", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Beast2/Beast2.png", { tint: 0x9fd08a }),
+  },
+  orc_shaman: {
+    id: "orc_shaman", name: "Orc Xamã", level: 44, hp: 600, xp: 800, damage: [35, 70], damageKind: "energy", armor: 8,
+    attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 80_000,
+    gold: [110, 210],
+    loot: [
+      { itemId: "orc_leather", chance: 0.3 },
+      { itemId: "herb", chance: 0.3, min: 1, max: 3 },
+      { itemId: "mana_potion_large", chance: 0.1 },
+      { itemId: "ember_wand", chance: 0.012 },
+      { itemId: "moss_rod", chance: 0.012 },
+      { itemId: "archmage_helmet", chance: 0.006 },
+      { itemId: "mystic_helmet", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Beast2/Beast2.png", { tint: 0xc8a0ff }),
+  },
+  minotaur: {
+    id: "minotaur", name: "Minotauro", level: 48, hp: 900, xp: 1260, damage: [50, 95], damageKind: "physical", armor: 14,
+    attackMs: 1800, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 80_000,
+    gold: [130, 250],
+    loot: [
+      { itemId: "minotaur_horn", chance: 0.45 },
+      { itemId: "beaf", chance: 0.15 },
+      { itemId: "health_potion_large", chance: 0.09 },
+      { itemId: "mithril_legs", chance: 0.012 },
+      { itemId: "mithril_boots", chance: 0.015 },
+      { itemId: "crown_legs", chance: 0.004 },
+      { itemId: "royal_legs", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Bear/SpriteSheet.png", { tint: 0xc89870 }),
+  },
+  minotaur_mage: {
+    id: "minotaur_mage", name: "Minotauro Mago", level: 50, hp: 800, xp: 1150, damage: [45, 90], damageKind: "fire", armor: 10,
+    attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 80_000,
+    gold: [140, 260],
+    loot: [
+      { itemId: "minotaur_horn", chance: 0.35 },
+      { itemId: "mana_potion_large", chance: 0.12 },
+      { itemId: "gem_yellow", chance: 0.05 },
+      { itemId: "inferno_wand", chance: 0.008 },
+      { itemId: "glacier_rod", chance: 0.008 },
+      { itemId: "mystic_legs", chance: 0.005 },
+    ],
+    sprite: grid4(M + "Bear/SpriteSheet.png", { tint: 0xa088e0 }),
+  },
+  cyclops: {
+    id: "cyclops", name: "Ciclope", level: 55, hp: 1200, xp: 1800, damage: [65, 130], damageKind: "physical", armor: 18,
+    attackMs: 2200, attackRange: 1, stepMs: 400, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 90_000,
+    gold: [160, 300],
+    loot: [
+      { itemId: "cyclops_eye", chance: 0.4 },
+      { itemId: "meat", chance: 0.3, min: 1, max: 3 },
+      { itemId: "health_potion_large", chance: 0.1 },
+      { itemId: "iron_bar", chance: 0.15 },
+      { itemId: "giant_sword", chance: 0.005 },
+      { itemId: "crown_armor", chance: 0.004 },
+      { itemId: "royal_helmet", chance: 0.005 },
+      { itemId: "ring_might", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Cyclope/SpriteSheet.png", { tint: 0xe0b890 }),
+  },
+  bonelord: {
+    id: "bonelord", name: "Olho Maligno", level: 60, hp: 1100, xp: 1760, damage: [55, 110], damageKind: "death", armor: 10,
+    attackMs: 2000, attackRange: 4, stepMs: 450, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 90_000,
+    gold: [170, 320],
+    loot: [
+      { itemId: "bonelord_eye", chance: 0.45 },
+      { itemId: "mana_potion_large", chance: 0.12 },
+      { itemId: "gem_purple", chance: 0.05 },
+      { itemId: "starstorm_wand", chance: 0.004 },
+      { itemId: "northwind_rod", chance: 0.004 },
+      { itemId: "mystic_armor", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Eye2/Eye2.png"),
+  },
+  black_knight: {
+    id: "black_knight", name: "Cavaleiro Negro", level: 65, hp: 1800, xp: 3000, damage: [80, 150], damageKind: "physical", armor: 25,
+    attackMs: 1800, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 100_000,
+    gold: [200, 380],
+    loot: [
+      { itemId: "iron_bar", chance: 0.3, min: 1, max: 2 },
+      { itemId: "health_potion_large", chance: 0.12 },
+      { itemId: "mithril_bar", chance: 0.03 },
+      { itemId: "fire_sword", chance: 0.006 },
+      { itemId: "crown_shield", chance: 0.006 },
+      { itemId: "royal_armor", chance: 0.004 },
+      { itemId: "royal_crossbow", chance: 0.004 },
+      { itemId: "amulet_dragon", chance: 0.004 },
+    ],
+    sprite: grid4(C + "Knight/SpriteSheet.png", { tint: 0x5a5a72 }),
+  },
+  dragon: {
+    id: "dragon", name: "Dragão", level: 70, hp: 2000, xp: 3500, damage: [70, 140], damageKind: "fire", armor: 20,
+    attackMs: 2200, attackRange: 3, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 100_000,
+    gold: [220, 420],
+    loot: [
+      { itemId: "dragon_scale", chance: 0.4 },
+      { itemId: "dragon_ham", chance: 0.35, min: 1, max: 3 },
+      { itemId: "health_potion_large", chance: 0.12 },
+      { itemId: "gem_green", chance: 0.08 },
+      { itemId: "dragon_axe", chance: 0.01 },
+      { itemId: "crown_helmet", chance: 0.006 },
+      { itemId: "mystic_helmet", chance: 0.006 },
+      { itemId: "royal_crossbow", chance: 0.004 },
+      { itemId: "ring_dragon", chance: 0.01 },
+    ],
+    sprite: grid4(M + "Dragon/SpriteSheet.png"),
+  },
+  dragon_lord: {
+    id: "dragon_lord", name: "Senhor dos Dragões", level: 85, hp: 3200, xp: 6100, damage: [100, 190], damageKind: "fire", armor: 28,
+    attackMs: 2200, attackRange: 3, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 120_000,
+    gold: [300, 600],
+    loot: [
+      { itemId: "red_dragon_scale", chance: 0.4 },
+      { itemId: "dragon_ham", chance: 0.4, min: 1, max: 4 },
+      { itemId: "health_potion_large", chance: 0.15, min: 1, max: 2 },
+      { itemId: "gem_yellow", chance: 0.1 },
+      { itemId: "dragon_scale_armor", chance: 0.004 },
+      { itemId: "dragon_scale_helmet", chance: 0.005 },
+      { itemId: "magic_longsword", chance: 0.003 },
+      { itemId: "ferumbras_helmet", chance: 0.003 },
+      { itemId: "amulet_dragon", chance: 0.01 },
+    ],
+    sprite: grid4(M + "DragonYellow/SpriteSheet.png", { tint: 0xff7a64 }),
+  },
+  behemoth: {
+    id: "behemoth", name: "Behemoth", level: 90, hp: 4000, xp: 8000, damage: [120, 230], damageKind: "physical", armor: 32,
+    attackMs: 2000, attackRange: 1, stepMs: 340, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 120_000,
+    gold: [350, 700],
+    loot: [
+      { itemId: "behemoth_claw", chance: 0.35 },
+      { itemId: "meat", chance: 0.4, min: 2, max: 4 },
+      { itemId: "health_potion_large", chance: 0.18, min: 1, max: 2 },
+      { itemId: "mithril_bar", chance: 0.06 },
+      { itemId: "giant_sword", chance: 0.01 },
+      { itemId: "demon_legs", chance: 0.004 },
+      { itemId: "dragon_scale_legs", chance: 0.004 },
+      { itemId: "boots_haste", chance: 0.003 },
+    ],
+    sprite: grid4(M + "Beast2/Beast2.png", { scale: 1.3 }),
+  },
+  demon: {
+    id: "demon", name: "Demônio", level: 100, hp: 5000, xp: 10500, damage: [130, 250], damageKind: "fire", armor: 35,
+    attackMs: 2000, attackRange: 4, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 150_000,
+    gold: [400, 800],
+    loot: [
+      { itemId: "demon_horn", chance: 0.3 },
+      { itemId: "demonic_essence", chance: 0.2 },
+      { itemId: "health_potion_large", chance: 0.2, min: 1, max: 3 },
+      { itemId: "mana_potion_large", chance: 0.2, min: 1, max: 3 },
+      { itemId: "gem_purple", chance: 0.12 },
+      { itemId: "demon_helmet", chance: 0.003 },
+      { itemId: "demon_armor", chance: 0.002 },
+      { itemId: "demon_shield", chance: 0.004 },
+      { itemId: "demon_axe", chance: 0.003 },
+      { itemId: "destruction_wand", chance: 0.003 },
+      { itemId: "ancient_root_rod", chance: 0.003 },
+      { itemId: "celestial_bow", chance: 0.003 },
+      { itemId: "ferumbras_armor", chance: 0.002 },
+      { itemId: "boots_haste", chance: 0.005 },
+    ],
+    sprite: grid4(M + "Beast/Beast.png", { scale: 1.25 }),
+  },
+  // ---- chefes das Terras Selvagens
+  horned_fox: {
+    id: "horned_fox", name: "Raposa Chifruda", level: 55, hp: 12000, xp: 12000, damage: [90, 170], damageKind: "physical", armor: 20,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
+    gold: [2500, 4000],
+    loot: [
+      { itemId: "horned_fox_tail", chance: 1 },
+      { itemId: "minotaur_horn", chance: 1, min: 3, max: 6 },
+      { itemId: "health_potion_large", chance: 1, min: 3, max: 5 },
+      { itemId: "amulet_minotaur", chance: 0.35 },
+      { itemId: "crown_armor", chance: 0.15 },
+      { itemId: "royal_armor", chance: 0.15 },
+      { itemId: "mystic_armor", chance: 0.15 },
+      { itemId: "ring_might", chance: 0.2 },
+    ],
+    sprite: grid4(M + "Bear/SpriteSheet.png", { tint: 0xffb060, scale: 1.6 }),
+  },
+  demodras: {
+    id: "demodras", name: "Demodras", level: 80, hp: 25000, xp: 30000, damage: [150, 280], damageKind: "fire", armor: 30,
+    attackMs: 2200, attackRange: 4, stepMs: 380, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 10_800_000, boss: true,
+    gold: [5000, 9000],
+    loot: [
+      { itemId: "demodras_head", chance: 1 },
+      { itemId: "red_dragon_scale", chance: 1, min: 3, max: 6 },
+      { itemId: "dragon_ham", chance: 1, min: 4, max: 8 },
+      { itemId: "ring_demodras", chance: 0.3 },
+      { itemId: "dragon_scale_armor", chance: 0.2 },
+      { itemId: "magic_longsword", chance: 0.15 },
+      { itemId: "celestial_bow", chance: 0.15 },
+      { itemId: "ferumbras_helmet", chance: 0.15 },
+      { itemId: "boots_haste", chance: 0.1 },
+    ],
+    sprite: grid4(M + "DragonYellow/SpriteSheet.png", { tint: 0xff4a3a, scale: 1.9 }),
+  },
+  orshabaal: {
+    id: "orshabaal", name: "Orshabaal", level: 120, hp: 60000, xp: 80000, damage: [220, 400], damageKind: "fire", armor: 45,
+    attackMs: 2000, attackRange: 5, stepMs: 360, aggroRange: 9, fleeAtHpPct: 0, respawnMs: 14_400_000, boss: true,
+    gold: [15000, 25000],
+    loot: [
+      { itemId: "orshabaal_brain", chance: 1 },
+      { itemId: "demonic_essence", chance: 1, min: 3, max: 6 },
+      { itemId: "demon_horn", chance: 1, min: 2, max: 4 },
+      { itemId: "amulet_orshabaal", chance: 0.25 },
+      { itemId: "demon_armor", chance: 0.2 },
+      { itemId: "demon_axe", chance: 0.15 },
+      { itemId: "destruction_wand", chance: 0.15 },
+      { itemId: "ancient_root_rod", chance: 0.15 },
+      { itemId: "ferumbras_armor", chance: 0.15 },
+      { itemId: "dragon_scale_legs", chance: 0.15 },
+      { itemId: "boots_haste", chance: 0.3 },
+    ],
+    sprite: strip(B + "DemonCyclop/Walk.png", 50, 6, { tint: 0xff6060, scale: 2 }),
+  },
 };
 
 export function monsterDef(id: string): MonsterDef | undefined {
@@ -348,5 +582,20 @@ export function monsterDef(id: string): MonsterDef | undefined {
  * flame_spirit   38   480   600    52.5 (dist 4) 8.2
  * swamp_lich*    25  3500  2500    50 (dist 5)  ~90 acertos => grupo de 3-4 (~1 min)
  * goblin_king*   40  6000  6000    90           ~110 acertos => grupo de 3-4 (~1 min), respawn 2 h
+ * --- Terras Selvagens (armas tier 6/7: o cavaleiro de skill ~70 bate ~200-300 por acerto)
+ * orc_warrior    42   700   900    60
+ * orc_shaman     44   600   800    52 (dist 4, foge a 15%)
+ * minotaur       48   900  1260    72
+ * minotaur_mage  50   800  1150    67 (dist 4)
+ * cyclops        55  1200  1800    97
+ * bonelord       60  1100  1760    82 (dist 4, morte)
+ * black_knight   65  1800  3000   115
+ * dragon         70  2000  3500   105 (dist 3, fogo)
+ * dragon_lord    85  3200  6100   145 (dist 3, fogo)
+ * behemoth       90  4000  8000   175
+ * demon         100  5000 10500   190 (dist 4, fogo)
+ * horned_fox*    55 12000 12000   130          grupo de 3+, respawn 2 h
+ * demodras*      80 25000 30000   215 (dist 4) grupo de 4+, respawn 3 h
+ * orshabaal*    120 60000 80000   310 (dist 5) grupo de 5+, respawn 4 h
  * (*boss). Magos causam ~30% menos por acerto: 4+1.1*lvl.
  */

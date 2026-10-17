@@ -1,5 +1,40 @@
 # Changelog
 
+## [Não lançado] — 2026-10-17 · Terras Selvagens (expansão leste)
+
+### Mapa
+- **O mapa passou de 160 para 280 colunas.** A expansão é gerada por `tools/mapgen/expansion.mjs` (semente própria) DEPOIS
+  do mapa original: tudo nas 160 colunas antigas fica igual (mesmos tiles e mesmos ids de objeto), menos duas passagens
+  abertas na borda leste (ruínas, y=22; pântano, y=70). Personagens salvos continuam no mesmo lugar.
+- Regiões: Deserto de Zao (Fortaleza Orc), Picos Gelados (Monte Ciclope, Cemitério dos Olhos), Floresta Sombria (Forte
+  Negro, boca do Labirinto), Vale dos Dragões (covil de Demodras) e o **Posto da Fronteira** (zona protegida com loja,
+  depósito, sacerdote e batedora).
+- Subterrâneo: **Labirinto dos Minotauros** (labirinto gerado, salão da Raposa Chifruda) e **Abismo** (behemoths,
+  demônios e o trono de Orshabaal).
+
+### Monstros e itens
+- 11 monstros (lv 42-100): orc guerreiro/xamã, minotauro/minotauro mago, ciclope, olho maligno, cavaleiro negro,
+  dragão, senhor dos dragões, behemoth, demônio. 3 chefes: Raposa Chifruda, Demodras e Orshabaal.
+- Raids agendados: Fúria de Demodras (terça 20h) e Invasão de Orshabaal (sábado 21h).
+- Tier 6 (lv 50) e tier 7 (lv 70) para as 4 vocações (só no loot), Botas da Pressa, anéis/amuletos de chefe,
+  materiais novos e Presunto de Dragão.
+
+### Docker
+- `docker-compose.dev.yml`: ambiente de desenvolvimento (Vite em http://localhost:3100 + servidor na 2568, código montado, recarrega ao
+  salvar), com nome de projeto próprio para não brigar com o de produção.
+
+## [Não lançado] — 2026-10-17 · roupas novas
+
+### Jogo
+- **7 roupas novas estilo Tibia**, cada uma com 2 addons gerados por `tools/addons/generate.mjs`: Nórdico (capa de pele,
+  escudo redondo), Mendigo (bengala, trouxa), Domador de Feras (pele de fera, chicote), Caçador de Demônios (chifres,
+  espada larga), Peregrino (cajado com lanterna, cabaça), Senhor da Guerra (capa de guerra, martelo) e Monge (contas,
+  bastão). Total: 20 roupas.
+- Desbloqueio por conquistas: 13 novas (`bestiary_10`, `kills_2500`, `boss_10`, `boss_lich_5`, `boss_goblin_5`,
+  `level_75`, `melee_80`, `shield_60`, `offline_3h`, `offline_48h`, `pickup_2000`, `steps_150k`, `explore_90`) e
+  recompensas novas em conquistas que antes davam só título ou nada (escudo 40, Coliseu 10, pesca 100, missões 10,
+  itens largados/pegos, exploração 25%, grupo).
+
 ## [Não lançado] — 2026-10-15 · ciclo 6 (retenção e qualidade de vida)
 
 ### Jogo

@@ -166,6 +166,49 @@ export const NPCS: Record<string, NpcDef> = {
     },
     idleLines: ["Reponha as forças antes da próxima onda!", "Poção na mão, vitória no coração."],
   },
+  // ---- Posto da Fronteira (Terras Selvagens, zona protegida no meio da expansão leste)
+  frontier_priest: {
+    id: "frontier_priest", name: "Irmão Tadeu", sprite: C + "Monk/SpriteSheet.png",
+    greeting: "Você chegou às Terras Selvagens. Daqui para frente, só os fortes voltam. Descanse enquanto pode.",
+    idleLines: [
+      "Ao norte, os orcs. Ao sul, os dragões. E lá embaixo... nem quero pensar.",
+      "Dizem que Orshabaal acorda quando o Abismo fica em silêncio.",
+      "Rezei por um grupo que desceu ao Labirinto. Só um voltou.",
+    ],
+  },
+  frontier_trader: {
+    id: "frontier_trader", name: "Hanna, a Mascate", sprite: C + "Woman/SpriteSheet.png",
+    greeting: "Poções fortes e comida quente! E compro tudo o que você arrancar dos monstros daqui.",
+    shop: {
+      sells: sells(
+        "health_potion_medium", "health_potion_large", "mana_potion_medium", "mana_potion_large",
+        "meat", "beaf", "yakitori", "calamari", "sushi",
+      ),
+      buys: ["weapon", "shield", "helmet", "armor", "legs", "boots", "ring", "amulet", "material", "food", "potion"],
+    },
+    idleLines: [
+      "Escama de dragão? Pago bem! Chifre de demônio? Pago melhor!",
+      "Poção grande é a melhor amiga de quem caça ciclope.",
+      "Trouxe presunto de dragão? Isso aqui é uma iguaria!",
+    ],
+  },
+  frontier_depot: {
+    id: "frontier_depot", name: "Guarda-Volumes da Fronteira", sprite: C + "OldMan3/SpriteSheet.png", depot: true,
+    greeting: "Mesmo baú da vila, sem a viagem. O que vai guardar?",
+    idleLines: [
+      "Tudo o que você guarda na vila, eu também alcanço.",
+      "Mochila pesada demais para o Labirinto? Deixe comigo.",
+    ],
+  },
+  frontier_scout: {
+    id: "frontier_scout", name: "Batedora Iara", sprite: C + "Hunter/SpriteSheet.png",
+    greeting: "Fortaleza Orc ao noroeste (lv 40+). Labirinto dos Minotauros a oeste (lv 48+). Monte Ciclope ao nordeste (lv 55+). Forte Negro ao sudoeste (lv 65+). Vale dos Dragões ao sul (lv 70+). O Abismo, a leste... só com grupo (lv 90+).",
+    idleLines: [
+      "Os ciclopes descem dos picos quando neva forte.",
+      "Demodras dorme no fundo do vale. Não acorde ele sozinho.",
+      "Os olhos malignos veem tudo. Não fique parado no cemitério.",
+    ],
+  },
 };
 
 export const npcDef = (id: string): NpcDef | undefined => (Object.hasOwn(NPCS, id) ? NPCS[id] : undefined);
