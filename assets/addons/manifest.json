@@ -185,6 +185,104 @@
       "front": "addons/assassino_katana.png",
       "back": "addons/assassino_katana_back.png",
       "extraTop": 0
+    },
+    "nordico_capa": {
+      "outfit": "nordico",
+      "name": "Capa de pele de urso",
+      "front": "addons/nordico_capa.png",
+      "back": "addons/nordico_capa_back.png",
+      "extraTop": 0
+    },
+    "nordico_escudo": {
+      "outfit": "nordico",
+      "name": "Escudo redondo",
+      "front": "addons/nordico_escudo.png",
+      "back": "addons/nordico_escudo_back.png",
+      "extraTop": 0
+    },
+    "mendigo_bengala": {
+      "outfit": "mendigo",
+      "name": "Bengala torta",
+      "front": "addons/mendigo_bengala.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "mendigo_trouxa": {
+      "outfit": "mendigo",
+      "name": "Trouxa no ombro",
+      "front": "addons/mendigo_trouxa.png",
+      "back": "addons/mendigo_trouxa_back.png",
+      "extraTop": 1
+    },
+    "domador_pele": {
+      "outfit": "domador",
+      "name": "Pele de fera",
+      "front": "addons/domador_pele.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "domador_chicote": {
+      "outfit": "domador",
+      "name": "Chicote",
+      "front": "addons/domador_chicote.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "cacador_demonios_chifres": {
+      "outfit": "cacador_demonios",
+      "name": "Chifres demoníacos",
+      "front": "addons/cacador_demonios_chifres.png",
+      "back": "addons/cacador_demonios_chifres_back.png",
+      "extraTop": 4
+    },
+    "cacador_demonios_espada": {
+      "outfit": "cacador_demonios",
+      "name": "Espada larga nas costas",
+      "front": "addons/cacador_demonios_espada.png",
+      "back": "addons/cacador_demonios_espada_back.png",
+      "extraTop": 0
+    },
+    "peregrino_lanterna": {
+      "outfit": "peregrino",
+      "name": "Cajado com lanterna",
+      "front": "addons/peregrino_lanterna.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "peregrino_cabaca": {
+      "outfit": "peregrino",
+      "name": "Cabaça de viagem",
+      "front": "addons/peregrino_cabaca.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "senhor_guerra_capa": {
+      "outfit": "senhor_guerra",
+      "name": "Capa de guerra",
+      "front": "addons/senhor_guerra_capa.png",
+      "back": "addons/senhor_guerra_capa_back.png",
+      "extraTop": 0
+    },
+    "senhor_guerra_martelo": {
+      "outfit": "senhor_guerra",
+      "name": "Martelo de guerra",
+      "front": "addons/senhor_guerra_martelo.png",
+      "back": null,
+      "extraTop": 1
+    },
+    "monge_contas": {
+      "outfit": "monge",
+      "name": "Contas de oração",
+      "front": "addons/monge_contas.png",
+      "back": null,
+      "extraTop": 0
+    },
+    "monge_bastao": {
+      "outfit": "monge",
+      "name": "Bastão de monge",
+      "front": "addons/monge_bastao.png",
+      "back": null,
+      "extraTop": 5
     }
   }
 }

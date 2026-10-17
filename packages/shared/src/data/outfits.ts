@@ -71,6 +71,14 @@ export const OUTFIT_LIST: OutfitDef[] = [
   outfit("oriental", "Oriental", "Sultan2", addon("oriental_joia", "Joia do turbante"), addon("oriental_cimitarra", "Cimitarra")),
   outfit("pirata", "Pirata", "FighterWhite", addon("pirata_chapeu", "Chapéu de pirata"), addon("pirata_papagaio", "Papagaio")),
   outfit("assassino", "Assassino", "NinjaDark", addon("assassino_cachecol", "Cachecol", true), addon("assassino_katana", "Katana nas costas", true)),
+  outfit("nordico", "Nórdico", "GladiatorBlue", addon("nordico_capa", "Capa de pele de urso", true), addon("nordico_escudo", "Escudo redondo", true)),
+  outfit("mendigo", "Mendigo", "OldMan", addon("mendigo_bengala", "Bengala torta"), addon("mendigo_trouxa", "Trouxa no ombro", true)),
+  outfit("domador", "Domador de Feras", "ShamanLion", addon("domador_pele", "Pele de fera"), addon("domador_chicote", "Chicote")),
+  outfit("cacador_demonios", "Caçador de Demônios", "RedGladiator",
+    addon("cacador_demonios_chifres", "Chifres demoníacos", true), addon("cacador_demonios_espada", "Espada larga nas costas", true)),
+  outfit("peregrino", "Peregrino", "OldMan3", addon("peregrino_lanterna", "Cajado com lanterna"), addon("peregrino_cabaca", "Cabaça de viagem")),
+  outfit("senhor_guerra", "Senhor da Guerra", "KnightGold", addon("senhor_guerra_capa", "Capa de guerra", true), addon("senhor_guerra_martelo", "Martelo de guerra")),
+  outfit("monge", "Monge", "Monk", addon("monge_contas", "Contas de oração"), addon("monge_bastao", "Bastão de monge")),
 ];
 
 export const OUTFITS: Record<string, OutfitDef> = Object.fromEntries(OUTFIT_LIST.map((o) => [o.id, o]));

@@ -561,6 +561,188 @@ const DRAW = {
       F.line(back + f * 0, n - 5, back + f * 1, n - 7, "white"); F.set(back + f * 1, n - 6, "red");
     }
   },
+
+  // ---------- Nórdico
+  nordico_capa(F, B, a) { cape(F, B, a, { mat: "felt", trim: "white", collar: "white" }); },
+  nordico_escudo(F, B, a) {
+    const n = a.neck, b = a.bottom;
+    const M = { i: "iron", w: "wood", W: ["wood", 1], g: ["gold", 1] };
+    if (a.facing === "up") {
+      const rows = ["..iiiii..", ".iwwWwwi.", "iwwwWwwwi", "iWWWgWWWi", "iwwwWwwwi", ".iwwWwwi.", "..iiiii.."];
+      const [l] = spanC(a.c2, 9);
+      F.stamp(l, b - rows.length, rows, M);
+    } else if (a.facing === "down") {
+      F.line(a.bodyR - 2, n + 1, a.bodyL + 2, b - 2, "leather", 3); // alça cruzando o peito
+      // disco atrás do corpo: só a borda que sobra do contorno aparece
+      const cx = (a.c2 >> 1) - 2, cy = n;
+      for (let y = -4; y <= 4; y++) for (let x = -5; x <= 5; x++) {
+        const d = x * x + y * y * 1.4;
+        if (d <= 26) B.set(cx + x, cy + y, d >= 15 ? "iron" : "wood");
+      }
+    } else {
+      const f = front(a), back = f < 0 ? a.bodyR : a.bodyL;
+      const rows = ["i.", "wi", "wi", "gi", "wi", "wi", "i."];
+      F.stamp(f < 0 ? back + 1 : back - 2, b - rows.length, rows, M, f > 0);
+    }
+  },
+
+  // ---------- Mendigo
+  mendigo_bengala(F, B, a) {
+    const p = heldPole(F, a, 8, "wood");
+    const o = p.out, y = p.top;
+    // cabo curvo para fora e um nó de pano amarrado
+    F.set(p.x, y - 1, "wood"); F.set(p.x + o, y - 2, "wood"); F.set(p.x + o * 2, y - 1, "wood"); F.set(p.x + o * 2, y, "wood");
+    F.set(p.x, y + 3, "red"); F.set(p.x - o, y + 4, "red", 3);
+  },
+  mendigo_trouxa(F, B, a) {
+    const n = a.neck;
+    const M = { c: "beige", p: "red", P: ["red", 3] };
+    const bundle = [".pcp.", "pcpcp", "cpcpc", ".PcP."];
+    if (a.facing === "down") {
+      // pau apoiado no ombro direito, trouxa pendurada atrás da cabeça
+      B.line(a.headR - 1, n, a.headR + 3, n - 6, "wood");
+      B.stamp(a.headR + 2, n - 10, bundle, M);
+    } else if (a.facing === "up") {
+      F.line(a.headL + 1, n, a.headL - 3, n - 6, "wood");
+      F.stamp(a.headL - 6, n - 10, bundle, M);
+    } else {
+      const f = front(a), c = a.c2 >> 1;
+      F.set(c, n, "wood");
+      B.line(c, n, c - f * 5, n - 5, "wood");
+      B.stamp(f < 0 ? c + 4 : c - 8, n - 9, bundle, M);
+    }
+  },
+
+  // ---------- Domador de Feras
+  domador_pele(F, B, a) {
+    const n = a.neck, b = a.bottom, c = a.c2 >> 1;
+    if (a.facing === "down") {
+      const e = a.ext[n] ?? [a.bodyL, a.bodyR];
+      F.h(n, e[0] - 1, e[1] + 1, "felt");
+      // patas caindo pelos ombros, com garras
+      for (const x of [e[0] - 1, e[1] + 1]) { F.set(x, n + 1, "felt"); F.set(x, n + 2, "bone", 1); }
+      F.set(c - 2, n, "beige", 1); F.set(c + 2, n, "beige", 1);
+    } else if (a.facing === "up") {
+      for (let y = n - 1; y <= n + 2; y++) { const e = a.ext[Math.min(y, b - 1)] ?? [a.bodyL, a.bodyR]; F.h(y, e[0] - (y >= n ? 1 : 0), e[1] + (y >= n ? 1 : 0), "felt"); }
+      F.v(c, n + 3, b, "felt"); F.set(c, b, "beige", 1); // rabo
+      F.set(c - 2, n, "beige", 1); F.set(c + 3, n + 1, "beige", 1);
+    } else {
+      const f = front(a), back = f < 0 ? a.bodyR : a.bodyL;
+      F.h(n, back + f * 3, back - f, "felt"); F.h(n + 1, back + f * 2, back - f, "felt");
+      F.set(back + f * 3, n + 1, "felt"); F.set(back + f * 3, n + 2, "bone", 1); // pata
+      F.line(back - f, n + 2, back - f * 2, b - 1 + (a.row % 2), "felt"); // rabo balançando
+      F.set(back + f, n, "beige", 1);
+    }
+  },
+  domador_chicote(F, B, a) {
+    let x, o;
+    if (a.facing === "down") { x = a.maxR + 1; o = 1; } else if (a.facing === "up") { x = a.maxL - 1; o = -1; } else { o = front(a); x = o < 0 ? a.headL - 1 : a.headR + 1; }
+    const hy = a.bottom - 3;
+    F.v(x, hy, hy + 2, "wood"); F.set(x, hy - 1, "gold");
+    // chicote estalando: arco para cima e para fora; a ponta alterna com o passo
+    const pts = [[1, -3], [2, -5], [3, -6], [4, -6], [5, -5]];
+    let px = x, py = hy - 1;
+    for (const [dx, dy] of pts) { F.line(px, py, x + o * dx, hy + dy, "leather"); px = x + o * dx; py = hy + dy; }
+    const tip = a.row % 2 ? [6, -3] : [5, -3];
+    F.line(px, py, x + o * tip[0], hy + tip[1], "leather");
+    if (a.row % 2 === 0) F.set(x + o * 7, hy - 4, "sparkle", 1);
+  },
+
+  // ---------- Caçador de Demônios
+  cacador_demonios_chifres(F, B, a) {
+    const y0 = a.top + 2;
+    const e = a.ext[y0] ?? [a.headL, a.headR];
+    // chifre: base grossa saindo da cabeça, sobe e curva para dentro
+    const horn = (L, x, d) => { // d = para fora
+      L.set(x, y0, "red"); L.set(x + d, y0, "red"); L.set(x + d, y0 - 1, "red"); L.set(x + d * 2, y0 - 1, "red");
+      L.set(x + d * 2, y0 - 2, "red"); L.set(x + d * 2, y0 - 3, "red", 1); L.set(x + d, y0 - 4, "red", 1); L.set(x + d, y0 - 5, "bone", 1);
+    };
+    if (side(a)) {
+      const f = front(a);
+      horn(F, f < 0 ? e[0] + 3 : e[1] - 3, f);
+      horn(B, f < 0 ? e[1] - 1 : e[0] + 1, -f);
+    } else { horn(F, e[0], -1); horn(F, e[1], 1); }
+  },
+  cacador_demonios_espada(F, B, a) {
+    const n = a.neck, b = a.bottom;
+    if (a.facing === "up") {
+      F.line(a.bodyL + 1, b - 1, a.headR - 2, n - 3, "steel");
+      F.line(a.bodyL + 2, b - 1, a.headR - 1, n - 3, "steel");
+      F.h(n - 4, a.headR - 4, a.headR + 1, "gold");
+      F.line(a.headR - 1, n - 5, a.headR, n - 7, "leather"); F.set(a.headR + 1, n - 8, "ruby", 1);
+    } else if (a.facing === "down") {
+      // empunhadura sobre o ombro esquerdo, ponta da lâmina sai embaixo à direita
+      B.h(n - 4, a.headL - 3, a.headL + 1, "gold");
+      B.line(a.headL - 1, n - 5, a.headL - 2, n - 7, "leather"); B.set(a.headL - 3, n - 8, "ruby", 1);
+      B.v(a.bodyR + 1, b - 3, b - 1, "steel"); B.v(a.bodyR + 2, b - 2, b - 1, "steel");
+    } else {
+      const f = front(a), back = f < 0 ? a.headR : a.headL;
+      F.line(back - f * 2, b - 1, back, n - 3, "steel");
+      F.line(back - f * 3, b - 1, back - f, n - 3, "steel");
+      F.h(n - 4, back - f * 2, back + f * 1, "gold");
+      F.line(back, n - 5, back + f, n - 7, "leather"); F.set(back + f * 2, n - 8, "ruby", 1);
+    }
+  },
+
+  // ---------- Peregrino
+  peregrino_lanterna(F, B, a) {
+    const p = heldPole(F, a, 11, "wood");
+    const o = p.out, y = p.top;
+    F.set(p.x + o, y, "wood"); F.set(p.x + o * 2, y, "wood"); F.set(p.x + o * 2, y + 1, "iron"); // gancho
+    const M = { g: "gold", S: ["star", 1] };
+    F.stamp(p.x + o * 2 - 1, y + 2, ["ggg", "gSg", "gSg", "ggg"], M);
+    if (a.row % 2 === 0) F.set(p.x + o * 4, y + 2, "sparkle", 1);
+    else F.set(p.x + o * 4, y + 4, "sparkle", 1);
+  },
+  peregrino_cabaca(F, B, a) {
+    const n = a.neck, b = a.bottom;
+    const M = { w: "wood", o: "gold", O: ["gold", 3] };
+    const gourd = [".w.", ".o.", "ooo", "oOo", ".o."];
+    if (a.facing === "down") {
+      F.line(a.bodyR - 1, n + 1, a.bodyL + 1, b - 3, "leather", 3);
+      F.stamp(a.bodyL - 2, b - 5, gourd, M);
+    } else if (a.facing === "up") {
+      F.line(a.bodyL + 1, n + 1, a.bodyR - 1, b - 3, "leather", 3);
+      F.stamp(a.bodyR, b - 5, gourd, M);
+    } else {
+      const f = front(a), back = f < 0 ? a.bodyR : a.bodyL;
+      F.stamp(back - 1 - f, b - 5, gourd, M);
+    }
+  },
+
+  // ---------- Senhor da Guerra
+  senhor_guerra_capa(F, B, a) { cape(F, B, a, { mat: "wine", trim: "gold", collar: "spikes" }); },
+  senhor_guerra_martelo(F, B, a) {
+    const p = heldPole(F, a, 9, "iron");
+    const y = p.top;
+    F.stamp(p.x - 2, y - 3, ["sssss", "sgggs", "sssss"], { s: "steel", g: ["gold", 1] });
+    F.set(p.x, y - 4, "steel");
+    F.set(p.x, a.bottom - 1, "gold");
+  },
+
+  // ---------- Monge
+  monge_contas(F, B, a) {
+    const n = a.neck, c = a.c2 >> 1;
+    const bead = (x, y, i) => F.set(x, y, "wood", i % 2 ? 3 : 1);
+    if (a.facing === "down") {
+      const pts = [[-3, 0], [-2, 1], [-1, 2], [1, 2], [2, 1], [3, 0]];
+      pts.forEach(([dx, dy], i) => bead(c + dx, n + dy, i));
+      F.set(c, n + 2, "gold", 1); // pingente
+    } else if (a.facing === "up") {
+      const e = a.ext[n] ?? [a.bodyL, a.bodyR];
+      for (let x = e[0] + 1, i = 0; x <= e[1] - 1; x++, i++) bead(x, n, i);
+    } else {
+      const f = front(a), fx = f < 0 ? a.bodyL : a.bodyR;
+      [[0, 0], [0, 1], [0, 2], [-1, 3]].forEach(([dx, dy], i) => bead(fx - f * (1 - dx), n + dy, i));
+      F.set(fx - f * 2, n + 4, "ruby", 1);
+    }
+  },
+  monge_bastao(F, B, a) {
+    const p = heldPole(F, a, 17, "wood");
+    F.v(p.x, p.top, p.top + 1, "gold"); F.set(p.x, a.bottom - 1, "gold");
+    // fita vermelha que balança com o passo
+    F.set(p.x + p.out, p.top + 3, "red"); F.set(p.x + p.out * (1 + (a.row % 2)), p.top + 4, "red"); F.set(p.x + p.out * 2, p.top + 5, "red", 3);
+  },
 };
 
 /** Capa genérica (nobre/bruxo). Vista de costas cobre o corpo; de frente só as bordas aparecem (camada de trás). */

@@ -10,9 +10,9 @@ const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const asset = (rel: string) => root + "assets/" + rel;
 
 describe("OUTFITS", () => {
-  it("12–14 roupas, ids únicos, chaves = ids", () => {
+  it("12–24 roupas, ids únicos, chaves = ids", () => {
     expect(OUTFIT_LIST.length).toBeGreaterThanOrEqual(12);
-    expect(OUTFIT_LIST.length).toBeLessThanOrEqual(14);
+    expect(OUTFIT_LIST.length).toBeLessThanOrEqual(24);
     expect(new Set(OUTFIT_LIST.map((o) => o.id)).size).toBe(OUTFIT_LIST.length);
     for (const [k, o] of Object.entries(OUTFITS)) expect(o.id).toBe(k);
     const addonIds = OUTFIT_LIST.flatMap((o) => o.addons.map((a) => a.id));
