@@ -68,6 +68,10 @@ export interface PlayerView {
   stance: FightStance;
   /** true = persegue o alvo automaticamente; false = fica parado. */
   chase: boolean;
+  /** true = ataque automático: escolhe sozinho o monstro mais próximo quando está sem alvo. */
+  auto?: boolean;
+  /** Id do jogador que está sendo seguido ("" = ninguém). */
+  followId?: string;
   /** Roupa (id em OUTFITS, shared/data/outfits.ts). Cosmético. */
   outfit: string;
   /** Addons ativos da roupa: bit 1 = addon 1, bit 2 = addon 2. */

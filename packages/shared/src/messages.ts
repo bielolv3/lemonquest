@@ -36,6 +36,8 @@ export const C2S = {
   NpcTrade: "npcTrade",
   /** Modo de batalha: postura (ofensivo/equilibrado/defensivo) e seguir o alvo. */
   FightMode: "fightMode",
+  /** Seguir outro jogador (botão direito → Seguir, como no Tibia); targetId null/"" para de seguir. */
+  Follow: "follow",
   /** Pedir a escolha de skill de uma estátua de treino adjacente (o servidor responde S2C.TrainingOpen). */
   TrainOpen: "trainOpen",
   /** Começar treino offline numa estátua de treino adjacente (o servidor salva e desconecta com CLOSE_TRAINING). */
@@ -91,7 +93,8 @@ export type ArenaActionMsg =
   | { action: "start" }                       // só o líder: inicia (precisa estar perto do NPC do coliseu)
   | { action: "ready" };                      // durante a pausa: "pronto" (todos prontos = próxima onda já)
 
-export interface FightModeMsg { stance: FightStance; chase: boolean }
+export interface FightModeMsg { stance: FightStance; chase: boolean; /** Ataque automático: escolhe sozinho o monstro mais próximo. */ auto?: boolean }
+export interface FollowMsg { targetId: string | null }
 
 export type ItemLocation =
   | { where: "backpack"; index: number }

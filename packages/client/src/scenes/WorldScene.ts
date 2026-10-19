@@ -39,6 +39,7 @@ import { setConditions } from "../ui/hud/conditions.ts";
 import { SKILL_LABELS } from "../ui/hud/SkillsWindow.tsx";
 import { pushToast } from "../ui/toasts.ts";
 import { playersStore, selectMe } from "../ui/hud/world.ts";
+import { followPlayer } from "../ui/hud/FightMode.tsx";
 import { inventoryStore } from "../ui/items/inventory.ts";
 import { inventoryCounter, questStore } from "../ui/quests/quests.ts";
 import { guideTarget } from "../ui/hud/guide.ts";
@@ -603,7 +604,11 @@ export class WorldScene extends Phaser.Scene {
       const other = right ? this.playerAtTile(t.x, t.y) : null;
       if (other) {
         const ev = ptr.event as MouseEvent;
-        const items = [...this.partyMenu(other), { label: "Trocar itens", run: () => requestTrade(other) }];
+        const following = selectMe(playersStore.get())?.followId === other;
+        const items = [
+          { label: following ? "Parar de seguir" : "Seguir", run: () => followPlayer(following ? null : other) },
+          ...this.partyMenu(other), { label: "Trocar itens", run: () => requestTrade(other) },
+        ];
         if (items.length) openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, items);
         return;
       }

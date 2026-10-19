@@ -8,7 +8,9 @@ import { ConditionsStrip } from "./ConditionsStrip.tsx";
 import { LowHpVignette } from "./LowHpVignette.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { SkillsWindow } from "./SkillsWindow.tsx";
+import { followPlayer } from "./FightMode.tsx";
 import { clearTarget, getTarget } from "./target.ts";
+import { meStore } from "./world.ts";
 import { Tooltip } from "./Tooltip.tsx";
 import "../items/bind.ts";
 import { DragLayer } from "../items/DragLayer.tsx";
@@ -100,6 +102,7 @@ function useHudKeys() {
         else if (rankingOpen.get()) rankingOpen.set(false);
         else if (helpOpen.get()) helpOpen.set(false);
         else if (skillsOpen.get()) skillsOpen.set(false);
+        else if (meStore.get()?.followId) followPlayer(null);
         else if (getTarget()) clearTarget();
       }
     };

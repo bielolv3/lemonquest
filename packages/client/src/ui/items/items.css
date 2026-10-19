@@ -86,6 +86,7 @@ body.item-dragging, body.item-dragging * { cursor: grabbing !important; user-sel
 .fm-btn.stance-offensive.active { color: #ff8a7a !important; border-color: rgba(217, 83, 79, 0.6); background: rgba(217, 83, 79, 0.14); }
 .fm-btn.stance-balanced.active { color: var(--hud-gold) !important; border-color: rgba(217, 164, 65, 0.55); background: rgba(217, 164, 65, 0.12); }
 .fm-btn.stance-defensive.active { color: #7fa3ef !important; border-color: rgba(74, 125, 217, 0.6); background: rgba(74, 125, 217, 0.14); }
+.fm-btn.auto.active { color: #f0b36a !important; border-color: rgba(224, 138, 52, 0.6); background: rgba(224, 138, 52, 0.14); }
 .fm-btn.chase.active { color: #7fd18b !important; border-color: rgba(79, 157, 93, 0.6); background: rgba(79, 157, 93, 0.13); }
 .fm-sep { width: 1px; height: 12px; margin: 0 2px; background: var(--hud-line); }
 

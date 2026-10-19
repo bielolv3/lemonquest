@@ -2,6 +2,14 @@
 
 ## [Não lançado] — 2026-10-17 · Terras Selvagens (expansão leste)
 
+### Combate
+- **Ataque automático** (`F9`, botão no cabeçalho da Batalha): sem alvo, o personagem escolhe sozinho o monstro mais
+  próximo com linha de visão (fora da zona protegida). Com "seguir o alvo" ligado procura até 6 tiles e vai atrás; com
+  ele desligado só pega o que já está ao alcance. O modo é salvo com o personagem.
+- **Seguir jogador** (clique direito → *Seguir* / *Parar de seguir*): anda atrás do jogador até ficar ao lado. Mover
+  manualmente, escolher um alvo de ataque, `Esc`, ou o jogador ficar a mais de 15 tiles cancelam. Seguindo, o
+  personagem ainda ataca o que estiver ao alcance sem sair do jogador.
+
 ### Mapa
 - **O mapa passou de 160 para 280 colunas.** A expansão é gerada por `tools/mapgen/expansion.mjs` (semente própria) DEPOIS
   do mapa original: tudo nas 160 colunas antigas fica igual (mesmos tiles e mesmos ids de objeto), menos duas passagens

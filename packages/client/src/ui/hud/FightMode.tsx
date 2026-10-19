@@ -1,6 +1,7 @@
-// Modos de batalha (estilo Tibia): postura ofensiva/equilibrada/defensiva + seguir o alvo. Fica no cabeçalho da Batalha.
+// Modos de batalha (estilo Tibia): postura ofensiva/equilibrada/defensiva + seguir o alvo + ataque automático.
+// Fica no cabeçalho da Batalha. Também: seguir outro jogador (menu do botão direito).
 import { useEffect } from "preact/hooks";
-import { C2S, type FightModeMsg, type FightStance } from "@lemonquest/shared";
+import { C2S, type FightModeMsg, type FightStance, type FollowMsg } from "@lemonquest/shared";
 import { send } from "../items/net.ts";
 import { PixelIcon } from "./icons.tsx";
 import { createStore, useStore } from "./store.ts";
@@ -18,7 +19,7 @@ let pendingTimer = 0;
 
 export function currentFightMode(): FightModeMsg {
   const me = meStore.get();
-  return pending.get() ?? { stance: me?.stance ?? "balanced", chase: me?.chase ?? false };
+  return pending.get() ?? { stance: me?.stance ?? "balanced", chase: me?.chase ?? false, auto: me?.auto ?? false };
 }
 
 export function setFightMode(patch: Partial<FightModeMsg>): void {
@@ -29,6 +30,10 @@ export function setFightMode(patch: Partial<FightModeMsg>): void {
   pendingTimer = window.setTimeout(() => pending.set(null), 1200);
 }
 export const toggleChase = (): void => setFightMode({ chase: !currentFightMode().chase });
+export const toggleAuto = (): void => setFightMode({ auto: !currentFightMode().auto });
+
+/** Segue outro jogador (botão direito → Seguir); null para de seguir. */
+export const followPlayer = (targetId: string | null): void => send(C2S.Follow, { targetId } satisfies FollowMsg);
 
 /** Pequeno bitmap próprio (12x12) para equilíbrio / seguir / parado. */
 const BMP = {
@@ -57,6 +62,20 @@ const BMP = {
     ".......#....",
     "......#.....",
     "............",
+    "............",
+    "............",
+  ],
+  auto: [
+    "............",
+    ".....##.....",
+    ".....##.....",
+    "..#..##..#..",
+    "...#.##.#...",
+    "##.##..##.##",
+    "...#.##.#...",
+    "..#..##..#..",
+    ".....##.....",
+    ".....##.....",
     "............",
     "............",
   ],
@@ -106,10 +125,11 @@ export function FightModeControls() {
   const p = useStore(pending);
   // O estado real chegou (ou mudou): descarta o valor otimista.
   useEffect(() => {
-    if (p && me && me.stance === p.stance && me.chase === p.chase) pending.set(null);
-  }, [me?.stance, me?.chase, p]);
+    if (p && me && me.stance === p.stance && me.chase === p.chase && !!me.auto === !!p.auto) pending.set(null);
+  }, [me?.stance, me?.chase, me?.auto, p]);
   const stance = p?.stance ?? me?.stance ?? "balanced";
   const chase = p?.chase ?? me?.chase ?? false;
+  const auto = p?.auto ?? me?.auto ?? false;
   return (
     <div class="fight-modes" role="group" aria-label="Modo de batalha">
       {STANCES.map((s) => (
@@ -133,6 +153,15 @@ export function FightModeControls() {
         aria-pressed={chase}
       >
         <Bmp name={chase ? "chase" : "stay"} />
+      </button>
+      <button
+        class={`fm-btn auto${auto ? " active" : ""}`}
+        onClick={toggleAuto}
+        data-tip={auto ? "Ataque automático" : "Ataque manual"}
+        data-tip-sub={auto ? "Ligado: ataca sozinho o monstro mais próximo · F9" : "Desligado: você escolhe o alvo com o clique · F9"}
+        aria-pressed={auto}
+      >
+        <Bmp name="auto" />
       </button>
     </div>
   );

@@ -173,8 +173,8 @@ export function startUiTest(): void {
         return;
       }
       case C2S.FightMode: {
-        const f = m as { stance: PlayerSnap["stance"]; chase: boolean };
-        setTimeout(() => { me.stance = f.stance; me.chase = f.chase; publishMe(); }, 80);
+        const f = m as { stance: PlayerSnap["stance"]; chase: boolean; auto?: boolean };
+        setTimeout(() => { me.stance = f.stance; me.chase = f.chase; me.auto = !!f.auto; publishMe(); }, 80);
         return;
       }
       default: return;

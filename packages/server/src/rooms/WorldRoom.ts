@@ -2,7 +2,7 @@ import { e2eMode } from "../e2e.ts";
 import { CloseCode, ErrorCode, Room, ServerError, type Client, type Deferred, type RoomException, type RoomMethodName } from "@colyseus/core";
 import {
   C2S, CLOSE_KICKED, CYCLE_START_MS, WEEKLY_EVENTS, WaterGrid, type ChallengeActionMsg, type FishMsg, type TradeMsg, wrapCycle, CLOSE_REPLACED, CLOSE_TRAINING, S2C, SKILLS, TICK_MS, baseStats,
-  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type JoinOptions,
+  type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type FollowMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, findObjects,
@@ -290,6 +290,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.fight = new FightModeSystem({
       movement: this.movement, monsters: this.monsters,
       attackRange: (p) => this.combat.attackOf(p).range,
+      getPlayer, send,
     });
     this.combat.hooks = {
       xpMult: () => this.events?.xpMult() ?? 1,
@@ -429,10 +430,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       castWords: (pl, text) => this.spells.castWords(pl, text), command, muted,
       partyChat: (pl, text) => this.party.chat(pl, text),
     };
-    this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); this.movement.onMove(p, m); });
-    this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.movement.onWalkTo(p, m); });
+    this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); if (m?.dir != null) this.fight.cancelFollow(p); this.movement.onMove(p, m); });
+    this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.fight.cancelFollow(p); this.movement.onWalkTo(p, m); });
     this.on<TurnMsg>(C2S.Turn, (p, m) => this.movement.onTurn(p, m));
-    this.on<AttackMsg>(C2S.Attack, (p, m) => this.combat.onAttack(p, m));
+    this.on<AttackMsg>(C2S.Attack, (p, m) => { this.combat.onAttack(p, m); if (p.targetId) this.fight.cancelFollow(p); });
+    this.on<FollowMsg>(C2S.Follow, (p, m) => this.fight.onFollow(p, m));
     this.on<ChatSendMsg>(C2S.Chat, (p, m, c) =>
       handleChat(this, c, p, m, this.chatHooks));
     this.on<CastMsg>(C2S.Cast, (p, m) => this.spells.onCast(p, m));
@@ -585,7 +587,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.skills.load(p, rec.data.skills);
     // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
     const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
-    this.fight.load(p, rec.data.stance, rec.data.chase);
+    this.fight.load(p, rec.data.stance, rec.data.chase, rec.data.auto);
     this.food.load(p.id, rec.data, Date.now());
     this.quests.load(p, rec.data.quests);
     rollWeek(rec, new Date());
@@ -876,6 +878,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     if (fed) rec.data.fed = fed; else delete rec.data.fed;
     rec.data.stance = p.stance;
     rec.data.chase = p.chase;
+    rec.data.auto = p.auto;
     rec.data.outfit = p.outfit;
     rec.data.addons = p.addons;
     const quests = this.quests.serialize(sessionId);

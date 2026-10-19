@@ -20,6 +20,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["Q", "E"], label: "Poção de vida / mana" },
       { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
       { keys: ["F8"], label: "Seguir o alvo" },
+      { keys: ["F9"], label: "Ataque automático" },
       { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
     ],
   },

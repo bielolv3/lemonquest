@@ -29,6 +29,8 @@ export class PlayerState extends Schema implements PlayerView {
   @type("uint16") speedPct = 100;
   @type("string") stance: FightStance = "balanced";
   @type("boolean") chase = false;
+  @type("boolean") auto = false;
+  @type("string") followId = "";
   @type("string") outfit = "cavaleiro";
   @type("uint8") addons = 0;
   /** Título ativo (texto). Conquistas. */

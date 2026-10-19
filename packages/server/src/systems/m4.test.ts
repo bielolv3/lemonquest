@@ -230,6 +230,57 @@ describe("fight modes", () => {
     expect(c.p.x).toBe(x2);
     expect(c.p.stance).toBe("defensive");
   });
+
+  it("ataque automático: sem alvo escolhe o monstro mais próximo; desligado não faz nada", () => {
+    const c = chaseWorld(1);
+    c.p.targetId = "";
+    c.p.x = 16; c.p.y = 10; // 4 tiles do monstro (20,10)
+    c.fight.tick(c.w.now(), c.w.players.values());
+    expect(c.p.targetId).toBe("");
+    c.fight.onFightMode(c.p, { stance: "balanced", chase: true, auto: true });
+    expect(c.p.auto).toBe(true);
+    c.fight.tick(c.w.now(), c.w.players.values());
+    expect(c.p.targetId).toBe(c.m.s.id);
+    c.w.run(6000, c.step);
+    expect(cheb(c.p.x, c.p.y, c.m.s.x, c.m.s.y)).toBe(1);
+  });
+
+  it("ataque automático parado (seguir desligado) só pega o que já está ao alcance", () => {
+    const c = chaseWorld(1);
+    c.p.targetId = "";
+    c.fight.onFightMode(c.p, { stance: "balanced", chase: false, auto: true });
+    c.fight.tick(c.w.now(), c.w.players.values());
+    expect(c.p.targetId).toBe(""); // 10 tiles de distância
+    c.p.x = 19;
+    c.w.run(500, c.step);
+    expect(c.p.targetId).toBe(c.m.s.id);
+  });
+
+  it("seguir jogador: anda até ficar ao lado, cancela com movimento manual e ao escolher alvo", () => {
+    const w = world({ grid: openGrid(40, 20), spawns: [], defs: () => def({}) });
+    const mv = new MovementSystem(openGrid(40, 20), { now: () => w.now() });
+    const leader = w.add(player("l", 20, 10, {}));
+    const p = w.add(player("p", 10, 10, {}));
+    mv.addPlayer(leader); mv.addPlayer(p);
+    const fight = new FightModeSystem({ movement: mv, monsters: w.mm, attackRange: () => 1, getPlayer: (id) => w.players.get(id), now: () => w.now() });
+    const step = () => { fight.tick(w.now(), w.players.values()); mv.tick(w.now(), w.players.values()); };
+    fight.onFollow(p, { targetId: "l" });
+    expect(p.followId).toBe("l");
+    w.run(6000, step);
+    expect(cheb(p.x, p.y, leader.x, leader.y)).toBe(1);
+    leader.x = 30; leader.y = 10; // o líder se afasta: segue de novo
+    w.run(6000, step);
+    expect(cheb(p.x, p.y, leader.x, leader.y)).toBe(1);
+    fight.cancelFollow(p);
+    expect(p.followId).toBe("");
+    leader.x = 10; leader.y = 10; p.x = 20;
+    fight.onFollow(p, { targetId: "p" }); // a si mesmo: ignorado
+    expect(p.followId).toBe("");
+    fight.onFollow(p, { targetId: "l" });
+    leader.x = 39; // longe demais: cancela sozinho
+    w.run(500, step);
+    expect(p.followId).toBe("");
+  });
 });
 
 describe("dev commands", () => {

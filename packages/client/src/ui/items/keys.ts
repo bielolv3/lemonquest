@@ -1,8 +1,8 @@
-// Atalhos de itens/batalha: Q/E poções, F5–F7 posturas, F8 seguir, I recolhe/expande Equipamento+Mochila, Esc fecha overlays.
+// Atalhos de itens/batalha: Q/E poções, F5–F7 posturas, F8 seguir, F9 ataque automático, I recolhe/expande Equipamento+Mochila, Esc fecha overlays.
 import { arenaResultStore, arenaWindowOpen, closeArenaWindow } from "../arena/arena.ts";
 import { useEffect } from "preact/hooks";
 import { isTyping } from "../focus.ts";
-import { setFightMode, STANCES, toggleChase } from "../hud/FightMode.tsx";
+import { setFightMode, STANCES, toggleAuto, toggleChase } from "../hud/FightMode.tsx";
 import { sectionsStore } from "../hud/Section.tsx";
 import { npcStore, closeNpc } from "../npc/npc.ts";
 import { closeDialog, dialogStore } from "./dialogs.ts";
@@ -41,6 +41,7 @@ export function useItemKeys(): void {
         return;
       }
       if (e.code === "F8") { e.preventDefault(); if (!e.repeat) toggleChase(); return; }
+      if (e.code === "F9") { e.preventDefault(); if (!e.repeat) toggleAuto(); return; }
       if (e.repeat) return;
       if (e.code === "KeyQ") quickPotion("hp");
       else if (e.code === "KeyE") quickPotion("mana");

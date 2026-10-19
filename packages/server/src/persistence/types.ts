@@ -12,6 +12,7 @@ export interface CharacterData {
   /** Modo de batalha salvo. */
   stance?: "offensive" | "balanced" | "defensive";
   chase?: boolean;
+  auto?: boolean;
   /** Inventário (M4). */
   equipment?: Partial<Record<string, unknown>>;
   backpack?: unknown[];
