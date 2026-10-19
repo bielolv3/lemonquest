@@ -17,6 +17,7 @@ export * from "./daynight.ts";
 export * from "./data/achievements.ts";
 export * from "./ranking.ts";
 export * from "./party.ts";
+export * from "./pvp.ts";
 export * from "./emotes.ts";
 export * from "./trade.ts";
 export * from "./data/events.ts";

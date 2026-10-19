@@ -379,6 +379,7 @@ export class WorldScene extends Phaser.Scene {
     const actor = new Actor(this.actorDeps(), outfitLook(p.outfit, p.addons, p.vocation), p.name, isMe, p.x, p.y, p.dir, { hpName: true });
     this.lookSig.set(id, `${p.outfit}|${p.addons}`);
     actor.setTitle(p.title ?? "");
+    actor.setSkull(p.skull ?? "");
     actor.setHp(p.hp, p.maxHp, true);
     this.actors.set(id, actor);
     if (isPartyMember(id)) actor.setParty(true);
@@ -409,6 +410,7 @@ export class WorldScene extends Phaser.Scene {
     if (!actor || !k) return;
     actor.setHp(p.hp, p.maxHp);
     actor.setTitle(p.title ?? "");
+    actor.setSkull(p.skull ?? "");
     const sig = `${p.outfit}|${p.addons}`;
     if (this.lookSig.get(id) !== sig) { this.lookSig.set(id, sig); actor.setLook(outfitLook(p.outfit, p.addons, p.vocation)); }
     const moved = p.x !== k.x || p.y !== k.y;
@@ -605,7 +607,9 @@ export class WorldScene extends Phaser.Scene {
       if (other) {
         const ev = ptr.event as MouseEvent;
         const following = selectMe(playersStore.get())?.followId === other;
+        const attacking = getTarget()?.id === other;
         const items = [
+          { label: attacking ? "Parar de atacar" : "Atacar", run: () => toggleTarget({ id: other, kind: "player" }) },
           { label: following ? "Parar de seguir" : "Seguir", run: () => followPlayer(following ? null : other) },
           ...this.partyMenu(other), { label: "Trocar itens", run: () => requestTrade(other) },
         ];

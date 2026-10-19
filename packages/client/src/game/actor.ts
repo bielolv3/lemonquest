@@ -80,6 +80,23 @@ function ensurePartyShield(scene: Phaser.Scene) {
   }));
   tex.refresh();
 }
+/** Caveira 7×7 do PvP (branca / vermelha), gerada uma vez por cor. */
+const SKULL_FILL = { white: "#f2efe0", red: "#ff3b30" } as const;
+export type SkullKind = keyof typeof SKULL_FILL;
+function ensureSkull(scene: Phaser.Scene, kind: SkullKind): string {
+  const key = `skull-${kind}`;
+  if (scene.textures.exists(key)) return key;
+  const tex = scene.textures.createCanvas(key, 7, 7)!;
+  const c = tex.getContext();
+  const rows = ["0111110", "1222221", "1202021", "1222221", "0122210", "0121210", "0011100"];
+  rows.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (ch === "0") return;
+    c.fillStyle = ch === "1" ? "#1a0d0d" : SKULL_FILL[kind];
+    c.fillRect(x, y, 1, 1);
+  }));
+  tex.refresh();
+  return key;
+}
 const BAR_COLORS_SELF = { hi: 0x5be06a, mid: 0xffd447, low: 0xff5a52 };
 
 export class Actor {
@@ -117,6 +134,8 @@ export class Actor {
   private extraTop = 0;
   /** Marca de grupo (escudinho) e cor original do nome. */
   private partyIcon: Phaser.GameObjects.Image | null = null;
+  private skullIcon: Phaser.GameObjects.Image | null = null;
+  private skullKind = "";
   private baseNameColor = "#ffffff";
   /** Falas ativas, da mais antiga para a mais nova. */
   private speech: { text: Phaser.GameObjects.Text; age: number; ttl: number }[] = [];
@@ -210,7 +229,21 @@ export class Actor {
 
   get inParty(): boolean { return !!this.partyIcon; }
 
+  /** Caveira do PvP à direita do nome ("" remove). */
+  setSkull(kind: string) {
+    if (kind === this.skullKind) return;
+    this.skullKind = kind;
+    this.skullIcon?.destroy();
+    this.skullIcon = null;
+    if (kind !== "white" && kind !== "red") return;
+    this.skullIcon = this.deps.scene.add.image(0, 0, ensureSkull(this.deps.scene, kind)).setOrigin(0, 0.5).setScale(2);
+    this.deps.uiLayer.add(this.skullIcon);
+    this.placePartyIcon();
+    this.applyVisible();
+  }
+
   private placePartyIcon() {
+    this.skullIcon?.setPosition(Math.round(this.label.x + this.label.displayWidth / 2 + 2), Math.round(this.label.y - this.label.displayHeight / 2));
     if (!this.partyIcon) return;
     this.partyIcon.setPosition(Math.round(this.label.x - this.label.displayWidth / 2 - 2), Math.round(this.label.y - this.label.displayHeight / 2));
   }
@@ -363,6 +396,7 @@ export class Actor {
     this.label.setVisible(v);
     for (const s of this.speech) s.text.setVisible(v);
     this.partyIcon?.setVisible(v);
+    this.skullIcon?.setVisible(v);
     this.barBg.setVisible(v && !this.noBar);
     this.barGhost.setVisible(v && !this.noBar);
     this.barFill.setVisible(v && !this.noBar);
@@ -573,6 +607,7 @@ export class Actor {
     this.label.destroy();
     for (const s of this.speech) s.text.destroy();
     this.partyIcon?.destroy();
+    this.skullIcon?.destroy();
     this.barBg.destroy();
     this.barGhost.destroy();
     this.barFill.destroy();

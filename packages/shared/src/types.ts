@@ -72,6 +72,8 @@ export interface PlayerView {
   auto?: boolean;
   /** Id do jogador que está sendo seguido ("" = ninguém). */
   followId?: string;
+  /** Caveira do PvP ("" = nenhuma; "white" | "red"). Ver shared/src/pvp.ts. */
+  skull?: string;
   /** Roupa (id em OUTFITS, shared/data/outfits.ts). Cosmético. */
   outfit: string;
   /** Addons ativos da roupa: bit 1 = addon 1, bit 2 = addon 2. */

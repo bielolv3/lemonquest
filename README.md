@@ -28,6 +28,8 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Seguir o alvo | `F8` |
 | Ataque automático (escolhe sozinho o monstro mais próximo) | `F9` |
 | Seguir um jogador | clique direito no jogador → *Seguir* (andar, atacar ou `Esc` cancela) |
+| Atacar um jogador (PvP, fora da zona de proteção) | clique direito no jogador → *Atacar*, ou clique nele na Batalha |
+| Viajar Vila ↔ Posto da Fronteira | fale com o cocheiro (portão leste da Vila / sul do Posto) |
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
 | Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
 | Mapa | `M` |

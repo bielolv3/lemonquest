@@ -124,14 +124,15 @@ export class FightModeSystem {
       if (p.hp <= 0) { p.followId = ""; const s = this.st.get(p.id); if (s) s.path = null; continue; }
       if (p.auto && !p.targetId) this.autoTarget(p, now);
       const range = Math.max(1, this.o.attackRange(p));
-      const m = p.targetId ? this.o.monsters.wild(p.targetId) : undefined;
+      // Alvo: monstro selvagem ou, no PvP, outro jogador.
+      const t: Point | undefined = p.targetId ? this.o.monsters.wild(p.targetId)?.s ?? this.o.getPlayer?.(p.targetId) : undefined;
       // Seguindo um jogador: só para de andar para lutar quando o alvo já está ao alcance.
-      if (p.followId && !(m && this.inReach(p, m.s, range))) { this.followStep(p, now); continue; }
-      if (!p.chase || !m) { const s = this.st.get(p.id); if (s) s.path = null; continue; }
+      if (p.followId && !(t && this.inReach(p, t, range))) { this.followStep(p, now); continue; }
+      if (!p.chase || !t) { const s = this.st.get(p.id); if (s) s.path = null; continue; }
       const s = this.state(p.id);
       if (now < s.pausedUntil) continue;
-      if (this.inReach(p, m.s, range)) { s.path = null; continue; }
-      this.stepToward(p, s, p.targetId, m.s, now);
+      if (this.inReach(p, t, range)) { s.path = null; continue; }
+      this.stepToward(p, s, p.targetId, t, now);
     }
   }
 

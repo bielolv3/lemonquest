@@ -103,11 +103,16 @@ export interface SpellSystemOptions {
    * Magias de grupo ("party"): quem conta como aliado do conjurador (ele mesmo + membros do grupo). Ausente = todos.
    */
   isAlly?: (caster: PlayerState, other: PlayerState) => boolean;
+  /**
+   * PvP: magia de área/onda atinge este outro jogador? (só quem já é alvo "justo": o alvo atual, quem tem caveira ou
+   * quem atacou o conjurador — passar por um inocente não dá caveira). Ausente = área nunca atinge jogadores.
+   */
+  areaHitsPlayer?: (caster: PlayerState, other: PlayerState) => boolean;
 }
 
 type Resolved =
   | { ok: false; reason: CastFailReason }
-  | { ok: true; monster?: Monster; ally?: PlayerState };
+  | { ok: true; monster?: Monster; ally?: PlayerState; /** PvP: jogador atacado. */ victim?: PlayerState };
 
 /** Magia ofensiva (proibida na PZ). */
 export function isAggressive(s: SpellDef): boolean {
@@ -214,7 +219,17 @@ export class SpellSystem {
       if (ally !== p && !mm.los(p.x, p.y, ally.x, ally.y)) return { ok: false, reason: "no_los" };
       return { ok: true, ally };
     }
-    const m = mm.wild(targetId || p.targetId);
+    const tid = targetId || p.targetId;
+    const victim = tid && tid !== p.id ? this.o.getPlayer(tid) : undefined;
+    if (victim) {
+      // PvP: só magias de dano; o resto das regras (PZ, Coliseu, grupo) fica no combate.
+      const can = this.o.combat.hooks.canAttackPlayer;
+      if (!s.damage || !can || can(p, victim)) return { ok: false, reason: "target" };
+      if (cheb(p.x, p.y, victim.x, victim.y) > range) return { ok: false, reason: "range" };
+      if (!mm.los(p.x, p.y, victim.x, victim.y)) return { ok: false, reason: "no_los" };
+      return { ok: true, victim };
+    }
+    const m = mm.wild(tid);
     if (!m) return { ok: false, reason: "target" };
     if (cheb(p.x, p.y, m.s.x, m.s.y) > range) return { ok: false, reason: "range" };
     if (!m.def.invulnerable && mm.inPz(m.s.x, m.s.y)) return { ok: false, reason: "pz" };
@@ -240,15 +255,16 @@ export class SpellSystem {
 
   private apply(p: PlayerState, s: SpellDef, r: Resolved & { ok: true }, now: number): SpellCastMsg {
     const mm = this.o.monsters;
-    if (s.dash && r.monster) this.dash(p, r.monster, s.range ?? DEFAULT_SPELL_RANGE);
-    if (r.monster) {
-      const f = dirFromDelta(Math.sign(r.monster.s.x - p.x), Math.sign(r.monster.s.y - p.y));
+    const foe: Point | undefined = r.monster ? r.monster.s : r.victim;
+    if (s.dash && foe) this.dash(p, foe, s.range ?? DEFAULT_SPELL_RANGE);
+    if (foe) {
+      const f = dirFromDelta(Math.sign(foe.x - p.x), Math.sign(foe.y - p.y));
       if (f !== null) p.dir = f;
     }
 
     // Tiles da área.
     let tiles: Point[] | undefined;
-    const center = r.monster ? { x: r.monster.s.x, y: r.monster.s.y } : r.ally ? { x: r.ally.x, y: r.ally.y } : { x: p.x, y: p.y };
+    const center = foe ? { x: foe.x, y: foe.y } : r.ally ? { x: r.ally.x, y: r.ally.y } : { x: p.x, y: p.y };
     if (s.target === "area_self") tiles = circleTiles(p.x, p.y, s.radius ?? 1, this.hidden(p.x, p.y));
     else if (s.target === "area_target") tiles = circleTiles(center.x, center.y, s.radius ?? 1, this.hidden(center.x, center.y));
     else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.hidden(p.x, p.y));
@@ -256,8 +272,10 @@ export class SpellSystem {
     // Quem é atingido.
     let hitMonsters: Monster[] = [];
     const allies: PlayerState[] = [];
+    const victims: PlayerState[] = [];
     if (s.target === "target") {
       if (r.monster) hitMonsters.push(r.monster);
+      if (r.victim) victims.push(r.victim);
       if (r.ally) allies.push(r.ally);
     } else if (s.target === "self") {
       allies.push(p);
@@ -273,9 +291,15 @@ export class SpellSystem {
         const m = mm.monsterAt(t.x, t.y);
         if (m && !m.s.ownerId && !seen.has(m.s.id)) { seen.add(m.s.id); hitMonsters.push(m); }
       }
+      const set = new Set(tiles.map((t) => t.y * this.o.grid.width + t.x));
       if (s.heal) {
-        const set = new Set(tiles.map((t) => t.y * this.o.grid.width + t.x));
         for (const o of this.o.players()) if (o.hp > 0 && set.has(o.y * this.o.grid.width + o.x)) allies.push(o);
+      }
+      const hitsPlayer = this.o.areaHitsPlayer;
+      if (s.damage && hitsPlayer) {
+        for (const o of this.o.players()) {
+          if (o.id !== p.id && o.hp > 0 && set.has(o.y * this.o.grid.width + o.x) && hitsPlayer(p, o)) victims.push(o);
+        }
       }
     }
 
@@ -291,6 +315,11 @@ export class SpellSystem {
         const amount = mitigateSpell(raw, m.def.armor, s.damage.kind);
         this.o.combat.damageMonster(m, p.id, amount, s.damage.kind, now,
           { ranged: false }); // projétil da magia vem do SpellCast
+      }
+      for (const v of victims) {
+        const base = evalSpellFormula(s.damage, p.level, ml, this.rng);
+        const raw = dealt === 1 ? base : Math.round(base * dealt);
+        this.o.combat.hitPlayer(p, v, mitigateSpell(raw, this.o.combat.armorOf(v), s.damage.kind), s.damage.kind, now);
       }
     }
     if (s.heal) for (const a of allies) this.o.combat.healPlayer(a, p.id, evalSpellFormula(s.heal, p.level, ml, this.rng));
@@ -315,13 +344,14 @@ export class SpellSystem {
 
     const out: SpellCastMsg = { spellId: s.id, casterId: p.id, x: center.x, y: center.y, dir: p.dir };
     if (r.monster) out.targetId = r.monster.s.id;
+    else if (r.victim) out.targetId = r.victim.id;
     else if (r.ally && r.ally !== p) out.targetId = r.ally.id;
     if (tiles) out.tiles = flat(tiles);
     return out;
   }
 
   /** Investida: anda em linha reta até `range` tiles em direção ao alvo, parando ao lado dele ou em obstáculos. */
-  private dash(p: PlayerState, target: Monster, range: number): void {
+  private dash(p: PlayerState, target: Point, range: number): void {
     const mm = this.o.monsters;
     let x = p.x, y = p.y;
     const free = (tx: number, ty: number) => {
@@ -330,12 +360,12 @@ export class SpellSystem {
       return true;
     };
     for (let i = 0; i < range; i++) {
-      if (cheb(x, y, target.s.x, target.s.y) <= 1) break;
-      const sx = Math.sign(target.s.x - x), sy = Math.sign(target.s.y - y);
+      if (cheb(x, y, target.x, target.y) <= 1) break;
+      const sx = Math.sign(target.x - x), sy = Math.sign(target.y - y);
       const options: [number, number][] = [[sx, sy]];
       if (sx !== 0 && sy !== 0) {
         // Diagonal bloqueada: tenta o eixo de maior distância primeiro.
-        if (Math.abs(target.s.x - x) >= Math.abs(target.s.y - y)) options.push([sx, 0], [0, sy]);
+        if (Math.abs(target.x - x) >= Math.abs(target.y - y)) options.push([sx, 0], [0, sy]);
         else options.push([0, sy], [sx, 0]);
       }
       const step = options.find(([dx, dy]) => canStepTerrain(this.o.grid, x, y, dx, dy) && free(x + dx, y + dy));

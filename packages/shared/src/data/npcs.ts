@@ -16,7 +16,15 @@ export interface NpcDef {
   depot?: boolean;
   /** Falas aleatórias que aparecem sobre a cabeça de vez em quando (ambientação). */
   idleLines?: string[];
+  /** Cocheiro: destinos (tile de chegada) e preço em ouro. */
+  travel?: TravelDest[];
 }
+
+export interface TravelDest { id: string; label: string; x: number; y: number; price: number }
+
+/** Viagem de carroça grátis até este level (inclusive). */
+export const TRAVEL_FREE_LEVEL = 8;
+export const travelPrice = (d: Pick<TravelDest, "price">, level: number): number => (level <= TRAVEL_FREE_LEVEL ? 0 : d.price);
 
 /** Distância máxima (Chebyshev, em tiles) para interagir com um NPC. */
 export const NPC_RANGE = 3;
@@ -208,6 +216,18 @@ export const NPCS: Record<string, NpcDef> = {
       "Demodras dorme no fundo do vale. Não acorde ele sozinho.",
       "Os olhos malignos veem tudo. Não fique parado no cemitério.",
     ],
+  },
+  coach_village: {
+    id: "coach_village", name: "Cocheiro Bastião", sprite: C + "Villager2/SpriteSheet.png",
+    greeting: "Carroça para o Posto da Fronteira, no leste. A estrada é longa, mas a minha mula conhece o caminho.",
+    travel: [{ id: "frontier", label: "Posto da Fronteira", x: 214, y: 61, price: 150 }],
+    idleLines: ["Carroça para a Fronteira! Saída imediata!", "Essa mula já viu mais dragão que muito aventureiro."],
+  },
+  coach_frontier: {
+    id: "coach_frontier", name: "Cocheira Zuleica", sprite: C + "ManGreen/SpriteSheet.png",
+    greeting: "Cansou das Terras Selvagens? Levo você de volta à Vila de Pedra Clara.",
+    travel: [{ id: "village", label: "Vila de Pedra Clara", x: 97, y: 98, price: 150 }],
+    idleLines: ["Volta para a Vila! Quem vem?", "Cuidado na estrada: aqui fora tem gente com caveira."],
   },
 };
 

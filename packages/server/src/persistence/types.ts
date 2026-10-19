@@ -13,6 +13,8 @@ export interface CharacterData {
   stance?: "offensive" | "balanced" | "defensive";
   chase?: boolean;
   auto?: boolean;
+  /** PvP: mortes injustas recentes (timestamps) — caveira vermelha. */
+  pvpKills?: number[];
   /** Inventário (M4). */
   equipment?: Partial<Record<string, unknown>>;
   backpack?: unknown[];

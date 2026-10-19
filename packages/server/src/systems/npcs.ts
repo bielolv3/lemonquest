@@ -1,9 +1,10 @@
 // NPCs (M4): objetos "npc" do mapa (propriedade npcId). Falar (NPC_RANGE) abre diálogo/loja/depot; sair do
 // alcance fecha (NpcOpen com npcId ""). Loja: compra (ouro, espaço, empilha) e venda (só tipos em `buys`).
+// Cocheiro (`travel`): cobra o ouro e leva o jogador ao destino (grátis até TRAVEL_FREE_LEVEL).
 // Ambientação: a cada 20–40 s cada NPC com idleLines fala (S2C.NpcSay) se houver jogador a até 15 tiles.
 import {
-  NPC_BUY_RATIO, NPC_RANGE, S2C, findObjects, npcBuyPrice, npcDef, objectTile,
-  type NoticeMsg, type NpcDef, type NpcInteractMsg, type NpcOpenMsg, type NpcSayMsg, type NpcTradeMsg, type TiledMap,
+  NPC_BUY_RATIO, NPC_RANGE, S2C, findObjects, npcBuyPrice, npcDef, objectTile, travelPrice,
+  type NoticeMsg, type NpcDef, type NpcInteractMsg, type NpcOpenMsg, type NpcSayMsg, type NpcTradeMsg, type TiledMap, type TravelMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { maxStackOf, makeItem, type InventorySystem } from "./inventory.ts";
@@ -36,6 +37,10 @@ export interface NpcOptions {
   rng?: () => number;
   /** Bloqueio extra (coliseu: loja da arena só na pausa). Retorna o aviso, ou null se pode usar. */
   blocked?: (p: PlayerState, npcId: string) => string | null;
+  /** Leva o jogador ao destino da viagem (teleporte + aviso ao cliente). Ausente = cocheiros não viajam. */
+  travel?: (p: PlayerState, x: number, y: number) => void;
+  /** Impede a viagem (em combate etc.). Retorna o aviso, ou null se pode. */
+  travelBlocked?: (p: PlayerState) => string | null;
 }
 
 export const CLOSED: NpcOpenMsg = { npcId: "", name: "", greeting: "" };
@@ -92,7 +97,7 @@ export class NpcSystem {
   spot(npcId: string): NpcSpot | null { return this.spots.get(npcId) ?? null; }
 
   /** Monta o NpcOpen (preços da loja). */
-  openMsg(d: NpcDef): NpcOpenMsg {
+  openMsg(d: NpcDef, p?: PlayerState): NpcOpenMsg {
     const msg: NpcOpenMsg = { npcId: d.id, name: d.name, greeting: d.greeting };
     if (d.shop) {
       const sells = d.shop.sells
@@ -102,6 +107,7 @@ export class NpcSystem {
       if (d.shop.buys) msg.shop.buys = [...d.shop.buys];
     }
     if (d.depot) msg.depot = true;
+    if (d.travel?.length) msg.travel = d.travel.map((t) => ({ id: t.id, label: t.label, price: travelPrice(t, p?.level ?? Infinity) }));
     return msg;
   }
 
@@ -114,7 +120,7 @@ export class NpcSystem {
     const why = this.o.blocked?.(p, d.id);
     if (why) return this.notice(p, why, "warn");
     this.open.set(p.id, d.id);
-    this.o.send(p.id, S2C.NpcOpen, this.openMsg(d));
+    this.o.send(p.id, S2C.NpcOpen, this.openMsg(d, p));
     if (d.depot) this.o.inventory.sendDepot(p.id);
   }
 
@@ -155,6 +161,21 @@ export class NpcSystem {
       inv.addGold(p, price);
       this.notice(p, `Você vendeu ${count}x ${item.name} por ${price} de ouro.`, "good");
     }
+  }
+
+  /** C2S.Travel */
+  onTravel(p: PlayerState, msg: TravelMsg): void {
+    if (!msg || typeof msg !== "object" || typeof msg.npcId !== "string" || typeof msg.dest !== "string" || p.hp <= 0) return;
+    if (this.open.get(p.id) !== msg.npcId || !this.inRange(p, msg.npcId) || !this.o.travel) return;
+    const dest = this.defs(msg.npcId)?.travel?.find((t) => t.id === msg.dest);
+    if (!dest) return;
+    const why = this.o.travelBlocked?.(p);
+    if (why) return this.notice(p, why, "warn");
+    const price = travelPrice(dest, p.level);
+    if (price > 0 && !this.o.inventory.spendGold(p, price)) return this.notice(p, "Ouro insuficiente.", "warn");
+    this.close(p.id);
+    this.o.travel(p, dest.x, dest.y);
+    this.notice(p, price > 0 ? `Você viajou para ${dest.label} por ${price} de ouro.` : `Você viajou para ${dest.label}.`, "good");
   }
 
   /** Fecha diálogos fora de alcance e solta falas ambiente. */

@@ -21,6 +21,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
       { keys: ["F8"], label: "Seguir o alvo" },
       { keys: ["F9"], label: "Ataque automático" },
+      { keys: ["Clique dir."], label: "Jogador: atacar (PvP) · seguir" },
       { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
     ],
   },

@@ -1,7 +1,7 @@
 // Combate estilo Tibia: alvo + ataque automático a cada PLAYER_ATTACK_MS; dano de monstros; XP, level e morte.
 import {
   PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
-  autoAttackRange, rollAttack, rollInt, splitXp,
+  autoAttackRange, rollAttack, rollInt, splitXp, xpForLevel,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type NoticeMsg, type XpGainMsg,
 } from "@lemonquest/shared";
@@ -95,6 +95,14 @@ export interface CombatHooks {
   xpMult?: () => number;
   /** Jogador participou do combate agora (deu dano num monstro selvagem ou curou outro jogador). */
   onActivity?: (playerId: string, now: number) => void;
+  /** PvP: motivo pelo qual `a` não pode atacar o jogador `b` (null = pode). Ausente = sem PvP. */
+  canAttackPlayer?: (a: PlayerState, b: PlayerState) => string | null;
+  /** PvP: `a` vai causar dano a `b` (caveiras, bloqueio de PZ). */
+  onPlayerHit?: (a: PlayerState, b: PlayerState, now: number) => void;
+  /** Jogador vai morrer (ainda no lugar da morte, antes da penalidade). `killer` = jogador que matou, se for PvP. */
+  onDying?: (p: PlayerState, killer: PlayerState | undefined, now: number) => void;
+  /** Multiplicador da XP perdida na morte (caveira vermelha). Ausente = 1. */
+  deathXpMult?: (p: PlayerState) => number;
 }
 
 export interface CombatOptions {
@@ -131,6 +139,18 @@ export class CombatSystem {
     const id = msg.targetId;
     if (id === null || id === "") { p.targetId = ""; return; }
     if (typeof id !== "string") return;
+    const victim = id !== p.id ? this.o.getPlayer(id) : undefined;
+    if (victim) {
+      if (cheb(p.x, p.y, victim.x, victim.y) > TARGET_MAX_DIST) return;
+      const why = this.hooks.canAttackPlayer ? this.hooks.canAttackPlayer(p, victim) : "Você não pode atacar outros jogadores.";
+      if (why) {
+        p.targetId = "";
+        this.o.send(p.id, S2C.Notice, { text: why, kind: "warn" } satisfies NoticeMsg);
+        return;
+      }
+      p.targetId = id;
+      return;
+    }
     const m = this.o.monsters.wild(id);
     if (!m || cheb(p.x, p.y, m.s.x, m.s.y) > TARGET_MAX_DIST) return;
     // Na zona de proteção só se pode atacar bonecos de treino (invulneráveis).
@@ -178,6 +198,8 @@ export class CombatSystem {
   tick(now: number): void {
     for (const p of this.o.players()) {
       if (!p.targetId) continue;
+      const victim = this.o.getPlayer(p.targetId);
+      if (victim) { this.attackPlayer(p, victim, now); continue; }
       const m = this.o.monsters.wild(p.targetId);
       if (!m || (!m.def.invulnerable && this.o.monsters.inPz(p.x, p.y))) { p.targetId = ""; continue; }
       const d = cheb(p.x, p.y, m.s.x, m.s.y);
@@ -194,6 +216,30 @@ export class CombatSystem {
       const amount = roll.miss ? 0 : mitigate(raw, m.def.armor);
       this.damageMonster(m, p.id, amount, va.kind, now, { crit: roll.crit, ranged: va.ranged });
     }
+  }
+
+  /** Ataque automático contra outro jogador (PvP). */
+  private attackPlayer(p: PlayerState, victim: PlayerState, now: number): void {
+    const d = cheb(p.x, p.y, victim.x, victim.y);
+    if (d > TARGET_MAX_DIST || p.hp <= 0 || !this.hooks.canAttackPlayer || this.hooks.canAttackPlayer(p, victim)) { p.targetId = ""; return; }
+    const va = this.attackOf(p);
+    if (d < 1 || d > va.range || now < (this.nextAttackAt.get(p.id) ?? 0)) return;
+    if (va.ranged && !this.o.monsters.los(p.x, p.y, victim.x, victim.y)) return;
+    this.nextAttackAt.set(p.id, now + PLAYER_ATTACK_MS);
+    this.lastCombatAt.set(p.id, now);
+    this.hooks.onAutoAttack?.(p);
+    const roll = rollAttack(va.damage, va.critPct, this.rng);
+    const raw = Math.round(roll.amount * (this.hooks.dealtMult?.(p) ?? 1));
+    const amount = roll.miss ? 0 : mitigate(raw, this.armorOf(victim));
+    this.hitPlayer(p, victim, amount, va.kind, now, { ranged: va.ranged });
+  }
+
+  /** Dano de jogador em jogador (ataque básico ou magia): caveiras/bloqueio de PZ e depois o dano. */
+  hitPlayer(p: PlayerState, victim: PlayerState, amount: number, kind: DamageKind, now: number, o: { ranged?: boolean } = {}): number {
+    this.hooks.onPlayerHit?.(p, victim, now);
+    this.lastCombatAt.set(p.id, now);
+    if (!o.ranged && kind === "physical") this.hooks.onMeleeHit?.(victim);
+    return this.damagePlayer(victim, p.id, amount, kind, now, { ranged: o.ranged, killerName: p.name, killerId: p.id });
   }
 
   /**
@@ -238,7 +284,7 @@ export class CombatSystem {
    * Retorna o dano tirado da vida.
    */
   damagePlayer(p: PlayerState, sourceId: string, amount: number, kind: DamageKind, now: number,
-    o: { ranged?: boolean; killerName?: string } = {}): number {
+    o: { ranged?: boolean; killerName?: string; killerId?: string } = {}): number {
     if (p.hp <= 0) return 0;
     this.lastCombatAt.set(p.id, now);
     let left = Math.max(0, Math.round(amount * (this.hooks.takenMult?.(p) ?? 1)));
@@ -262,7 +308,7 @@ export class CombatSystem {
     }
     if (dealt <= 0) return 0;
     p.hp -= dealt;
-    if (p.hp <= 0) this.playerDied(p, o.killerName ?? "?");
+    if (p.hp <= 0) this.playerDied(p, o.killerName ?? "?", o.killerId ? this.o.getPlayer(o.killerId) : undefined, now);
     return dealt;
   }
 
@@ -365,13 +411,17 @@ export class CombatSystem {
     });
   }
 
-  private playerDied(p: PlayerState, killerName: string) {
+  private playerDied(p: PlayerState, killerName: string, killer: PlayerState | undefined, now: number) {
     p.targetId = "";
+    // Quem estava mirando o morto perde o alvo (PvP).
+    for (const o of this.o.players()) if (o.targetId === p.id) o.targetId = "";
     this.o.monsters.clearTargetsOf(p.id);
     this.lastCombatAt.delete(p.id);
     this.nextAttackAt.delete(p.id);
     if (this.hooks.interceptDeath?.(p, killerName)) return;
-    const lostXp = deathPenalty(p.level, p.xp);
+    this.hooks.onDying?.(p, killer, now);
+    const mult = Math.max(1, this.hooks.deathXpMult?.(p) ?? 1);
+    const lostXp = Math.max(0, Math.min(p.xp - xpForLevel(p.level), Math.round(deathPenalty(p.level, p.xp) * mult)));
     p.xp -= lostXp;
     this.o.teleport(p, this.o.spawn.x, this.o.spawn.y);
     p.hp = p.maxHp;

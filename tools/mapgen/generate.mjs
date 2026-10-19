@@ -768,6 +768,10 @@ console.log(`BFS ok: ${reached} reachable tiles of ${walk} walkable (${((reached
 // ===================================================================== TERRAS SELVAGENS (expansão a leste: tools/mapgen/expansion.mjs)
 // O mapa acima (160 colunas) fica intacto e validado; a expansão o copia para um mapa mais largo e desenha as colunas novas.
 const big = expand({ old: map, ts, S, L: LEMON, OW_H, spawnTile: SPAWN, oldPortals: portals }).map;
+// NPCs acrescentados depois do mapa pronto (como os lateSpawns): só o objeto, nenhum tile muda. Tile andável conferido à
+// mão, fora do caminho. Cocheiros: carroça Vila (portão leste) ↔ Posto da Fronteira; chegada em shared/data/npcs.ts.
+const lateNpcs = [['coach_village', 98, 100], ['coach_frontier', 213, 62]];
+for (const [id, x, y] of lateNpcs) big.tileObj('npc', x, y, { npcId: id }, id);
 
 // ===================================================================== OUTPUT
 fs.mkdirSync(MAPS_DIR, { recursive: true });

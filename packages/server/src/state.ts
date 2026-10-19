@@ -1,5 +1,5 @@
 import { Schema, MapSchema, type } from "@colyseus/schema";
-import type { FightStance, GroundItemView, MonsterView, PlayerView, Vocation } from "@lemonquest/shared";
+import type { FightStance, Skull, GroundItemView, MonsterView, PlayerView, Vocation } from "@lemonquest/shared";
 
 /** Deve espelhar PlayerView (packages/shared/src/types.ts). */
 export class PlayerState extends Schema implements PlayerView {
@@ -31,6 +31,7 @@ export class PlayerState extends Schema implements PlayerView {
   @type("boolean") chase = false;
   @type("boolean") auto = false;
   @type("string") followId = "";
+  @type("string") skull: Skull = "";
   @type("string") outfit = "cavaleiro";
   @type("uint8") addons = 0;
   /** Título ativo (texto). Conquistas. */

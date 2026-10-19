@@ -10,6 +10,22 @@
   manualmente, escolher um alvo de ataque, `Esc`, ou o jogador ficar a mais de 15 tiles cancelam. Seguindo, o
   personagem ainda ataca o que estiver ao alcance sem sair do jogador.
 
+### PvP (estilo Tibia)
+- **Jogadores podem se atacar em qualquer lugar fora da zona de proteção** (Vila, Centro de Treinamento e Posto da
+  Fronteira), sem limite de level: clique direito → *Atacar*, ou clique no jogador na Batalha. Ataque básico e magias de
+  alvo único atingem jogadores; magias de área só atingem o alvo atual, quem tem caveira ou quem atacou você (passar
+  perto de um inocente não dá caveira). Não vale contra o próprio grupo nem no Coliseu.
+- **Caveira branca** (15 min) para quem ataca um jogador sem caveira que não o atacou antes. O revide é justo.
+- **Caveira vermelha** com 3 mortes injustas em 24 h (salvas no personagem): ao morrer, perde o dobro de XP e metade
+  do ouro cai no chão.
+- Depois de atacar um jogador, não se entra em zona de proteção por 1 min.
+- A caveira aparece ao lado do nome do personagem.
+
+### Viagem
+- **Cocheiros** Bastião (portão leste da Vila) e Zuleica (sul do Posto da Fronteira): carroça entre os dois por 150 de
+  ouro, grátis até o level 8. Não dá para viajar em combate. Os dois NPCs entraram no mapa só como objetos (nenhum
+  tile mudou).
+
 ### Mapa
 - **O mapa passou de 160 para 280 colunas.** A expansão é gerada por `tools/mapgen/expansion.mjs` (semente própria) DEPOIS
   do mapa original: tudo nas 160 colunas antigas fica igual (mesmos tiles e mesmos ids de objeto), menos duas passagens

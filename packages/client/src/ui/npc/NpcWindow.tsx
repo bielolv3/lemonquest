@@ -1,4 +1,4 @@
-// Janela de NPC: fala com digitação, abas Comprar / Vender / Depot.
+// Janela de NPC: fala com digitação, abas Missões / Viagem / Comprar / Vender / Depot.
 import { DEPOT_SIZE, itemDef, type NpcOpenMsg } from "@lemonquest/shared";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { sectionsStore } from "../hud/Section.tsx";
@@ -12,11 +12,11 @@ import { fmtNum, rarityColor, sellPrice } from "../items/itemInfo.ts";
 import { ItemIcon } from "../items/ItemIcon.tsx";
 import { ItemSlot } from "../items/ItemSlot.tsx";
 import { itemTipStore, shopInstance } from "../items/tipStore.ts";
-import { buyItem, closeNpc, npcStore, npcTabs, sellItem, setNpcTab, type NpcTab } from "./npc.ts";
+import { buyItem, closeNpc, npcStore, npcTabs, sellItem, setNpcTab, travelTo, type NpcTab } from "./npc.ts";
 import { BountyBoard, NpcQuestList } from "../quests/NpcQuests.tsx";
 import "./npc.css";
 
-const TAB_LABEL: Record<NpcTab, string> = { quests: "Missões", bounties: "Recompensas", buy: "Comprar", sell: "Vender", depot: "Depot" };
+const TAB_LABEL: Record<NpcTab, string> = { quests: "Missões", bounties: "Recompensas", travel: "Viagem", buy: "Comprar", sell: "Vender", depot: "Depot" };
 const TYPE_MS = 25;
 
 export function NpcWindow() {
@@ -46,6 +46,7 @@ export function NpcWindow() {
         )}
         {st.tab === "quests" && <NpcQuestList npcId={m.npcId} />}
         {st.tab === "bounties" && <BountyBoard />}
+        {st.tab === "travel" && m.travel && <TravelList m={m} gold={inv?.gold ?? 0} />}
         {st.tab === "buy" && m.shop && <BuyList m={m} gold={inv?.gold ?? 0} />}
         {st.tab === "sell" && m.shop && <SellList m={m} />}
         {st.tab === "depot" && m.depot && <DepotGrid />}
@@ -133,6 +134,29 @@ function BuyList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
       })}
     </ul>
     </>
+  );
+}
+
+function TravelList({ m, gold }: { m: NpcOpenMsg; gold: number }) {
+  return (
+    <ul class="shop-list">
+      {m.travel!.map((t) => {
+        const afford = gold >= t.price;
+        return (
+          <li key={t.id} class="shop-row">
+            <div class="shop-main">
+              <div class="shop-name">{t.label}</div>
+              <div class="shop-price">
+                {t.price > 0 ? <><Coin size={14} /><span class={afford ? "" : "bad"}>{fmtNum(t.price)}</span></> : <span>Grátis (até o level 8)</span>}
+              </div>
+            </div>
+            <button class="shop-btn" disabled={!afford} onClick={() => travelTo(m.npcId, t.id)} data-tip={afford ? undefined : "Ouro insuficiente"}>
+              Viajar
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -60,6 +60,12 @@ export class MovementSystem {
     this.extraBlocker = fn;
   }
 
+  /** Bloqueio por jogador (PvP: não entra na zona de proteção logo após atacar alguém). */
+  private stepGuard: ((p: PlayerState, x: number, y: number) => boolean) | null = null;
+  setStepGuard(fn: ((p: PlayerState, x: number, y: number) => boolean) | null): void {
+    this.stepGuard = fn;
+  }
+
   /** Move o jogador instantaneamente (portal, morte/respawn). Cancela intenção, buffer e caminho. */
   teleport(p: PlayerState, x: number, y: number): void {
     const m = this.movers.get(p.id);
@@ -191,6 +197,7 @@ export class MovementSystem {
     let result: StepResult = "ok";
     if (!canStepTerrain(this.grid, p.x, p.y, dx, dy)) result = "wall";
     else if (this.isOccupied(tx, ty, p.id)) result = "player";
+    else if (this.stepGuard?.(p, tx, ty)) result = "wall";
 
     p.dir = dir;
     if (result !== "ok") return result;

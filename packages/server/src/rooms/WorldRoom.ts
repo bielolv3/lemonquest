@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, findObjects,
-  PARTY_SHARE_RANGE,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -31,7 +31,8 @@ import { SkillSystem } from "../systems/skills.ts";
 import { TrainingSystem, parseStatues } from "../systems/training.ts";
 import { SummonSystem } from "../systems/summons.ts";
 import { SpellSystem } from "../systems/spells.ts";
-import { InventorySystem } from "../systems/inventory.ts";
+import { GOLD_ID, InventorySystem, makeItem } from "../systems/inventory.ts";
+import { PvpSystem } from "../systems/pvp.ts";
 import { LootSystem } from "../systems/loot.ts";
 import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
@@ -50,7 +51,7 @@ import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthDat
 import { getCharacterByName, getKv, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
-import { isValidStart, reachableFrom } from "../world/tiles.ts";
+import { isValidStart, nearestFreeTile, reachableFrom } from "../world/tiles.ts";
 
 export const AUTOSAVE_MS = 15_000;
 /** Intervalo de sincronização do relógio do mundo (ciclo dia/noite). */
@@ -69,7 +70,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -109,6 +110,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private ground!: GroundSystem;
   private npcs!: NpcSystem;
   private fight!: FightModeSystem;
+  private pvp!: PvpSystem;
   private arena!: ArenaSystem;
   private training!: TrainingSystem;
   private quests!: QuestSystem;
@@ -226,8 +228,23 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       npcs: parseNpcs(this.map.tiled), inventory: this.inventory,
       players: () => this.state.players.values(), getPlayer, send, broadcast,
       blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende nas pausas entre as ondas." : null),
+      travel: (p, x, y) => {
+        const to = nearestFreeTile(x, y, (tx, ty) => this.isFreeTile(tx, ty, p.id)) || { x, y };
+        this.fight.cancelFollow(p);
+        p.targetId = "";
+        this.movement.teleport(p, to.x, to.y);
+        send(p.id, S2C.Teleported, to);
+      },
+      travelBlocked: (p) => (this.combat.inCombat(p.id, Date.now()) ? "Você está em combate. Espere um pouco para viajar." : null),
     });
     this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y));
+    this.pvp = new PvpSystem({
+      inPz: (x, y) => this.monsters.inPz(x, y),
+      inArena: (id) => !!this.arena?.inMatch(id),
+      sameParty: (a, b) => this.party.sameParty(a, b),
+      send,
+    });
+    this.movement.setStepGuard((p, x, y) => this.pvp.blocksStep(p, x, y));
     // Itens no chão (persistidos no SQLite: sobrevivem a reinícios; o que expirou nesse meio-tempo some).
     this.ground = new GroundSystem({
       store: {
@@ -281,6 +298,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       // Investida não para em NPC nem em portal (cair num portal teleportava o cavaleiro sem querer).
       isBlocked: (x, y) => this.npcs.isNpcAt(x, y) || this.portals.isPortalTile(x, y),
       isAlly: (a, b) => this.party.sameParty(a.id, b.id),
+      areaHitsPlayer: (a, b) => !this.pvp.canAttack(a, b) && (b.id === a.targetId || this.pvp.justified(a, b)),
     });
     this.training = new TrainingSystem({
       statues: parseStatues(this.map.tiled), skills: this.skills,
@@ -327,6 +345,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.ach?.event(pid, "kill", { defId: m.def.id, boss: !!m.def.boss });
       },
       interceptDeath: (p) => this.arena.interceptDeath(p),
+      canAttackPlayer: (a, b) => this.pvp.canAttack(a, b),
+      onPlayerHit: (a, b, now) => this.pvp.onHit(a, b, now),
+      onDying: (p, killer, now) => {
+        if (killer) this.pvp.onKill(killer, p, now);
+        // Caveira vermelha: metade do ouro cai no chão onde morreu.
+        if (p.skull !== "red") return;
+        const lost = Math.floor(this.inventory.gold(p.id) * RED_SKULL_GOLD_DROP);
+        if (lost > 0 && this.inventory.spendGold(p, lost)) this.ground.place(makeItem(GOLD_ID, lost), p.x, p.y);
+      },
+      deathXpMult: (p) => (p.skull === "red" ? RED_SKULL_DEATH_XP_MULT : 1),
       xpShares: (m, shares, now) => this.party.shareXp(shares, m.s.x, m.s.y, now),
       onActivity: (id, now) => this.party.markActive(id, now),
     };
@@ -451,6 +479,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     });
     this.on<ArenaActionMsg>(C2S.Arena, (p, m) => this.arena.onAction(p, m));
     this.on<NpcTradeMsg>(C2S.NpcTrade, (p, m) => this.npcs.onTrade(p, m));
+    this.on<TravelMsg>(C2S.Travel, (p, m) => this.npcs.onTravel(p, m));
     this.on<QuestActionMsg>(C2S.Quest, (p, m) => this.quests.onAction(p, m));
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
@@ -465,6 +494,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
     const players = () => this.state.players.values();
     this.steps = [
+      ["pvp", () => this.pvp.tick(this.tickNow, players())],
       ["fight", () => this.fight.tick(this.tickNow, players())],
       ["movement", () => this.movement.tick(this.tickNow, players())],
       ["portals", () => { for (const p of players()) this.portals.check(p); }],
@@ -588,6 +618,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
     const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
     this.fight.load(p, rec.data.stance, rec.data.chase, rec.data.auto);
+    this.pvp.load(p, rec.data.pvpKills);
     this.food.load(p.id, rec.data, Date.now());
     this.quests.load(p, rec.data.quests);
     rollWeek(rec, new Date());
@@ -818,6 +849,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["npcs", () => this.npcs.removePlayer(sid)],
         ["quests", () => this.quests.removePlayer(sid)],
         ["fight", () => this.fight.removePlayer(sid)],
+        ["pvp", () => this.pvp.removePlayer(sid)],
         ["chat", () => clearChatState(sid)],
         ["achievements", () => this.ach.removePlayer(sid)],
         ["trade", () => this.trade.removePlayer(sid)],
@@ -879,6 +911,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.data.stance = p.stance;
     rec.data.chase = p.chase;
     rec.data.auto = p.auto;
+    rec.data.pvpKills = this.pvp.savedKills(p.id);
     rec.data.outfit = p.outfit;
     rec.data.addons = p.addons;
     const quests = this.quests.serialize(sessionId);

@@ -34,6 +34,8 @@ export const C2S = {
   NpcInteract: "npcInteract",
   /** Comprar/vender com NPC aberto. */
   NpcTrade: "npcTrade",
+  /** Viajar com o cocheiro aberto (TravelMsg). */
+  Travel: "travel",
   /** Modo de batalha: postura (ofensivo/equilibrado/defensivo) e seguir o alvo. */
   FightMode: "fightMode",
   /** Seguir outro jogador (botão direito → Seguir, como no Tibia); targetId null/"" para de seguir. */
@@ -270,7 +272,10 @@ export interface NpcOpenMsg {
   greeting: string;
   shop?: { sells: { itemId: string; price: number }[]; buys?: string[]; sellRatio: number };
   depot?: boolean;
+  /** Cocheiro: destinos e preço para este jogador (0 = grátis). */
+  travel?: { id: string; label: string; price: number }[];
 }
+export interface TravelMsg { npcId: string; dest: string }
 export interface LootMsg {
   x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number;
   /** Itens perdidos (mochila cheia e sem espaço no chão). */
