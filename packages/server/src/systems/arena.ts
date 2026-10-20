@@ -3,7 +3,7 @@
 // quem cai volta para "arena_exit" com vida cheia e fica com o que já ganhou (recompensa paga no fim de cada onda).
 // Tudo vem do mapa (objetos "arena", "arena_entry", "arena_spawn", "arena_exit"); sem eles o coliseu fica fechado.
 import {
-  ARENA_COMPLETE_GOLD, ARENA_COMPLETE_XP_PCT, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_LOBBY_RANGE, ARENA_MAX_PARTY,
+  ARENA_COMPLETE_GOLD, ARENA_COMPLETE_XP_PCT, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_LOBBY_RANGE,
   ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, arenaPauseMs,
   arenaWaveGold, arenaWaveSpawns, arenaWaveXp, findObjects, monsterDef, objectTile, partyMinLevel,
   type ArenaActionMsg, type ArenaLobbiesMsg, type ArenaLobbySummary, type ArenaPhase, type ArenaResultMsg,
@@ -217,7 +217,7 @@ export class ArenaSystem {
     this.lobbiesDirty = true;
   }
 
-  /** Líder do grupo (party) criou o lobby "com meu grupo": entram os membros perto do Mestre, livres e cabendo. */
+  /** Líder do grupo (party) criou o lobby "com meu grupo": entram os membros perto do Mestre e livres. */
   private bringParty(p: PlayerState, party: Party): void {
     if (this.o.isPartyLeader && !this.o.isPartyLeader(p.id)) {
       this.notice(p.id, "Só o líder do grupo pode trazer o grupo.", "warn");
@@ -227,7 +227,7 @@ export class ArenaSystem {
     for (const id of this.o.partyMates?.(p.id) ?? []) {
       const mate = this.o.getPlayer(id);
       if (!mate) continue;
-      if (party.members.length >= ARENA_MAX_PARTY || this.partyOf.has(id) || mate.hp <= 0 || !this.nearMaster(mate)) {
+      if (this.partyOf.has(id) || mate.hp <= 0 || !this.nearMaster(mate)) {
         left.push(mate.name);
         continue;
       }
@@ -245,7 +245,6 @@ export class ArenaSystem {
     if (!this.nearMaster(p)) return this.notice(p.id, "Fale com o Mestre do Coliseu.", "warn");
     const party = this.parties.get(lobbyId);
     if (!party || (party.phase !== "lobby" && party.phase !== "queued")) return this.notice(p.id, "Esse grupo não está mais aberto.", "warn");
-    if (party.members.length >= ARENA_MAX_PARTY) return this.notice(p.id, "O grupo está cheio.", "warn");
     party.members.push(this.member(p));
     this.partyOf.set(p.id, party);
     this.watchers.add(p.id);
@@ -641,7 +640,6 @@ export class ArenaSystem {
         id: party.id,
         leader: party.members.find((m) => m.id === party.leader)?.name ?? "?",
         members: party.members.map((m) => m.name),
-        max: ARENA_MAX_PARTY,
         avgLevel: lv.length ? Math.round(lv.reduce((a, b) => a + b, 0) / lv.length) : 0,
       });
     }

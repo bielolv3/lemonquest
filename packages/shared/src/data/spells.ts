@@ -72,7 +72,7 @@ export function spellMana(s: Pick<SpellDef, "mana" | "manaPerLevel" | "manaMax">
 }
 
 /**
- * Catálogo: 6-7 magias por vocação (uma única cura própria "exura" para todas; druida ainda tem a cura em grupo "exura mas sio"). Palavras únicas (ver tabela no fim do arquivo).
+ * Catálogo: 6-8 magias por vocação (uma única cura própria "exura" e o "utani hur" para todas; druida ainda tem a cura em grupo "exura mas sio"). Palavras únicas (ver tabela no fim do arquivo).
  * Valor esperado = base + level*perLevel + magicLevel*perMagic (magicLevel estimado no spells.test.ts).
  */
 export const SPELLS: Record<string, SpellDef> = {
@@ -110,16 +110,19 @@ export const SPELLS: Record<string, SpellDef> = {
     description: "Um golpe devastador no alvo à sua frente.",
   },
 
+  // ------------------------------------------------------------------ CORRER (todas as vocações, como o utani hur do Tibia)
+  swift_feet: {
+    id: "swift_feet", name: "Pés Ligeiros", words: "utani hur", vocations: ["knight", "paladin", "sorcerer", "druid"], level: 5, mana: 20,
+    cooldownMs: 15_000, global: false,
+    target: "self", condition: { id: "haste", durationMs: 30_000, value: 30 }, fx: "buff",
+    description: "Corre: aumenta sua velocidade de movimento em 30% por 30 segundos.",
+  },
+
   // ------------------------------------------------------------------ PALADINO (à distância)
   piercing_arrow: {
     id: "piercing_arrow", name: "Flecha Perfurante", words: "exori con", vocations: ["paladin"], level: 1, mana: 8, cooldownMs: 2000,
     target: "target", range: 6, damage: { kind: "physical", base: 13, perLevel: 1, perMagic: 2, variance: 0.2 }, fx: "arrow",
     description: "Dispara uma flecha certeira contra o alvo.",
-  },
-  swift_feet: {
-    id: "swift_feet", name: "Pés Ligeiros", words: "utani hur", vocations: ["paladin"], level: 5, mana: 20, cooldownMs: 30_000,
-    target: "self", condition: { id: "haste", durationMs: 8000, value: 30 }, fx: "buff",
-    description: "Aumenta sua velocidade de movimento em 30% por 8 segundos.",
   },
   arrow_rain: {
     id: "arrow_rain", name: "Chuva de Flechas", words: "exevo mas con", vocations: ["paladin"], level: 15, mana: 35, cooldownMs: 6000,
@@ -231,6 +234,7 @@ export function spellByWords(text: string): SpellDef | undefined {
  *                                 lv30 (mana 65): mago ~98 (33%), pal ~91 (21%), cav ~90 (15%)
  *                                 (antes: 22 + 2*level + 1.8*ML → mago 36% no lv20 e 41% no lv30)
  * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida; cura aliados]
+ * Pés Ligeiros (utani hur)  todas  5  20  15    haste +30%, 30 s (correr; fora do cooldown global)
  * Removidas: Cura Intensa (exura gran), Cura Vital (exura vita), Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico):
  * cada vocação tem exatamente UMA cura própria.
  *
@@ -240,7 +244,6 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Pele de Ferro        knight    15    20    30    -30% dano, 10 s
  *  * Golpe Brutal         knight    30    45     8    dmg 176 (3.3x auto)
  * Flecha Perfurante    paladin    1     8     2    dmg 14 (2.3x auto)
- * Pés Ligeiros         paladin    5    20    30    haste +30%, 8 s
  * Chuva de Flechas     paladin   15    35     6    dmg 47 (área r2)
  * Flecha Sagrada       paladin   20    30     4    dmg 103 (holy)
  * Onda Sagrada         paladin   30    90     8    dmg 131 (área r3)

@@ -24,12 +24,14 @@ describe("auth: contas", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
-  it("valida nomes de personagem (NFC, só alfabeto latino, espaços simples)", () => {
-    for (const name of ["ab", "a".repeat(17), "Leo123", "Leo!", "", "  ", "Лео", "Λεων", "Leo_X", "Le​o"]) {
+  it("valida nomes de personagem (NFC, alfabeto latino e dígitos, espaços simples)", () => {
+    for (const name of ["ab", "a".repeat(21), "123", "12 34", "Leo!", "", "  ", "Лео", "Λεων", "Leo_X", "Le​o"]) {
       expect(normalizeName(name), name).toBeNull();
     }
     expect(normalizeName("  José  da Silva ")).toBe("José da Silva");
     expect(normalizeName("José")).toBe("José"); // NFD → NFC
+    expect(normalizeName("Leo123")).toBe("Leo123");
+    expect(normalizeName("V1R4 L4T4")).toBe("V1R4 L4T4");
   });
 
   it("nomes NOVOS: recusa sósias (fullwidth, small caps, ligaduras) e aceita acentos comuns", async () => {
@@ -102,7 +104,7 @@ describe("auth: contas", () => {
     expect(handleCreateCharacter({ session: a.session, name: names[MAX_CHARACTERS_PER_ACCOUNT]!, vocation: "druid" }))
       .toEqual({ ok: false, error: "too_many_characters" });
     expect(handleCreateCharacter({ session: b.session, name: "LEO", vocation: "druid" })).toEqual({ ok: false, error: "name_taken" });
-    expect(handleCreateCharacter({ session: b.session, name: "Leo1", vocation: "druid" })).toEqual({ ok: false, error: "invalid_name" });
+    expect(handleCreateCharacter({ session: b.session, name: "Leo!", vocation: "druid" })).toEqual({ ok: false, error: "invalid_name" });
     expect(handleCreateCharacter({ session: b.session, name: "Zeca", vocation: "pirata" as any })).toEqual({ ok: false, error: "invalid_request" });
     expect(handleCreateCharacter({ session: "lixo", name: "Zeca", vocation: "druid" })).toEqual({ ok: false, error: "invalid_session" });
     const list = okSession(await handleLogin({ account: "contaA", password: "segredo1" }));

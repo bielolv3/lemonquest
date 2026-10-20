@@ -201,11 +201,12 @@ function drop(d: DragState, x: number, y: number, shift: boolean) {
     return;
   }
   if (target?.closest(PANEL_SEL)) return;
-  // Soltou fora dos painéis: larga no chão (tile sob o mouse; o servidor decide se cai lá ou no seu tile). Sem confirmação.
+  // Soltou fora dos painéis: larga no chão (tile sob o mouse; o servidor decide se cai lá ou no seu tile).
+  // Pilha (mais de 1): escolhe a quantidade na barrinha (começa em tudo).
   if (from.where === "depot") return;
-  if (shift && d.inst.count > 1 && from.where === "backpack") {
+  if (d.inst.count > 1) {
     openDialog({
-      kind: "count", title: `Largar ${d.def?.name ?? "item"}`, verb: "Largar", max: d.inst.count, initial: Math.max(1, Math.floor(d.inst.count / 2)),
+      kind: "count", title: `Largar ${d.def?.name ?? "item"}`, verb: "Largar", max: d.inst.count, initial: d.inst.count,
       onConfirm: (n) => { closeDialog(); dropAtPointer(from, x, y, n); },
     });
   } else dropAtPointer(from, x, y);

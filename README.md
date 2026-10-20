@@ -21,13 +21,13 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Andar até um ponto | clique esquerdo no chão |
 | Atacar / soltar alvo | clique (esquerdo ou direito) na criatura |
 | Falar com NPC | clique no NPC |
-| Largar item no chão | arraste da mochila/equipamento para o mundo (até 3 tiles; `Shift` escolhe a quantidade) |
+| Largar item no chão | arraste da mochila/equipamento para o mundo (até 3 tiles; pilhas abrem uma barrinha para escolher a quantidade) |
 | Pegar item do chão | clique direito, duplo clique ou `Ctrl`+clique no item (ou arraste para a mochila) |
 | Magias da barra | `1`–`8` (ou digite as palavras mágicas no chat, ex.: `exura`) |
 | Poção de vida / mana | `Q` / `E` |
 | Seguir o alvo | `F8` |
 | Ataque automático (escolhe sozinho o monstro mais próximo) | `F9` |
-| Seguir um jogador | clique direito no jogador → *Seguir* (andar, atacar ou `Esc` cancela) |
+| Seguir um jogador | clique direito no jogador (no mundo ou na Batalha) → *Seguir*; quadrado verde marca quem você segue (andar, atacar ou `Esc` cancela) |
 | Atacar um jogador (PvP, fora da zona de proteção) | clique direito no jogador → *Atacar*, ou clique nele na Batalha |
 | Viajar Vila ↔ Posto da Fronteira | fale com o cocheiro (portão leste da Vila / sul do Posto) |
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |

@@ -350,9 +350,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onDying: (p, killer, now) => {
         if (killer) this.pvp.onKill(killer, p, now);
         // Caveira vermelha: metade do ouro cai no chão onde morreu.
-        if (p.skull !== "red") return;
-        const lost = Math.floor(this.inventory.gold(p.id) * RED_SKULL_GOLD_DROP);
-        if (lost > 0 && this.inventory.spendGold(p, lost)) this.ground.place(makeItem(GOLD_ID, lost), p.x, p.y);
+        if (p.skull === "red") {
+          const lost = Math.floor(this.inventory.gold(p.id) * RED_SKULL_GOLD_DROP);
+          if (lost > 0 && this.inventory.spendGold(p, lost)) this.ground.place(makeItem(GOLD_ID, lost), p.x, p.y);
+        }
+        // Morrer tira a caveira branca (a vermelha fica) e tira do grupo.
+        this.pvp.onDeath(p, now);
+        this.party.leave(p.id);
       },
       deathXpMult: (p) => (p.skull === "red" ? RED_SKULL_DEATH_XP_MULT : 1),
       xpShares: (m, shares, now) => this.party.shareXp(shares, m.s.x, m.s.y, now),

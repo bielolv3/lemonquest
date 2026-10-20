@@ -292,7 +292,7 @@ export interface FishCastMsg { id: string; x: number; y: number; ms: number }
 export interface EventMsg { active: import("./data/events.ts").ActiveEvent | null }
 export interface TrainingOpenMsg { statueId: string }
 export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }
-export interface ArenaLobbySummary { id: string; leader: string; members: string[]; max: number; avgLevel: number }
+export interface ArenaLobbySummary { id: string; leader: string; members: string[]; avgLevel: number }
 export interface ArenaLobbiesMsg { lobbies: ArenaLobbySummary[]; freeArenas: number; queue: number }
 export type ArenaPhase = "lobby" | "queued" | "countdown" | "fight" | "pause" | "ended";
 export interface ArenaStateMsg {

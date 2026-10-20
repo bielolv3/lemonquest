@@ -6,7 +6,7 @@ export const TICK_MS = 1000 / TICK_RATE;
 export const BASE_STEP_MS = 280;
 export const DIAGONAL_COST = 1.4;
 
-export const MAX_NAME_LEN = 16;
+export const MAX_NAME_LEN = 20;
 export const MAX_CHAT_LEN = 200;
 
 /** Ponto de respawn (templo). Sobrescrito pelo objeto "spawn_player" do mapa, se existir. */

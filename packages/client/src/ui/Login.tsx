@@ -24,7 +24,7 @@ const MAX_ACCOUNT = 20;
 const ERRORS: Record<AuthError, string> = {
   invalid_request: "Requisição inválida. Tente novamente.",
   invalid_account: "Conta inválida: use de 3 a 20 caracteres (letras, números, espaço, ponto, _ ou -).",
-  invalid_name: "Nome inválido: use de 3 a 16 letras (somente letras, com espaços entre palavras).",
+  invalid_name: `Nome inválido: use de 3 a ${MAX_NAME_LEN} caracteres (letras e números, com espaços entre palavras).`,
   wrong_password: "Senha incorreta.",
   no_account: "Conta não encontrada. Confira o nome ou crie uma conta nova.",
   account_taken: "Já existe uma conta com esse nome.",
@@ -443,7 +443,7 @@ export function Login() {
             onKeyDown={onFieldKey(createChar)}
           />
         </label>
-        <p class="hint left">É o nome que os outros jogadores veem: 3 a {MAX_NAME_LEN} letras, espaços entre palavras.</p>
+        <p class="hint left">É o nome que os outros jogadores veem: 3 a {MAX_NAME_LEN} letras ou números, espaços entre palavras.</p>
         <div class="voc-grid">
           {VOCS.map((v) => {
             const m = VOCATION_META[v.id];

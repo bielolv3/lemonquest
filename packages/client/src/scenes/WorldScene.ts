@@ -126,6 +126,8 @@ export class WorldScene extends Phaser.Scene {
   private hover!: Phaser.GameObjects.Image;
   private targetMark!: Phaser.GameObjects.Image;
   private targetFill!: Phaser.GameObjects.Image;
+  /** Quadrado verde no jogador que está sendo seguido (como no Tibia). */
+  private followMark!: Phaser.GameObjects.Image;
   private curTarget = "";
   private targetSentAt = -1e9;
   private battleAcc = 0;
@@ -1144,6 +1146,8 @@ export class WorldScene extends Phaser.Scene {
     this.worldLayer.add(this.targetMark.setDepth(6));
     this.targetFill = this.add.image(0, 0, TEX.px).setOrigin(0, 0).setTint(0xff3b30).setDisplaySize(TILE_SIZE, TILE_SIZE).setVisible(false);
     this.worldLayer.add(this.targetFill.setDepth(5.5));
+    this.followMark = this.add.image(0, 0, TEX.hover).setOrigin(0, 0).setTint(0x4fe36a).setVisible(false);
+    this.worldLayer.add(this.followMark.setDepth(6));
 
     this.dust = this.add.particles(0, 0, TEX.px, {
       emitting: false,
@@ -1235,6 +1239,11 @@ export class WorldScene extends Phaser.Scene {
 
   /** Quadrado vermelho de 1px (pulsando) no tile do alvo. */
   private updateTargetMark(time: number) {
+    // Seguindo alguém (e não atacando essa pessoa): quadrado verde nela.
+    const followId = selectMe(playersStore.get())?.followId ?? "";
+    const f = followId && followId !== getTarget()?.id ? this.actors.get(followId) : undefined;
+    if (f && !f.ghosted && !f.culled) this.followMark.setPosition(this.pcam.snap(f.rx), this.pcam.snap(f.ry)).setVisible(true);
+    else this.followMark.setVisible(false);
     const t = getTarget();
     const a = t ? this.findActor(t.id) : undefined;
     if (!a || a.ghosted || a.culled) { this.targetMark.setVisible(false); this.targetFill.setVisible(false); return; }

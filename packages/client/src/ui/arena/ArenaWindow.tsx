@@ -1,5 +1,5 @@
 // Janela "Coliseu" (Mestre do Coliseu): lista de grupos abertos, criar/entrar/sair/iniciar.
-import { ARENA_COUNT, ARENA_MAX_PARTY, partyMinLevel } from "@lemonquest/shared";
+import { ARENA_COUNT, partyMinLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
 import { arenaAction, arenaLobbiesStore, arenaStateStore, arenaWindowOpen, closeArenaWindow, phaseRemaining } from "./arena.ts";
@@ -31,7 +31,7 @@ export function ArenaWindow() {
         <div class="arena-info">
           Arenas livres: <b>{list?.freeArenas ?? "?"}/{ARENA_COUNT}</b> · Fila: <b>{list?.queue ?? 0}</b>
         </div>
-        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (até {ARENA_MAX_PARTY}). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade. XP das ondas só para quem tem pelo menos 2/3 do level do mais alto do grupo.</div>
+        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (sem limite de pessoas). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade. XP das ondas só para quem tem pelo menos 2/3 do level do mais alto do grupo.</div>
         <ArenaQuests />
         {mine ? (
           <div class="arena-mine">
@@ -73,18 +73,15 @@ export function ArenaWindow() {
           <ul class="arena-lobbies">
             {list.lobbies.map((l) => {
               const isMine = mine?.lobbyId === l.id;
-              const full = l.members.length >= l.max;
               return (
                 <li key={l.id} class={`arena-lobby${isMine ? " mine" : ""}`}>
                   <div class="arena-lobby-main">
                     <div class="arena-lobby-leader">{l.leader}</div>
                     <div class="arena-lobby-sub">{l.members.join(", ")} · lv médio {l.avgLevel}</div>
                   </div>
-                  <span class="arena-slots">{l.members.length}/{l.max}</span>
+                  <span class="arena-slots">{l.members.length}</span>
                   {!mine && (
-                    <button class="arena-btn" disabled={full} onClick={() => arenaAction({ action: "join", lobbyId: l.id })}>
-                      {full ? "Cheio" : "Entrar"}
-                    </button>
+                    <button class="arena-btn" onClick={() => arenaAction({ action: "join", lobbyId: l.id })}>Entrar</button>
                   )}
                 </li>
               );

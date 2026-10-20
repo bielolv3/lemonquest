@@ -104,23 +104,22 @@ describe("coliseu: lobbies", () => {
     expect(k.arena.partyFor("b")!.members.map((m) => m.id)).toEqual(["b"]);
   });
 
-  it("criar, entrar, sair; líder passa adiante; máximo de 4", () => {
+  it("criar, entrar, sair; líder passa adiante; sem limite de membros", () => {
     const k = setup();
-    const [a, b, c, d, e] = ["a", "b", "c", "d", "e"].map((id) => k.add(id));
+    const [a, b, c, d, e, f] = ["a", "b", "c", "d", "e", "f"].map((id) => k.add(id));
     k.arena.onAction(a!, { action: "create" });
     const id = k.arena.partyFor("a")!.id;
     for (const p of [b, c, d, e]) k.arena.onAction(p!, { action: "join", lobbyId: id });
-    expect(k.arena.partyFor("a")!.members.map((m) => m.id)).toEqual(["a", "b", "c", "d"]);
-    expect(k.notices("e")).toContain("O grupo está cheio.");
+    expect(k.arena.partyFor("a")!.members.map((m) => m.id)).toEqual(["a", "b", "c", "d", "e"]);
     k.arena.onAction(b!, { action: "start" });
     expect(k.notices("b")).toContain("Só o líder pode iniciar.");
-    k.arena.onAction(e!, { action: "list" }); // abriu a janela: passa a receber atualizações
+    k.arena.onAction(f!, { action: "list" }); // abriu a janela: passa a receber atualizações
     k.arena.onAction(a!, { action: "leave" });
     expect(k.arena.partyFor("a")).toBeUndefined();
     expect(k.arena.partyFor("b")!.leader).toBe("b");
     k.run(100);
-    const lobbies = k.lastOf("e", S2C.ArenaLobbies);
-    expect(lobbies.lobbies).toEqual([{ id, leader: "b", members: ["b", "c", "d"], max: 4, avgLevel: 1 }]);
+    const lobbies = k.lastOf("f", S2C.ArenaLobbies);
+    expect(lobbies.lobbies).toEqual([{ id, leader: "b", members: ["b", "c", "d", "e"], avgLevel: 1 }]);
     expect(lobbies.freeArenas).toBe(1);
   });
 

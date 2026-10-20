@@ -92,12 +92,14 @@ export function resetAuthState(): void {
 }
 
 const LETTER = String.raw`(?:(?=\p{L})\p{Script=Latin})`;
-const NAME_RE = new RegExp(`^${LETTER}+(?: ${LETTER}+)*$`, "u");
+/** Letras latinas e dígitos (ex.: "V1R4 L4T4"), com pelo menos uma letra. */
+const NAME_CHAR = String.raw`(?:${LETTER}|[0-9])`;
+const NAME_RE = new RegExp(`^(?=.*${LETTER})${NAME_CHAR}+(?: ${NAME_CHAR}+)*$`, "u");
 const ACC_CHAR = String.raw`(?:${LETTER}|[0-9._-])`;
 const ACCOUNT_RE = new RegExp(`^${ACC_CHAR}+(?: ${ACC_CHAR}+)*$`, "u");
 
 /** Letras de nomes NOVOS: ASCII + Latin-1 + Latin Extended-A (barra sósias: ｆｕｌｌｗｉｄｔｈ, ʟ small caps, ligaduras ﬁ). */
-const PLAIN_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ſ]+(?: [A-Za-zÀ-ÖØ-öø-ſ]+)*$/u;
+const PLAIN_NAME_RE = /^(?=.*[A-Za-zÀ-ÖØ-öø-ſ])[0-9A-Za-zÀ-ÖØ-öø-ſ]+(?: [0-9A-Za-zÀ-ÖØ-öø-ſ]+)*$/u;
 
 /** Nome aceito na CRIAÇÃO (mais estrito que normalizeName, que segue valendo para nomes antigos). */
 export const isPlainNewName = (name: string): boolean => name.normalize("NFKC") === name && PLAIN_NAME_RE.test(name);
@@ -118,7 +120,7 @@ export const isReservedAdminName = (name: string, env: Env = process.env): boole
 export const adminAccounts = (env: Env = process.env): Set<string> =>
   new Set((env.LEMONQUEST_ADMIN_ACCOUNTS ?? "").split(",").map((s) => nameKey(s.trim())).filter(Boolean));
 
-/** Nome de PERSONAGEM: NFC; só letras do alfabeto latino (com acentos), palavras separadas por um único espaço. */
+/** Nome de PERSONAGEM: NFC; letras do alfabeto latino (com acentos) e dígitos, palavras separadas por um único espaço. */
 export function normalizeName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const name = raw.normalize("NFC").trim().replace(/\s+/g, " ");

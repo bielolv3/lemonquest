@@ -95,7 +95,8 @@
 .hud-section-headrow:hover .drag-grip, .minimap-card:hover .drag-grip { opacity: 0.7; }
 .drag-grip.h { left: 50%; top: 5px; width: 18px; height: 5px; margin-left: -9px; }
 .hud-section .hud-section-head { padding-right: 26px; }
-.hud-section .hud-section-controls { right: 48px; }
+/* Com controles (Batalha): eles ficam à direita do título no fluxo, deixando lugar para o pin. */
+.hud-section-headrow:has(.hud-section-controls) .hud-section-head { padding-right: 4px; }
 .hud-section .fight-modes .fm-btn { width: 16px; height: 16px; }
 .hud-section .fight-modes { gap: 1px; }
 .pin-btn {
@@ -181,8 +182,8 @@
   transition: transform 150ms var(--hud-ease); opacity: 0.8;
 }
 .hud-section.open .hud-caret { transform: rotate(90deg); }
-.hud-section-title { flex: 1; }
-.hud-section-aside { text-transform: none; letter-spacing: 0; }
+.hud-section-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-section-aside { flex: none; text-transform: none; letter-spacing: 0; }
 .hud-section-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 150ms var(--hud-ease); }
 .hud-section.open .hud-section-body { grid-template-rows: 1fr; }
 .hud-section-inner { min-height: 0; overflow: hidden; }
@@ -264,6 +265,7 @@
 }
 .battle-row:hover { background: rgba(255, 255, 255, 0.045); }
 .battle-row.selected { border-color: var(--hud-red); background: rgba(217, 83, 79, 0.1); box-shadow: inset 0 0 0 1px rgba(217, 83, 79, 0.25); }
+.battle-row.following { border-color: #4fe36a; background: rgba(79, 227, 106, 0.08); box-shadow: inset 0 0 0 1px rgba(79, 227, 106, 0.22); }
 .battle-mark { flex: none; width: 3px; height: 22px; border-radius: 2px; background: var(--row-accent, #9a6b6b); }
 .battle-row.monster .battle-mark { background: var(--row-accent, #b85c4a); }
 .battle-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }

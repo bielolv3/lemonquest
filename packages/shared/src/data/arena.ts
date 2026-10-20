@@ -2,8 +2,6 @@
 // cliente (textos/HUD) usam estas funções; o teste arena.test.ts estima dano × vida por onda (sanidade do balanço).
 import { monsterDef } from "./monsters.ts";
 
-/** Jogadores por lobby/partida. */
-export const ARENA_MAX_PARTY = 4;
 /** Membros do lobby precisam ficar a até esta distância (Chebyshev) do NPC do coliseu, senão saem do lobby. */
 export const ARENA_LOBBY_RANGE = 8;
 /** Contagem na vila (ao iniciar com arena livre) antes do teletransporte. */

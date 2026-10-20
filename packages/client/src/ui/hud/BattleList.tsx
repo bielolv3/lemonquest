@@ -1,19 +1,31 @@
-// Lista de criaturas/jogadores próximos. Clique seleciona o alvo (target.ts).
+// Lista de criaturas/jogadores próximos. Clique seleciona o alvo (target.ts); botão direito num jogador: atacar/seguir.
 import { useEffect, useMemo } from "preact/hooks";
 import { session } from "../../session.ts";
+import { openCtxMenu } from "../outfit/outfit.ts";
 import { battleSourcesStore, buildBattleList, BATTLE_RANGE, type BattleEntry } from "./battle.ts";
-import { FightModeControls } from "./FightMode.tsx";
+import { FightModeControls, followPlayer } from "./FightMode.tsx";
 import { Section } from "./Section.tsx";
 import { useStore } from "./store.ts";
 import { clearTarget, targetStore, toggleTarget } from "./target.ts";
 import { vocationMeta } from "./vocations.ts";
-import { playersStore } from "./world.ts";
+import { playersStore, selectMe } from "./world.ts";
 
 const hpColor = (pct: number) => (pct > 60 ? "#5bbf5b" : pct > 30 ? "#d9a441" : pct > 10 ? "#d9534f" : "#8f2a2a");
 
 /** Lista pura (recebe entradas prontas) — reutilizável por outras fontes. */
 export function BattleRows({ entries }: { entries: BattleEntry[] }) {
   const target = useStore(targetStore);
+  const followId = selectMe(useStore(playersStore))?.followId ?? "";
+  const menu = (ev: MouseEvent, e: BattleEntry) => {
+    ev.preventDefault();
+    if (e.kind !== "player") { toggleTarget({ id: e.id, kind: e.kind }); return; }
+    const attacking = target?.id === e.id;
+    const following = followId === e.id;
+    openCtxMenu(ev.clientX, ev.clientY, [
+      { label: attacking ? "Parar de atacar" : "Atacar", run: () => toggleTarget({ id: e.id, kind: "player" }) },
+      { label: following ? "Parar de seguir" : "Seguir", run: () => followPlayer(following ? null : e.id) },
+    ]);
+  };
   if (entries.length === 0) {
     return (
       <div class="hud-empty battle-empty">
@@ -26,14 +38,16 @@ export function BattleRows({ entries }: { entries: BattleEntry[] }) {
     <ul class="battle-list">
       {entries.map((e) => {
         const sel = target?.id === e.id && target.kind === e.kind;
+        const fol = !sel && e.kind === "player" && followId === e.id;
         return (
           <li key={`${e.kind}:${e.id}`}>
             <button
-              class={`battle-row ${e.kind}${sel ? " selected" : ""}`}
+              class={`battle-row ${e.kind}${sel ? " selected" : ""}${fol ? " following" : ""}`}
               style={e.color ? ({ "--row-accent": e.color } as any) : undefined}
               onClick={() => toggleTarget({ id: e.id, kind: e.kind })}
+              onContextMenu={(ev) => menu(ev as MouseEvent, e)}
               data-tip={e.name}
-              data-tip-sub={`${e.kind === "player" ? "Jogador" : `Criatura${e.difficulty ? ` ${e.difficulty}` : ""}`} · ${e.distance} sqm · ${e.hpPct}% HP`}
+              data-tip-sub={`${e.kind === "player" ? `Jogador${fol ? " (seguindo)" : ""} · botão direito: atacar/seguir` : `Criatura${e.difficulty ? ` ${e.difficulty}` : ""}`} · ${e.distance} sqm · ${e.hpPct}% HP`}
             >
               <span class="battle-mark" aria-hidden="true" />
               <span class="battle-main">

@@ -97,6 +97,18 @@ export class PvpSystem {
     }
   }
 
+  /**
+   * `p` morreu (chamar depois de onKill e da penalidade): perde a caveira branca, o bloqueio de PZ e os direitos de
+   * revide (dele e contra ele). A caveira vermelha fica até as mortes injustas saírem da janela de 24 h.
+   */
+  onDeath(p: PlayerState, now = this.now()): void {
+    this.attacks.delete(p.id);
+    for (const m of this.attacks.values()) m.delete(p.id);
+    this.whiteUntil.delete(p.id);
+    this.pzLockUntil.delete(p.id);
+    p.skull = this.skullOf(p.id, now);
+  }
+
   /** Bloqueado de entrar na zona de proteção (atacou um jogador há pouco)? */
   pzLocked(id: string, now = this.now()): boolean {
     return (this.pzLockUntil.get(id) ?? 0) > now;

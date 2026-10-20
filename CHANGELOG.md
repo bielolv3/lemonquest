@@ -8,7 +8,11 @@
   ele desligado só pega o que já está ao alcance. O modo é salvo com o personagem.
 - **Seguir jogador** (clique direito → *Seguir* / *Parar de seguir*): anda atrás do jogador até ficar ao lado. Mover
   manualmente, escolher um alvo de ataque, `Esc`, ou o jogador ficar a mais de 15 tiles cancelam. Seguindo, o
-  personagem ainda ataca o que estiver ao alcance sem sair do jogador.
+  personagem ainda ataca o que estiver ao alcance sem sair do jogador. Quem você segue fica marcado com um quadrado
+  verde (no mundo e na Batalha).
+- **Batalha**: clique direito num jogador da lista → *Atacar* / *Seguir*.
+- **Correr** (*Pés Ligeiros*, `utani hur`): agora de todas as vocações (lv 5, 20 de mana), +30% de velocidade por 30 s,
+  cooldown de 15 s (dá para manter sempre ligada) e fora do cooldown global (dá para correr e atacar em seguida). Antes era só do paladino (8 s, cd 30 s).
 
 ### PvP (estilo Tibia)
 - **Jogadores podem se atacar em qualquer lugar fora da zona de proteção** (Vila, Centro de Treinamento e Posto da
@@ -20,6 +24,17 @@
   do ouro cai no chão.
 - Depois de atacar um jogador, não se entra em zona de proteção por 1 min.
 - A caveira aparece ao lado do nome do personagem.
+- **Morrer tira a caveira branca** (e o bloqueio de PZ); a vermelha continua até as mortes saírem da janela de 24 h.
+- **Morrer tira do grupo** (party). Cair no Coliseu não conta.
+
+### Coliseu
+- **Sem limite de pessoas** por grupo (antes, 4). A quantidade de monstros e a vida dos chefes continuam escalando com o
+  tamanho do grupo.
+
+### Interface
+- Largar uma pilha no chão sempre abre a barrinha de quantidade (começa em tudo); antes só com `Shift`.
+- Cabeçalho da Batalha: os botões de modo de luta não ficam mais por cima do título e do contador.
+- **Nomes de personagem** aceitam números (com pelo menos uma letra) e vão até 20 caracteres (antes, 16 e só letras).
 
 ### Viagem
 - **Cocheiros** Bastião (portão leste da Vila) e Zuleica (sul do Posto da Fronteira): carroça entre os dois por 150 de

@@ -29,7 +29,7 @@ function setup(o: { party?: [string, string] } = {}) {
   w.combat.hooks = {
     canAttackPlayer: (a, b) => pvp.canAttack(a, b),
     onPlayerHit: (a, b, now) => pvp.onHit(a, b, now),
-    onDying: (p, killer, now) => { dying.push(p.id); if (killer) pvp.onKill(killer, p, now); },
+    onDying: (p, killer, now) => { dying.push(p.id); if (killer) pvp.onKill(killer, p, now); pvp.onDeath(p, now); },
     deathXpMult: (p) => (p.skull === "red" ? 2 : 1),
   };
   const conditions = new ConditionSystem({ monsters: w.mm, combat: w.combat, getPlayer: (id) => w.players.get(id), players: () => w.players.values(), send });
@@ -116,6 +116,22 @@ describe("PvP", () => {
     s.tick(2500);
     expect(xp0 - a.xp).toBe(Math.min(xp0 - xpForLevel(30), deathPenalty(30, xp0) * 2));
     expect(k.skull).toBe(""); // matar quem tem caveira é justo
+    expect(a.skull).toBe("red"); // a vermelha continua depois de morrer
+  });
+
+  it("caveira branca e bloqueio de PZ somem quando o jogador morre", () => {
+    const s = setup();
+    const a = s.mk("a", 10, 10, { hp: 1 }), b = s.mk("b", 11, 10, { level: 30, maxHp: 5000, hp: 5000 });
+    s.w.combat.onAttack(a, { targetId: "b" });
+    s.tick(2500);
+    expect(a.skull).toBe("white");
+    expect(s.pvp.pzLocked("a")).toBe(true);
+    s.w.combat.onAttack(b, { targetId: "a" });
+    s.tick(2500);
+    expect(s.dying).toContain("a");
+    expect(a.skull).toBe("");
+    expect(s.pvp.pzLocked("a")).toBe(false);
+    expect(b.skull).toBe(""); // revide justo
   });
 
   it("mortes injustas salvas voltam no login e expiram em 24 h", () => {
