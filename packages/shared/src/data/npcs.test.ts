@@ -58,6 +58,16 @@ describe("NPCS", () => {
     expect(NPCS.herbalist!.shop!.sells.some((e) => ITEMS[e.itemId]!.vocations?.includes("sorcerer"))).toBe(true);
   });
 
+  it("destinos de viagem (carroça e barco) caem em tile andável do mapa", () => {
+    const col = world.layers.find((l: any) => l.name === "collision").data as number[];
+    const dests = Object.values(NPCS).flatMap((n) => (n.travel ?? []).map((d) => ({ npc: n.id, ...d })));
+    expect(dests.length).toBeGreaterThan(3);
+    for (const d of dests) {
+      expect(d.x >= 0 && d.y >= 0 && d.x < world.width && d.y < world.height, `${d.npc} → ${d.id}`).toBe(true);
+      expect(col[d.y * world.width + d.x], `${d.npc} → ${d.id} (${d.x},${d.y})`).toBe(0);
+    }
+  });
+
   it("loja principal cobre todas as vocações com arma de level 1 e ~8", () => {
     const items = NPCS.shop!.shop!.sells.map((e) => ITEMS[e.itemId]!);
     for (const voc of ["knight", "paladin", "sorcerer", "druid"] as const) {

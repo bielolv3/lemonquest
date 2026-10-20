@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { CollisionGrid, Dir, type TiledMap } from "@lemonquest/shared";
+import { CollisionGrid, Dir, QUESTS, type TiledMap } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { MovementSystem } from "./movement.ts";
 import { PORTAL_COOLDOWN_MS, PortalSystem } from "./portals.ts";
@@ -51,6 +51,29 @@ describe("PortalSystem", () => {
     expect([p.x, p.y]).toEqual([5, 5]);
   });
 
+  it("porta de quest: quem não cumpre volta para o tile de onde veio; quem cumpre passa", () => {
+    let clock = 1000;
+    const g = new CollisionGrid(20, 20, new Uint8Array(400));
+    const mv = new MovementSystem(g, { now: () => clock });
+    const map = tiled([[5, 5, 15, 15]]);
+    map.layers[0]!.objects![0]!.properties!.push({ name: "minLevel", type: "int", value: 30 });
+    const sent: unknown[] = [], refused: string[] = [];
+    const sys = new PortalSystem(map, mv, (_id, m) => sent.push(m), () => clock, undefined,
+      (pl, req) => (pl.level < (req.minLevel ?? 0) ? `level ${req.minLevel}` : null), (_pl, t) => refused.push(t));
+    expect(sys.requirement(5, 5)).toEqual({ minLevel: 30 });
+    const p = player(4, 5);
+    mv.addPlayer(p);
+    sys.check(p);
+    p.x = 5; sys.check(p);
+    expect([p.x, p.y]).toEqual([4, 5]);
+    expect(refused).toEqual(["level 30"]);
+    expect(sent).toEqual([{ x: 4, y: 5 }]);
+    clock += PORTAL_COOLDOWN_MS + 1;
+    p.level = 30;
+    p.x = 5; sys.check(p);
+    expect([p.x, p.y]).toEqual([15, 15]);
+  });
+
   it("world map portals have walkable, non-portal targets", () => {
     const m = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../../../assets/maps/world.json"), "utf8")) as TiledMap;
     const grid = CollisionGrid.fromTiled(m);
@@ -61,6 +84,14 @@ describe("PortalSystem", () => {
       const g = (n: string) => Number(o.properties!.find((x) => x.name === n)!.value);
       expect(grid.isWalkable(g("toX"), g("toY"))).toBe(true);
       expect(sys.isPortalTile(g("toX"), g("toY"))).toBe(false);
+    }
+    // portas de quest: requisitos válidos (missão existe; level razoável)
+    const doors = objs.filter((o) => sys.requirement(o.x / 16, o.y / 16));
+    expect(doors.length).toBeGreaterThanOrEqual(6);
+    for (const o of doors) {
+      const req = sys.requirement(o.x / 16, o.y / 16)!;
+      if (req.quest) expect(QUESTS[req.quest], req.quest).toBeDefined();
+      if (req.minLevel) expect(req.minLevel).toBeGreaterThan(1);
     }
   });
 });

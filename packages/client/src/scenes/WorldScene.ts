@@ -20,6 +20,7 @@ import { beginGroundPress } from "../ui/items/dnd.ts";
 import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
+import { QUEST_OBJECT_RANGE, QuestObjectIndex, useQuestObject } from "../game/questObjects.ts";
 import { KeyboardInput } from "../game/input.ts";
 import { applyTextRes, onTextResChange, sceneTexts } from "../game/textRes.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
@@ -119,8 +120,10 @@ export class WorldScene extends Phaser.Scene {
   /** Escuridão do ciclo dia/noite + luzes dinâmicas (game/lighting.ts). */
   private lightField!: LightField;
   /** NPC clicado de longe: abre ao chegar (cancelado por movimento manual). */
-  private pendingNpc: { id: string; until: number; statue?: boolean } | null = null;
+  private pendingNpc: { id: string; until: number; statue?: boolean; questObj?: boolean } | null = null;
   private statues!: StatueIndex;
+  /** Baús e alavancas de quest (clique = andar até o lado e usar). */
+  private questObjs!: QuestObjectIndex;
   private myVocation = "";
   private unlockedUpTo = 0;
   private hover!: Phaser.GameObjects.Image;
@@ -221,6 +224,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = new NpcManager(this, () => this.actorDeps(), this.uiLayer);
     this.npcs.addFromMap(this.world.tiled);
     this.statues = new StatueIndex(this.world.tiled);
+    this.questObjs = new QuestObjectIndex(this.world.tiled);
     this.loot = new LootFx(this, this.worldLayer, this.uiLayer, this.fx, () => {
       const me = this.actors.get(this.myId);
       return me ? { x: me.bodyX, y: me.bodyY, headY: me.headY } : null;
@@ -589,6 +593,8 @@ export class WorldScene extends Phaser.Scene {
       if (nid) { this.clickNpc(nid); return; }
       const sid = this.statueAtPointer(ptr);
       if (sid) { this.clickStatue(sid); return; }
+      const qid = this.questObjAtPointer(ptr);
+      if (qid) { this.clickQuestObj(qid); return; }
       if (!this.room && !FXTEST) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
@@ -724,6 +730,26 @@ export class WorldScene extends Phaser.Scene {
     return this.statues.atPoint(wp.x, wp.y);
   }
 
+  private questObjAtPointer(ptr: Phaser.Input.Pointer): string | null {
+    const wp = this.worldPoint(ptr);
+    return this.questObjs.atPoint(wp.x, wp.y);
+  }
+
+  /** Clique num baú/alavanca de quest: ao lado = usa; longe = anda até o tile vizinho mais próximo e usa ao chegar. */
+  private clickQuestObj(key: string) {
+    const me = this.actors.get(this.myId);
+    const s = this.questObjs.get(key);
+    if (!s || !this.room || !me) return;
+    if (chebyshev(me.tileX, me.tileY, s.x, s.y) <= QUEST_OBJECT_RANGE) { this.pendingNpc = null; useQuestObject(s); return; }
+    const best = this.freeNeighbor(s, me);
+    if (!best) return;
+    this.room.send(C2S.WalkTo, { x: best.x, y: best.y } satisfies WalkToMsg);
+    this.predictor.clearIntent();
+    this.input_.forgetIntent();
+    this.showMarker(best.x, best.y);
+    this.pendingNpc = { id: key, until: performance.now() + 20_000, questObj: true };
+  }
+
   /** Tile andável e livre ao redor da pegada da estátua, o mais perto do jogador. */
   private freeStatueNeighbor(id: string, me: Actor): { x: number; y: number } | null {
     const t = this.statues.tileOf(id);
@@ -795,6 +821,12 @@ export class WorldScene extends Phaser.Scene {
     const p = this.pendingNpc;
     if (!p) return;
     const me = this.actors.get(this.myId);
+    if (p.questObj) {
+      const s = this.questObjs.get(p.id);
+      if (!me || !s || performance.now() > p.until) { this.pendingNpc = null; return; }
+      if (!me.isMoving && chebyshev(me.tileX, me.tileY, s.x, s.y) <= QUEST_OBJECT_RANGE) { this.pendingNpc = null; useQuestObject(s); }
+      return;
+    }
     const t = p.statue ? this.statues.tileOf(p.id) : this.npcs.tileOf(p.id);
     if (!me || !t || performance.now() > p.until) { this.pendingNpc = null; return; }
     if (p.statue) {
@@ -1224,6 +1256,9 @@ export class WorldScene extends Phaser.Scene {
     const st = sid ? this.statues.tileOf(sid) : null;
     this.setCursor(st ? "pointer" : "");
     if (st) { this.hover.setPosition(st.x * TILE_SIZE, st.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
+    const qid = this.questObjAtPointer(ptr);
+    const qo = qid ? this.questObjs.get(qid) : undefined;
+    if (qo) { this.setCursor("pointer"); this.hover.setPosition(qo.x * TILE_SIZE, qo.y * TILE_SIZE).setAlpha(0.7).setVisible(true); return; }
     const t = this.pointerTile(ptr);
     if (!t) { this.hover.setVisible(false); return; }
     const gid = this.ground.topAt(t.x, t.y);

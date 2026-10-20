@@ -1,0 +1,192 @@
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import {
+  ITEMS, MONSTERS, QUEST_CHESTS, QUEST_CHEST_GROUPS, QUEST_LEVERS, S2C, TITLES, doorBlockReason, findQuestLevers, findQuestObjects,
+  isValidUnlockId, monsterDef, type QuestLeverSpot, type QuestObjectSpot, type TiledMap,
+} from "@lemonquest/shared";
+import type { PlayerState } from "../state.ts";
+import { InventorySystem } from "./inventory.ts";
+import { QuestSystem } from "./quests.ts";
+import { LEVER_ROOM_EMPTY_MS, QuestWorldSystem } from "./questWorld.ts";
+import { openGrid, player, seeded, world } from "./testkit.ts";
+
+const root = fileURLToPath(new URL("../../../../", import.meta.url));
+
+function setup(o: { objects?: QuestObjectSpot[]; levers?: QuestLeverSpot[] } = {}) {
+  const w = world({ grid: openGrid(40, 40), spawns: [], defs: monsterDef });
+  const inv = new InventorySystem({ send: (to, type, msg) => w.sent.push({ to, type, msg }) });
+  const unlocks: string[] = [];
+  const quests = new QuestSystem({
+    inventory: inv, getPlayer: (id) => w.players.get(id), send: (to, type, msg) => w.sent.push({ to, type, msg }),
+    broadcast: (type, msg) => w.sent.push({ to: "*", type, msg }),
+    gainXp: () => {}, npcOpen: () => "", zones: [], rng: seeded(3), onUnlock: (_id, u) => unlocks.push(u),
+  });
+  const qw = new QuestWorldSystem({
+    objects: o.objects ?? [], levers: o.levers ?? [], quests, monsters: w.mm, players: () => w.players.values(),
+    teleport: (p, x, y) => { p.x = x; p.y = y; },
+    send: (to, type, msg) => w.sent.push({ to, type, msg }), broadcast: (type, msg) => w.sent.push({ to: "*", type, msg }),
+    now: w.now,
+  });
+  const mk = (id: string, x: number, y: number, level: number): PlayerState => {
+    const p = w.add(player(id, x, y, { level }));
+    inv.load(p, {});
+    quests.load(p, undefined);
+    return p;
+  };
+  const notices = (id: string) => w.sent.filter((s) => s.to === id && s.type === S2C.Notice).map((s) => s.msg.text as string);
+  return { w, inv, quests, qw, mk, notices, unlocks };
+}
+
+const CHESTS: QuestObjectSpot[] = [
+  { kind: "chest", id: "pirate_saber", x: 10, y: 10 }, { kind: "chest", id: "pirate_bow", x: 12, y: 10 },
+  { kind: "chest", id: "anni_bear", x: 20, y: 10 },
+];
+
+describe("baús de quest", () => {
+  it("abre ao lado, uma vez por grupo: os outros baús do grupo ficam vazios", () => {
+    const t = setup({ objects: CHESTS });
+    const p = t.mk("p1", 10, 12, 40);
+    t.qw.onUse(p, { kind: "chest", id: "pirate_saber" });
+    expect(t.notices("p1").at(-1)).toBe("Chegue mais perto.");
+    p.y = 11;
+    t.qw.onUse(p, { kind: "chest", id: "pirate_saber" });
+    expect(t.inv.countItem("p1", "pirate_saber")).toBe(1);
+    expect(t.notices("p1").at(-1)).toMatch(/Você encontrou: Sabre do Pirata/);
+    expect(t.quests.chestDone("p1", "pirate_treasure")).toBe(true);
+    // o outro baú do mesmo grupo: vazio
+    p.x = 12;
+    t.qw.onUse(p, { kind: "chest", id: "pirate_bow" });
+    expect(t.inv.countItem("p1", "corsair_bow")).toBe(0);
+    expect(t.notices("p1").at(-1)).toBe("O baú está vazio.");
+    // equipamento de baú sai raro
+    expect(t.inv.get("p1")!.backpack.find((i) => i?.defId === "pirate_saber")!.rarity).toBe("rare");
+  });
+
+  it("exige o level do grupo; persiste no save; título da Aniquilação", () => {
+    const t = setup({ objects: CHESTS });
+    const p = t.mk("p1", 20, 11, 99);
+    t.qw.onUse(p, { kind: "chest", id: "anni_bear" });
+    expect(t.notices("p1").at(-1)).toBe("Você precisa ser level 100 para abrir este baú.");
+    p.level = 100;
+    t.qw.onUse(p, { kind: "chest", id: "anni_bear" });
+    expect(t.inv.countItem("p1", "annihilation_bear")).toBe(1);
+    expect(t.unlocks).toEqual(["title:aniquilador"]);
+    const saved = t.quests.serialize("p1")!;
+    expect(saved.chests).toEqual(["annihilator"]);
+    t.quests.removePlayer("p1");
+    t.quests.load(p, saved);
+    expect(t.quests.chestDone("p1", "annihilator")).toBe(true);
+    expect(t.quests.stateMsg("p1")!.chests).toEqual(["annihilator"]);
+    // grupos desconhecidos no save são ignorados
+    t.quests.load(p, { chests: ["annihilator", "nao_existe"] });
+    expect(t.quests.serialize("p1")!.chests).toEqual(["annihilator"]);
+  });
+
+  it("mensagens inválidas são ignoradas", () => {
+    const t = setup({ objects: CHESTS });
+    const p = t.mk("p1", 10, 11, 40);
+    t.qw.onUse(p, null as never);
+    t.qw.onUse(p, { kind: "chest", id: "nada" });
+    t.qw.onUse(p, { kind: "x" as never, id: "pirate_saber" });
+    expect(t.quests.chestDone("p1", "pirate_treasure")).toBe(false);
+  });
+});
+
+const LEVER: QuestLeverSpot = {
+  id: "annihilator", x: 5, y: 5,
+  plates: [{ x: 4, y: 6 }, { x: 6, y: 6 }, { x: 8, y: 6 }, { x: 10, y: 6 }],
+  dests: [{ x: 21, y: 22 }, { x: 21, y: 24 }, { x: 21, y: 26 }, { x: 21, y: 28 }],
+  room: { x0: 20, y0: 20, x1: 35, y1: 30 },
+  spawns: [{ x: 30, y: 21 }, { x: 30, y: 24 }, { x: 30, y: 27 }, { x: 33, y: 21 }, { x: 33, y: 24 }, { x: 33, y: 27 }],
+};
+
+describe("alavanca da Aniquilação", () => {
+  const four = (t: ReturnType<typeof setup>, level = 100) => LEVER.plates.map((pl, i) => t.mk(`p${i}`, pl.x, pl.y, level));
+
+  it("precisa de um jogador em cada placa, todos com o level, e a sala vazia", () => {
+    const t = setup({ objects: [{ kind: "lever", id: "annihilator", x: 5, y: 5 }], levers: [LEVER] });
+    const ps = four(t);
+    ps[3]!.x = 11; // fora da placa
+    t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+    expect(t.notices("p0").at(-1)).toMatch(/placas precisam de um aventureiro/);
+    ps[3]!.x = 10;
+    ps[2]!.level = 90;
+    t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+    expect(t.notices("p0").at(-1)).toMatch(/level 100 ou mais \(p2 não é\)/);
+    ps[2]!.level = 100;
+    const intruder = t.mk("x", 25, 25, 120);
+    t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+    expect(t.notices("p0").at(-1)).toMatch(/Já há um grupo lá dentro/);
+    t.w.players.delete(intruder.id);
+    expect(t.qw.alive("annihilator")).toBe(0);
+  });
+
+  it("puxar: leva os quatro para a sala e solta seis demônios (sem respawn); sala vazia por um tempo limpa", () => {
+    const t = setup({ objects: [{ kind: "lever", id: "annihilator", x: 5, y: 5 }], levers: [LEVER] });
+    const ps = four(t);
+    t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+    ps.forEach((p, i) => expect([p.x, p.y]).toEqual([LEVER.dests[i]!.x, LEVER.dests[i]!.y]));
+    expect(t.qw.alive("annihilator")).toBe(6);
+    const demons = [...t.w.mm.all()].filter((m) => m.def.id === "demon");
+    expect(demons).toHaveLength(6);
+    for (const m of demons) {
+      expect(m.questLever).toBe("annihilator");
+      expect(m.bounds).toEqual(LEVER.room);
+      expect(m.arenaId).toBeUndefined();
+    }
+    // um demônio morto não volta
+    t.w.mm.kill(demons[0]!, t.w.now());
+    expect(t.qw.alive("annihilator")).toBe(5);
+    // todos saem da sala: depois de LEVER_ROOM_EMPTY_MS os demônios somem
+    for (const p of ps) { p.x = 1; p.y = 1; }
+    t.qw.tick(t.w.now());
+    t.w.setClock(t.w.now() + LEVER_ROOM_EMPTY_MS + 1);
+    t.qw.tick(t.w.now());
+    expect(t.qw.alive("annihilator")).toBe(0);
+    expect([...t.w.mm.all()].filter((m) => m.def.id === "demon")).toHaveLength(0);
+    expect(t.w.sent.some((s) => s.to === "*" && s.type === S2C.Feed && /alavanca/.test(s.msg.text))).toBe(true);
+  });
+});
+
+describe("quests de mundo: dados e mapa", () => {
+  const map = JSON.parse(readFileSync(root + "assets/maps/world.json", "utf8")) as TiledMap;
+
+  it("baús: itens existem, grupos existem, todo baú definido está no mapa (e vice-versa)", () => {
+    for (const c of Object.values(QUEST_CHESTS)) {
+      expect(QUEST_CHEST_GROUPS[c.group], c.id).toBeDefined();
+      for (const it of c.items ?? []) expect(ITEMS[it.itemId], `${c.id}/${it.itemId}`).toBeDefined();
+      if (c.unlock) expect(isValidUnlockId(c.unlock), c.unlock).toBe(true);
+      expect((c.items?.length ?? 0) + (c.gold ?? 0), c.id).toBeGreaterThan(0);
+    }
+    for (const g of Object.values(QUEST_CHEST_GROUPS)) expect(Object.values(QUEST_CHESTS).some((c) => c.group === g.id), g.id).toBe(true);
+    const spots = findQuestObjects(map);
+    const onMap = spots.filter((s) => s.kind === "chest").map((s) => s.id).sort();
+    expect(onMap).toEqual(Object.keys(QUEST_CHESTS).sort());
+    expect(TITLES.aniquilador).toBeDefined();
+  });
+
+  it("alavanca: definida, com placas, destinos e posições dos monstros dentro da sala", () => {
+    const levers = findQuestLevers(map);
+    expect(levers.map((l) => l.id)).toEqual(Object.keys(QUEST_LEVERS));
+    for (const l of levers) {
+      const d = QUEST_LEVERS[l.id]!;
+      expect(l.plates).toHaveLength(d.players);
+      expect(l.dests).toHaveLength(d.players);
+      expect(l.spawns.length).toBeGreaterThanOrEqual(d.monsters.length);
+      for (const m of d.monsters) expect(MONSTERS[m], m).toBeDefined();
+      const inside = (p: { x: number; y: number }) => p.x >= l.room.x0 && p.x <= l.room.x1 && p.y >= l.room.y0 && p.y <= l.room.y1;
+      for (const p of l.dests.concat(l.spawns)) expect(inside(p), `${p.x},${p.y}`).toBe(true);
+      for (const p of l.plates) expect(inside(p)).toBe(false);
+    }
+  });
+
+  it("motivo das portas", () => {
+    const yes = () => true, no = () => false;
+    expect(doorBlockReason({ minLevel: 60 }, 59, yes, yes)).toMatch(/level 60/);
+    expect(doorBlockReason({ minLevel: 60 }, 60, yes, yes)).toBeNull();
+    expect(doorBlockReason({ quest: "yeti_hunt" }, 200, no, yes, () => "O Yeti")).toMatch(/"O Yeti"/);
+    expect(doorBlockReason({ chestGroup: "annihilator" }, 200, yes, no)).toMatch(/A Aniquilação/);
+  });
+});

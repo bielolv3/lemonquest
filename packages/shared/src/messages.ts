@@ -62,7 +62,11 @@ export const C2S = {
   Challenge: "challenge",
   /** Lançar a linha de pesca num tile de água. */
   Fish: "fish",
+  /** Abrir um baú de quest ou puxar uma alavanca adjacente (UseQuestObjectMsg). */
+  UseQuestObject: "useQuestObject",
 } as const;
+
+export interface UseQuestObjectMsg { kind: "chest" | "lever"; id: string }
 
 /** Ações de missão. accept/turnIn exigem a janela do NPC que dá a missão aberta (e perto). */
 export type QuestActionMsg =

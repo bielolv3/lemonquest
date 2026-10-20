@@ -5,11 +5,13 @@
 // - Aceitar/entregar exigem a janela do NPC aberta (NpcSystem fecha ao sair do alcance).
 // - Recompensas diárias: 3 por dia (troca às 06:00 de Brasília), geradas por dia + faixa de level (bounties.ts).
 // - Baú de Recompensa: usar sorteia poções/comida/ouro e às vezes um equipamento incomum+ da faixa do personagem.
+// - Baús de quest do mapa (estilo Tibia, shared/data/questWorld.ts): um por grupo, uma vez por personagem; o pedido
+//   chega por systems/questWorld.ts (que confere alcance e level).
 import {
   BOUNTIES_PER_DAY, BOUNTY_CHEST_ID, BOUNTY_NPC, ITEMS, MAX_TRACKED_QUESTS, QUEST_LIST, RARITIES, S2C,
-  bountyBand, bountyTitle, isEquipable, questAvailable, questDef, questReady, rollInt,
+  bountyBand, bountyTitle, isEquipable, questAvailable, questChestGroup, questDef, questReady, rollInt,
   type BountyStatus, type BountyView, type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type NoticeMsg,
-  type QuestActionMsg, type QuestCompleteMsg, type QuestDef, type QuestReward, type QuestsMsg, type Rarity, type Vocation,
+  type QuestActionMsg, type QuestChestDef, type QuestCompleteMsg, type QuestDef, type QuestReward, type QuestsMsg, type Rarity, type Vocation,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { QuestSaveData } from "../persistence/types.ts";
@@ -56,6 +58,8 @@ interface Entry {
   done: Set<string>;
   tracked: string[];
   bounty: Bounty | null;
+  /** Grupos de baús de quest já abertos. */
+  chests: Set<string>;
   tx: number; ty: number;
 }
 
@@ -83,8 +87,9 @@ export class QuestSystem {
   // --- ciclo de vida ----------------------------------------------------------------------------
 
   load(p: PlayerState, data: QuestSaveData | undefined): void {
-    const e: Entry = { active: new Map(), done: new Set(), tracked: [], bounty: null, tx: p.x, ty: p.y };
+    const e: Entry = { active: new Map(), done: new Set(), tracked: [], bounty: null, chests: new Set(), tx: p.x, ty: p.y };
     for (const id of data?.done ?? []) if (this.def(id)) e.done.add(id);
+    for (const g of data?.chests ?? []) if (questChestGroup(g)) e.chests.add(g);
     for (const [id, prog] of Object.entries(data?.active ?? {})) {
       const d = this.def(id);
       if (!d || e.done.has(id) || !Array.isArray(prog)) continue;
@@ -116,6 +121,7 @@ export class QuestSystem {
     if (e.done.size) out.done = [...e.done];
     if (e.tracked.length) out.tracked = [...e.tracked];
     if (e.bounty) out.bounty = { day: e.bounty.day, band: e.bounty.band, s: e.bounty.s.map((x) => ({ ...x })) };
+    if (e.chests.size) out.chests = [...e.chests];
     return out;
   }
 
@@ -134,6 +140,7 @@ export class QuestSystem {
       done: [...e.done],
       tracked: [...e.tracked],
       bounties: { day: e.bounty?.day ?? bountyDay(now), resetsAt: nextBountyReset(now), list },
+      chests: [...e.chests],
     };
   }
 
@@ -312,14 +319,14 @@ export class QuestSystem {
     return true;
   }
 
-  /** Dá XP, ouro e itens (equipáveis: incomum). O que não couber cai no chão. */
-  private grant(p: PlayerState, r: QuestReward, extra: ItemInstance[] = []): { itemId: string; count: number }[] {
+  /** Dá XP, ouro e itens (equipáveis: incomum, ou `rarity`). O que não couber cai no chão. */
+  private grant(p: PlayerState, r: QuestReward, extra: ItemInstance[] = [], rarity: Rarity = "uncommon"): { itemId: string; count: number }[] {
     if (r.gold > 0) this.o.inventory.addGold(p, r.gold);
     const inst: ItemInstance[] = [...extra];
     for (const it of r.items ?? []) {
       const def = this.o.inventory.defs(it.itemId);
       if (!def) continue;
-      if (isEquipable(def)) for (let i = 0; i < it.count; i++) inst.push(createItem(def, 1, this.rng, { rarity: "uncommon" }));
+      if (isEquipable(def)) for (let i = 0; i < it.count; i++) inst.push(createItem(def, 1, this.rng, { rarity }));
       else inst.push(makeItem(def.id, it.count));
     }
     this.give(p, inst);
@@ -389,6 +396,36 @@ export class QuestSystem {
     this.o.send(p.id, S2C.Loot, { x: p.x, y: p.y, monsterName: "Baú de Recompensa", items: roll.items, gold: roll.gold } satisfies LootMsg);
   }
 
+  // --- Baús de quest do mapa (estilo Tibia) ------------------------------------------------------------
+
+  /** Missão concluída? (portas de missão) */
+  isDone(id: string, questId: string): boolean { return !!this.st.get(id)?.done.has(questId); }
+
+  /** Grupo de baús já aberto por este personagem? */
+  chestDone(id: string, group: string): boolean { return !!this.st.get(id)?.chests.has(group); }
+
+  /**
+   * Abre um baú de quest (alcance e level já conferidos por quem chama). Grupo já aberto → "vazio". Equipamentos saem
+   * raros. true = recompensa entregue.
+   */
+  claimChest(p: PlayerState, chest: QuestChestDef): boolean {
+    const e = this.st.get(p.id);
+    const group = questChestGroup(chest.group);
+    if (!e || !group) return false;
+    if (e.chests.has(group.id)) { this.notice(p.id, "O baú está vazio.", "info"); return false; }
+    e.chests.add(group.id);
+    this.dirty.add(p.id);
+    const items = this.grant(p, { xp: 0, gold: chest.gold ?? 0, items: chest.items }, [], "rare");
+    if (chest.unlock) this.o.onUnlock?.(p.id, chest.unlock);
+    this.o.onComplete?.(p.id, `chest:${group.id}`, false);
+    const names = items.map((i) => `${i.count > 1 ? `${i.count}x ` : ""}${this.o.inventory.defs(i.itemId)?.name ?? i.itemId}`);
+    if (chest.gold) names.push(`${chest.gold} de ouro`);
+    this.notice(p.id, `Você encontrou: ${names.join(", ")}.`, "good");
+    this.o.send(p.id, S2C.QuestComplete, { name: group.name, xp: 0, gold: chest.gold ?? 0, items } satisfies QuestCompleteMsg);
+    this.o.broadcast?.(S2C.Feed, { text: `🗝️ ${p.name} concluiu a quest "${group.name}"!`, kind: "info" } satisfies FeedMsg);
+    return true;
+  }
+
   // --- comandos de dev ----------------------------------------------------------------------------------
 
   /** /quest reset <id|all|bounties> · /quest complete <id> · /quest list */
@@ -399,6 +436,7 @@ export class QuestSystem {
     if (sub === "list") return this.list.map((d) => `${d.id}${e.done.has(d.id) ? " ✓" : e.active.has(d.id) ? " …" : ""}`).join(", ");
     if (sub === "reset") {
       if (id === "bounties") { e.bounty = null; this.ensureDay(p, e); this.dirty.add(p.id); return "Recompensas diárias reiniciadas."; }
+      if (id === "chests") { e.chests.clear(); this.dirty.add(p.id); return "Baús de quest reiniciados."; }
       if (id === "all") { e.active.clear(); e.done.clear(); e.tracked = []; this.dirty.add(p.id); return "Todas as missões reiniciadas."; }
       const d = this.def(id);
       if (!d) return `Missão desconhecida: ${id || "?"}`;
@@ -414,7 +452,7 @@ export class QuestSystem {
       this.turnIn(p, e, d.id, true);
       return `Missão concluída: ${d.name}.`;
     }
-    return "Uso: /quest list · /quest reset <id|all|bounties> · /quest complete <id>";
+    return "Uso: /quest list · /quest reset <id|all|bounties|chests> · /quest complete <id>";
   }
 
   private notice(id: string, text: string, kind: NoticeMsg["kind"]): void {

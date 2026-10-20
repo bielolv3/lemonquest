@@ -1,5 +1,39 @@
 # Changelog
 
+## [Não lançado] — 2026-10-20 · Costa Esmeralda e quests estilo Tibia
+
+### Mapa: Costa Esmeralda (segunda expansão a leste, 280 → 400 colunas)
+- Gerada por `tools/mapgen/expansion2.mjs` depois do mapa anterior (coordenadas antigas iguais). No mapa antigo só
+  mudam três passagens na borda leste das Terras Selvagens (y 24, 69 e 94) e a Cidadela de Ferumbras, cavada no
+  subterrâneo vazio abaixo do Labirinto e do Abismo.
+- **Superfície:** Ilha Gelada (lobos do inverno, bárbaros, bruxas do gelo, lv 50-62) com o Acampamento Nórdico (PZ);
+  Selva de Banuta (sibangs, kongras, tarântulas, merlkins, crocodilos, carniphilas, lv 26-40) com as ruínas do templo;
+  Porto Esperança (PZ na costa: loja, depósito, capela, barco); praia; Vulcão de Goroma (elementais de magma e cães
+  infernais, lv 86-95) com a cratera murada (porta lv 80).
+- **Masmorras:** Caverna dos Piratas (Capitão Barba-Ruiva), Templo de Banuta (Rei Kongra no santuário), Caverna do Yeti
+  + Ninho dos Dragões de Gelo, Caverna dos Heróis (heróis e necromantes) e Cidadela de Ferumbras (colossos, cães,
+  demônios e Ferumbras).
+- 22 monstros novos (4 chefes), 15 materiais, armas de baú (Sabre do Pirata, Arco do Corsário, Varinha das Marés,
+  Bastão de Coral, Machado Cortapedras), Ídolo de Banuta e Anel do Gelo Eterno.
+- Carroça da Vila e da Fronteira levam a Porto Esperança; o barco da Capitã Marina volta para as duas.
+- Raids novas: Rugido do Yeti (quinta 20h) e Retorno de Ferumbras (segunda 21h).
+- Recompensas diárias: cinco faixas novas (lv 42, 52, 62, 72, 88) com os monstros das Terras Selvagens e da Costa.
+- O minimapa explorado não se perde quando o mapa alarga (as linhas antigas são copiadas para a largura nova).
+
+### Quests estilo Tibia
+- **Baús de quest** (objeto `quest_chest`): abrem uma vez por personagem; baús do mesmo grupo são uma escolha. Sete
+  quests: Esconderijo da Selva, Tesouro do Barba-Ruiva, Ídolo de Banuta, Baú do Yeti, Quest dos Heróis, Cume do Vulcão
+  (Botas da Pressa) e a Aniquilação. Equipamentos de baú saem raros.
+- **Portas de quest**: portais com `minLevel`, `quest` ou `chestGroup`; quem não cumpre volta ao tile anterior com o
+  motivo. Ex.: Caverna dos Heróis (lv 60), Cidadela (lv 100), Ninho dos Dragões de Gelo (missão "O Yeti").
+- **Aniquilação** (alavanca `quest_lever`): um jogador lv 100+ em cada uma das 4 placas e a sala vazia; puxar leva os
+  quatro para a arena e solta 6 demônios (XP e loot normais, sem respawn; somem se a sala ficar vazia por 30 s). A
+  porta da arena leva aos 4 baús (Armadura de Placas Mágica, Espada Longa Mágica, Machado Cortapedras ou o Urso da
+  Aniquilação, todos com o título "o Aniquilador").
+- **25 missões novas**: cadeias para as Terras Selvagens (Batedora Iara e Sacerdotisa da Fronteira, lv 40-110) e para a
+  Costa (Explorador Jairo, Capitã Marina, Jarl Haakon, Irmã Celeste e Mestre Ignis, lv 25-120), com 8 títulos novos.
+- `/quest reset chests` (dev) zera os baús do personagem.
+
 ## [Não lançado] — 2026-10-17 · Terras Selvagens (expansão leste)
 
 ### Combate

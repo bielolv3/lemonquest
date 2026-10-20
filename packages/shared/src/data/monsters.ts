@@ -559,6 +559,324 @@ export const MONSTERS: Record<string, MonsterDef> = {
     ],
     sprite: strip(B + "DemonCyclop/Walk.png", 50, 6, { tint: 0xff6060, scale: 2 }),
   },
+
+  // ===== Costa Esmeralda (expansão a leste das Terras Selvagens: tools/mapgen/expansion2.mjs)
+  // Selva de Banuta (lv 25-45): macacos, tarântulas, crocodilos e plantas carnívoras.
+  sibang: {
+    id: "sibang", name: "Sibang", level: 26, hp: 300, xp: 240, damage: [18, 42], damageKind: "physical", armor: 5,
+    attackMs: 2000, attackRange: 3, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    gold: [40, 90],
+    loot: [
+      { itemId: "ape_fur", chance: 0.4 },
+      { itemId: "banana", chance: 0.35, min: 1, max: 3 },
+      { itemId: "health_potion_medium", chance: 0.06 },
+      { itemId: "ring_pressa", chance: 0.004 },
+    ],
+    sprite: grid4(C + "Monkey/SpriteSheet.png"),
+  },
+  kongra: {
+    id: "kongra", name: "Kongra", level: 28, hp: 340, xp: 290, damage: [22, 46], damageKind: "physical", armor: 7,
+    attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
+    gold: [45, 95],
+    loot: [
+      { itemId: "ape_fur", chance: 0.5 },
+      { itemId: "banana", chance: 0.3, min: 1, max: 2 },
+      { itemId: "health_potion_medium", chance: 0.07 },
+      { itemId: "steel_helmet", chance: 0.01 },
+      { itemId: "battle_axe", chance: 0.004 },
+    ],
+    sprite: grid4(C + "MonkeyBoxerRed/SpriteSheet.png", { scale: 1.15 }),
+  },
+  tarantula: {
+    id: "tarantula", name: "Tarântula", level: 30, hp: 380, xp: 340, damage: [22, 48], damageKind: "earth", armor: 7,
+    attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
+    gold: [50, 100],
+    loot: [
+      { itemId: "tarantula_fang", chance: 0.4 },
+      { itemId: "spider_silk", chance: 0.3, min: 1, max: 2 },
+      { itemId: "mana_potion_medium", chance: 0.06 },
+      { itemId: "moss_rod", chance: 0.004 },
+    ],
+    sprite: grid4(M + "SpiderYellow/SpriteSheet.png", { tint: 0xc08850, scale: 1.15 }),
+  },
+  merlkin: {
+    id: "merlkin", name: "Merlkin", level: 32, hp: 360, xp: 350, damage: [25, 50], damageKind: "energy", armor: 5,
+    attackMs: 2200, attackRange: 4, stepMs: 340, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 60_000,
+    gold: [60, 115],
+    loot: [
+      { itemId: "ape_fur", chance: 0.3 },
+      { itemId: "banana", chance: 0.3, min: 1, max: 2 },
+      { itemId: "mana_potion_medium", chance: 0.1 },
+      { itemId: "gem_green", chance: 0.03 },
+      { itemId: "ember_wand", chance: 0.005 },
+      { itemId: "arcane_helmet", chance: 0.006 },
+    ],
+    sprite: grid4(C + "MonkeyBoxerBlue/SpriteSheet.png", { tint: 0xb8a8ff }),
+  },
+  crocodile: {
+    id: "crocodile", name: "Crocodilo", level: 36, hp: 520, xp: 560, damage: [30, 62], damageKind: "physical", armor: 11,
+    attackMs: 1900, attackRange: 1, stepMs: 380, aggroRange: 5, fleeAtHpPct: 0, respawnMs: 70_000,
+    gold: [75, 150],
+    loot: [
+      { itemId: "croc_leather", chance: 0.45 },
+      { itemId: "meat", chance: 0.3, min: 1, max: 2 },
+      { itemId: "health_potion_medium", chance: 0.1 },
+      { itemId: "steel_legs", chance: 0.012 },
+      { itemId: "sniper_legs", chance: 0.008 },
+    ],
+    sprite: grid4(M + "Lizard2/Lizard2.png", { tint: 0x7aa860, scale: 1.2 }),
+  },
+  carniphila: {
+    id: "carniphila", name: "Carniphila", level: 40, hp: 600, xp: 760, damage: [35, 70], damageKind: "earth", armor: 9,
+    attackMs: 2000, attackRange: 2, stepMs: 700, aggroRange: 4, fleeAtHpPct: 0, respawnMs: 70_000,
+    gold: [95, 190],
+    loot: [
+      { itemId: "carniphila_seed", chance: 0.4 },
+      { itemId: "herb", chance: 0.4, min: 1, max: 3 },
+      { itemId: "mana_potion_large", chance: 0.06 },
+      { itemId: "glacier_rod", chance: 0.004 },
+      { itemId: "amulet_protecao", chance: 0.008 },
+    ],
+    sprite: grid4(M + "Mushroom2/mushroom2.png", { tint: 0x80e070, scale: 1.25 }),
+  },
+  // Caverna dos Piratas (lv 30-42).
+  pirate_marauder: {
+    id: "pirate_marauder", name: "Pirata Saqueador", level: 30, hp: 360, xp: 320, damage: [24, 48], damageKind: "physical", armor: 8,
+    attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
+    gold: [50, 105],
+    loot: [
+      { itemId: "pirate_coin", chance: 0.45, min: 1, max: 3 },
+      { itemId: "fish", chance: 0.3, min: 1, max: 2 },
+      { itemId: "health_potion_medium", chance: 0.08 },
+      { itemId: "steel_blade", chance: 0.004 },
+    ],
+    sprite: grid4(C + "FighterRed/SpriteSheet.png"),
+  },
+  pirate_corsair: {
+    id: "pirate_corsair", name: "Pirata Corsário", level: 35, hp: 420, xp: 440, damage: [28, 56], damageKind: "physical", armor: 8,
+    attackMs: 2100, attackRange: 4, stepMs: 330, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 60_000,
+    gold: [70, 145],
+    loot: [
+      { itemId: "pirate_coin", chance: 0.5, min: 1, max: 4 },
+      { itemId: "calamari", chance: 0.2 },
+      { itemId: "health_potion_medium", chance: 0.1 },
+      { itemId: "composite_bow", chance: 0.006 },
+      { itemId: "pirate_hat", chance: 0.02 },
+    ],
+    sprite: grid4(C + "CamouflageRed/SpriteSheet.png"),
+  },
+  pirate_buccaneer: {
+    id: "pirate_buccaneer", name: "Pirata Bucaneiro", level: 38, hp: 560, xp: 660, damage: [34, 68], damageKind: "physical", armor: 12,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 70_000,
+    gold: [90, 185],
+    loot: [
+      { itemId: "pirate_coin", chance: 0.55, min: 2, max: 5 },
+      { itemId: "health_potion_large", chance: 0.05 },
+      { itemId: "pirate_hat", chance: 0.03 },
+      { itemId: "mithril_katana", chance: 0.004 },
+      { itemId: "mithril_shield", chance: 0.006 },
+    ],
+    sprite: grid4(C + "NinjaRed2/SpriteSheet.png", { tint: 0xe0c8a0 }),
+  },
+  // Ilha Gelada (lv 50-80).
+  winter_wolf: {
+    id: "winter_wolf", name: "Lobo do Inverno", level: 50, hp: 850, xp: 1230, damage: [50, 95], damageKind: "ice", armor: 12,
+    attackMs: 1700, attackRange: 1, stepMs: 260, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 80_000,
+    gold: [140, 265],
+    loot: [
+      { itemId: "winter_fur", chance: 0.45 },
+      { itemId: "meat", chance: 0.35, min: 1, max: 3 },
+      { itemId: "health_potion_large", chance: 0.08 },
+      { itemId: "mithril_boots", chance: 0.01 },
+    ],
+    sprite: grid4(M + "Racoon/SpriteSheet.png", { tint: 0xf2f8ff, scale: 1.15 }),
+  },
+  barbarian: {
+    id: "barbarian", name: "Bárbaro", level: 55, hp: 1250, xp: 1900, damage: [65, 130], damageKind: "physical", armor: 18,
+    attackMs: 2000, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 90_000,
+    gold: [160, 305],
+    loot: [
+      { itemId: "winter_fur", chance: 0.3 },
+      { itemId: "meat", chance: 0.3, min: 1, max: 2 },
+      { itemId: "health_potion_large", chance: 0.1 },
+      { itemId: "iron_bar", chance: 0.15 },
+      { itemId: "crown_legs", chance: 0.005 },
+      { itemId: "giant_sword", chance: 0.004 },
+      { itemId: "royal_legs", chance: 0.005 },
+    ],
+    sprite: grid4(C + "Caveman2/SpriteSheet.png", { tint: 0xe8d0b8 }),
+  },
+  ice_witch: {
+    id: "ice_witch", name: "Bruxa do Gelo", level: 62, hp: 1150, xp: 1900, damage: [60, 115], damageKind: "ice", armor: 10,
+    attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 90_000,
+    gold: [175, 330],
+    loot: [
+      { itemId: "ice_shard", chance: 0.4 },
+      { itemId: "mana_potion_large", chance: 0.14 },
+      { itemId: "gem_purple", chance: 0.04 },
+      { itemId: "northwind_rod", chance: 0.005 },
+      { itemId: "mystic_legs", chance: 0.006 },
+      { itemId: "mystic_helmet", chance: 0.005 },
+    ],
+    sprite: grid4(C + "NinjaEskimo/SpriteSheet.png", { tint: 0xc0ecff }),
+  },
+  frost_dragon: {
+    id: "frost_dragon", name: "Dragão de Gelo", level: 80, hp: 2800, xp: 5150, damage: [90, 175], damageKind: "ice", armor: 26,
+    attackMs: 2200, attackRange: 3, stepMs: 370, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 110_000,
+    gold: [260, 520],
+    loot: [
+      { itemId: "frost_dragon_scale", chance: 0.4 },
+      { itemId: "dragon_ham", chance: 0.35, min: 1, max: 3 },
+      { itemId: "health_potion_large", chance: 0.14, min: 1, max: 2 },
+      { itemId: "gem_purple", chance: 0.06 },
+      { itemId: "glacier_rod", chance: 0.01 },
+      { itemId: "dragon_scale_legs", chance: 0.004 },
+      { itemId: "ring_dragon", chance: 0.01 },
+      { itemId: "frost_ring", chance: 0.004 },
+    ],
+    sprite: grid4(M + "Dragon/SpriteSheet.png", { tint: 0xa8dcff, scale: 1.1 }),
+  },
+  // Caverna dos Heróis (lv 65-75).
+  necromancer: {
+    id: "necromancer", name: "Necromante", level: 68, hp: 1500, xp: 2550, damage: [70, 135], damageKind: "death", armor: 14,
+    attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 100_000,
+    gold: [190, 400],
+    loot: [
+      { itemId: "necro_skull", chance: 0.4 },
+      { itemId: "mana_potion_large", chance: 0.15 },
+      { itemId: "gem_purple", chance: 0.05 },
+      { itemId: "starstorm_wand", chance: 0.005 },
+      { itemId: "mystic_armor", chance: 0.004 },
+      { itemId: "amulet_lich", chance: 0.01 },
+    ],
+    sprite: grid4(C + "Master/SpriteSheet.png", { tint: 0x8c78a8 }),
+  },
+  hero: {
+    id: "hero", name: "Herói", level: 72, hp: 2200, xp: 3900, damage: [85, 160], damageKind: "physical", armor: 26,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 100_000,
+    gold: [230, 440],
+    loot: [
+      { itemId: "hero_badge", chance: 0.4 },
+      { itemId: "health_potion_large", chance: 0.14 },
+      { itemId: "iron_bar", chance: 0.25, min: 1, max: 2 },
+      { itemId: "fire_sword", chance: 0.006 },
+      { itemId: "crown_helmet", chance: 0.008 },
+      { itemId: "royal_helmet", chance: 0.008 },
+      { itemId: "crown_shield", chance: 0.006 },
+    ],
+    sprite: grid4(C + "SamuraiBlue/SpriteSheet.png", { tint: 0xe8e8ff }),
+  },
+  // Vulcão de Goroma (lv 85-100) e Cidadela de Ferumbras (lv 100+).
+  magma_elemental: {
+    id: "magma_elemental", name: "Elemental de Magma", level: 86, hp: 3000, xp: 5800, damage: [100, 190], damageKind: "fire", armor: 30,
+    attackMs: 2200, attackRange: 3, stepMs: 420, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 120_000,
+    gold: [310, 620],
+    loot: [
+      { itemId: "magma_core", chance: 0.4 },
+      { itemId: "ember", chance: 0.4, min: 1, max: 3 },
+      { itemId: "health_potion_large", chance: 0.15, min: 1, max: 2 },
+      { itemId: "gem_yellow", chance: 0.08 },
+      { itemId: "inferno_wand", chance: 0.012 },
+      { itemId: "demon_shield", chance: 0.003 },
+    ],
+    sprite: grid4(M + "Flam2/SpriteSheet.png", { tint: 0xff7a40, scale: 1.4 }),
+  },
+  hellhound: {
+    id: "hellhound", name: "Cão Infernal", level: 95, hp: 4500, xp: 9300, damage: [125, 240], damageKind: "fire", armor: 32,
+    attackMs: 1900, attackRange: 1, stepMs: 280, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 130_000,
+    gold: [380, 750],
+    loot: [
+      { itemId: "hellhound_fang", chance: 0.4 },
+      { itemId: "demonic_essence", chance: 0.1 },
+      { itemId: "health_potion_large", chance: 0.18, min: 1, max: 3 },
+      { itemId: "gem_purple", chance: 0.1 },
+      { itemId: "demon_legs", chance: 0.004 },
+      { itemId: "dragon_scale_helmet", chance: 0.004 },
+      { itemId: "boots_haste", chance: 0.003 },
+    ],
+    sprite: grid4(C + "CaveLion2/SpriteSheet.png", { tint: 0xff6a4a, scale: 1.3 }),
+  },
+  juggernaut: {
+    id: "juggernaut", name: "Colosso", level: 110, hp: 6500, xp: 14300, damage: [150, 290], damageKind: "physical", armor: 40,
+    attackMs: 2000, attackRange: 1, stepMs: 400, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 160_000,
+    gold: [500, 1000],
+    loot: [
+      { itemId: "juggernaut_plate", chance: 0.35 },
+      { itemId: "mithril_bar", chance: 0.12 },
+      { itemId: "health_potion_large", chance: 0.25, min: 2, max: 3 },
+      { itemId: "gem_yellow", chance: 0.15 },
+      { itemId: "demon_helmet", chance: 0.004 },
+      { itemId: "demon_armor", chance: 0.003 },
+      { itemId: "ferumbras_helmet", chance: 0.004 },
+      { itemId: "dragon_scale_armor", chance: 0.003 },
+      { itemId: "boots_haste", chance: 0.006 },
+    ],
+    sprite: grid4(M + "TRex/SpriteSheet.png", { tint: 0xb08070, scale: 1.5 }),
+  },
+  // ---- chefes da Costa Esmeralda
+  captain_redbeard: {
+    id: "captain_redbeard", name: "Capitão Barba-Ruiva", level: 42, hp: 7000, xp: 7000, damage: [70, 130], damageKind: "physical", armor: 16,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
+    gold: [2000, 3500],
+    loot: [
+      { itemId: "redbeard_hook", chance: 1 },
+      { itemId: "pirate_coin", chance: 1, min: 10, max: 25 },
+      { itemId: "pirate_hat", chance: 0.5 },
+      { itemId: "health_potion_large", chance: 1, min: 2, max: 4 },
+      { itemId: "mithril_katana", chance: 0.2 },
+      { itemId: "elven_bow", chance: 0.2 },
+      { itemId: "ring_dragon", chance: 0.15 },
+    ],
+    sprite: grid4(C + "RedGladiator/SpriteSheet.png", { tint: 0xffa080, scale: 1.5 }),
+  },
+  kongra_king: {
+    id: "kongra_king", name: "Rei Kongra", level: 45, hp: 9000, xp: 9000, damage: [80, 150], damageKind: "physical", armor: 18,
+    attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
+    gold: [2200, 3800],
+    loot: [
+      { itemId: "kongra_crown", chance: 1 },
+      { itemId: "ape_fur", chance: 1, min: 4, max: 8 },
+      { itemId: "banana", chance: 1, min: 5, max: 10 },
+      { itemId: "amulet_goblin_king", chance: 0.15 },
+      { itemId: "mithril_armor", chance: 0.2 },
+      { itemId: "master_archer_armor", chance: 0.2 },
+      { itemId: "archmage_armor", chance: 0.2 },
+    ],
+    sprite: grid4(C + "MonkeyBoxerRed/SpriteSheet.png", { tint: 0xffd070, scale: 1.8 }),
+  },
+  yeti: {
+    id: "yeti", name: "Yeti", level: 70, hp: 18000, xp: 20000, damage: [130, 240], damageKind: "ice", armor: 28,
+    attackMs: 2000, attackRange: 1, stepMs: 340, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 10_800_000, boss: true,
+    gold: [4000, 7000],
+    loot: [
+      { itemId: "yeti_fur", chance: 1 },
+      { itemId: "winter_fur", chance: 1, min: 4, max: 8 },
+      { itemId: "health_potion_large", chance: 1, min: 3, max: 5 },
+      { itemId: "frost_ring", chance: 0.3 },
+      { itemId: "royal_armor", chance: 0.15 },
+      { itemId: "crown_armor", chance: 0.15 },
+      { itemId: "mystic_armor", chance: 0.15 },
+      { itemId: "northwind_rod", chance: 0.15 },
+    ],
+    sprite: grid4(M + "Panda/SpriteSheet.png", { tint: 0xf4faff, scale: 1.9 }),
+  },
+  ferumbras: {
+    id: "ferumbras", name: "Ferumbras", level: 140, hp: 90000, xp: 120000, damage: [250, 450], damageKind: "death", armor: 50,
+    attackMs: 2000, attackRange: 5, stepMs: 340, aggroRange: 9, fleeAtHpPct: 0, respawnMs: 21_600_000, boss: true,
+    gold: [20000, 35000],
+    loot: [
+      { itemId: "ferumbras_staff", chance: 1 },
+      { itemId: "demonic_essence", chance: 1, min: 4, max: 8 },
+      { itemId: "ferumbras_helmet", chance: 0.3 },
+      { itemId: "ferumbras_armor", chance: 0.25 },
+      { itemId: "ferumbras_legs", chance: 0.25 },
+      { itemId: "destruction_wand", chance: 0.2 },
+      { itemId: "ancient_root_rod", chance: 0.2 },
+      { itemId: "amulet_orshabaal", chance: 0.15 },
+      { itemId: "boots_haste", chance: 0.4 },
+    ],
+    sprite: grid4(C + "Vampire/SpriteSheet.png", { tint: 0xd890ff, scale: 1.9 }),
+  },
 };
 
 export function monsterDef(id: string): MonsterDef | undefined {
@@ -597,5 +915,28 @@ export function monsterDef(id: string): MonsterDef | undefined {
  * horned_fox*    55 12000 12000   130          grupo de 3+, respawn 2 h
  * demodras*      80 25000 30000   215 (dist 4) grupo de 4+, respawn 3 h
  * orshabaal*    120 60000 80000   310 (dist 5) grupo de 5+, respawn 4 h
+ * --- Costa Esmeralda (selva/piratas preenchem o lv 25-45; gelo/heróis/vulcão o 50-110)
+ * sibang         26   300   240    30 (dist 3, foge a 20%)
+ * kongra         28   340   290    34
+ * tarantula      30   380   340    35 (terra)
+ * pirate_mar.    30   360   320    36
+ * merlkin        32   360   350    37.5 (dist 4, energia)
+ * pirate_cors.   35   420   440    42 (dist 4)
+ * crocodile      36   520   560    46
+ * pirate_bucc.   38   560   660    51
+ * carniphila     40   600   760    52 (dist 2, lenta)
+ * winter_wolf    50   850  1230    72 (gelo, rápido)
+ * barbarian      55  1250  1900    97
+ * ice_witch      62  1150  1900    87 (dist 4, gelo)
+ * necromancer    68  1500  2550   102 (dist 4, morte)
+ * hero           72  2200  3900   122
+ * frost_dragon   80  2800  5150   132 (dist 3, gelo)
+ * magma_elem.    86  3000  5800   145 (dist 3, fogo)
+ * hellhound      95  4500  9300   182 (fogo, rápido)
+ * juggernaut    110  6500 14300   220
+ * captain_redb.* 42  7000  7000   100          grupo de 3+, respawn 2 h
+ * kongra_king*   45  9000  9000   115          grupo de 3+, respawn 2 h
+ * yeti*          70 18000 20000   185          grupo de 4+, respawn 3 h (raid quinta 20h)
+ * ferumbras*    140 90000 120000  350 (dist 5) grupo de 6+, respawn 6 h (raid segunda 21h)
  * (*boss). Magos causam ~30% menos por acerto: 4+1.1*lvl.
  */

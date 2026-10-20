@@ -64,6 +64,8 @@ export interface QuestSaveData {
   tracked?: string[];
   /** Recompensas diárias: dia (chave "AAAA-MM-DD", troca às 6h de Brasília), faixa de level travada no dia e estado de cada uma. */
   bounty?: { day: string; band: number; s: { st: "open" | "active" | "done"; n: number }[] };
+  /** Grupos de baús de quest do mapa já abertos (shared/data/questWorld.ts). */
+  chests?: string[];
 }
 
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */

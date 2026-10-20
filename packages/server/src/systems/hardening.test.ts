@@ -122,14 +122,17 @@ describe("posição salva / tiles", () => {
 });
 
 describe("máscara de exploração", () => {
-  it("mesma largura e máscara salva menor → copia o prefixo; largura diferente → descarta", () => {
+  it("mesma largura e máscara salva menor → copia o prefixo; mapa mais largo → remapeia; mais estreito → descarta", () => {
     const old = new ExploredMask(16, 8);
     old.reveal(3, 3, 1);
     const grown = ExploredMask.fromBase64(16, 12, old.toBase64(), 16);
     expect(grown.bits.length).toBe(24);
     expect(grown.has(3, 3)).toBe(true);
     expect(ExploredMask.fromBase64(16, 12, old.toBase64()).has(3, 3)).toBe(true); // legado sem largura salva
-    expect(ExploredMask.fromBase64(20, 12, old.toBase64(), 16).has(3, 3)).toBe(false);
+    const wider = ExploredMask.fromBase64(20, 12, old.toBase64(), 16);
+    expect(wider.has(3, 3)).toBe(true);
+    expect(wider.has(4, 4)).toBe(true);
+    expect(ExploredMask.fromBase64(12, 12, old.toBase64(), 16).has(3, 3)).toBe(false);
     expect(ExploredMask.fromBase64(8, 8, old.toBase64()).bits.length).toBe(8); // maior que o mapa → zera
   });
 });

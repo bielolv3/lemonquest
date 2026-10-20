@@ -47,6 +47,15 @@ export const TITLES: Record<string, string> = {
   arquimago: "o Arquimago",
   pescador: "o Pescador",
   mestre_pescador: "Mestre Pescador",
+  // Quests (missões e baús)
+  cacador_piratas: "Caçador de Piratas",
+  rei_selva: "Rei da Selva",
+  matador_yeti: "Matador de Yeti",
+  matador_dragoes: "Matador de Dragões",
+  heroi: "o Herói",
+  exorcista: "o Exorcista",
+  algoz_ferumbras: "Algoz de Ferumbras",
+  aniquilador: "o Aniquilador",
 };
 export const MAX_TITLE_LEN = 24;
 

@@ -29,4 +29,15 @@ describe("ExploredMask", () => {
     expect(ExploredMask.fromBase64(33, 7, "%%%").has(16, 3)).toBe(false);
     expect(ExploredMask.fromBase64(33, 7, "AAAA").bits.length).toBe(Math.ceil((33 * 7) / 8));
   });
+  it("mapa mais largo (expansão a leste): o que foi explorado continua nas mesmas coordenadas", () => {
+    const m = new ExploredMask(28, 12);
+    m.reveal(20, 6, 3);
+    m.reveal(2, 1, 1);
+    const r = ExploredMask.fromBase64(40, 12, m.toBase64(), 28);
+    expect(r.width).toBe(40);
+    for (let y = 0; y < 12; y++) for (let x = 0; x < 28; x++) expect(r.has(x, y), `${x},${y}`).toBe(m.has(x, y));
+    for (let y = 0; y < 12; y++) for (let x = 28; x < 40; x++) expect(r.has(x, y)).toBe(false);
+    // mais estreito: não dá para reaproveitar
+    expect(ExploredMask.fromBase64(20, 12, m.toBase64(), 28).has(20, 6)).toBe(false);
+  });
 });

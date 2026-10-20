@@ -33,7 +33,7 @@ describe("viagem (cocheiros)", () => {
     const t = setup();
     const p = t.add("p1", 20);
     t.npcs.onInteract(p, { npcId: "coach_village" });
-    expect(t.out.find((o) => o.type === S2C.NpcOpen)!.msg.travel).toEqual([{ id: dest.id, label: dest.label, price: dest.price }]);
+    expect(t.out.find((o) => o.type === S2C.NpcOpen)!.msg.travel).toEqual(NPCS.coach_village!.travel!.map((d) => ({ id: d.id, label: d.label, price: d.price })));
     t.npcs.onTravel(p, { npcId: "coach_village", dest: dest.id });
     expect(t.last().text).toBe("Ouro insuficiente.");
     expect(t.trips).toHaveLength(0);
@@ -66,8 +66,10 @@ describe("viagem (cocheiros)", () => {
     expect(busy.trips.length + t.trips.length).toBe(0);
   });
 
-  it("os dois cocheiros levam um ao outro", () => {
+  it("os dois cocheiros levam um ao outro (e ambos levam a Porto Esperança)", () => {
     expect(NPCS.coach_frontier!.travel![0]!.id).toBe("village");
     expect(dest.id).toBe("frontier");
+    for (const id of ["coach_village", "coach_frontier"]) expect(NPCS[id]!.travel!.map((d) => d.id)).toContain("port");
+    expect(NPCS.port_captain!.travel!.map((d) => d.id).sort()).toEqual(["frontier", "village"]);
   });
 });

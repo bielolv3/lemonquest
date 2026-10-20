@@ -29,12 +29,18 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Ataque automático (escolhe sozinho o monstro mais próximo) | `F9` |
 | Seguir um jogador | clique direito no jogador (no mundo ou na Batalha) → *Seguir*; quadrado verde marca quem você segue (andar, atacar ou `Esc` cancela) |
 | Atacar um jogador (PvP, fora da zona de proteção) | clique direito no jogador → *Atacar*, ou clique nele na Batalha |
-| Viajar Vila ↔ Posto da Fronteira | fale com o cocheiro (portão leste da Vila / sul do Posto) |
+| Viajar Vila ↔ Posto da Fronteira ↔ Porto Esperança | fale com o cocheiro (portão leste da Vila / sul do Posto) ou com a Capitã Marina (barco, no Porto) |
+| Abrir baú de quest / puxar alavanca | clique no baú ou na alavanca (o personagem anda até o lado) |
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
 | Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
 | Mapa | `M` |
 | Volume / mudo | botão ♪ na barra de botões à direita |
 | Ajuda com todos os atalhos | `F1` ou `?` |
+
+**Quests do mundo (estilo Tibia):** baús de quest dão o prêmio uma vez por personagem; quando há vários baús juntos,
+você escolhe um e os outros ficam vazios. Portas com fechadura pedem level ou uma missão concluída (quem não pode bate e
+volta). Na Cidadela de Ferumbras, a Aniquilação precisa de quatro jogadores de lv 100+ nas placas para alguém puxar a
+alavanca.
 
 Itens no chão somem em 10 min (raros ou melhores: 20 min). Eles sobrevivem a um reinício do servidor, mas o tempo com
 o servidor desligado também conta.

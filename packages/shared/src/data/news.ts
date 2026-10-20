@@ -12,6 +12,20 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-20",
+    date: "20 de outubro",
+    title: "Costa Esmeralda e quests do jeito do Tibia",
+    items: [
+      "Mapa novo a leste das Terras Selvagens: Ilha Gelada, Selva de Banuta, Vulcão de Goroma e Porto Esperança (zona protegida).",
+      "Chega de carroça (Vila ou Fronteira) ou pelas três trilhas novas na borda leste das Terras Selvagens.",
+      "Hunts para todo nível: macacos e tarântulas (lv 25+), piratas (lv 30+), bárbaros e bruxas do gelo (lv 50+), heróis (lv 65+) e cães infernais (lv 95+).",
+      "Masmorras: Caverna dos Piratas, Templo de Banuta, Caverna do Yeti, Caverna dos Heróis e a Cidadela de Ferumbras.",
+      "Quests de baú: cada personagem abre uma vez, e em alguns você escolhe um entre vários prêmios. Portas de quest pedem level ou missão.",
+      "A Aniquilação: quatro aventureiros de lv 100 nas placas, alguém puxa a alavanca... e boa sorte com os demônios!",
+      "25 missões novas com NPCs, chefes (Barba-Ruiva, Rei Kongra, Yeti, Ferumbras) e títulos novos.",
+    ],
+  },
+  {
     id: "2026-10-17b",
     date: "17 de outubro (à tarde)",
     title: "Terras Selvagens: o mapa dobrou de tamanho",

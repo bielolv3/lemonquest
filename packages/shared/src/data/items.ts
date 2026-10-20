@@ -209,6 +209,22 @@ mat("red_dragon_scale", "Escama de Dragão Vermelho", matIcon("lizard_scale", 0x
 mat("behemoth_claw", "Garra de Behemoth", matIcon("wolf_fang", 0x9aa4b4), 2600, "Garra do tamanho de uma espada curta.");
 mat("demon_horn", "Chifre de Demônio", matIcon("wolf_fang", 0xe03030), 3500, "Ainda cheira a enxofre.");
 mat("demonic_essence", "Essência Demoníaca", matIcon("ember", 0xc040ff), 4000, "Uma chama roxa que sussurra.");
+// Costa Esmeralda (expansão a leste): selva, piratas, ilha gelada, heróis e vulcão.
+mat("ape_fur", "Pelo de Macaco", matIcon("wolf_pelt", 0xb08850), 160, "Pelo grosso e cheiroso dos macacos de Banuta.");
+mat("tarantula_fang", "Presa de Tarântula", matIcon("wolf_fang", 0xc89060), 210, "Ainda pinga um veneno amarelado.");
+mat("pirate_coin", "Dobrão Pirata", img("Treasure/Coin2.png", 0xe8c060), 45, "Moeda de ouro antiga, cunhada em terras distantes.");
+mat("croc_leather", "Couro de Crocodilo", matIcon("snake_skin", 0x6a9a50), 320, "Couro escamado, ótimo para botas.");
+mat("pirate_hat", "Chapéu de Pirata", img("Object/Bag.png", 0x403040), 900, "Um chapéu de capitão surrado. Colecionadores adoram.");
+mat("carniphila_seed", "Semente de Carniphila", img("Food/SeedBig2.png", 0x90e070), 340, "Pulsa como um coração. Não plante perto de casa.");
+mat("winter_fur", "Pele de Inverno", matIcon("wolf_pelt", 0xe8f0ff), 520, "Pele branca e macia, quente como uma fogueira.");
+mat("ice_shard", "Lasca de Gelo Eterno", matIcon("ember", 0x9ad8ff), 760, "Nunca derrete, nem no sol do deserto.");
+mat("necro_skull", "Crânio Profano", matIcon("bone", 0x9a80c0), 820, "Runas sombrias gravadas no osso.");
+mat("hero_badge", "Insígnia de Herói", img("Treasure/SilverCoin.png", 0xc8d8ff), 950, "Medalha de um herói que perdeu o rumo.");
+mat("frost_dragon_scale", "Escama de Dragão de Gelo", matIcon("lizard_scale", 0x9ad8ff), 1700, "Gelada ao toque. Ferreiros do norte pagam bem.");
+mat("magma_core", "Núcleo de Magma", matIcon("ember", 0xff6a20), 2000, "Rocha derretida que pulsa no centro.");
+mat("hellhound_fang", "Presa Infernal", matIcon("wolf_fang", 0xff5030), 3000, "Queima a mão de quem segura sem luva.");
+mat("juggernaut_plate", "Placa de Colosso", img("Resource/BarSilver.png", 0xc0a090), 4500, "Um pedaço de couraça mais duro que mithril.");
+food("banana", "Banana", img("Food/Nut2.png", 0xffe060), 18, undefined, 3, 1, 4, "Doce e nutritiva. Os macacos brigam por ela.");
 
 // Chaves e itens de missão
 add({ id: "crypt_key", name: "Chave da Cripta", kind: "key", value: 0, icon: img("Treasure/SilverKey.png"), description: "Abre o portão selado da Cripta. Cai do Lich do Pântano." });
@@ -221,6 +237,11 @@ add({ id: "goblin_crown", name: "Coroa do Rei Goblin", kind: "quest", value: 0, 
 add({ id: "horned_fox_tail", name: "Cauda da Raposa Chifruda", kind: "quest", value: 0, icon: matIcon("wolf_pelt", 0xffa040), description: "Prova de que a Raposa Chifruda caiu." });
 add({ id: "demodras_head", name: "Cabeça de Demodras", kind: "quest", value: 0, icon: matIcon("lizard_scale", 0xff3020), description: "Prova de que Demodras caiu." });
 add({ id: "orshabaal_brain", name: "Cérebro de Orshabaal", kind: "quest", value: 0, icon: img("Food/Meat.png", 0xff80b0), description: "Ainda pulsa. Prova de que Orshabaal caiu." });
+add({ id: "redbeard_hook", name: "Gancho do Barba-Ruiva", kind: "quest", value: 0, icon: img("Weapons/Stick/Sprite.png", 0xd0d0d8), description: "Prova de que o Capitão Barba-Ruiva caiu." });
+add({ id: "kongra_crown", name: "Coroa do Rei Kongra", kind: "quest", value: 0, icon: img("Treasure/GoldCup.png", 0xffe080), description: "Uma coroa de ossos e penas. Prova de que o Rei Kongra caiu." });
+add({ id: "yeti_fur", name: "Pelo do Yeti", kind: "quest", value: 0, icon: matIcon("wolf_pelt", 0xffffff), description: "Branco como a neve. Prova de que o Yeti caiu." });
+add({ id: "ferumbras_staff", name: "Cajado Partido de Ferumbras", kind: "quest", value: 0, icon: img("Weapons/Stick/Sprite.png", 0xd890ff), description: "Prova de que Ferumbras caiu... por enquanto." });
+add({ id: "annihilation_bear", name: "Urso da Aniquilação", kind: "quest", value: 0, icon: img("Object/Bag.png", 0xc08060), description: "Um ursinho de pelúcia chamuscado. Só quem sobreviveu à Aniquilação tem um." });
 
 // ---------------------------------------------------------------------------
 // Armas
@@ -250,6 +271,11 @@ weapon("fire_sword", "Espada de Fogo", "sword", "knight", img(W + "Sword2/Sprite
 weapon("giant_sword", "Espada Gigante", "sword", "knight", img(W + "BigSword/Sprite.png", 0xd8d0c0), 6, 112, 100000, "Pesada demais para um homem comum. Duas mãos.", { twoHanded: true, stats: { melee: 2, crit: 3 } });
 weapon("magic_longsword", "Espada Longa Mágica", "sword", "knight", img(W + "Sword2/Sprite.png", 0x9a7aff), 7, 130, 190000, "Runas antigas brilham ao longo do fio.", { stats: { melee: 3, crit: 3 } });
 weapon("demon_axe", "Machado Demoníaco", "axe", "knight", img(W + "Axe/Sprite.png", 0xb02040), 7, 150, 210000, "Arrancado das mãos de um demônio. Duas mãos.", { twoHanded: true, stats: { melee: 3, crit: 4 } });
+// Baús de quest (só uma vez por personagem): Tesouro do Barba-Ruiva (lv 35) e Aniquilação (lv 100).
+weapon("pirate_saber", "Sabre do Pirata", "sword", "knight", img(W + "Katana/Sprite.png", 0xffd070), 5, 74, 42000, "O sabre do Capitão Barba-Ruiva. Só sai de um baú.", { stats: { melee: 2, crit: 3 } });
+add({ id: "stonecutter_axe", name: "Machado Cortapedras", kind: "weapon", slot: "weapon", icon: img(W + "Axe/Sprite.png", 0x9ad0ff), vocations: ["knight"], level: 100,
+  weaponType: "axe", range: 1, damageKind: "physical", twoHanded: true, stats: { attack: 175, melee: 4, crit: 5 }, value: 320000,
+  description: "Prêmio da Aniquilação. Corta pedra como se fosse manteiga. Duas mãos." });
 
 // Paladino (arcos, alcance 6, físico, duas mãos).
 const BOW = { range: 6, twoHanded: true } as const;
@@ -260,6 +286,7 @@ weapon("composite_bow", "Arco Composto", "bow", "paladin", img(W + "Bow2/Sprite.
 weapon("elven_bow", "Arco Élfico", "bow", "paladin", img(W + "Bow2/Sprite.png", 0x70f0e0), 5, 62, 38000, "Canta quando a corda é solta.", { ...BOW, stats: { distance: 3, crit: 2 } });
 weapon("royal_crossbow", "Besta Real", "bow", "paladin", img(W + "Bow/Sprite.png", 0xf0c060), 6, 80, 90000, "Dourada e precisa, feita para a guarda do rei.", { ...BOW, stats: { distance: 3, crit: 3 } });
 weapon("celestial_bow", "Arco Celestial", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xc8e8ff), 7, 100, 190000, "Dizem que a corda é um raio de luar.", { ...BOW, stats: { distance: 4, crit: 3 } });
+weapon("corsair_bow", "Arco do Corsário", "bow", "paladin", img(W + "Bow/Sprite.png", 0xffb060), 5, 66, 42000, "Madeira de mastro e corda de âncora. Só sai de um baú.", { ...BOW, stats: { distance: 3, crit: 3 } });
 
 // Feiticeiro (varinhas, alcance 4, energia/fogo).
 const WAND = { range: 4 } as const;
@@ -270,6 +297,7 @@ weapon("ember_wand", "Varinha Flamejante", "wand", "sorcerer", img(W + "MagicWan
 weapon("inferno_wand", "Varinha do Inferno", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff3030), 5, 52, 38000, "Guarda uma chama que não morre.", { ...WAND, kind: "fire", stats: { magic: 3, manaMax: 80 } });
 weapon("starstorm_wand", "Varinha da Tempestade Estelar", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xb0a0ff), 6, 68, 90000, "Estrelas cadentes presas num cristal.", { ...WAND, kind: "energy", stats: { magic: 4, manaMax: 120 } });
 weapon("destruction_wand", "Varinha da Destruição", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0xff5020), 7, 86, 190000, "Feita com o chifre de um demônio.", { ...WAND, kind: "fire", stats: { magic: 5, manaMax: 160 } });
+weapon("tide_wand", "Varinha das Marés", "wand", "sorcerer", img(W + "MagicWand/Sprite.png", 0x40c8ff), 5, 55, 42000, "Cheira a maresia e estala como um raio. Só sai de um baú.", { ...WAND, kind: "energy", stats: { magic: 3, manaMax: 90 } });
 
 // Druida (bastões, alcance 4, gelo/terra).
 weapon("twig_rod", "Graveto Encantado", "rod", "druid", img(W + "Stick/Sprite.png"), 1, 7, 70, "Um graveto que ainda lembra da floresta.", { ...WAND, kind: "ice" });
@@ -279,6 +307,7 @@ weapon("moss_rod", "Bastão do Pântano", "rod", "druid", img(W + "Stick/Sprite.
 weapon("glacier_rod", "Bastão Glacial", "rod", "druid", img(W + "Stick/Sprite.png", 0xc8f4ff), 5, 52, 38000, "Frio de mil invernos.", { ...WAND, kind: "ice", stats: { magic: 3, manaMax: 80 } });
 weapon("northwind_rod", "Bastão do Vento Norte", "rod", "druid", img(W + "Stick/Sprite.png", 0x9ad0ff), 6, 68, 90000, "O vento do norte dorme dentro dele.", { ...WAND, kind: "ice", stats: { magic: 4, manaMax: 120 } });
 weapon("ancient_root_rod", "Bastão de Raiz Ancestral", "rod", "druid", img(W + "Stick/Sprite.png", 0x60c040), 7, 86, 190000, "Brotou no coração do Abismo e não morreu.", { ...WAND, kind: "earth", stats: { magic: 5, manaMax: 160 } });
+weapon("coral_rod", "Bastão de Coral", "rod", "druid", img(W + "Stick/Sprite.png", 0xff8090), 5, 55, 42000, "Coral vivo arrancado do fundo do mar. Só sai de um baú.", { ...WAND, kind: "ice", stats: { magic: 3, manaMax: 90 } });
 
 // ---------------------------------------------------------------------------
 // Armaduras
@@ -403,6 +432,8 @@ trinket("ring_might", "Anel da Força", "ring", "mithril", 50, { crit: 4, melee:
 trinket("amulet_dragon", "Amuleto de Escamas", "amulet", "dragon", 55, { armor: 4, hpMax: 200 }, 45000, "Escamas de dragão costuradas em couro.");
 trinket("ring_demodras", "Anel de Demodras", "ring", "dragon", 70, { crit: 6, hpRegen: 4, manaRegen: 4 }, 120000, "Um anel quente que nunca esfria.");
 trinket("amulet_orshabaal", "Amuleto de Orshabaal", "amulet", "arcane", 90, { armor: 6, hpMax: 400, manaMax: 200, magic: 2, melee: 2, distance: 2 }, 300000, "O olhar do demônio ainda vive na pedra.");
+trinket("amulet_banuta", "Ídolo de Banuta", "amulet", "gold", 40, { hpMax: 150, manaMax: 80, speed: 3 }, 32000, "O ídolo dourado do templo da selva. Só sai de um baú.");
+trinket("frost_ring", "Anel do Gelo Eterno", "ring", "steel", 60, { crit: 4, hpRegen: 3, manaRegen: 3, armor: 1 }, 60000, "Frio como o coração do Yeti.");
 
 /** Catálogo (derivado das listas acima). */
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(ITEM_LIST.map((d) => [d.id, d]));

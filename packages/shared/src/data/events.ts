@@ -26,6 +26,8 @@ export const WEEKLY_EVENTS: readonly GameEventDef[] = [
   // Raids das Terras Selvagens, como no Tibia: o chefe aparece no covil dele na hora marcada.
   { id: "furia_de_demodras", name: "Fúria de Demodras", desc: "Demodras acordou no Vale dos Dragões! Loot +50%", xpMult: 1, lootMult: 1.5, day: 2, hour: 20, durationMin: 90, boss: "demodras" },
   { id: "invasao_de_orshabaal", name: "Invasão de Orshabaal", desc: "Orshabaal subiu do Abismo! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 6, hour: 21, durationMin: 90, boss: "orshabaal" },
+  { id: "rugido_do_yeti", name: "Rugido do Yeti", desc: "O Yeti saiu da caverna na Ilha Gelada! Loot +50%", xpMult: 1, lootMult: 1.5, day: 4, hour: 20, durationMin: 90, boss: "yeti" },
+  { id: "retorno_de_ferumbras", name: "Retorno de Ferumbras", desc: "Ferumbras voltou à Cidadela! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 1, hour: 21, durationMin: 90, boss: "ferumbras" },
 ];
 
 /** Evento em andamento (agendado ou disparado por admin). */

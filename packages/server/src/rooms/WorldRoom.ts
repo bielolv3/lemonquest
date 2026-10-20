@@ -5,7 +5,7 @@ import {
   type ArenaActionMsg, type AttackMsg, type CastMsg, type ChatSendMsg, type DiscardItemMsg, type ItemInstance, type DropItemMsg, type FeedMsg, type FightModeMsg, type FollowMsg, type JoinOptions,
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
-  type QuestActionMsg, findObjects,
+  type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
   PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -38,6 +38,7 @@ import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
 import { ArenaSystem, parseArenas } from "../systems/arena.ts";
 import { QuestSystem, type ZoneRect } from "../systems/quests.ts";
+import { QuestWorldSystem } from "../systems/questWorld.ts";
 import { killCredit, type Monster } from "../systems/monsters.ts";
 import { FightModeSystem, stanceDealt, stanceTaken } from "../systems/fightmode.ts";
 import { handleDevCommand, isDevAdmin } from "../systems/devcommands.ts";
@@ -70,7 +71,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -114,6 +115,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private arena!: ArenaSystem;
   private training!: TrainingSystem;
   private quests!: QuestSystem;
+  private questWorld!: QuestWorldSystem;
   private ach!: AchievementSystem;
   private party!: PartySystem;
   private social!: SocialSystem;
@@ -179,6 +181,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.portals = new PortalSystem(
       this.map.tiled, this.movement, (id, msg) => this.clients.getById(id)?.send(S2C.Teleported, msg), Date.now,
       (x, y, self) => this.isFreeTile(x, y, self.id),
+      // Portas de quest (level/missão/baú): o estado das missões só existe depois do QuestSystem (criado abaixo).
+      (p, req) => doorBlockReason(req, p.level, (q) => this.quests.isDone(p.id, q), (g) => this.quests.chestDone(p.id, g), (q) => questDef(q)?.name ?? q),
+      (p, text) => this.clients.getById(p.id)?.send(S2C.Notice, { text, kind: "warn" } satisfies NoticeMsg),
     );
     const send = (id: string, type: string, msg: unknown) => this.clients.getById(id)?.send(type, msg);
     const broadcast = (type: string, msg: unknown) => this.broadcast(type, msg);
@@ -272,6 +277,17 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       placeLoot: (p, it) => this.ground.placeLoot(p, it),
       onUnlock: (id, unlockId) => this.onUnlock(id, unlockId),
       onComplete: (id, _q, bounty) => { if (!bounty) this.ach?.event(id, "quest"); },
+    });
+    this.questWorld = new QuestWorldSystem({
+      objects: findQuestObjects(this.map.tiled), levers: findQuestLevers(this.map.tiled),
+      quests: this.quests, monsters: this.monsters, players: () => this.state.players.values(),
+      teleport: (p, x, y) => {
+        const to = nearestFreeTile(x, y, (tx, ty) => this.isFreeTile(tx, ty, p.id)) || { x, y };
+        this.fight.cancelFollow(p);
+        this.movement.teleport(p, to.x, to.y);
+        send(p.id, S2C.Teleported, to);
+      },
+      send, broadcast,
     });
     this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground, lootMult: () => this.events?.lootMult() ?? 1 });
     this.regen = new RegenSystem({
@@ -485,6 +501,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<NpcTradeMsg>(C2S.NpcTrade, (p, m) => this.npcs.onTrade(p, m));
     this.on<TravelMsg>(C2S.Travel, (p, m) => this.npcs.onTravel(p, m));
     this.on<QuestActionMsg>(C2S.Quest, (p, m) => this.quests.onAction(p, m));
+    this.on<UseQuestObjectMsg>(C2S.UseQuestObject, (p, m) => this.questWorld.onUse(p, m));
     this.on<FightModeMsg>(C2S.FightMode, (p, m) => this.fight.onFightMode(p, m));
     this.on<TrainOpenMsg>(C2S.TrainOpen, (p, m) => this.training.onOpen(p, m));
     this.on<TrainOfflineMsg>(C2S.TrainOffline, (p, m, c) => this.startOfflineTraining(p, m, c));
@@ -512,6 +529,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       ["food", () => this.food.tick(this.tickNow, players())],
       ["npcs", () => this.npcs.tick(this.tickNow)],
       ["quests", () => this.quests.tick(this.tickNow, players())],
+      ["questWorld", () => this.questWorld.tick(this.tickNow)],
       ["party", () => this.party.sync(this.tickNow)],
       ["trade", () => this.trade.tick()],
       ["fishing", () => this.fishing.tick()],

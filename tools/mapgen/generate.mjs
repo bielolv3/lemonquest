@@ -7,6 +7,7 @@ import { S } from './stamps.mjs';
 import { createLemon } from './lemon.mjs';
 import { polish } from './polish.mjs';
 import { expand } from './expansion.mjs';
+import { expand2 } from './expansion2.mjs';
 import { PNG } from 'pngjs';
 
 const SEED = 20260611;
@@ -772,14 +773,16 @@ const big = expand({ old: map, ts, S, L: LEMON, OW_H, spawnTile: SPAWN, oldPorta
 // mão, fora do caminho. Cocheiros: carroça Vila (portão leste) ↔ Posto da Fronteira; chegada em shared/data/npcs.ts.
 const lateNpcs = [['coach_village', 98, 100], ['coach_frontier', 213, 62]];
 for (const [id, x, y] of lateNpcs) big.tileObj('npc', x, y, { npcId: id }, id);
+// ===================================================================== COSTA ESMERALDA (segunda expansão a leste: tools/mapgen/expansion2.mjs)
+const world = expand2({ old: big, ts, S, L: LEMON, OW_H, spawnTile: SPAWN }).map;
 
 // ===================================================================== OUTPUT
 fs.mkdirSync(MAPS_DIR, { recursive: true });
-fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(big.toTiled()));
+fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(world.toTiled()));
 { const cp = LEMON.set.croppedPng(); const out = new PNG({ width: cp.width, height: cp.height }); out.data = Buffer.from(cp.data); const dir = path.join(MAPS_DIR, '../tiles'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'lemon-terrain.png'), PNG.sync.write(out)); }
-const a = renderPreview(big, path.join(MAPS_DIR, 'preview.png'));
-const b = renderPreview(big, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
+const a = renderPreview(world, path.join(MAPS_DIR, 'preview.png'));
+const b = renderPreview(world, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
 if (process.argv.includes('--debug')) {
-  renderPreview(big, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true });
+  renderPreview(world, path.join(here, '_v/debug.png'), { collisionOverlay: true, objectsOverlay: true });
 }
-console.log(`world.json ${big.w}x${big.h}; preview ${a.W}x${a.H}; small ${b.W}x${b.H}; objects ${big.objects.length}`);
+console.log(`world.json ${world.w}x${world.h}; preview ${a.W}x${a.H}; small ${b.W}x${b.H}; objects ${world.objects.length}`);

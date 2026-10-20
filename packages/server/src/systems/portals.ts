@@ -1,13 +1,16 @@
-import { findObjects, objectTile, type TeleportedMsg, type TiledMap } from "@lemonquest/shared";
+import { doorRequirement, findObjects, objectTile, type DoorRequirement, type TeleportedMsg, type TiledMap } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { MovementSystem } from "./movement.ts";
 import { nearestFreeTile } from "../world/tiles.ts";
 
 export const PORTAL_COOLDOWN_MS = 1000;
 
-interface Dest { toX: number; toY: number }
+interface Dest { toX: number; toY: number; req?: DoorRequirement }
 
-/** Portais (objetos `portal` com toX/toY): ao PISAR no tile, teleporta. */
+/**
+ * Portais (objetos `portal` com toX/toY): ao PISAR no tile, teleporta. Porta de quest (portal com minLevel/quest/
+ * chestGroup): quem não cumpre volta para o tile de onde veio e recebe o motivo.
+ */
 export class PortalSystem {
   private readonly portals = new Map<string, Dest>();
   private readonly last = new WeakMap<PlayerState, { x: number; y: number }>();
@@ -20,14 +23,24 @@ export class PortalSystem {
     private readonly now: () => number = Date.now,
     /** Tile livre para chegar (andável, sem monstro/NPC/jogador). Destino ocupado → tile livre mais próximo. */
     private readonly isFree?: (x: number, y: number, self: PlayerState) => boolean,
+    /** Porta de quest: motivo de não passar (null = passa). Ausente = todas as portas abrem. */
+    private readonly canPass?: (p: PlayerState, req: DoorRequirement) => string | null,
+    /** Aviso ao bater numa porta fechada. */
+    private readonly refuse?: (p: PlayerState, text: string) => void,
   ) {
     for (const o of findObjects(tiled, "portal")) {
       const num = (n: string) => Number(o.properties?.find((p) => p.name === n)?.value);
       const toX = num("toX"), toY = num("toY");
       if (!Number.isFinite(toX) || !Number.isFinite(toY)) continue;
       const t = objectTile(o, tiled.tilewidth);
-      this.portals.set(`${t.x},${t.y}`, { toX, toY });
+      const req = doorRequirement(o);
+      this.portals.set(`${t.x},${t.y}`, { toX, toY, ...(req ? { req } : {}) });
     }
+  }
+
+  /** Requisito da porta em (x,y), se for porta de quest. */
+  requirement(x: number, y: number): DoorRequirement | undefined {
+    return this.portals.get(`${x},${y}`)?.req;
   }
 
   /** Para a IA de monstros evitar pisar em portais. */
@@ -51,6 +64,17 @@ export class PortalSystem {
     const now = this.now();
     if (now < (this.cooldownUntil.get(p) ?? 0)) return;
     this.cooldownUntil.set(p, now + PORTAL_COOLDOWN_MS);
+    const reason = dest.req && this.canPass ? this.canPass(p, dest.req) : null;
+    if (reason !== null) {
+      // Porta fechada: volta para o tile anterior (ou fica, se não houver um).
+      this.refuse?.(p, reason);
+      if (prev && !this.portals.has(`${prev.x},${prev.y}`)) {
+        this.movement.teleport(p, prev.x, prev.y);
+        this.last.set(p, prev);
+        this.send(p.id, prev);
+      }
+      return;
+    }
     const free = this.isFree;
     const to = (free && nearestFreeTile(dest.toX, dest.toY, (x, y) => free(x, y, p))) || { x: dest.toX, y: dest.toY };
     this.movement.teleport(p, to.x, to.y);

@@ -75,6 +75,8 @@ export interface Monster {
   allow?: (p: PlayerState) => boolean;
   /** Multiplicador do dano dos ataques (elite/escala do coliseu). Ausente = 1. */
   dmgMult?: number;
+  /** Solto por uma alavanca de quest (Aniquilação): XP e loot normais, mas sem respawn. */
+  questLever?: string;
 }
 
 /** Criatura que pode ser alvo de monstro: jogador ou invocação de jogador. */
@@ -393,7 +395,7 @@ export class MonsterManager {
       this.onSummonRemoved?.(m);
       return;
     }
-    if (m.arenaId) return; // onda do coliseu: sem respawn
+    if (m.arenaId || m.questLever) return; // onda do coliseu / sala de quest: sem respawn
     this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs, due: now + m.def.respawnMs });
   }
 
@@ -421,6 +423,27 @@ export class MonsterManager {
     this.list.set(s.id, m);
     this.occ.set(y * this.W + x, m);
     this.o.collection.set(s.id, s);
+    return m;
+  }
+
+  /**
+   * Monstro de sala de quest (alavanca da Aniquilação) em (x,y): confinado a `bounds`, sem respawn, com XP e loot
+   * normais. Tile ocupado → o livre mais próximo dentro da sala; nenhum livre → null.
+   */
+  spawnQuest(def: MonsterDef, x: number, y: number, o: { leverId: string; bounds: TileRect }, now = this.now()): Monster | null {
+    const inside = (tx: number, ty: number) => tx >= o.bounds.x0 && tx <= o.bounds.x1 && ty >= o.bounds.y0 && ty <= o.bounds.y1;
+    let t: Point | null = null;
+    for (let r = 0; r <= 3 && !t; r++) {
+      for (let dy = -r; dy <= r && !t; dy++) for (let dx = -r; dx <= r; dx++) {
+        const tx = x + dx, ty = y + dy;
+        if (inside(tx, ty) && this.grid.isWalkable(tx, ty) && !this.isMonsterAt(tx, ty) && this.playerAt(tx, ty) === undefined) { t = { x: tx, y: ty }; break; }
+      }
+    }
+    if (!t) return null;
+    const m = this.spawnArena(def, t.x, t.y, { arenaId: 0, bounds: o.bounds, allow: () => true }, now);
+    delete m.arenaId;
+    delete m.allow;
+    m.questLever = o.leverId;
     return m;
   }
 

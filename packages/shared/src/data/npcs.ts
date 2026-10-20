@@ -31,6 +31,8 @@ export const NPC_RANGE = 3;
 
 /** Catálogo. O agente de conteúdo completa (shop, priest, depot, guard_captain, old_hunter, herbalist, bounty_board). */
 const C = "ninja/Actor/Character/";
+/** Chegada em Porto Esperança (Costa Esmeralda), de carroça. Tile andável conferido em npcs.test.ts. */
+const PORT_ARRIVAL: TravelDest = { id: "port", label: "Porto Esperança", x: 372, y: 64, price: 250 };
 const sells = (...ids: string[]): NpcShopEntry[] => ids.map((itemId) => ({ itemId }));
 
 export const NPCS: Record<string, NpcDef> = {
@@ -220,14 +222,101 @@ export const NPCS: Record<string, NpcDef> = {
   coach_village: {
     id: "coach_village", name: "Cocheiro Bastião", sprite: C + "Villager2/SpriteSheet.png",
     greeting: "Carroça para o Posto da Fronteira, no leste. A estrada é longa, mas a minha mula conhece o caminho.",
-    travel: [{ id: "frontier", label: "Posto da Fronteira", x: 214, y: 61, price: 150 }],
+    travel: [{ id: "frontier", label: "Posto da Fronteira", x: 214, y: 61, price: 150 }, PORT_ARRIVAL],
     idleLines: ["Carroça para a Fronteira! Saída imediata!", "Essa mula já viu mais dragão que muito aventureiro."],
   },
   coach_frontier: {
     id: "coach_frontier", name: "Cocheira Zuleica", sprite: C + "ManGreen/SpriteSheet.png",
     greeting: "Cansou das Terras Selvagens? Levo você de volta à Vila de Pedra Clara.",
-    travel: [{ id: "village", label: "Vila de Pedra Clara", x: 97, y: 98, price: 150 }],
+    travel: [{ id: "village", label: "Vila de Pedra Clara", x: 97, y: 98, price: 150 }, PORT_ARRIVAL],
     idleLines: ["Volta para a Vila! Quem vem?", "Cuidado na estrada: aqui fora tem gente com caveira."],
+  },
+
+  // ===== Costa Esmeralda: Porto Esperança (zona protegida na costa leste) e Acampamento Nórdico (Ilha Gelada)
+  port_captain: {
+    id: "port_captain", name: "Capitã Marina", sprite: C + "FighterWhite/SpriteSheet.png",
+    greeting: "Bem-vindo a Porto Esperança, marujo! Meu barco leva você para a Vila ou para a Fronteira. E, se tiver coragem, tenho serviço com os piratas.",
+    travel: [
+      { id: "village", label: "Vila de Pedra Clara", x: 97, y: 98, price: 200 },
+      { id: "frontier", label: "Posto da Fronteira", x: 214, y: 61, price: 150 },
+    ],
+    idleLines: [
+      "Barco para a Vila e para a Fronteira! Embarque já!",
+      "Aqueles piratas da caverna da praia ainda vão me pagar.",
+      "O Barba-Ruiva afundou três navios meus. Três!",
+    ],
+  },
+  port_trader: {
+    id: "port_trader", name: "Joaquim, o Mercador do Porto", sprite: C + "Villager5/SpriteSheet.png",
+    greeting: "Poções, comida e tudo o que um caçador precisa. E compro o que você trouxer da selva, do gelo ou do vulcão!",
+    shop: {
+      sells: sells(
+        "health_potion_medium", "health_potion_large", "mana_potion_medium", "mana_potion_large",
+        "banana", "fish", "meat", "calamari", "yakitori", "sushi", "fishing_rod",
+      ),
+      buys: ["weapon", "shield", "helmet", "armor", "legs", "boots", "ring", "amulet", "material", "food", "potion"],
+    },
+    idleLines: [
+      "Pelo de macaco? Pago bem! Couro de crocodilo? Pago melhor!",
+      "Dobrões piratas valem pouco, mas valem.",
+      "Quem vai para o vulcão leva poção grande. Muita poção grande.",
+    ],
+  },
+  port_depot: {
+    id: "port_depot", name: "Guarda-Volumes do Porto", sprite: C + "OldMan/SpriteSheet.png", depot: true,
+    greeting: "O mesmo baú da Vila e da Fronteira, aqui na beira do mar. O que vai guardar?",
+    idleLines: [
+      "Nada molha aqui dentro, prometo.",
+      "Deixe o peso comigo antes de entrar na selva.",
+    ],
+  },
+  explorer_jairo: {
+    id: "explorer_jairo", name: "Explorador Jairo", sprite: C + "Villager3/SpriteSheet.png",
+    greeting: "A Selva de Banuta esconde um templo inteiro! Macacos, aranhas, crocodilos... e um rei. Quer me ajudar a desvendar tudo?",
+    idleLines: [
+      "Os sibangs atiram cocos. Doem mais do que parece.",
+      "O templo fica no coração da selva, entre as ruínas.",
+      "Dizem que há um esconderijo de tesouro nas ruínas da selva...",
+    ],
+  },
+  sage_ignis: {
+    id: "sage_ignis", name: "Mestre Ignis", sprite: C + "Master/SpriteSheet.png",
+    greeting: "Sinto o calor do Vulcão de Goroma daqui. Lá dentro, Ferumbras espera. Poucos voltam da cratera... menos ainda da Cidadela.",
+    idleLines: [
+      "O magma pulsa como um coração. O coração de Ferumbras.",
+      "Na Cidadela há uma sala que exige quatro heróis. A Aniquilação.",
+      "Cães infernais não dormem. Nunca.",
+    ],
+  },
+  port_priest: {
+    id: "port_priest", name: "Irmã Celeste", sprite: C + "Villager6/SpriteSheet.png",
+    greeting: "A luz te guarde, viajante. Ao sul da selva há uma caverna onde heróis caídos ainda lutam. Eles precisam descansar.",
+    idleLines: [
+      "Os heróis da caverna eram bons homens, um dia.",
+      "Rezo pelos que entram no vulcão.",
+      "Aqui no porto você está a salvo.",
+    ],
+  },
+  jarl_haakon: {
+    id: "jarl_haakon", name: "Jarl Haakon", sprite: C + "GladiatorBlue/SpriteSheet.png",
+    greeting: "Ha! Um sulista na Ilha Gelada! Aqui o frio separa os fortes dos mortos. Prove o seu valor e o povo do norte te recebe.",
+    idleLines: [
+      "O Yeti levou mais um dos nossos. Mais um!",
+      "As bruxas do gelo cantam à noite. Não escute.",
+      "Hidromel quente e machado afiado: é só disso que um homem precisa.",
+    ],
+  },
+  camp_trader: {
+    id: "camp_trader", name: "Ingrid, a Peleira", sprite: C + "Eskimo/SpriteSheet.png",
+    greeting: "Poções e comida quente para o frio. E compro peles, lascas de gelo e escamas de dragão.",
+    shop: {
+      sells: sells("health_potion_medium", "health_potion_large", "mana_potion_medium", "mana_potion_large", "meat", "fish", "salmon", "yakitori", "sushi"),
+      buys: ["weapon", "shield", "helmet", "armor", "legs", "boots", "ring", "amulet", "material", "food", "potion"],
+    },
+    idleLines: [
+      "Pele de inverno vale ouro aqui no norte.",
+      "Não pise no gelo fino perto da caverna.",
+    ],
   },
 };
 

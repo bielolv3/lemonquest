@@ -6,6 +6,9 @@
  *   - objectgroup "objects": pontos com `type`/`class` = "spawn_player" | "npc" | "monster_spawn" | "portal"
  *   - "training_statue" (ponto; prop `statueId`): estátua de treino offline (o tile é bloqueado; interage-se do lado).
  *   - "zone" com prop `pz=true`: zona de proteção (a vila e o centro de treinamento).
+ *   - Quests de mundo (shared/data/questWorld.ts): "quest_chest" (ponto; prop `chestId`, tile bloqueado) e "quest_lever"
+ *     (ponto; props `leverId`, `plates`/`dests`/`spawns` = "x,y;x,y", `room` = "x0,y0,x1,y1"). "portal" com `minLevel`,
+ *     `quest` ou `chestGroup` é uma porta de quest: quem não cumpre o requisito volta para o tile de onde veio.
  *   - Coliseu: "arena" (RETÂNGULO; props `arenaId` 1..ARENA_COUNT) = área de luta da instância;
  *     "arena_entry" (ponto; prop `arenaId`) = onde o grupo nasce; "arena_spawn" (ponto; prop `arenaId`) = pontos
  *     de spawn de monstros (vários por arena); "arena_exit" (ponto) = para onde volta quem sai (na vila, perto do NPC).
