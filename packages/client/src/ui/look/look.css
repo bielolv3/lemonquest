@@ -1,0 +1,10 @@
+/* Cartão do "olhar" (dois botões do mouse / Shift+clique). */
+.look-card {
+  position: fixed; z-index: 60; max-width: 300px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
+  font-size: 12px; line-height: 1.35; color: var(--hud-text); pointer-events: auto;
+  animation: hud-pop 120ms var(--hud-ease);
+}
+.hud-card.look-card { background: rgba(17, 20, 28, 0.95); }
+.look-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.look-line { color: var(--hud-muted); }
+@media (prefers-reduced-motion: reduce) { .look-card { animation: none; } }

@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
-  monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type LookGroundMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
@@ -21,6 +21,7 @@ import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
 import { QUEST_OBJECT_RANGE, QuestObjectIndex, useQuestObject } from "../game/questObjects.ts";
+import { ChestLabels } from "../game/chestLabels.ts";
 import { KeyboardInput } from "../game/input.ts";
 import { applyTextRes, onTextResChange, sceneTexts } from "../game/textRes.ts";
 import { PixelCamera } from "../game/pixelCamera.ts";
@@ -28,7 +29,9 @@ import { Predictor } from "../game/predictor.ts";
 import { sfx, type SfxName } from "../game/sfx.ts";
 import { SpellEffects } from "../game/spellFx.ts";
 import { ADDON_SHEET_LIST, ALL_SHEETS, outfitLook } from "../game/sprites.ts";
-import { openCtxMenu, openOutfit, type CtxMenuItem } from "../ui/outfit/outfit.ts";
+import { closeCtxMenu, openCtxMenu, openOutfit, type CtxMenuItem } from "../ui/outfit/outfit.ts";
+import { lookCreature, lookNpc, lookPlayer, lookQuestObject, type LookContent } from "../game/lookInfo.ts";
+import { expectLookItem, showLook } from "../ui/look/look.ts";
 import { amLeader, isPartyMember, partyAction, partyStore } from "../ui/party/party.ts";
 import { TEX, createFxTextures } from "../game/textures.ts";
 import { MAP_KEY, buildWorldMap, preloadWorldMap, type WorldMap } from "../game/worldMap.ts";
@@ -107,11 +110,14 @@ export class WorldScene extends Phaser.Scene {
   private fx!: CombatFx;
   private spells!: SpellEffects;
   private npcs!: NpcManager;
+  private chestLabels!: ChestLabels;
   private loot!: LootFx;
   private ground!: GroundItems;
   /** Item do chão clicado de longe: pega ao chegar ao lado (cancelado por movimento manual). */
   private pendingPickup: { id: string; until: number } | null = null;
   private lastGroundClick = { id: "", at: 0 };
+  /** Último clique com efeito desfazível (mirar): o "olhar" com os dois botões desfaz o que o primeiro botão fez. */
+  private lastClick: { at: number; undo?: () => void } = { at: 0 };
   /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
   private groundWalkTimer = 0;
   private butterflies!: Butterflies;
@@ -225,6 +231,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs.addFromMap(this.world.tiled);
     this.statues = new StatueIndex(this.world.tiled);
     this.questObjs = new QuestObjectIndex(this.world.tiled);
+    this.chestLabels = new ChestLabels(this, this.uiLayer, this.questObjs.list);
     this.loot = new LootFx(this, this.worldLayer, this.uiLayer, this.fx, () => {
       const me = this.actors.get(this.myId);
       return me ? { x: me.bodyX, y: me.bodyY, headY: me.headY } : null;
@@ -587,9 +594,20 @@ export class WorldScene extends Phaser.Scene {
       if (!this.room && !FXTEST) return;
       const left = ptr.leftButtonDown(), right = ptr.rightButtonDown();
       if (!left && !right) return;
+      // Olhar (como no Tibia): os dois botões juntos, ou Shift + clique esquerdo.
+      const sev = ptr.event as MouseEvent;
+      if ((left && right) || (left && sev?.shiftKey)) {
+        if (left && right) this.undoFirstButton();
+        this.look(ptr);
+        return;
+      }
       // Clique (esquerdo ou direito) numa criatura = atacar / soltar o alvo.
       const cid = this.creatureAtPointer(ptr);
-      if (cid) { toggleTarget({ id: cid, kind: "monster" }); return; }
+      if (cid) {
+        toggleTarget({ id: cid, kind: "monster" });
+        this.lastClick = { at: performance.now(), undo: () => toggleTarget({ id: cid, kind: "monster" }) };
+        return;
+      }
       const nid = this.npcAtPointer(ptr);
       if (nid) { this.clickNpc(nid); return; }
       const sid = this.statueAtPointer(ptr);
@@ -653,6 +671,39 @@ export class WorldScene extends Phaser.Scene {
       this.walkToTile(t.x, t.y);
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
+  }
+
+  /** O segundo botão chegou logo depois do primeiro: desfaz o que o primeiro fez (alvo, menu de contexto). */
+  private undoFirstButton() {
+    if (performance.now() - this.lastClick.at < 600) this.lastClick.undo?.();
+    this.lastClick = { at: 0 };
+    closeCtxMenu();
+  }
+
+  /** "Olhar" o que está sob o mouse: criatura, jogador, NPC, baú/alavanca, item do chão. */
+  private look(ptr: Phaser.Input.Pointer) {
+    const ev = ptr.event as MouseEvent;
+    const x = Number.isFinite(ev?.clientX) ? ev.clientX : ptr.x, y = Number.isFinite(ev?.clientY) ? ev.clientY : ptr.y;
+    const show = (c: LookContent | null) => { if (c) showLook({ ...c, x, y }); };
+    const cid = this.creatureAtPointer(ptr);
+    const info = cid ? this.creatureInfo.get(cid) : undefined;
+    if (info) return show(lookCreature(info, this.myLevel));
+    const nid = this.npcAtPointer(ptr);
+    if (nid) return show(lookNpc(nid));
+    const qid = this.questObjAtPointer(ptr);
+    const q = qid ? this.questObjs.get(qid) : undefined;
+    if (q) return show(lookQuestObject(q.kind, q.id));
+    const t = this.pointerTile(ptr);
+    if (!t) return;
+    const me = this.actors.get(this.myId);
+    const pid = me && t.x === me.tileX && t.y === me.tileY ? this.myId : this.playerAtTile(t.x, t.y);
+    const snap = pid ? playersStore.get().get(pid) : undefined;
+    if (pid && snap) return show(lookPlayer(snap, { me: pid === this.myId, party: pid !== this.myId && isPartyMember(pid) }));
+    const gid = this.ground?.topAt(t.x, t.y);
+    if (gid && this.room) {
+      expectLookItem(gid, x, y);
+      this.room.send(C2S.LookGround, { groundId: gid } satisfies LookGroundMsg);
+    }
   }
 
   /** Outro jogador (não eu) parado no tile. */
@@ -919,6 +970,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.npcs.update(dt, me);
     this.npcs.placeUi(zoom, dt, (wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
+    this.chestLabels.placeUi((wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy), this.scale.width, this.scale.height);
     this.updateGuide(me, dt);
     this.bobbers.update((wx) => this.pcam.toScreenX(wx), (wy) => this.pcam.toScreenY(wy));
     this.checkPendingNpc();

@@ -12,6 +12,15 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22b",
+    date: "22 de outubro (à tarde)",
+    title: "Olhar e baús com a classe",
+    items: [
+      "Clique com os dois botões do mouse juntos (ou Shift+clique) para olhar: monstros, jogadores, NPCs, baús e itens do chão.",
+      "Os baús de quest mostram em cima para qual classe é o prêmio (ou \"Todas\").",
+    ],
+  },
+  {
     id: "2026-10-22",
     date: "22 de outubro",
     title: "Coliseu até a onda 60",

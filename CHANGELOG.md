@@ -1,5 +1,15 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · olhar (dois botões) e classe dos baús
+
+- **Olhar**, como no Tibia: os dois botões do mouse juntos (ou `Shift`+clique) mostram um cartão do que está sob o
+  mouse. Criatura: level, dificuldade, vida, ataque, habilidades e XP. Jogador: level, vocação, título, caveira, grupo.
+  NPC: o que oferece. Baú/alavanca: quest, level, itens e classe. Item do chão: o balão completo do item, com os bônus
+  vindos do servidor (`C2S.LookGround` → `S2C.LookItem`). O primeiro botão não deixa alvo nem menu aberto. Fecha com
+  clique, Esc ou em 8 s.
+- **Baús de quest com a classe em cima**: "Cavaleiro", "Paladino", "Feiticeiro", "Druida" (na cor da vocação) ou
+  "Todas", conforme os itens do baú.
+
 ## [Não lançado] — 2026-10-22 · Coliseu até a onda 60, vender tudo e avisos do topo empilhados
 
 - **Coliseu: 60 ondas** (antes 30; level justo até 110) com os monstros das Terras Selvagens e da Costa. Chefes nas

@@ -23,6 +23,7 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Falar com NPC | clique no NPC |
 | Largar item no chão | arraste da mochila/equipamento para o mundo (até 3 tiles; pilhas abrem uma barrinha para escolher a quantidade) |
 | Pegar item do chão | clique direito, duplo clique ou `Ctrl`+clique no item (ou arraste para a mochila) |
+| Olhar (detalhes de criatura, jogador, NPC, baú ou item do chão) | os dois botões do mouse juntos, ou `Shift`+clique |
 | Mover item no chão | arraste o item para outro tile (até 3 tiles de você, linha livre; `Shift` numa pilha escolhe quanto) |
 | Magias da barra | `1`–`0` por padrão (ou digite as palavras mágicas no chat, ex.: `exura`) |
 | Escolher a tecla de cada magia | `H` (ou ⚙ no fim da barra): até 12 atalhos, qualquer tecla livre, também com `Shift`; salvo no personagem |

@@ -7,6 +7,8 @@ export interface ItemTip {
   /** Onde o item está (undefined = vitrine da loja). Itens equipados não são comparados consigo mesmos. */
   loc?: ItemLocation;
   rect: { left: number; right: number; top: number; bottom: number };
+  /** Aberto pelo "olhar" (item do chão): fica até um clique, Esc ou o tempo (não some ao tirar o mouse). */
+  pinned?: boolean;
 }
 export const itemTipStore = createStore<ItemTip | null>(null);
 

@@ -9,6 +9,7 @@ import { TradeWindow } from "./trade/TradeWindow.tsx";
 import { EventBadge } from "./events/EventBadge.tsx";
 import { MatchBar } from "./arena/ArenaHud.tsx";
 import { FeedTicker } from "./items/LootToasts.tsx";
+import { LookCardView } from "./look/LookCard.tsx";
 import { NewsWindow } from "./news/NewsWindow.tsx";
 import { ChallengesWindow } from "./challenges/ChallengesWindow.tsx";
 import { BestiaryWindow } from "./bestiary/Bestiary.tsx";
@@ -40,6 +41,7 @@ export function App() {
         <Toasts />
         <FeedTicker />
       </div>
+      <LookCardView />
       <PartyInvites />
       <TradeWindow />
       <NewsWindow />
