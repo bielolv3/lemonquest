@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SPELLS, spellsFor, spellByWords, spellMana, type ConditionId, type SpellDef, type SpellFormula } from "./spells.ts";
 import { MONSTERS } from "./monsters.ts";
 import { baseStats, playerDamageRange, weaponDamageRange } from "../formulas.ts";
+import { HOTKEY_MAX } from "../hotkeys.ts";
 import { ITEMS } from "./items.ts";
 import type { Vocation } from "../types.ts";
 
@@ -9,7 +10,7 @@ const VOCS: Vocation[] = ["knight", "paladin", "sorcerer", "druid"];
 const LEVELS = [1, 5, 10, 15, 20, 30];
 const CONDITIONS: ConditionId[] = [
   "combat", "poison", "burn", "energy", "bleed", "freeze", "protect", "haste", "slow", "drunk", "regen", "pz",
-  "manashield", "rooted", "taunted",
+  "manashield", "rooted", "taunted", "berserk",
 ];
 
 /** Estimativa de magic level por vocação/level (magos ~22 no lvl 30, cavaleiros ~4). */
@@ -42,18 +43,18 @@ const healPct = (id: string, voc: Vocation, level: number) => value(SPELLS[id]!,
 const HEALS = ["light_heal"];
 
 describe("SPELLS", () => {
-  it("cada vocação tem 6-8 magias (cabem na barra de 8), com UMA cura própria", () => {
+  it("cada vocação tem 10-12 magias (cabem nos atalhos), com UMA cura própria", () => {
     for (const v of VOCS) {
       const list = spellsFor(v);
-      expect(list.length, v).toBeGreaterThanOrEqual(6);
-      expect(list.length, v).toBeLessThanOrEqual(8);
+      expect(list.length, v).toBeGreaterThanOrEqual(10);
+      expect(list.length, v).toBeLessThanOrEqual(HOTKEY_MAX);
       expect(list.map((s) => s.level), v).toEqual([...list.map((s) => s.level)].sort((a, b) => a - b));
       expect(list.some((s) => s.id === "light_heal"), v).toBe(true);
       // exatamente uma cura em si mesmo (alvo "self" com heal); a cura em grupo do druida é outra coisa
       expect(list.filter((s) => s.target === "self" && s.heal).map((s) => s.id), v).toEqual(["light_heal"]);
       expect(list.every((s) => s.vocations.includes(v))).toBe(true);
     }
-    expect(Object.keys(SPELLS).length).toBe(23);
+    expect(Object.keys(SPELLS).length).toBe(39);
   });
 
   it("cura única: exura (lv1) para todas as vocações; sem exura gran/vita; druida mantém exura mas sio", () => {
@@ -209,6 +210,42 @@ describe("SPELLS", () => {
       const burnPerSec = SPELLS.fire_burst.mana / (SPELLS.fire_burst.cooldownMs / 1000);
       expect(burnPerSec).toBeGreaterThan(regenPerSec * 0.5);
       expect(burnPerSec).toBeLessThan(regenPerSec * 2.5);
+    });
+
+    it("fim de jogo: 4 magias novas por vocação (lv 35, 50, 70, 90), sem cura nova", () => {
+      for (const v of VOCS) {
+        const late = spellsFor(v).filter((s) => s.level > 30);
+        expect(late.map((s) => s.level), v).toEqual([35, 50, 70, 90]);
+        expect(late.some((s) => s.heal), v).toBe(false);
+      }
+    });
+
+    it("magia nova de dano rende 1-1,7x a melhor magia antiga da mesma categoria no level em que libera", () => {
+      const area = (s: SpellDef) => s.target === "area_self" || s.target === "area_target" || s.target === "wave";
+      const best = (list: { s: SpellDef; v: Vocation }[], lvl: number) => Math.max(0, ...list.map(({ s, v }) => value(s, lvl, v)));
+      for (const v of VOCS) {
+        for (const s of spellsFor(v).filter((x) => x.level > 30 && x.damage)) {
+          const mine = value(s, s.level, v);
+          // Antecessora "de verdade" (lv 10+) da própria vocação na mesma categoria.
+          const own = spellsFor(v).filter((o) => o.level >= 10 && o.level < s.level && o.damage && area(o) === area(s)).map((o) => ({ s: o, v }));
+          if (own.length) {
+            const ratio = mine / best(own, s.level);
+            expect(ratio, `${s.id} (${ratio.toFixed(2)})`).toBeGreaterThanOrEqual(1);
+            expect(ratio, `${s.id} (${ratio.toFixed(2)})`).toBeLessThanOrEqual(1.7);
+          } else {
+            // Primeira da categoria (ex.: alvo único do druida, área do cavaleiro): não passa da melhor de qualquer
+            // vocação naquele level e supera a magia inicial da própria vocação.
+            const any = VOCS.flatMap((w) => spellsFor(w).filter((o) => o.level < s.level && o.damage && area(o) === area(s)).map((o) => ({ s: o, v: w })));
+            expect(mine, s.id).toBeLessThanOrEqual(best(any, s.level));
+            const starter = spellsFor(v).filter((o) => o.level < 10 && o.damage && area(o) === area(s)).map((o) => ({ s: o, v }));
+            expect(mine, s.id).toBeGreaterThanOrEqual(best(starter, s.level) * 1.2);
+          }
+        }
+      }
+    });
+
+    it("Fúria (utito tempo): +25% de dano por 10 s, recarga 30 s, só cavaleiro", () => {
+      expect(SPELLS.berserk).toMatchObject({ vocations: ["knight"], level: 50, cooldownMs: 30_000, condition: { id: "berserk", durationMs: 10_000, value: 25 } });
     });
 
     it("cooldowns por categoria: AoE 4-8 s, buffs/utilidade >= 15 s, invocação >= 60 s", () => {

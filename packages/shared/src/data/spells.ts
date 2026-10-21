@@ -4,7 +4,7 @@ import type { DamageKind, Vocation } from "../types.ts";
 export type ConditionId =
   | "combat" | "poison" | "burn" | "energy" | "bleed" | "freeze"
   | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz"
-  | "manashield" | "rooted" | "taunted" | "fed";
+  | "manashield" | "rooted" | "taunted" | "fed" | "berserk";
 
 /** Fórmula de magia (estilo Tibia): valor = base + level*perLevel + magicLevel*perMagic, ±variance. */
 export interface SpellFormula {
@@ -209,6 +209,100 @@ export const SPELLS: Record<string, SpellDef> = {
     condition: { id: "slow", durationMs: 5000, value: 40 }, fx: "ice",
     description: "Uma nevasca gelada atinge tudo ao redor e desacelera os inimigos.",
   },
+
+  // ------------------------------------------------------------------ FIM DE JOGO (lv 35-90): 4 por vocação
+  // Valor no level de desbloqueio um pouco acima da melhor magia antiga da mesma categoria (alvo único / área) naquele
+  // level (metas em spells.test.ts). Nenhuma cura nova: cada vocação segue com uma cura própria.
+  front_sweep: {
+    id: "front_sweep", name: "Golpe Frontal", words: "exori min", vocations: ["knight"], level: 35, mana: 30, cooldownMs: 5000,
+    target: "wave", length: 1, width: 3, damage: { kind: "physical", base: 20, perLevel: 1.9, perMagic: 2, variance: 0.2 }, fx: "physical",
+    description: "Um golpe largo que atinge os três tiles à sua frente.",
+  },
+  berserk: {
+    id: "berserk", name: "Fúria", words: "utito tempo", vocations: ["knight"], level: 50, mana: 60, cooldownMs: 30_000,
+    target: "self", condition: { id: "berserk", durationMs: 10_000, value: 25 }, fx: "buff",
+    description: "Aumenta em 25% todo o dano que você causa por 10 segundos.",
+  },
+  whirlwind: {
+    id: "whirlwind", name: "Fúria Giratória", words: "exori mas", vocations: ["knight"], level: 70, mana: 80, cooldownMs: 8000,
+    target: "area_self", radius: 2, damage: { kind: "physical", base: 40, perLevel: 2.4, perMagic: 3, variance: 0.2 }, fx: "physical",
+    description: "Gira com toda a força e atinge todos os inimigos num raio de 2 tiles.",
+  },
+  annihilation_strike: {
+    id: "annihilation_strike", name: "Golpe Aniquilador", words: "exori gran ico", vocations: ["knight"], level: 90, mana: 100, cooldownMs: 12_000,
+    target: "target", range: 1, damage: { kind: "physical", base: 80, perLevel: 5.5, perMagic: 5, variance: 0.2 }, fx: "physical",
+    description: "O golpe mais forte do cavaleiro, no alvo à sua frente.",
+  },
+
+  explosive_arrow: {
+    id: "explosive_arrow", name: "Flecha Explosiva", words: "exevo con flam", vocations: ["paladin"], level: 35, mana: 50, cooldownMs: 6000,
+    target: "area_target", range: 6, radius: 1, damage: { kind: "fire", base: 30, perLevel: 2.8, perMagic: 3, variance: 0.2 }, fx: "fire",
+    description: "Uma flecha que explode no alvo e queima tudo ao redor dele.",
+  },
+  crippling_arrow: {
+    id: "crippling_arrow", name: "Flecha Paralisante", words: "exori con hur", vocations: ["paladin"], level: 50, mana: 60, cooldownMs: 8000,
+    target: "target", range: 6, damage: { kind: "physical", base: 40, perLevel: 3, perMagic: 3.5, variance: 0.2 },
+    condition: { id: "slow", durationMs: 3000, value: 50 }, fx: "arrow",
+    description: "Acerta o alvo na perna: dano e 50% de lentidão por 3 segundos.",
+  },
+  divine_judgment: {
+    id: "divine_judgment", name: "Julgamento Divino", words: "exori gran san", vocations: ["paladin"], level: 70, mana: 120, cooldownMs: 8000,
+    target: "area_target", range: 6, radius: 2, damage: { kind: "holy", base: 50, perLevel: 3.2, perMagic: 4, variance: 0.2 }, fx: "holy",
+    description: "Luz sagrada cai sobre o alvo e os inimigos num raio de 2 tiles dele.",
+  },
+  star_rain: {
+    id: "star_rain", name: "Chuva de Estrelas", words: "exevo gran mas con", vocations: ["paladin"], level: 90, mana: 160, cooldownMs: 8000,
+    target: "area_target", range: 6, radius: 3, damage: { kind: "physical", base: 60, perLevel: 3.4, perMagic: 4, variance: 0.2 }, fx: "arrow",
+    description: "Uma chuva de flechas cobre o alvo e tudo num raio de 3 tiles.",
+  },
+
+  fire_wave: {
+    id: "fire_wave", name: "Onda de Fogo", words: "exevo flam hur", vocations: ["sorcerer"], level: 35, mana: 70, cooldownMs: 6000,
+    target: "wave", length: 5, width: 3, damage: { kind: "fire", base: 50, perLevel: 3, perMagic: 3.4, variance: 0.2 },
+    condition: { id: "burn", durationMs: 6000, value: 12 }, fx: "fire",
+    description: "Uma onda de chamas à sua frente que deixa os inimigos queimando.",
+  },
+  sudden_death: {
+    id: "sudden_death", name: "Morte Súbita", words: "exori mort", vocations: ["sorcerer"], level: 50, mana: 100, cooldownMs: 6000,
+    target: "target", range: 6, damage: { kind: "death", base: 50, perLevel: 3, perMagic: 3.4, variance: 0.2 }, fx: "death",
+    description: "Energia da morte concentrada num único alvo.",
+  },
+  electric_storm: {
+    id: "electric_storm", name: "Tempestade Elétrica", words: "exevo gran mas vis", vocations: ["sorcerer"], level: 70, mana: 260, cooldownMs: 8000,
+    target: "area_self", radius: 4, damage: { kind: "energy", base: 60, perLevel: 3.6, perMagic: 4.2, variance: 0.2 }, fx: "energy",
+    description: "Raios caem em todos os inimigos num raio de 4 tiles.",
+  },
+  eternal_flame: {
+    id: "eternal_flame", name: "Chama Eterna", words: "exori gran flam", vocations: ["sorcerer"], level: 90, mana: 180, cooldownMs: 10_000,
+    target: "target", range: 6, damage: { kind: "fire", base: 80, perLevel: 4.2, perMagic: 4.8, variance: 0.2 },
+    condition: { id: "burn", durationMs: 8000, value: 30 }, fx: "fire",
+    description: "O fogo mais forte do feiticeiro: dano enorme no alvo, que continua queimando.",
+  },
+
+  ice_wave: {
+    id: "ice_wave", name: "Onda de Gelo", words: "exevo frigo hur", vocations: ["druid"], level: 35, mana: 70, cooldownMs: 6000,
+    target: "wave", length: 5, width: 3, damage: { kind: "ice", base: 50, perLevel: 3, perMagic: 3.4, variance: 0.2 },
+    condition: { id: "slow", durationMs: 3000, value: 30 }, fx: "ice",
+    description: "Uma onda gelada à sua frente que deixa os inimigos lentos.",
+  },
+  earth_crush: {
+    id: "earth_crush", name: "Esmagar Terra", words: "exori gran tera", vocations: ["druid"], level: 50, mana: 100, cooldownMs: 6000,
+    target: "target", range: 6, damage: { kind: "earth", base: 40, perLevel: 2.4, perMagic: 2.6, variance: 0.2 },
+    condition: { id: "poison", durationMs: 10_000, value: 15 }, fx: "earth",
+    description: "Pedras esmagam o alvo e o deixam envenenado.",
+  },
+  earth_storm: {
+    id: "earth_storm", name: "Tempestade de Terra", words: "exevo gran mas tera", vocations: ["druid"], level: 70, mana: 260, cooldownMs: 8000,
+    target: "area_self", radius: 4, damage: { kind: "earth", base: 55, perLevel: 3.5, perMagic: 4, variance: 0.2 },
+    condition: { id: "poison", durationMs: 8000, value: 15 }, fx: "earth",
+    description: "A terra se abre ao seu redor: dano e veneno num raio de 4 tiles.",
+  },
+  nature_fury: {
+    id: "nature_fury", name: "Fúria da Natureza", words: "exori gran frigo", vocations: ["druid"], level: 90, mana: 180, cooldownMs: 10_000,
+    target: "target", range: 6, damage: { kind: "ice", base: 70, perLevel: 3.8, perMagic: 4.2, variance: 0.2 },
+    condition: { id: "slow", durationMs: 4000, value: 50 }, fx: "ice",
+    description: "O gelo mais forte do druida: dano enorme no alvo e 50% de lentidão.",
+  },
 };
 
 export const spellDef = (id: string): SpellDef | undefined => (Object.hasOwn(SPELLS, id) ? SPELLS[id] : undefined);
@@ -257,4 +351,22 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Chuva de Gelo        druid     10    40     6    dmg 39 (área r2 + slow); lvl 15: 55, lvl 20: 72
  * Invocar Lobo         druid     20    90    60    1 lobo espiritual, 60 s
  * Nevasca              druid     30   150     8    dmg 199 (área r3 + slow)
+ *
+ * FIM DE JOGO (lv 35-90) — magia               voc       lvl  mana (% da máx.)  cd(s)  esperado
+ * Golpe Frontal        knight     35    30 (14%)    5    dmg 97 (onda 1x3)
+ * Fúria                knight     50    60 (20%)   30    buff + berserk 25
+ * Fúria Giratória      knight     70    80 (20%)    8    dmg 238 (área r2)
+ * Golpe Aniquilador    knight     90   100 (20%)   12    dmg 635 (alvo)
+ * Flecha Explosiva     paladin    35    50 (9%)    6    dmg 152 (área no alvo r1)
+ * Flecha Paralisante   paladin    50    60 (8%)    8    dmg 232 (alvo + slow)
+ * Julgamento Divino    paladin    70   120 (11%)    8    dmg 342 (área no alvo r2)
+ * Chuva de Estrelas    paladin    90   160 (12%)    8    dmg 454 (área no alvo r3)
+ * Onda de Fogo         sorcerer   35    70 (7%)    6    dmg 243 (onda 5x3 + burn)
+ * Morte Súbita         sorcerer   50   100 (7%)    6    dmg 326 (alvo)
+ * Tempestade Elétrica  sorcerer   70   260 (12%)    8    dmg 530 (área r4)
+ * Chama Eterna         sorcerer   90   180 (7%)   10    dmg 780 (alvo + burn)
+ * Onda de Gelo         druid      35    70 (7%)    6    dmg 243 (onda 5x3 + slow)
+ * Esmagar Terra        druid      50   100 (7%)    6    dmg 256 (alvo + poison)
+ * Tempestade de Terra  druid      70   260 (12%)    8    dmg 508 (área r4 + poison)
+ * Fúria da Natureza    druid      90   180 (7%)   10    dmg 693 (alvo + slow)
  */

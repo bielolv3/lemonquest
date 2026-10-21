@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  HOTKEY_MAX,
   BASE_STEP_MS, Dir, evalSpellFormula, mitigateSpell, playerDamageRange, GLOBAL_SPELL_COOLDOWN_MS, S2C, SKILL_START, TICK_MS, skillTriesFor, stepDuration,
   SPELLS, spellMana, spellsFor, type MonsterDef, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
@@ -488,7 +489,7 @@ describe("curas de todas as vocações (catálogo real)", () => {
     expect(w.spells.castWords(p, "exura gran")).toBe(false);
   });
 
-  it("barra de 8 slots comporta todas as magias de cada vocação", () => {
-    for (const v of VOCS) expect(spellsFor(v).length, v).toBeLessThanOrEqual(8);
+  it("os atalhos (HOTKEY_MAX) comportam todas as magias de cada vocação", () => {
+    for (const v of VOCS) expect(spellsFor(v).length, v).toBeLessThanOrEqual(HOTKEY_MAX);
   });
 });

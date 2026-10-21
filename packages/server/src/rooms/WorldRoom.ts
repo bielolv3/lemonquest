@@ -314,7 +314,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       teleport: (p, x, y) => this.movement.teleport(p, x, y),
       send, broadcast,
       magicBonus: (p) => this.inventory.stat(p.id, "magic"),
-      dealtMult: stanceDealt,
+      dealtMult: (p) => this.dealtMult(p),
       // Investida não para em NPC nem em portal (cair num portal teleportava o cavaleiro sem querer).
       isBlocked: (x, y) => this.npcs.isNpcAt(x, y) || this.portals.isPortalTile(x, y),
       isAlly: (a, b) => this.party.sameParty(a.id, b.id),
@@ -351,7 +351,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       },
       armor: (p) => playerArmor(p) + this.inventory.stat(p.id, "armor"),
       attack: (p) => attackProfile(p, this.inventory.weaponDef(p.id), (s) => this.inventory.stat(p.id, s)),
-      dealtMult: stanceDealt,
+      dealtMult: (p) => this.dealtMult(p),
       takenMult: stanceTaken,
       onLevelUp: (p) => {
         this.inventory.applyStats(p, true);
@@ -779,6 +779,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const c = this.clients.getById(sessionId);
     if (!c) return;
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
+  }
+
+  /** Multiplicador do dano causado: postura × Fúria (condição "berserk", +value%). */
+  private dealtMult(p: PlayerState): number {
+    return stanceDealt(p) * (1 + this.conditions.value(p.id, "berserk") / 100);
   }
 
   /** C2S.SetHotkeys: guarda os atalhos válidos no personagem (salvos no próximo save). */

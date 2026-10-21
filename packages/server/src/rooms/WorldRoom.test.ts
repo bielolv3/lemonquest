@@ -410,6 +410,23 @@ describe("WorldRoom: atalhos de magia", () => {
   });
 });
 
+describe("WorldRoom: Fúria (berserk)", () => {
+  it("multiplica o dano causado junto com a postura e some quando a condição acaba", () => {
+    const r = makeRoom();
+    createAccount("Bruno", "h", "s", "knight");
+    r.onJoin(fakeClient(r, "b1"), {}, auth("Bruno"));
+    const p = r.state.players.get("b1");
+    p.stance = "balanced";
+    expect(r.dealtMult(p)).toBe(1);
+    r.conditions.apply("b1", "berserk", 10_000, 25, "b1", Date.now());
+    expect(r.dealtMult(p)).toBeCloseTo(1.25);
+    p.stance = "offensive";
+    expect(r.dealtMult(p)).toBeCloseTo(1.2 * 1.25);
+    r.conditions.remove("b1", "berserk");
+    expect(r.dealtMult(p)).toBeCloseTo(1.2);
+  });
+});
+
 describe("WorldRoom: crédito de missão só para quem está perto", () => {
   it("quem bateu e foi para longe não conta o abate na missão", () => {
     const r = makeRoom();

@@ -4,7 +4,7 @@ import { createStore, type Unsubscribe } from "./store.ts";
 export type ConditionId =
   | "combat" | "poison" | "burn" | "energy" | "bleed" | "freeze"
   | "protect" | "haste" | "slow" | "drunk" | "regen" | "pz"
-  | "manashield" | "rooted" | "taunted" | "fed";
+  | "manashield" | "rooted" | "taunted" | "fed" | "berserk";
 
 export type ConditionGlyph = "swords" | "drop" | "flame" | "bolt" | "flake" | "shield" | "wing" | "snail" | "swirl" | "plus" | "home" | "bubble" | "vine" | "target" | "drumstick";
 
@@ -28,6 +28,7 @@ export const CONDITION_DEFS: Record<ConditionId, ConditionDef> = {
   rooted: { label: "Enraizado", color: "#7fb04a", glyph: "vine" },
   taunted: { label: "Provocado", color: "#ff5a4a", glyph: "target" },
   fed: { label: "Alimentado", color: "#d9a05a", glyph: "drumstick" },
+  berserk: { label: "Fúria (+25% de dano)", color: "#ff6a3a", glyph: "swords" },
 };
 
 export interface Condition {

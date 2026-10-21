@@ -614,7 +614,7 @@ export class SpellEffects {
   // --- condições persistentes (jogador local) -----------------------------------------
 
   setSelfConditions(ids: ConditionId[]) {
-    this.auraWanted = new Set(ids.filter((i) => i === "haste" || i === "protect" || i === "manashield" || i === "regen" || i === "rooted" || i === "taunted"));
+    this.auraWanted = new Set(ids.filter((i) => i === "haste" || i === "protect" || i === "manashield" || i === "regen" || i === "rooted" || i === "taunted" || i === "berserk"));
     for (const [id, au] of this.auras) {
       if (!this.auraWanted.has(id)) { for (const o of au.objs) o.destroy(); this.auras.delete(id); }
     }
@@ -639,6 +639,8 @@ export class SpellEffects {
       add(TEX.ring, 0x7a9a3a, Phaser.BlendModes.NORMAL, 0.8);
     } else if (id === "taunted") {
       add(TEX.ring, 0xff4a3a, Phaser.BlendModes.ADD, 0.7);
+    } else if (id === "berserk") {
+      add(TEX.ring, 0xff6a2a, Phaser.BlendModes.ADD, 0.75);
     }
     this.auras.set(id, { id, objs, acc: 0 });
   }
@@ -666,6 +668,11 @@ export class SpellEffects {
       } else if (id === "taunted") {
         const k = (t % 900) / 900;
         au.objs[0].setPosition(bx, fy - 2).setScale(0.22 + k * 0.12, (0.22 + k * 0.12) * 0.55).setAlpha(0.8 * (1 - k)).setDepth(GROUND);
+      } else if (id === "berserk") {
+        // Fúria: anel vermelho pulsando nos pés e faíscas de fogo subindo.
+        const k = 0.5 + Math.sin(t / 180) * 0.5;
+        au.objs[0].setPosition(bx, fy - 2).setScale(0.3 + k * 0.05, (0.3 + k * 0.05) * 0.55).setAlpha(0.45 + k * 0.4).setDepth(GROUND);
+        if (au.acc > 140) { au.acc = 0; this.sparks.fire.emitParticleAt(bx + rnd(-7, 7), by + rnd(-2, 8), 1); }
       } else if (id === "regen") {
         if (au.acc > 150) { au.acc = 0; this.motes.emitParticleAt(bx + rnd(-8, 8), by + rnd(-2, 8)); }
       } else if (id === "haste") {
