@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARENA_BREAK_MS, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_SHOP_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
+  ARENA_BREAK_MS, ARENA_COUNTDOWN_MS, ARENA_MAX_WAVE, arenaWave, ARENA_INTRO_MS, ARENA_SHOP_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
   arenaWaveSpawns, monsterDef, type TiledMap,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -452,6 +452,16 @@ describe("coliseu: balanço (estimativa)", () => {
   it("grupo de 4 level 40 chega longe, mas o fim ainda é difícil", () => {
     for (let w = 1; w <= 20; w++) expect(estimate(w, 4, 40)).toBeLessThan(3.5);
     expect(estimate(29, 4, 40)).toBeGreaterThan(3);
+  });
+
+  it("ondas 31–60 (fim de jogo): grupo de 4 no level justo de cada onda fica na faixa do fim antigo (2,5–5,5)", () => {
+    expect(ARENA_MAX_WAVE).toBe(60);
+    for (let w = 31; w <= ARENA_MAX_WAVE; w++) {
+      const L = arenaWave(w)!.level;
+      expect(estimate(w, 4, L), `onda ${w}`).toBeGreaterThan(2.5);
+      expect(estimate(w, 4, L), `onda ${w}`).toBeLessThan(5.5);
+    }
+    for (let w = 31; w <= ARENA_MAX_WAVE; w++) expect(arenaWave(w)!.level).toBeGreaterThan(arenaWave(w - 1)!.level);
   });
 
   it("a dificuldade cresce com as ondas (média por bloco de 5)", () => {

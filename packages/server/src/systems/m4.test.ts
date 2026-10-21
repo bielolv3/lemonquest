@@ -128,6 +128,21 @@ describe("npcs", () => {
     expect(t.w.inv.gold("p1")).toBe(105);
   });
 
+  it("vender tudo: só o que o NPC compra, pilhas inteiras, um aviso com o total", () => {
+    const t = npcWorld();
+    const p = t.add("p1", 12, 10);
+    t.npcs.onInteract(p, { npcId: "shop" });
+    t.npcs.onTrade(p, { npcId: "shop", action: "sellAll" });
+    expect(t.out.at(-1)!.msg.text).toBe("Nada na mochila que eu compre.");
+    t.w.inv.addItem(p, makeItem("hp_pot", 2));          // não compra
+    t.w.inv.addItem(p, makeItem("sword", 1, "rare"));   // 75
+    t.w.inv.addItem(p, makeItem("sword"));              // 30
+    t.npcs.onTrade(p, { npcId: "shop", action: "sellAll" });
+    expect(t.w.inv.gold("p1")).toBe(105);
+    expect(t.out.at(-1)!.msg.text).toBe("Você vendeu 2 itens por 105 de ouro.");
+    expect(t.w.inv.get("p1")!.backpack.filter(Boolean).map((x) => x!.defId)).toEqual(["hp_pot"]);
+  });
+
   it("depot needs range; walking away closes it", () => {
     const t = npcWorld();
     const p = t.add("p1", 20, 10);

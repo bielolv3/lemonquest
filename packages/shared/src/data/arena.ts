@@ -20,7 +20,7 @@ export const ARENA_SPAWN_STAGGER_MS = 150;
 /** Cura no fim de cada onda (fração de vida e mana máximas). */
 export const ARENA_PAUSE_HEAL = 0.3;
 /** Última onda (vencê-la = "completed", com bônus). */
-export const ARENA_MAX_WAVE = 30;
+export const ARENA_MAX_WAVE = 60;
 /** Ondas-chefe: múltiplos disto. */
 export const ARENA_BOSS_EVERY = 5;
 /** XP por onda = soma da XP dos monstros da onda × isto ÷ membros vivos. */
@@ -63,7 +63,19 @@ const elite = (id: string, hp: number, dmg = 1.25): ArenaWaveEntry => ({ id, cou
  *  21-24 fantasmas e homens-lagarto
  *  25    CHEFE: Lich do Pântano (chefe de zona)
  *  26-29 espíritos de chama e homens-lagarto
- *  30    CHEFE FINAL: Rei Goblin (chefe de zona)
+ *  30    CHEFE: Rei Goblin (chefe de zona)
+ *  31-34 orcs e minotauros (Terras Selvagens)
+ *  35    CHEFE: Raposa Chifruda (chefe de zona)
+ *  36-39 lobos do inverno, ciclopes, bárbaros, olhos malignos
+ *  40    CHEFE: Bárbaro de elite (vida ×4)
+ *  41-44 bruxas do gelo, cavaleiros negros, necromantes, heróis
+ *  45    CHEFE: Yeti (chefe de zona)
+ *  46-49 dragões e dragões de gelo
+ *  50    CHEFE: Demodras (chefe de zona)
+ *  51-54 senhores dos dragões, elementais de magma, behemoths
+ *  55    CHEFE: Behemoth de elite (vida ×3)
+ *  56-59 cães infernais, demônios, juggernaut
+ *  60    CHEFE FINAL: Orshabaal (chefe de zona)
  */
 export const ARENA_WAVES: ArenaWave[] = [
   W(1, 1, [m("rat", 3)]),
@@ -96,6 +108,36 @@ export const ARENA_WAVES: ArenaWave[] = [
   W(28, 37, [m("lizardman", 3), m("flame_spirit", 2)]),
   W(29, 38, [m("flame_spirit", 3), m("lizardman", 2)]),
   W(30, 40, [{ id: "goblin_king", count: 1, elite: 1 }, m("flame_spirit", 2)], true),
+  W(31, 42, [m("orc_warrior", 2), m("orc_shaman", 1)]),
+  W(32, 44, [m("orc_warrior", 2), m("orc_shaman", 2)]),
+  W(33, 46, [m("minotaur", 2), m("orc_shaman", 1)]),
+  W(34, 48, [m("minotaur", 2), m("minotaur_mage", 1)]),
+  W(35, 50, [{ id: "horned_fox", count: 1, elite: 1 }, m("minotaur", 1)], true),
+  W(36, 52, [m("winter_wolf", 3)]),
+  W(37, 54, [m("cyclops", 2), m("winter_wolf", 1)]),
+  W(38, 56, [m("barbarian", 2), m("cyclops", 1)]),
+  W(39, 58, [m("bonelord", 2), m("barbarian", 1)]),
+  W(40, 60, [elite("barbarian", 4), m("ice_witch", 1)], true),
+  W(41, 62, [m("ice_witch", 2), m("bonelord", 1)]),
+  W(42, 64, [m("black_knight", 2)]),
+  W(43, 66, [m("necromancer", 1), m("black_knight", 1)]),
+  W(44, 68, [m("hero", 1), m("necromancer", 1)]),
+  W(45, 70, [{ id: "yeti", count: 1, elite: 1 }, m("ice_witch", 1)], true),
+  W(46, 72, [m("dragon", 1), m("hero", 1)]),
+  W(47, 74, [m("dragon", 2), m("ice_witch", 1)]),
+  W(48, 77, [m("frost_dragon", 1), m("dragon", 1)]),
+  W(49, 80, [m("frost_dragon", 2)]),
+  W(50, 82, [{ id: "demodras", count: 1, elite: 1 }, m("dragon", 1)], true),
+  W(51, 85, [m("dragon_lord", 1), m("frost_dragon", 1)]),
+  W(52, 87, [m("magma_elemental", 2)]),
+  W(53, 89, [m("dragon_lord", 2)]),
+  W(54, 91, [m("behemoth", 1), m("magma_elemental", 1)]),
+  W(55, 93, [elite("behemoth", 3)], true),
+  W(56, 96, [m("hellhound", 1), m("magma_elemental", 1)]),
+  W(57, 99, [m("demon", 1), m("magma_elemental", 1)]),
+  W(58, 102, [m("demon", 1), m("dragon_lord", 1)]),
+  W(59, 106, [m("juggernaut", 1)]),
+  W(60, 110, [{ id: "orshabaal", count: 1, elite: 1 }], true),
 ];
 
 export const arenaWave = (wave: number): ArenaWave | undefined => ARENA_WAVES[wave - 1];
@@ -169,6 +211,6 @@ export function arenaWaveXp(spawns: readonly ArenaSpawnSpec[], aliveMembers: num
 /** Ouro por membro vivo ao vencer a onda: wave × (8 + 2 × wave). */
 export const arenaWaveGold = (wave: number): number => wave * (8 + 2 * wave);
 
-/** Bônus por completar as 30 ondas (cada sobrevivente): ouro fixo + 25% da XP ganha na partida. */
-export const ARENA_COMPLETE_GOLD = 5000;
+/** Bônus por completar todas as ondas (ARENA_MAX_WAVE) (cada sobrevivente): ouro fixo + 25% da XP ganha na partida. */
+export const ARENA_COMPLETE_GOLD = 30_000;
 export const ARENA_COMPLETE_XP_PCT = 0.25;

@@ -6,7 +6,7 @@
 // servidor desligado também conta).
 import {
   RARITY_LABEL, S2C, lineOfSight,
-  type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
+  type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type LookGroundMsg, type LookItemMsg, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
   type Rarity,
 } from "@lemonquest/shared";
 import { GroundItemState, type PlayerState } from "../state.ts";
@@ -15,6 +15,8 @@ import { GOLD_ID, maxStackOf, newUid, type InventorySystem } from "./inventory.t
 
 /** Distância máxima (Chebyshev) para largar num tile que não seja o próprio. */
 export const DROP_RANGE = 3;
+/** Distância máxima (Chebyshev) para "olhar" um item do chão (o que cabe na tela). */
+export const LOOK_RANGE = 12;
 /** Distância máxima (Chebyshev) para pegar. */
 export const PICKUP_RANGE = 1;
 export const MAX_PER_TILE = 15;
@@ -203,6 +205,14 @@ export class GroundSystem {
       }
     }
     return undefined;
+  }
+
+  /** C2S.LookGround: manda a instância completa (com bônus) de um item do chão à vista (até LOOK_RANGE tiles). */
+  onLook(p: PlayerState, msg: LookGroundMsg): void {
+    if (!msg || typeof msg !== "object" || typeof msg.groundId !== "string") return;
+    const e = this.entries.get(msg.groundId);
+    if (!e || cheb(p.x, p.y, e.state.x, e.state.y) > LOOK_RANGE) return;
+    this.o.send(p.id, S2C.LookItem, { groundId: msg.groundId, item: e.item } satisfies LookItemMsg);
   }
 
   /**

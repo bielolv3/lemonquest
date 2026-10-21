@@ -139,7 +139,7 @@ test("coliseu solo: ondas 1–5 emendadas → pausa (vendedor) → Pronto → on
   await expect(page.locator(".arena-bar.pause")).toContainText("Pronto ✓");
   // Pronto (todos) → começa em 3 s.
   await seenUi(page, "banner", "Onda 6");
-  await seenUi(page, "bar", "Onda 6/30");
+  await seenUi(page, "bar", "Onda 6/60");
 
   // Sair (botão + confirmação no HUD) → cartão de resultado com as ondas vencidas.
   await leaveArena(page);

@@ -56,6 +56,12 @@ export function sellItem(npcId: string, index: number, count: number): void {
   send(C2S.NpcTrade, m);
 }
 
+/** Vende tudo da mochila que o NPC compra. */
+export function sellAll(npcId: string): void {
+  const m: NpcTradeMsg = { npcId, action: "sellAll" };
+  send(C2S.NpcTrade, m);
+}
+
 export function travelTo(npcId: string, dest: string): void {
   const m: TravelMsg = { npcId, dest };
   send(C2S.Travel, m);

@@ -25,7 +25,7 @@
 .arena-slots { font-size: 12px; color: var(--hud-gold); font-variant-numeric: tabular-nums; }
 
 .arena-bar {
-  position: fixed; top: 10px; left: calc((100vw - var(--hud-right, 0px)) / 2); transform: translateX(-50%); z-index: 25;
+  /* Mora na pilha do topo (App: .top-stack). */
   display: flex; align-items: center; gap: 8px; padding: 6px 14px;
   background: rgba(17, 20, 28, 0.88); border: 1px solid var(--hud-line); border-radius: 6px;
   font-size: 15px; color: var(--hud-text); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35); white-space: nowrap;

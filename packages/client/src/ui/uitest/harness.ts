@@ -157,6 +157,14 @@ export function startUiTest(): void {
           if (gold < price) return;
           gold -= price;
           addToBackpack(inst(t.itemId, t.count));
+        } else if (t.action === "sellAll") {
+          const buys = npc().shop!.buys ?? [];
+          backpack.forEach((it, i) => {
+            const d = it ? itemDef(it.defId) : undefined;
+            if (!it || !d || !buys.includes(d.kind as never)) return;
+            gold += Math.floor(d.value * 0.3) * it.count;
+            backpack[i] = null;
+          });
         } else {
           const it = backpack[t.index];
           if (!it) return;

@@ -8,7 +8,6 @@ import { FEED_COLOR, lootToastsStore, tickerStore } from "./loot.ts";
 
 export function LootToasts() {
   const list = useStore(lootToastsStore);
-  const ticker = useStore(tickerStore);
   return (
     <>
       <div class="loot-stack" aria-live="polite">
@@ -27,13 +26,20 @@ export function LootToasts() {
           </div>
         ))}
       </div>
-      <div class="feed-ticker" aria-live="polite">
-        {ticker.map((e) => (
-          <div key={e.id} class={`hud-card feed-pill kind-${e.kind}`} style={{ "--fc": e.rarity ? rarityColor(e.rarity) : FEED_COLOR[e.kind] } as never}>
-            {e.text}
-          </div>
-        ))}
-      </div>
     </>
+  );
+}
+
+/** Faixa de notícias (drops raros / chefes): fica na pilha do topo (App), abaixo dos avisos. */
+export function FeedTicker() {
+  const ticker = useStore(tickerStore);
+  return (
+    <div class="feed-ticker" aria-live="polite">
+      {ticker.map((e) => (
+        <div key={e.id} class={`hud-card feed-pill kind-${e.kind}`} style={{ "--fc": e.rarity ? rarityColor(e.rarity) : FEED_COLOR[e.kind] } as never}>
+          {e.text}
+        </div>
+      ))}
+    </div>
   );
 }

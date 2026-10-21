@@ -35,6 +35,8 @@ export const C2S = {
   PickupItem: "pickupItem",
   /** Mover item do chão para outro tile (arrastar no mundo). */
   MoveGroundItem: "moveGroundItem",
+  /** "Olhar" um item do chão (dois botões do mouse / Shift+clique): o servidor responde com a instância completa. */
+  LookGround: "lookGround",
   /** Falar com NPC (abre diálogo/loja/depot). */
   NpcInteract: "npcInteract",
   /** Comprar/vender com NPC aberto. */
@@ -123,7 +125,9 @@ export interface PickupItemMsg { groundId: string; to?: PickupTo }
 export interface NpcInteractMsg { npcId: string }
 export type NpcTradeMsg =
   | { npcId: string; action: "buy"; itemId: string; count: number }
-  | { npcId: string; action: "sell"; index: number; count: number };
+  | { npcId: string; action: "sell"; index: number; count: number }
+  /** Vende de uma vez tudo da mochila que o NPC compra (pilhas inteiras). */
+  | { npcId: string; action: "sellAll" };
 
 export interface CastMsg { spellId: string; targetId?: string | null }
 
@@ -156,6 +160,8 @@ export const S2C = {
   SpellCast: "spellCast",
   /** Atalhos de magia salvos no personagem (ao entrar/reconectar). null = nunca configurou. */
   Hotkeys: "hotkeys",
+  /** Resposta do "olhar" de um item do chão (com bônus). */
+  LookItem: "lookItem",
   /** Habilidade de monstro com aviso: tiles marcados no chão por `ms` antes do golpe (dá para sair). */
   MonsterTelegraph: "monsterTelegraph",
   /** Lista completa de condições ativas do jogador (enviada a ele quando muda). */
@@ -299,6 +305,8 @@ export interface NpcOpenMsg {
   travel?: { id: string; label: string; price: number }[];
 }
 export interface TravelMsg { npcId: string; dest: string }
+export interface LookGroundMsg { groundId: string }
+export interface LookItemMsg { groundId: string; item: ItemInstance }
 /** Arrastar um item do chão para outro tile (count = parte da pilha). */
 export interface MoveGroundItemMsg { groundId: string; x: number; y: number; count?: number | null }
 export interface LootMsg {

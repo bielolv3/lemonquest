@@ -10,17 +10,17 @@ import "./arena.css";
 
 const fmt = (n: number) => n.toLocaleString("pt-BR");
 
+/** Faixa de onda e cartão de resultado. A barra da partida (MatchBar) fica na pilha do topo (App). */
 export function ArenaHud() {
   return (
     <>
-      <MatchBar />
       <WaveBanner />
       <ResultCard />
     </>
   );
 }
 
-function MatchBar() {
+export function MatchBar() {
   const st = useStore(arenaStateStore);
   const phase = st?.s.phase;
   useTicker(phase === "countdown" || phase === "pause" || phase === "break" || phase === "queued" ? 200 : 0);

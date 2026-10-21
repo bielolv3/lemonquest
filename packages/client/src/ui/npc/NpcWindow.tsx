@@ -12,7 +12,7 @@ import { fmtNum, rarityColor, sellPrice } from "../items/itemInfo.ts";
 import { ItemIcon } from "../items/ItemIcon.tsx";
 import { ItemSlot } from "../items/ItemSlot.tsx";
 import { itemTipStore, shopInstance } from "../items/tipStore.ts";
-import { buyItem, closeNpc, npcStore, npcTabs, sellItem, setNpcTab, travelTo, type NpcTab } from "./npc.ts";
+import { buyItem, closeNpc, npcStore, npcTabs, sellAll, sellItem, setNpcTab, travelTo, type NpcTab } from "./npc.ts";
 import { BountyBoard, NpcQuestList } from "../quests/NpcQuests.tsx";
 import "./npc.css";
 
@@ -171,7 +171,11 @@ function SellList({ m }: { m: NpcOpenMsg }) {
     return out;
   }, [inv, m]);
   if (rows.length === 0) return <div class="hud-empty">Nada na mochila que {m.name.split(",")[0]} compre.</div>;
+  const totalItems = rows.reduce((n, r) => n + inv!.backpack[r.index]!.count, 0);
+  const totalGold = rows.reduce((n, r) => n + r.price * inv!.backpack[r.index]!.count, 0);
   return (
+    <>
+    <SellAllBar npcId={m.npcId} items={totalItems} gold={totalGold} />
     <ul class="shop-list">
       {rows.map(({ index, price }) => {
         const it = inv!.backpack[index]!;
@@ -200,10 +204,41 @@ function SellList({ m }: { m: NpcOpenMsg }) {
             >
               Vender
             </button>
+            {it.count > 1 && (
+              <button class="shop-btn" onClick={() => sellItem(m.npcId, index, it.count)} data-tip={`Vender os ${it.count}`} data-tip-sub={`${fmtNum(price * it.count)} de ouro`}>
+                Todos
+              </button>
+            )}
           </li>
         );
       })}
     </ul>
+    </>
+  );
+}
+
+/** "Vender tudo": o primeiro clique mostra o total e pede confirmação ali mesmo (some sozinha em 5 s). */
+function SellAllBar({ npcId, items, gold }: { npcId: string; items: number; gold: number }) {
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (!asking) return;
+    const t = window.setTimeout(() => setAsking(false), 5000);
+    return () => clearTimeout(t);
+  }, [asking]);
+  return (
+    <div class="sell-all">
+      {asking ? (
+        <>
+          <span>Vender {fmtNum(items)} {items === 1 ? "item" : "itens"} por <b>{fmtNum(gold)}</b> de ouro?</span>
+          <button class="shop-btn danger" onClick={() => { setAsking(false); sellAll(npcId); }}>Sim, vender</button>
+          <button class="shop-btn" onClick={() => setAsking(false)}>Não</button>
+        </>
+      ) : (
+        <button class="shop-btn" onClick={() => setAsking(true)} data-tip="Vende tudo da mochila que este NPC compra">
+          Vender tudo ({fmtNum(items)})
+        </button>
+      )}
+    </div>
   );
 }
 

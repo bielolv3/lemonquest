@@ -1,5 +1,17 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · Coliseu até a onda 60, vender tudo e avisos do topo empilhados
+
+- **Coliseu: 60 ondas** (antes 30; level justo até 110) com os monstros das Terras Selvagens e da Costa. Chefes nas
+  ondas 35 (Raposa Chifruda), 40 (bárbaro de elite), 45 (Yeti), 50 (Demodras), 55 (behemoth de elite) e 60
+  (Orshabaal). Teste de balanço: grupo de 4 no level justo fica na faixa do fim antigo. Bônus por completar: 30 mil de
+  ouro. "Rei do Coliseu" continua na onda 30; conquista nova "Imperador do Coliseu" (onda 60, título).
+- **Loja: vender tudo** (`NpcTradeMsg` `sellAll`): botão "Vender tudo (N)" com confirmação e total; "Todos" em cada
+  pilha.
+- **Centro do topo numa pilha só** (`.top-stack`): etiqueta do evento, barra do Coliseu, avisos e notícias um abaixo do
+  outro (a etiqueta da Maré de Tesouros ficava por cima dos avisos).
+- Botões do Coliseu com o estilo escuro do HUD (eram o botão branco padrão do navegador).
+
 ## [Não lançado] — 2026-10-21 · loot de grupo no chão e mover itens no chão
 
 - **Loot em grupo** (2+ membros): itens e ouro caem no chão onde o monstro morreu. O toast de loot diz "(no chão)". O

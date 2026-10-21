@@ -7,6 +7,8 @@ import { Toasts } from "./Toasts.tsx";
 import { PartyInvites } from "./party/PartyInvites.tsx";
 import { TradeWindow } from "./trade/TradeWindow.tsx";
 import { EventBadge } from "./events/EventBadge.tsx";
+import { MatchBar } from "./arena/ArenaHud.tsx";
+import { FeedTicker } from "./items/LootToasts.tsx";
 import { NewsWindow } from "./news/NewsWindow.tsx";
 import { ChallengesWindow } from "./challenges/ChallengesWindow.tsx";
 import { BestiaryWindow } from "./bestiary/Bestiary.tsx";
@@ -31,10 +33,15 @@ export function App() {
   return (
     <>
       <Hud />
-      <Toasts />
+      {/* Centro do topo numa pilha só (nada se sobrepõe): evento, barra do Coliseu, avisos e notícias. */}
+      <div class="top-stack">
+        <EventBadge />
+        <MatchBar />
+        <Toasts />
+        <FeedTicker />
+      </div>
       <PartyInvites />
       <TradeWindow />
-      <EventBadge />
       <NewsWindow />
       <ChallengesWindow />
       <BestiaryWindow />

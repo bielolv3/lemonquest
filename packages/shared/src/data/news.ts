@@ -12,6 +12,17 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22",
+    date: "22 de outubro",
+    title: "Coliseu até a onda 60",
+    items: [
+      "O Coliseu agora tem 60 ondas, com orcs, ciclopes, dragões, demônios e chefes como Yeti, Demodras e Orshabaal.",
+      "Conquista nova: Imperador do Coliseu (vença a onda 60).",
+      "Na loja, \"Vender tudo\" vende de uma vez o que o NPC compra (e \"Todos\" vende a pilha inteira).",
+      "Os avisos do topo da tela não ficam mais uns por cima dos outros.",
+    ],
+  },
+  {
     id: "2026-10-21e",
     date: "21 de outubro (noite)",
     title: "Loot do grupo no chão",

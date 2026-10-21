@@ -131,6 +131,7 @@ export class NpcSystem {
     if (this.o.blocked?.(p, msg.npcId)) return;
     const d = this.defs(msg.npcId);
     if (!d?.shop) return;
+    if (msg.action === "sellAll") return this.sellAll(p, d.shop.buys ?? []);
     const count = msg.count;
     if (!Number.isInteger(count) || count < 1 || count > MAX_TRADE_COUNT) return;
     const inv = this.o.inventory;
@@ -161,6 +162,25 @@ export class NpcSystem {
       inv.addGold(p, price);
       this.notice(p, `Você vendeu ${count}x ${item.name} por ${price} de ouro.`, "good");
     }
+  }
+
+  /** Vende todas as pilhas da mochila que o NPC compra; um aviso só com o total. */
+  private sellAll(p: PlayerState, buys: readonly string[]): void {
+    const inv = this.o.inventory;
+    const bp = inv.get(p.id)?.backpack;
+    if (!bp) return;
+    let items = 0, gold = 0;
+    bp.forEach((it, index) => {
+      const item = it ? inv.defs(it.defId) : undefined;
+      if (!it || !item || !buys.includes(item.kind)) return;
+      const n = it.count, price = npcBuyPrice(item.value, it.rarity) * n;
+      if (!inv.takeFromBackpack(p, index, n)) return;
+      items += n;
+      gold += price;
+    });
+    if (!items) return this.notice(p, "Nada na mochila que eu compre.", "warn");
+    inv.addGold(p, gold);
+    this.notice(p, `Você vendeu ${items} ${items === 1 ? "item" : "itens"} por ${gold} de ouro.`, "good");
   }
 
   /** C2S.Travel */
