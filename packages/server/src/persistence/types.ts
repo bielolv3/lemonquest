@@ -15,6 +15,10 @@ export interface CharacterData {
   auto?: boolean;
   /** PvP: mortes injustas recentes (timestamps) — caveira vermelha. */
   pvpKills?: number[];
+  /** PvP: fim da caveira branca (ms epoch); relogar não a apaga. */
+  pvpWhiteUntil?: number;
+  /** PvP: fim do bloqueio de zona de proteção (ms epoch); relogar não o apaga. */
+  pvpPzLockUntil?: number;
   /** Inventário (M4). */
   equipment?: Partial<Record<string, unknown>>;
   backpack?: unknown[];

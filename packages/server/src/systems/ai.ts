@@ -218,8 +218,14 @@ function act(m: Monster, w: MonsterManager, now: number) {
   // Ataque à distância exige linha de visão (corpo a corpo não).
   const sight = !ranged || d > range || w.los(s.x, s.y, target.x, target.y);
 
+  // Habilidade (sopro, pisão, cura, invocação...): ocupa o turno do ataque; cada uma confere alcance e visão.
+  if (now >= m.nextAttackAt && m.def.abilities?.length && !w.inPz(s.x, s.y) && w.abilityHook(m, target, now)) {
+    const face = dirFromDelta(Math.sign(target.x - s.x), Math.sign(target.y - s.y));
+    if (face !== null && now >= m.stepEndsAt) s.dir = face;
+    m.nextAttackAt = now + m.def.attackMs;
+    if (!w.get(s.id)) return;
   // Ataque (fugindo, só os de distância continuam atirando).
-  if ((m.mode === "chase" || ranged) && d >= 1 && d <= range && sight && now >= m.nextAttackAt && !w.inPz(s.x, s.y)) {
+  } else if ((m.mode === "chase" || ranged) && d >= 1 && d <= range && sight && now >= m.nextAttackAt && !w.inPz(s.x, s.y)) {
     const face = dirFromDelta(Math.sign(target.x - s.x), Math.sign(target.y - s.y));
     if (face !== null && now >= m.stepEndsAt) s.dir = face;
     m.nextAttackAt = now + m.def.attackMs;

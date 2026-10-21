@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLOSE_REPLACED, findObjects, objectTile } from "@lemonquest/shared";
+import { CLOSE_REPLACED, OUT_OF_COMBAT_MS, PZ_LOCK_MS, findObjects, objectTile } from "@lemonquest/shared";
 import { RECONNECT_S, REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
 import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, loadGroundRows, saveCharacter } from "../persistence/db.ts";
 import { makeItem } from "../systems/inventory.ts";
@@ -300,6 +300,81 @@ describe("WorldRoom: sair em combate", () => {
     r.onLeave(c, 4000);
     const p = r.state.players.get("e1");
     expect(stop).toHaveBeenCalledWith(p, p.x, p.y);
+  });
+
+  /** `a` ataca `b` fora da zona de proteção (b inocente → caveira branca + bloqueio de PZ para `a`). */
+  const pvpHit = (r: any, a: string, b: string) => {
+    const pa = r.state.players.get(a), pb = r.state.players.get(b);
+    // Fora da zona de proteção (o personagem novo nasce na Vila): no tile de um monstro selvagem qualquer.
+    const wild = [...r.monsters.all()].find((x: any) => !x.def.invulnerable && !x.arenaId);
+    pa.x = wild.s.x; pa.y = wild.s.y;
+    pa.targetId = b;
+    r.pvp.onHit(pa, pb, Date.now());
+    return pa;
+  };
+
+  it("com bloqueio de PZ (atacou um jogador), sair fica no mundo até o bloqueio acabar, mesmo fora de combate", () => {
+    const r = makeRoom();
+    const c = join(r, "Rex", "x1");
+    join(r, "Val", "v1");
+    pvpHit(r, "x1", "v1");
+    const t0 = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(t0 + OUT_OF_COMBAT_MS + 1); // já fora de combate, ainda bloqueado
+    r.onLeave(c, 4000);
+    expect(r.state.players.has("x1")).toBe(true);
+    r.lingering.get("x1").tick(RECONNECT_S * 1000 + 1);
+    expect(r.state.players.has("x1")).toBe(true); // o bloqueio (60 s) passa dos 20 s de combate
+    clock.mockReturnValue(t0 + PZ_LOCK_MS + 1);
+    r.lingering.get("x1").tick(PZ_LOCK_MS);
+    expect(r.state.players.has("x1")).toBe(false);
+  });
+
+  it("parado no mundo: não ataca nem segue; relogar não apaga o bloqueio de PZ", () => {
+    const r = makeRoom();
+    const c = join(r, "Nina", "n1");
+    join(r, "Olga", "o1");
+    const p = pvpHit(r, "n1", "o1");
+    p.followId = "o1";
+    r.onLeave(c, 4000);
+    expect(p.targetId).toBe("");
+    expect(p.followId).toBe("");
+    const c2 = fakeClient(r, "n2");
+    r.onJoin(c2, {}, auth("Nina"));
+    expect(r.pvp.pzLocked("n2")).toBe(true);
+  });
+
+  it("fechar a aba com bloqueio de PZ: depois da reconexão recusada, ainda fica no mundo; kick tira na hora", () => {
+    const r = makeRoom();
+    const c = join(r, "Zeca", "z1");
+    join(r, "Tita", "t1");
+    pvpHit(r, "z1", "t1");
+    r.onLeave(c, 1006); // queda (fim da janela de reconexão)
+    expect(r.state.players.has("z1")).toBe(true);
+    r.kick("z1", "tchau");
+    expect(r.state.players.has("z1")).toBe(false);
+    // Kick com a sessão ainda aberta: o onLeave seguinte não deixa no mundo.
+    const c2 = fakeClient(r, "z2");
+    r.onJoin(c2, {}, auth("Zeca"));
+    pvpHit(r, "z2", "t1");
+    r.kick("z2", "tchau");
+    r.onLeave(c2, 1006);
+    expect(r.state.players.has("z2")).toBe(false);
+    expect(r.kicked.size).toBe(0);
+  });
+
+  it("relogar não apaga a caveira branca (o prazo fica salvo no personagem)", () => {
+    const r = makeRoom();
+    join(r, "Duda", "d1");
+    join(r, "Caio", "k1");
+    const pa = pvpHit(r, "d1", "k1");
+    expect(pa.skull).toBe("white");
+    r.pvp.pzLockUntil.delete("d1"); // simula o fim do bloqueio de PZ (a caveira dura mais)
+    r.onLeave(r.clients.find((c: any) => c.sessionId === "d1"), 4000);
+    expect(r.state.players.has("d1")).toBe(false);
+    expect(getCharacterByName("Duda")!.data.pvpWhiteUntil).toBeGreaterThan(Date.now());
+    const c2 = fakeClient(r, "d2");
+    r.onJoin(c2, {}, auth("Duda"));
+    expect(r.state.players.get("d2").skull).toBe("white");
   });
 
   it("kick durante a permanência tira o personagem na hora", () => {

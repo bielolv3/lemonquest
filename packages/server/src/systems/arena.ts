@@ -4,7 +4,7 @@
 // Tudo vem do mapa (objetos "arena", "arena_entry", "arena_spawn", "arena_exit"); sem eles o coliseu fica fechado.
 import {
   ARENA_COMPLETE_GOLD, ARENA_COMPLETE_XP_PCT, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_LOBBY_RANGE,
-  ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, arenaPauseMs,
+  ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, applyXpStage, arenaPauseMs,
   arenaWaveGold, arenaWaveSpawns, arenaWaveXp, findObjects, monsterDef, objectTile, partyMinLevel,
   type ArenaActionMsg, type ArenaLobbiesMsg, type ArenaLobbySummary, type ArenaPhase, type ArenaResultMsg,
   type ArenaSpawnSpec, type ArenaStateMsg, type FeedMsg, type MonsterDef, type NoticeMsg, type TiledMap,
@@ -472,7 +472,7 @@ export class ArenaSystem {
     for (const m of alive) {
       const p = this.o.getPlayer(m.id);
       if (!p) continue;
-      const xp = p.level >= minLevel ? waveXp : 0;
+      const xp = p.level >= minLevel ? applyXpStage(waveXp, p.level) : 0;
       xpFor.set(m.id, xp);
       m.cleared = wave;
       m.xp += xp;

@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
-  spellDef, spellsFor, type AttackMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
@@ -319,6 +319,7 @@ export class WorldScene extends Phaser.Scene {
     msg<XpGainMsg>(S2C.XpGain, (m) => this.onXpGain(m.amount));
     msg<LevelUpMsg>(S2C.LevelUp, (m) => this.onLevelUp(m.level));
     msg<SpellCastMsg>(S2C.SpellCast, (m) => this.onSpellCast(m));
+    msg<MonsterTelegraphMsg>(S2C.MonsterTelegraph, (m) => this.onTelegraph(m));
     msg<ConditionsMsg>(S2C.Conditions, (m) => this.onConditions(m));
     msg<SkillUpMsg>(S2C.SkillUp, (m) => this.onSkillUp(m));
     msg<ChatMessage>(S2C.Chat, (m) => this.onChatBubble(m));
@@ -1120,9 +1121,17 @@ export class WorldScene extends Phaser.Scene {
   // --- magias, condições e skills ----------------------------------------------
 
   onSpellCast(m: SpellCastMsg, override?: SpellDef) {
+    // Habilidade de monstro: mesmo desenho das magias (o grito vai no lugar das palavras mágicas).
+    override ??= monsterAbilitySpell(m.spellId);
     if ((override ?? spellDef(m.spellId))?.fx === "charge") this.chargeAt.set(m.casterId, performance.now());
     const r = this.fxReach([m.casterId, m.targetId ?? ""], { x: m.x, y: m.y });
     if (r.show) this.spells.cast(m, override, r.gain);
+  }
+
+  /** Aviso no chão de uma habilidade de monstro (área/onda que vai cair). */
+  onTelegraph(m: MonsterTelegraphMsg) {
+    const at = m.tiles.length >= 2 ? { x: m.tiles[0]!, y: m.tiles[1]! } : undefined;
+    if (this.fxReach([m.casterId], at).show) this.spells.telegraph(m.tiles, m.ms, m.fx);
   }
 
   onConditions(m: ConditionsMsg) {

@@ -142,7 +142,7 @@ export class LootSystem {
 
   /** Chamado na morte de um monstro selvagem (antes de removê-lo). */
   onKill(m: Monster): void {
-    if (m.s.ownerId || m.arenaId) return; // invocação / onda do coliseu: sem loot
+    if (m.s.ownerId || m.arenaId || m.minionOf) return; // invocação / onda do coliseu / ajudante de monstro: sem loot
     const p = this.topDamager(m);
     if (!p) return;
     const { x, y } = m.s;

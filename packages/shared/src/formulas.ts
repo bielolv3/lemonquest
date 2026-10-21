@@ -192,6 +192,31 @@ export function levelForXp(xp: number): number {
   return level;
 }
 
+/**
+ * Estágios de XP (como no Tibia): a XP de caça (abates e ondas do Coliseu) cai a partir de certos levels, para o fim de
+ * jogo durar mais sem mexer na curva (personagens salvos não mudam de level). Missões e desafios dão a XP cheia.
+ * Ordem crescente de `fromLevel`; o primeiro estágio começa no level 1.
+ */
+export const XP_STAGES: readonly { fromLevel: number; mult: number }[] = [
+  { fromLevel: 1, mult: 1 },
+  { fromLevel: 60, mult: 0.6 },
+  { fromLevel: 80, mult: 0.4 },
+  { fromLevel: 100, mult: 0.3 },
+];
+
+/** Estágio de XP do level (o último cujo `fromLevel` ≤ level). */
+export function xpStage(level: number): { fromLevel: number; mult: number } {
+  let st = XP_STAGES[0]!;
+  for (const s of XP_STAGES) if (level >= s.fromLevel) st = s;
+  return st;
+}
+
+/** XP de caça depois do estágio do level (arredondada, mínimo 1 se havia XP). */
+export function applyXpStage(amount: number, level: number): number {
+  if (amount <= 0) return 0;
+  return Math.max(1, Math.round(amount * xpStage(level).mult));
+}
+
 /** XP perdida ao morrer: 10% da XP entre o início do level atual e o próximo; nunca derruba o level. */
 export function deathPenalty(level: number, xp: number): number {
   const start = xpForLevel(level);

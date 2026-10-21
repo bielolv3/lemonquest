@@ -220,6 +220,24 @@ export class SpellEffects {
 
   private pulse(k: FxKey, x: number, y: number, n = 10) { this.sparks[k].explode(n, x, y); }
 
+  /**
+   * Aviso de habilidade de monstro: os tiles piscam na cor do elemento e ficam mais fortes até o golpe (`ms`).
+   * Fica no chão (abaixo das criaturas) para não esconder quem está em cima.
+   */
+  telegraph(tiles: number[], ms: number, fx: FxKey) {
+    const color = PAL[fx]?.main ?? 0xff4040;
+    const rects: Phaser.GameObjects.Rectangle[] = [];
+    for (let i = 0; i + 1 < tiles.length; i += 2) {
+      const c = tc(tiles[i]!, tiles[i + 1]!);
+      const r = this.scene.add.rectangle(c.x, c.y, TS - 2, TS - 2, color, 0.18).setStrokeStyle(1, color, 0.9).setDepth(GROUND + 1);
+      this.layer.add(r);
+      rects.push(r);
+    }
+    if (!rects.length) return;
+    this.scene.tweens.add({ targets: rects, fillAlpha: 0.5, duration: Math.max(120, ms / 3), yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.scene.time.delayedCall(ms, () => { for (const r of rects) { this.scene.tweens.killTweensOf(r); r.destroy(); } });
+  }
+
   // --- ponto de entrada -------------------------------------------------------------
 
   /** `gain` = volume relativo pela distância ao jogador local (0 = sem som; o visual sai igual). */

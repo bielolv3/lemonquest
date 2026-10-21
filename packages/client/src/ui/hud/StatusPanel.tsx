@@ -1,5 +1,5 @@
 // Retrato, nome, vocação, level, HP/mana e XP do jogador local.
-import { resolveOutfit, xpForLevel } from "@lemonquest/shared";
+import { resolveOutfit, xpForLevel, xpStage } from "@lemonquest/shared";
 import { outfitFaceset } from "../../game/sprites.ts";
 import { session } from "../../session.ts";
 import { Section } from "./Section.tsx";
@@ -14,6 +14,13 @@ export function xpProgress(level: number, xp: number) {
   const span = Math.max(1, to - from);
   const into = Math.max(0, xp - from);
   return { from, to, into, span, pct: Math.min(100, (into / span) * 100), left: Math.max(0, to - xp) };
+}
+
+/** Dica da barra de XP: quanto falta e, a partir do 2º estágio, quanto da XP de caça o personagem recebe. */
+export function xpStageTip(level: number, left: number): string {
+  const st = xpStage(level);
+  const base = `Faltam ${fmt(left)} XP`;
+  return st.mult < 1 ? `${base} · caça dá ${Math.round(st.mult * 100)}% da XP (lv ${st.fromLevel}+)` : base;
 }
 
 export const fmt = (n: number) => n.toLocaleString("pt-BR");
@@ -60,7 +67,7 @@ function StatusBody({ me }: { me: PlayerSnap }) {
           value={xp.into}
           max={xp.span}
           tip={`${pctLabel} para o level ${me.level + 1}`}
-          tipSub={`Faltam ${fmt(xp.left)} XP`}
+          tipSub={xpStageTip(me.level, xp.left)}
         />
         <span class="xp-pct">{pctLabel}</span>
       </div>

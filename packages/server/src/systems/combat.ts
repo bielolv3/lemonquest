@@ -1,7 +1,7 @@
 // Combate estilo Tibia: alvo + ataque automático a cada PLAYER_ATTACK_MS; dano de monstros; XP, level e morte.
 import {
   PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
-  autoAttackRange, rollAttack, rollInt, splitXp, xpForLevel,
+  applyXpStage, autoAttackRange, rollAttack, rollInt, splitXp, xpForLevel, xpStage,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type NoticeMsg, type XpGainMsg,
 } from "@lemonquest/shared";
@@ -370,12 +370,14 @@ export class CombatSystem {
 
   private killMonster(m: Monster, now: number) {
     const { id, x, y, defId } = m.s;
-    // Invocações e monstros do coliseu (recompensa por onda) não dão XP por abate.
-    const online = m.s.ownerId || m.arenaId ? [] : killCredit(m, this.o.getPlayer);
+    // Invocações, monstros do coliseu (recompensa por onda) e ajudantes invocados por monstros não dão XP por abate;
+    // os ajudantes também não dão loot, missão nem conquista (senão dava para "farmar" um invocador).
+    const online = m.s.ownerId || m.arenaId || m.minionOf ? [] : killCredit(m, this.o.getPlayer);
     const byDamage = splitXp(m.def.xp, online);
     const shares = this.hooks.xpShares && byDamage.size ? this.hooks.xpShares(m, byDamage, now) : byDamage;
-    if (!m.s.ownerId) this.hooks.onMonsterKilled?.(m);
-    if (!m.s.ownerId && this.hooks.onKillCredit) {
+    const rewards = !m.s.ownerId && !m.minionOf;
+    if (rewards) this.hooks.onMonsterKilled?.(m);
+    if (rewards && this.hooks.onKillCredit) {
       // Mesma regra da XP/loot: quem bateu e foi para longe não conta (conquistas de abate; o Coliseu também conta).
       const credited = killCredit(m, this.o.getPlayer).map(([pid]) => pid);
       for (const pid of credited) this.hooks.onKillCredit(pid, m, credited.length > 1);
@@ -386,7 +388,7 @@ export class CombatSystem {
     const mult = Math.max(1, this.hooks.xpMult?.() ?? 1);
     for (const [pid, amount] of shares) {
       const p = this.o.getPlayer(pid);
-      if (p) this.gainXp(p, mult > 1 ? Math.round(amount * mult) : amount, x, y);
+      if (p) this.gainXp(p, applyXpStage(mult > 1 ? Math.round(amount * mult) : amount, p.level), x, y);
     }
   }
 
@@ -397,6 +399,7 @@ export class CombatSystem {
     this.after.push(() => this.o.send(id, S2C.XpGain, { amount, x, y } satisfies XpGainMsg));
     const level = levelForXp(p.xp);
     if (level <= p.level) return;
+    const stage = xpStage(level), stageChanged = stage !== xpStage(p.level);
     p.level = level;
     const stats = baseStats(p.vocation, level);
     p.maxHp = stats.maxHp;
@@ -407,6 +410,10 @@ export class CombatSystem {
     const name = p.name, maxHp = p.maxHp, maxMana = p.maxMana;
     this.after.push(() => {
       this.o.send(id, S2C.LevelUp, { level, maxHp, maxMana } satisfies LevelUpMsg);
+      if (stageChanged) {
+        const pct = Math.round(stage.mult * 100);
+        this.o.send(id, S2C.Notice, { text: `Novo estágio de XP: a partir do level ${stage.fromLevel}, caçar dá ${pct}% da XP (missões continuam dando tudo).`, kind: "info" } satisfies NoticeMsg);
+      }
       if (level >= LEVEL_NOTICE_MIN) this.o.broadcast(S2C.Notice, { text: `${name} chegou ao level ${level}!`, kind: "good" } satisfies NoticeMsg);
     });
   }

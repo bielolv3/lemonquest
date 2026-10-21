@@ -1,5 +1,5 @@
 import type { ChatChannel, ChatMessage, CombatEvent, Dir, FightStance, Vocation } from "./types.ts";
-import type { ConditionId } from "./data/spells.ts";
+import type { ConditionId, SpellFx } from "./data/spells.ts";
 import type { SkillId } from "./skills.ts";
 import type { PartyShareReason } from "./party.ts";
 export type { SkillId };
@@ -149,6 +149,8 @@ export const S2C = {
   CastResult: "castResult",
   /** Uma magia foi conjurada (para todos verem o efeito). */
   SpellCast: "spellCast",
+  /** Habilidade de monstro com aviso: tiles marcados no chão por `ms` antes do golpe (dá para sair). */
+  MonsterTelegraph: "monsterTelegraph",
   /** Lista completa de condições ativas do jogador (enviada a ele quando muda). */
   Conditions: "conditions",
   /** Uma skill subiu de nível. */
@@ -258,6 +260,14 @@ export interface SpellCastMsg {
   dir: Dir;
   /** Tiles afetados (pares x,y achatados) para áreas/ondas. */
   tiles?: number[];
+}
+export interface MonsterTelegraphMsg {
+  casterId: string;
+  /** Tiles que vão ser atingidos (pares x,y achatados). */
+  tiles: number[];
+  /** Tempo até o golpe (ms). */
+  ms: number;
+  fx: SpellFx;
 }
 export interface ConditionsMsg { list: { id: ConditionId; remainingMs?: number; value?: number; /** 'fed': value = vida/tique, value2 = mana/tique. */ value2?: number }[] }
 export interface SkillUpMsg { skill: SkillId; level: number }

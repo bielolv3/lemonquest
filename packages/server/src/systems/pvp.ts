@@ -33,16 +33,26 @@ export class PvpSystem {
     this.now = o.now ?? Date.now;
   }
 
-  /** Carrega as mortes injustas salvas. */
-  load(p: PlayerState, kills?: unknown): void {
+  /** Carrega as mortes injustas e os prazos da caveira branca e do bloqueio de PZ salvos (relogar não apaga nada). */
+  load(p: PlayerState, kills?: unknown, whiteUntil?: unknown, pzLockUntil?: unknown): void {
+    const now = this.now();
     const list = Array.isArray(kills) ? kills.filter((t): t is number => typeof t === "number") : [];
-    this.kills.set(p.id, recentKills(list, this.now()));
-    p.skull = this.skullOf(p.id, this.now());
+    this.kills.set(p.id, recentKills(list, now));
+    // Teto de PVP_AGGRESSION_MS: um valor salvo absurdo (relógio adiantado) não deixa caveira eterna.
+    if (typeof whiteUntil === "number" && whiteUntil > now) this.whiteUntil.set(p.id, Math.min(whiteUntil, now + PVP_AGGRESSION_MS));
+    if (typeof pzLockUntil === "number" && pzLockUntil > now) this.pzLockUntil.set(p.id, Math.min(pzLockUntil, now + PZ_LOCK_MS));
+    p.skull = this.skullOf(p.id, now);
   }
 
   /** Para salvar no personagem. */
   savedKills(id: string): number[] {
     return recentKills(this.kills.get(id) ?? [], this.now());
+  }
+
+  /** Fim da caveira branca (ms epoch) para salvar no personagem; undefined = sem caveira branca. */
+  savedWhiteUntil(id: string): number | undefined {
+    const t = this.whiteUntil.get(id) ?? 0;
+    return t > this.now() ? t : undefined;
   }
 
   removePlayer(id: string): void {
@@ -112,6 +122,17 @@ export class PvpSystem {
   /** Bloqueado de entrar na zona de proteção (atacou um jogador há pouco)? */
   pzLocked(id: string, now = this.now()): boolean {
     return (this.pzLockUntil.get(id) ?? 0) > now;
+  }
+
+  /** Fim do bloqueio de PZ (ms epoch) para salvar; undefined = livre. */
+  savedPzLockUntil(id: string): number | undefined {
+    const t = this.pzLockUntil.get(id) ?? 0;
+    return t > this.now() ? t : undefined;
+  }
+
+  /** Quanto falta do bloqueio de PZ (ms; 0 = livre). Enquanto bloqueado, sair do jogo não tira o personagem do mundo. */
+  pzLockRemaining(id: string, now = this.now()): number {
+    return Math.max(0, (this.pzLockUntil.get(id) ?? 0) - now);
   }
 
   /** Guarda do movimento: impede o passo para dentro da PZ enquanto bloqueado. true = bloqueia. */

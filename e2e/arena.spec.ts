@@ -169,7 +169,7 @@ test("coliseu em grupo: dois jogadores, lobby → entrar → iniciar → ambos n
     await lobby.getByRole("button", { name: "Entrar" }).click();
     await expect(wb.locator(".arena-members")).toContainText(pb.name);
     await expect(wa.locator(".arena-members li")).toHaveCount(2);
-    await expect(wa.locator(".arena-slots").first()).toHaveText("2/4");
+    await expect(wa.locator(".arena-slots").first()).toHaveText("2"); // sem limite de pessoas desde b988e19
     await snap(a, "arena-group-lobby");
     // Só o líder inicia.
     await expect(wb.getByRole("button", { name: /Iniciar/ })).toHaveCount(0);

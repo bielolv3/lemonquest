@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   VOCATIONS, baseStats, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
-  xpForLevel,
+  xpForLevel, XP_STAGES, applyXpStage, xpStage,
 } from "./index.ts";
 
 function seeded(seed: number) {
@@ -102,5 +102,26 @@ describe("baseStats", () => {
     expect(baseStats("druid", 30).maxHp).toBe(324);
     expect(baseStats("paladin", 30).maxHp).toBeGreaterThan(baseStats("druid", 30).maxHp);
     expect(baseStats("knight", 30).maxHp).toBeGreaterThan(baseStats("paladin", 30).maxHp);
+  });
+});
+
+describe("estágios de XP", () => {
+  it("faixas em ordem, começando no level 1 com XP cheia e sempre caindo", () => {
+    expect(XP_STAGES[0]).toEqual({ fromLevel: 1, mult: 1 });
+    for (let i = 1; i < XP_STAGES.length; i++) {
+      expect(XP_STAGES[i]!.fromLevel).toBeGreaterThan(XP_STAGES[i - 1]!.fromLevel);
+      expect(XP_STAGES[i]!.mult).toBeLessThan(XP_STAGES[i - 1]!.mult);
+    }
+  });
+
+  it("xpStage e applyXpStage", () => {
+    expect(xpStage(1).mult).toBe(1);
+    expect(xpStage(59).mult).toBe(1);
+    expect(xpStage(60).mult).toBe(0.6);
+    expect(xpStage(150).mult).toBe(0.3);
+    expect(applyXpStage(1000, 30)).toBe(1000);
+    expect(applyXpStage(1000, 85)).toBe(400);
+    expect(applyXpStage(1, 120)).toBe(1); // nunca zera um abate
+    expect(applyXpStage(0, 120)).toBe(0);
   });
 });

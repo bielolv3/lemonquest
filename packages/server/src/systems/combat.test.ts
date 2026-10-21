@@ -34,6 +34,34 @@ describe("player combat", () => {
     expect(run(0.5)).toBe(40); // nunca reduz
   });
 
+  it("estágio de XP: lv 100 recebe 30% da XP do abate (o bônus de evento multiplica antes)", () => {
+    const run = (level: number, mult = 1) => {
+      const w = setup({ hp: 20, xp: 1000, armor: 0 });
+      w.combat.hooks = { xpMult: () => mult };
+      const p = w.add(player("k", 11, 10, { name: "Leo", hp: 5000 }));
+      p.level = level; p.xp = xpForLevel(level);
+      w.combat.onAttack(p, { targetId: w.m.s.id });
+      w.run(PLAYER_ATTACK_MS * 6);
+      return (w.sent.find((s) => s.type === S2C.XpGain)!.msg as { amount: number }).amount;
+    };
+    expect(run(59)).toBe(1000);
+    expect(run(60)).toBe(600);
+    expect(run(100)).toBe(300);
+    expect(run(100, 2)).toBe(600);
+  });
+
+  it("subir para um novo estágio de XP avisa o jogador (só ele)", () => {
+    const w = setup({ hp: 20, xp: xpForLevel(60) - xpForLevel(59) + 1, armor: 0 });
+    const p = w.add(player("k", 11, 10, { name: "Leo", hp: 5000 }));
+    p.level = 59; p.xp = xpForLevel(59);
+    w.combat.onAttack(p, { targetId: w.m.s.id });
+    w.run(PLAYER_ATTACK_MS * 6);
+    expect(p.level).toBe(60);
+    const notes = w.sent.filter((s) => s.type === S2C.Notice && /estágio de XP/.test((s.msg as { text: string }).text));
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({ to: "k" });
+  });
+
   it("knight kills a monster: batched combat events, xp, multi level up, notices", () => {
     const w = setup({ hp: 20, xp: xpForLevel(6) + 5, armor: 0 });
     const p = w.add(player("k", 11, 10, { name: "Leo", hp: 100 }));

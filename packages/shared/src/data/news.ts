@@ -12,6 +12,18 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-21",
+    date: "21 de outubro",
+    title: "Monstros mais espertos",
+    items: [
+      "Dragões cospem fogo, ciclopes e behemoths dão pisões, demônios fazem chover fogo e bruxas do gelo deixam você lento.",
+      "Golpes fortes avisam antes: o chão pisca na cor do elemento. Saia da área a tempo e não leva o dano!",
+      "Alguns chefes chamam ajudantes (que somem quando o chefe cai e não dão XP) e outros se curam quando estão quase mortos.",
+      "Estágios de XP: a partir do lv 60 caçar dá 60% da XP, do 80 dá 40% e do 100 dá 30%. Missões continuam dando tudo.",
+      "PvP: sair do jogo logo depois de atacar alguém não apaga mais a caveira branca, e o personagem fica no mundo até o bloqueio acabar.",
+    ],
+  },
+  {
     id: "2026-10-20",
     date: "20 de outubro",
     title: "Costa Esmeralda e quests do jeito do Tibia",

@@ -1,5 +1,7 @@
 import type { DamageKind } from "../types.ts";
 import type { LootEntry } from "./items.ts";
+import { MONSTER_ABILITY_PREFIX, ability, type MonsterAbility } from "./monsterAbilities.ts";
+import type { SpellDef, SpellTarget } from "./spells.ts";
 
 /**
  * VERIFICACAO DE LAYOUT (sheets abertos e ampliados 4x): Mouse, Slime, Snake, SpiderRed, BlueBat, Skull,
@@ -63,6 +65,8 @@ export interface MonsterDef {
   gold?: [number, number];
   /** Tabela de loot (ids de ITEMS). */
   loot?: LootEntry[];
+  /** Habilidades (data/monsterAbilities.ts): usadas no lugar do ataque básico quando prontas. */
+  abilities?: MonsterAbility[];
   sprite: CreatureSprite;
 }
 
@@ -290,6 +294,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   goblin_king: {
     id: "goblin_king", name: "Rei Goblin", level: 40, hp: 6000, xp: 6000, damage: [60, 120], damageKind: "physical", armor: 15,
+    abilities: [
+      ability.stomp({ name: "Pisão do Rei", radius: 1, min: 70, max: 130, cooldownMs: 12_000 }),
+      ability.summon({ name: "Guardas!", monsterId: "goblin", count: 2, max: 3, cooldownMs: 25_000 }),
+    ],
     attackMs: 2000, attackRange: 1, stepMs: 420, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
     gold: [1500, 2500],
     loot: [
@@ -312,6 +320,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   swamp_lich: {
     id: "swamp_lich", name: "Lich do Pântano", level: 25, hp: 3500, xp: 2500, damage: [30, 70], damageKind: "death", armor: 8,
+    abilities: [
+      ability.blast({ name: "Nuvem Tóxica", radius: 1, range: 5, min: 35, max: 65, kind: "earth", fx: "earth", condition: { id: "poison", durationMs: 8000, value: 8 } }),
+      ability.summon({ name: "Levantem-se!", monsterId: "skeleton", count: 1, max: 2, cooldownMs: 25_000 }),
+    ],
     attackMs: 2200, attackRange: 5, stepMs: 500, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
     gold: [1000, 1800],
     loot: [
@@ -346,6 +358,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   orc_shaman: {
     id: "orc_shaman", name: "Orc Xamã", level: 44, hp: 600, xp: 800, damage: [35, 70], damageKind: "energy", armor: 8,
+    abilities: [
+      ability.heal({ name: "Cura Xamânica", pct: 0.15, belowHpPct: 0.5, cooldownMs: 12_000 }),
+    ],
     attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 80_000,
     gold: [110, 210],
     loot: [
@@ -376,6 +391,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   minotaur_mage: {
     id: "minotaur_mage", name: "Minotauro Mago", level: 50, hp: 800, xp: 1150, damage: [45, 90], damageKind: "fire", armor: 10,
+    abilities: [
+      ability.blast({ name: "Bola de Fogo", radius: 1, range: 4, min: 50, max: 95, kind: "fire", fx: "fire", chance: 0.6, cooldownMs: 8000 }),
+    ],
     attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 80_000,
     gold: [140, 260],
     loot: [
@@ -390,6 +408,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   cyclops: {
     id: "cyclops", name: "Ciclope", level: 55, hp: 1200, xp: 1800, damage: [65, 130], damageKind: "physical", armor: 18,
+    abilities: [
+      ability.stomp({ name: "Pisão", radius: 1, min: 70, max: 135, windupMs: 700 }),
+    ],
     attackMs: 2200, attackRange: 1, stepMs: 400, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 90_000,
     gold: [160, 300],
     loot: [
@@ -406,6 +427,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   bonelord: {
     id: "bonelord", name: "Olho Maligno", level: 60, hp: 1100, xp: 1760, damage: [55, 110], damageKind: "death", armor: 10,
+    abilities: [
+      ability.bolt({ name: "Olhar Mortal", range: 4, min: 70, max: 125, kind: "death", fx: "death", condition: { id: "slow", durationMs: 3000, value: 40 } }),
+    ],
     attackMs: 2000, attackRange: 4, stepMs: 450, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 90_000,
     gold: [170, 320],
     loot: [
@@ -420,6 +444,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   black_knight: {
     id: "black_knight", name: "Cavaleiro Negro", level: 65, hp: 1800, xp: 3000, damage: [80, 150], damageKind: "physical", armor: 25,
+    abilities: [
+      ability.stomp({ name: "Golpe Giratório", radius: 1, min: 85, max: 155, cooldownMs: 11_000 }),
+    ],
     attackMs: 1800, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 100_000,
     gold: [200, 380],
     loot: [
@@ -436,6 +463,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   dragon: {
     id: "dragon", name: "Dragão", level: 70, hp: 2000, xp: 3500, damage: [70, 140], damageKind: "fire", armor: 20,
+    abilities: [
+      ability.breath({ name: "Sopro de Fogo", length: 4, width: 3, min: 90, max: 170, kind: "fire", fx: "fire", condition: { id: "burn", durationMs: 6000, value: 12 } }),
+    ],
     attackMs: 2200, attackRange: 3, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 100_000,
     gold: [220, 420],
     loot: [
@@ -453,6 +483,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   dragon_lord: {
     id: "dragon_lord", name: "Senhor dos Dragões", level: 85, hp: 3200, xp: 6100, damage: [100, 190], damageKind: "fire", armor: 28,
+    abilities: [
+      ability.breath({ name: "Sopro de Fogo", length: 5, width: 3, min: 130, max: 240, kind: "fire", fx: "fire", condition: { id: "burn", durationMs: 6000, value: 18 } }),
+      ability.blast({ name: "Bola de Fogo", radius: 1, range: 4, min: 100, max: 180, kind: "fire", fx: "fire", chance: 0.5 }),
+    ],
     attackMs: 2200, attackRange: 3, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 120_000,
     gold: [300, 600],
     loot: [
@@ -470,6 +504,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   behemoth: {
     id: "behemoth", name: "Behemoth", level: 90, hp: 4000, xp: 8000, damage: [120, 230], damageKind: "physical", armor: 32,
+    abilities: [
+      ability.stomp({ name: "Pisão", radius: 1, min: 150, max: 260, windupMs: 700 }),
+    ],
     attackMs: 2000, attackRange: 1, stepMs: 340, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 120_000,
     gold: [350, 700],
     loot: [
@@ -486,6 +523,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   demon: {
     id: "demon", name: "Demônio", level: 100, hp: 5000, xp: 10500, damage: [130, 250], damageKind: "fire", armor: 35,
+    abilities: [
+      ability.blast({ name: "Chuva de Fogo", radius: 2, range: 4, min: 140, max: 255, kind: "fire", fx: "fire" }),
+      ability.bolt({ name: "Paralisia", range: 4, min: 60, max: 120, kind: "energy", fx: "energy", cooldownMs: 14_000, condition: { id: "slow", durationMs: 4000, value: 50 } }),
+    ],
     attackMs: 2000, attackRange: 4, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 150_000,
     gold: [400, 800],
     loot: [
@@ -509,6 +550,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   // ---- chefes das Terras Selvagens
   horned_fox: {
     id: "horned_fox", name: "Raposa Chifruda", level: 55, hp: 12000, xp: 12000, damage: [90, 170], damageKind: "physical", armor: 20,
+    abilities: [
+      ability.stomp({ name: "Pisão", radius: 1, min: 100, max: 180, windupMs: 700 }),
+      ability.summon({ name: "Venham, irmãos!", monsterId: "minotaur", count: 1, max: 2, cooldownMs: 25_000 }),
+    ],
     attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
     gold: [2500, 4000],
     loot: [
@@ -525,6 +570,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   demodras: {
     id: "demodras", name: "Demodras", level: 80, hp: 25000, xp: 30000, damage: [150, 280], damageKind: "fire", armor: 30,
+    abilities: [
+      ability.breath({ name: "Sopro de Demodras", length: 5, width: 3, min: 180, max: 320, kind: "fire", fx: "fire", windupMs: 900, cooldownMs: 8000, condition: { id: "burn", durationMs: 8000, value: 25 } }),
+      ability.summon({ name: "Filhotes, venham!", monsterId: "dragon", count: 1, max: 2, cooldownMs: 30_000 }),
+    ],
     attackMs: 2200, attackRange: 4, stepMs: 380, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 10_800_000, boss: true,
     gold: [5000, 9000],
     loot: [
@@ -542,6 +591,11 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   orshabaal: {
     id: "orshabaal", name: "Orshabaal", level: 120, hp: 60000, xp: 80000, damage: [220, 400], damageKind: "fire", armor: 45,
+    abilities: [
+      ability.blast({ name: "Inferno", radius: 2, range: 5, min: 220, max: 380, kind: "fire", fx: "fire", windupMs: 1000, cooldownMs: 8000 }),
+      ability.summon({ name: "Servos do Abismo!", monsterId: "demon", count: 1, max: 2, cooldownMs: 30_000 }),
+      ability.heal({ name: "Sangue Profano", pct: 0.05, belowHpPct: 0.5, cooldownMs: 20_000 }),
+    ],
     attackMs: 2000, attackRange: 5, stepMs: 360, aggroRange: 9, fleeAtHpPct: 0, respawnMs: 14_400_000, boss: true,
     gold: [15000, 25000],
     loot: [
@@ -589,6 +643,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   tarantula: {
     id: "tarantula", name: "Tarântula", level: 30, hp: 380, xp: 340, damage: [22, 48], damageKind: "earth", armor: 7,
+    abilities: [
+      ability.bolt({ name: "Picada Venenosa", range: 1, min: 20, max: 40, kind: "earth", fx: "earth", cooldownMs: 10_000, condition: { id: "poison", durationMs: 10_000, value: 8 } }),
+    ],
     attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
     gold: [50, 100],
     loot: [
@@ -628,6 +685,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   carniphila: {
     id: "carniphila", name: "Carniphila", level: 40, hp: 600, xp: 760, damage: [35, 70], damageKind: "earth", armor: 9,
+    abilities: [
+      ability.stomp({ name: "Esporos", radius: 1, min: 30, max: 60, kind: "earth", fx: "earth", windupMs: 700, condition: { id: "poison", durationMs: 8000, value: 10 } }),
+    ],
     attackMs: 2000, attackRange: 2, stepMs: 700, aggroRange: 4, fleeAtHpPct: 0, respawnMs: 70_000,
     gold: [95, 190],
     loot: [
@@ -708,6 +768,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   ice_witch: {
     id: "ice_witch", name: "Bruxa do Gelo", level: 62, hp: 1150, xp: 1900, damage: [60, 115], damageKind: "ice", armor: 10,
+    abilities: [
+      ability.bolt({ name: "Rajada Gélida", range: 4, min: 60, max: 110, kind: "ice", fx: "ice", cooldownMs: 10_000, condition: { id: "slow", durationMs: 3000, value: 40 } }),
+    ],
     attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 90_000,
     gold: [175, 330],
     loot: [
@@ -722,6 +785,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   frost_dragon: {
     id: "frost_dragon", name: "Dragão de Gelo", level: 80, hp: 2800, xp: 5150, damage: [90, 175], damageKind: "ice", armor: 26,
+    abilities: [
+      ability.breath({ name: "Sopro Gélido", length: 4, width: 3, min: 110, max: 200, kind: "ice", fx: "ice", condition: { id: "slow", durationMs: 3000, value: 30 } }),
+    ],
     attackMs: 2200, attackRange: 3, stepMs: 370, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 110_000,
     gold: [260, 520],
     loot: [
@@ -739,6 +805,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   // Caverna dos Heróis (lv 65-75).
   necromancer: {
     id: "necromancer", name: "Necromante", level: 68, hp: 1500, xp: 2550, damage: [70, 135], damageKind: "death", armor: 14,
+    abilities: [
+      ability.summon({ name: "Erguer os Mortos", monsterId: "skeleton", count: 1, max: 2, cooldownMs: 15_000 }),
+    ],
     attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 100_000,
     gold: [190, 400],
     loot: [
@@ -769,6 +838,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   // Vulcão de Goroma (lv 85-100) e Cidadela de Ferumbras (lv 100+).
   magma_elemental: {
     id: "magma_elemental", name: "Elemental de Magma", level: 86, hp: 3000, xp: 5800, damage: [100, 190], damageKind: "fire", armor: 30,
+    abilities: [
+      ability.stomp({ name: "Erupção", radius: 2, min: 110, max: 200, kind: "fire", fx: "fire", windupMs: 900, cooldownMs: 11_000, condition: { id: "burn", durationMs: 6000, value: 15 } }),
+    ],
     attackMs: 2200, attackRange: 3, stepMs: 420, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 120_000,
     gold: [310, 620],
     loot: [
@@ -783,6 +855,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   hellhound: {
     id: "hellhound", name: "Cão Infernal", level: 95, hp: 4500, xp: 9300, damage: [125, 240], damageKind: "fire", armor: 32,
+    abilities: [
+      ability.breath({ name: "Sopro Infernal", length: 3, width: 3, min: 140, max: 250, kind: "fire", fx: "fire", windupMs: 700 }),
+    ],
     attackMs: 1900, attackRange: 1, stepMs: 280, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 130_000,
     gold: [380, 750],
     loot: [
@@ -798,6 +873,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   juggernaut: {
     id: "juggernaut", name: "Colosso", level: 110, hp: 6500, xp: 14300, damage: [150, 290], damageKind: "physical", armor: 40,
+    abilities: [
+      ability.stomp({ name: "Terremoto", radius: 2, min: 180, max: 300, windupMs: 900, cooldownMs: 12_000 }),
+    ],
     attackMs: 2000, attackRange: 1, stepMs: 400, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 160_000,
     gold: [500, 1000],
     loot: [
@@ -816,6 +894,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   // ---- chefes da Costa Esmeralda
   captain_redbeard: {
     id: "captain_redbeard", name: "Capitão Barba-Ruiva", level: 42, hp: 7000, xp: 7000, damage: [70, 130], damageKind: "physical", armor: 16,
+    abilities: [
+      ability.blast({ name: "Fogo do Canhão!", radius: 1, range: 5, min: 70, max: 130, kind: "physical", fx: "physical", windupMs: 800 }),
+      ability.summon({ name: "Marujos, ao ataque!", monsterId: "pirate_marauder", count: 2, max: 3, cooldownMs: 25_000 }),
+    ],
     attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
     gold: [2000, 3500],
     loot: [
@@ -831,6 +913,10 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   kongra_king: {
     id: "kongra_king", name: "Rei Kongra", level: 45, hp: 9000, xp: 9000, damage: [80, 150], damageKind: "physical", armor: 18,
+    abilities: [
+      ability.stomp({ name: "Pisão do Rei", radius: 1, min: 80, max: 150, windupMs: 700 }),
+      ability.summon({ name: "UH UH!", monsterId: "kongra", count: 1, max: 2, cooldownMs: 25_000 }),
+    ],
     attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 7_200_000, boss: true,
     gold: [2200, 3800],
     loot: [
@@ -846,6 +932,9 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   yeti: {
     id: "yeti", name: "Yeti", level: 70, hp: 18000, xp: 20000, damage: [130, 240], damageKind: "ice", armor: 28,
+    abilities: [
+      ability.blast({ name: "Avalanche", radius: 2, range: 5, min: 130, max: 240, kind: "ice", fx: "ice", cooldownMs: 9000, condition: { id: "slow", durationMs: 3000, value: 40 } }),
+    ],
     attackMs: 2000, attackRange: 1, stepMs: 340, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 10_800_000, boss: true,
     gold: [4000, 7000],
     loot: [
@@ -862,6 +951,12 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   ferumbras: {
     id: "ferumbras", name: "Ferumbras", level: 140, hp: 90000, xp: 120000, damage: [250, 450], damageKind: "death", armor: 50,
+    abilities: [
+      ability.blast({ name: "Morte Sombria", radius: 2, range: 5, min: 250, max: 420, kind: "death", fx: "death", windupMs: 1000, cooldownMs: 8000 }),
+      ability.breath({ name: "Tempestade Arcana", length: 5, width: 3, min: 220, max: 380, kind: "energy", fx: "energy", windupMs: 900, cooldownMs: 10_000 }),
+      ability.summon({ name: "Demônios, a mim!", monsterId: "demon", count: 1, max: 2, cooldownMs: 30_000 }),
+      ability.heal({ name: "Sombra Restauradora", pct: 0.05, belowHpPct: 0.5, cooldownMs: 25_000 }),
+    ],
     attackMs: 2000, attackRange: 5, stepMs: 340, aggroRange: 9, fleeAtHpPct: 0, respawnMs: 21_600_000, boss: true,
     gold: [20000, 35000],
     loot: [
@@ -881,6 +976,30 @@ export const MONSTERS: Record<string, MonsterDef> = {
 
 export function monsterDef(id: string): MonsterDef | undefined {
   return Object.hasOwn(MONSTERS, id) ? MONSTERS[id] : undefined;
+}
+
+/** Habilidade a partir do id do efeito visual (`m:<monstro>:<habilidade>`); undefined = não é de monstro. */
+export function monsterAbilityByFxId(spellId: string): MonsterAbility | undefined {
+  if (!spellId.startsWith(MONSTER_ABILITY_PREFIX)) return undefined;
+  const rest = spellId.slice(MONSTER_ABILITY_PREFIX.length);
+  const i = rest.indexOf(":");
+  if (i <= 0) return undefined;
+  return monsterDef(rest.slice(0, i))?.abilities?.find((a) => a.id === rest.slice(i + 1));
+}
+
+const ABILITY_TARGET: Record<MonsterAbility["shape"], SpellTarget> = {
+  target: "target", area_self: "area_self", area_target: "area_target", wave: "wave", self: "self",
+};
+
+/** SpellDef "de mentira" para o cliente desenhar a habilidade com o mesmo código das magias (grito = `words`). */
+export function monsterAbilitySpell(spellId: string): SpellDef | undefined {
+  const a = monsterAbilityByFxId(spellId);
+  if (!a) return undefined;
+  return {
+    id: spellId, name: a.name, words: a.name, vocations: [], level: 0, mana: 0, cooldownMs: a.cooldownMs, global: false,
+    target: ABILITY_TARGET[a.shape], range: a.range, radius: a.radius, length: a.length, width: a.width,
+    fx: a.fx, description: a.name,
+  };
 }
 
 /*

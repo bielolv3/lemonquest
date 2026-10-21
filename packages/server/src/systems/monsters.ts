@@ -77,6 +77,10 @@ export interface Monster {
   dmgMult?: number;
   /** Solto por uma alavanca de quest (Aniquilação): XP e loot normais, mas sem respawn. */
   questLever?: string;
+  /** Habilidades (monsterAbilities.ts): id da habilidade → quando fica pronta de novo. */
+  abilityReadyAt?: Map<string, number>;
+  /** Invocado por outro monstro (id do invocador): sem respawn, XP nem loot; some quando o invocador some. */
+  minionOf?: string;
 }
 
 /** Criatura que pode ser alvo de monstro: jogador ou invocação de jogador. */
@@ -170,6 +174,8 @@ export class MonsterManager {
   readonly now: () => number;
   /** Chamado pela IA quando um monstro ataca (combat.ts instala). */
   attackHook: (m: Monster, target: CreatureState, now: number) => void = () => {};
+  /** Chamado pela IA no turno de ataque, antes do ataque básico: true = usou uma habilidade (monsterAbilities.ts instala). */
+  abilityHook: (m: Monster, target: CreatureState, now: number) => boolean = () => false;
   /** IA das invocações (summons.ts instala). Sem hook, invocações ficam paradas. */
   summonAi: ((m: Monster, w: MonsterManager, now: number) => void) | null = null;
   /** Invocação morreu/sumiu (summons.ts limpa o registro do dono). */
@@ -395,7 +401,7 @@ export class MonsterManager {
       this.onSummonRemoved?.(m);
       return;
     }
-    if (m.arenaId || m.questLever) return; // onda do coliseu / sala de quest: sem respawn
+    if (m.arenaId || m.questLever || m.minionOf) return; // onda do coliseu / sala de quest / invocado por monstro: sem respawn
     this.respawns.push({ spawn: m.spawn, at: now + m.def.respawnMs, due: now + m.def.respawnMs });
   }
 
@@ -444,6 +450,51 @@ export class MonsterManager {
     delete m.arenaId;
     delete m.allow;
     m.questLever = o.leverId;
+    return m;
+  }
+
+  /**
+   * Ajudante invocado por `master` num tile livre a até 2 do invocador (null = sem lugar). Herda a sala/arena do
+   * invocador (limites, filtro de alvos, multiplicador de dano) e já nasce perseguindo o alvo dele.
+   */
+  spawnMinion(def: MonsterDef, master: Monster, now = this.now()): Monster | null {
+    const b = master.bounds;
+    let t: Point | null = null;
+    for (let r = 1; r <= 2 && !t; r++) {
+      for (let dy = -r; dy <= r && !t; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = master.s.x + dx, y = master.s.y + dy;
+        if (!this.inBounds(x, y) || !this.grid.isWalkable(x, y) || this.blockedForMonster(x, y)) continue;
+        if (b && (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1)) continue;
+        if (!this.los(master.s.x, master.s.y, x, y)) continue;
+        t = { x, y };
+        break;
+      }
+    }
+    if (!t) return null;
+    const s = new MonsterState();
+    s.id = `m${this.nextId++}`;
+    s.defId = def.id;
+    s.x = t.x;
+    s.y = t.y;
+    s.dir = master.s.dir;
+    // Coliseu: mesma escala de vida do invocador (o dano vem de dmgMult, herdado abaixo).
+    s.maxHp = Math.max(1, Math.round(def.hp * (master.s.maxHp / Math.max(1, master.def.hp))));
+    s.hp = s.maxHp;
+    const m: Monster = {
+      s, def, spawn: { defId: def.id, x: master.spawn.x, y: master.spawn.y, count: 1, radius: master.spawn.radius },
+      mode: "idle", sleeping: false, stepEndsAt: 0, nextThinkAt: now, nextWanderAt: now + 2000, nextAttackAt: now + 1000,
+      path: null, pathAt: 0, pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0, lastAttackerId: "", lastCreditId: "",
+      damageBy: new Map(), minionOf: master.s.id,
+      ...(master.arenaId !== undefined ? { arenaId: master.arenaId } : {}),
+      ...(b ? { bounds: b } : {}), ...(master.allow ? { allow: master.allow } : {}),
+      ...(master.dmgMult !== undefined ? { dmgMult: master.dmgMult } : {}),
+    };
+    const target = this.validTarget(master.s.targetId);
+    if (target && this.allowedFor(m, target.id)) { m.mode = "chase"; s.targetId = target.id; }
+    this.list.set(s.id, m);
+    this.occ.set(t.y * this.W + t.x, m);
+    this.o.collection.set(s.id, s);
     return m;
   }
 

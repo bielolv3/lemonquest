@@ -33,6 +33,7 @@ import { SummonSystem } from "../systems/summons.ts";
 import { SpellSystem } from "../systems/spells.ts";
 import { GOLD_ID, InventorySystem, makeItem } from "../systems/inventory.ts";
 import { PvpSystem } from "../systems/pvp.ts";
+import { MonsterAbilitySystem } from "../systems/monsterAbilities.ts";
 import { LootSystem } from "../systems/loot.ts";
 import { GroundSystem } from "../systems/ground.ts";
 import { NpcSystem, parseNpcs } from "../systems/npcs.ts";
@@ -106,6 +107,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private skills!: SkillSystem;
   private summons!: SummonSystem;
   private spells!: SpellSystem;
+  private monsterAbilities!: MonsterAbilitySystem;
   private inventory!: InventorySystem;
   private loot!: LootSystem;
   private ground!: GroundSystem;
@@ -141,6 +143,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
    * de conexão (pode morrer). Sem isso um cliente modificado escapava da morte saindo no último instante.
    */
   private lingering = new Map<string, { clear(): void; tick?(dt: number): void }>();
+  /** Sessões derrubadas por /kick (o onLeave que vem depois não as deixa no mundo). */
+  private kicked = new Set<string>();
   private throttle = new PerSecond();
   readonly errors = new ErrorLog();
   private reachable!: Uint8Array;
@@ -315,6 +319,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       isBlocked: (x, y) => this.npcs.isNpcAt(x, y) || this.portals.isPortalTile(x, y),
       isAlly: (a, b) => this.party.sameParty(a.id, b.id),
       areaHitsPlayer: (a, b) => !this.pvp.canAttack(a, b) && (b.id === a.targetId || this.pvp.justified(a, b)),
+    });
+    this.monsterAbilities = new MonsterAbilitySystem({
+      grid: this.map.grid, monsters: this.monsters, combat: this.combat, conditions: this.conditions,
+      players: () => this.state.players.values(), broadcast,
     });
     this.training = new TrainingSystem({
       statues: parseStatues(this.map.tiled), skills: this.skills,
@@ -516,12 +524,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const players = () => this.state.players.values();
     this.steps = [
       ["pvp", () => this.pvp.tick(this.tickNow, players())],
-      ["fight", () => this.fight.tick(this.tickNow, players())],
+      ["fight", () => this.fight.tick(this.tickNow, [...players()].filter((p) => !this.lingering.has(p.id)))],
       ["movement", () => this.movement.tick(this.tickNow, players())],
       ["portals", () => { for (const p of players()) this.portals.check(p); }],
       ["exploration", () => { for (const p of players()) this.exploration.onPosition(p.id, p.x, p.y); }],
       ["achievements", () => this.ach.tick(this.tickNow)],
       ["monsters", () => this.monsters.tick(this.tickNow)],
+      ["monsterAbilities", () => this.monsterAbilities.tick(this.tickNow)],
       ["combat", () => this.combat.tick(this.tickNow)],
       ["conditions", () => this.conditions.tick(this.tickNow)],
       ["regen", () => this.regen.tick(this.tickNow, players())],
@@ -640,7 +649,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
     const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
     this.fight.load(p, rec.data.stance, rec.data.chase, rec.data.auto);
-    this.pvp.load(p, rec.data.pvpKills);
+    this.pvp.load(p, rec.data.pvpKills, rec.data.pvpWhiteUntil, rec.data.pvpPzLockUntil);
     this.food.load(p.id, rec.data, Date.now());
     this.quests.load(p, rec.data.quests);
     rollWeek(rec, new Date());
@@ -761,9 +770,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.reconnecting.delete(sessionId);
       try { pending.reject(new Error("kicked")); } catch (e) { this.errors.report("kick.reconnect", e); }
     }
+    this.kicked.add(sessionId); // onLeave depois da reconexão recusada não deixa no mundo
     // Ficou no mundo depois de sair em combate: o kick tira já.
     const linger = this.lingering.get(sessionId);
-    if (linger) { linger.clear(); this.endLinger(sessionId); return; }
+    if (linger) { linger.clear(); this.endLinger(sessionId, true); return; }
     const c = this.clients.getById(sessionId);
     if (!c) return;
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
@@ -820,26 +830,45 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onLeave(client: Client, code?: number) {
     const sid = client.sessionId;
     const name = this.names.get(sid);
-    if (code === CloseCode.CONSENTED && this.shouldLinger(sid)) {
+    const kicked = this.kicked.delete(sid) || code === CLOSE_KICKED || code === CLOSE_TRAINING;
+    const ms = kicked ? 0 : this.lingerMs(sid, code === CloseCode.CONSENTED);
+    if (ms > 0) {
       const p = this.state.players.get(sid);
-      if (p) this.movement.teleport(p, p.x, p.y); // para de andar (como na queda): não chega à zona de proteção sozinho
-      console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${RECONNECT_S} s`);
-      this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), RECONNECT_S * 1000));
+      if (p) {
+        this.movement.teleport(p, p.x, p.y); // para de andar (como na queda): não chega à zona de proteção sozinho
+        // Sem ninguém no teclado não ataca nem segue (senão renovava o bloqueio de PZ e podia matar alguém sozinho).
+        p.targetId = "";
+        p.followId = "";
+      }
+      console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${Math.ceil(ms / 1000)} s`);
+      this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), ms));
       return;
     }
     this.cleanupSession(sid);
     if (name) console.log(`[world] ${name} saiu (código ${code}; ${this.state.players.size} online)`);
   }
 
-  /** Fica no mundo ao sair? Só vivo, em combate recente e fora de partida do Coliseu (lá sair já é desistir sem penalidade). */
-  private shouldLinger(sid: string): boolean {
+  /**
+   * Quanto tempo o personagem fica no mundo ao sair (0 = sai na hora). Só vivo e fora de partida do Coliseu (lá sair
+   * já é desistir sem penalidade). Saída voluntária em combate recente: RECONNECT_S. Bloqueio de PZ (atacou um
+   * jogador): até o bloqueio acabar, também depois de uma queda sem reconexão (fechar a aba não livra do revide).
+   */
+  private lingerMs(sid: string, consented: boolean): number {
     const p = this.state.players.get(sid);
-    return !this.shuttingDown && !!p && p.hp > 0 && this.combat.inCombat(sid, Date.now()) && !this.arena.inMatch(sid);
+    if (this.shuttingDown || !p || p.hp <= 0 || this.arena.inMatch(sid)) return 0;
+    const now = Date.now();
+    const combat = consented && this.combat.inCombat(sid, now) ? RECONNECT_S * 1000 : 0;
+    // Já dentro da PZ (carroça, portal): o bloqueio não tem mais o que impedir.
+    const lock = this.monsters.inPz(p.x, p.y) ? 0 : this.pvp.pzLockRemaining(sid, now);
+    return Math.max(combat, lock);
   }
 
   /** Fim da permanência após sair em combate (ou cancelamento: relogin/kick). */
-  private endLinger(sid: string) {
+  private endLinger(sid: string, force = false) {
     if (!this.lingering.delete(sid)) return;
+    // Levou um golpe de PvP de volta no meio e o bloqueio foi renovado: fica até ele acabar.
+    const more = force ? 0 : this.lingerMs(sid, false);
+    if (more > 0) { this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), more)); return; }
     const name = this.names.get(sid);
     this.cleanupSession(sid);
     if (name) console.log(`[world] ${name} saiu (após o combate; ${this.state.players.size} online)`);
@@ -884,6 +913,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.state.players.delete(sid);
       this.records.delete(sid);
       this.names.delete(sid);
+      this.kicked.delete(sid);
     }
   }
 
@@ -934,6 +964,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.data.chase = p.chase;
     rec.data.auto = p.auto;
     rec.data.pvpKills = this.pvp.savedKills(p.id);
+    const white = this.pvp.savedWhiteUntil(p.id);
+    if (white) rec.data.pvpWhiteUntil = white; else delete rec.data.pvpWhiteUntil;
+    const lock = this.pvp.savedPzLockUntil(p.id);
+    if (lock) rec.data.pvpPzLockUntil = lock; else delete rec.data.pvpPzLockUntil;
     rec.data.outfit = p.outfit;
     rec.data.addons = p.addons;
     const quests = this.quests.serialize(sessionId);
@@ -946,7 +980,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
    * invocações nem ondas do coliseu) + membros do grupo vivos a até PARTY_SHARE_RANGE tiles do monstro.
    */
   questCredit(m: Monster): string[] {
-    if (m.s.ownerId || m.arenaId) return [];
+    if (m.s.ownerId || m.arenaId || m.minionOf) return [];
     const out = new Set<string>();
     // Mesma regra da XP/loot (killCredit): quem bateu e foi para longe não conta.
     for (const [id] of killCredit(m, (pid) => this.state.players.get(pid))) {
@@ -962,7 +996,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
    * desde que pelo menos 2 membros do MESMO grupo tenham participado. Jogadores sem grupo nunca contam.
    */
   partyKillCredit(m: Monster): string[] {
-    if (m.s.ownerId) return [];
+    if (m.s.ownerId || m.minionOf) return [];
     const byParty = new Map<object, Set<string>>();
     for (const [id] of killCredit(m, (pid) => this.state.players.get(pid))) {
       const party = this.party.partyFor(id);

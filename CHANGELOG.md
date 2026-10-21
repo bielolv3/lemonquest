@@ -1,5 +1,39 @@
 # Changelog
 
+## [Não lançado] — 2026-10-21 · habilidades de monstros, estágios de XP e correção do PvP
+
+### Habilidades de monstros
+- `MonsterDef.abilities` (dados em `shared/data/monsterAbilities.ts`): golpe no alvo, área no próprio monstro, área no
+  alvo, onda (sopro), cura em si mesmo e invocação. Uma habilidade ocupa o turno do ataque básico (o dano por segundo
+  continua previsível); o primeiro uso só sai na metade do cooldown e a `chance` é sorteada uma vez por turno.
+- Golpes com **aviso** (`windupMs`): `S2C.MonsterTelegraph` marca os tiles no chão; o dano cai em quem continuar neles.
+  Matar o monstro durante o aviso cancela o golpe.
+- **Invocações de monstro** (`minionOf`): sem respawn, XP, loot, crédito de missão ou conquista; somem quando o
+  invocador some (morte, despawn, fim do Coliseu/sala da alavanca); herdam limites e filtro de alvos da arena.
+- 26 monstros com habilidades: os chefes (Lich, Rei Goblin, Raposa Chifruda, Demodras, Orshabaal, Barba-Ruiva, Rei
+  Kongra, Yeti, Ferumbras) e os do lv 30+ (tarântula, carniphila, xamã orc, minotauro mago, ciclope, olho maligno,
+  cavaleiro negro, dragões, behemoth, demônio, bruxa do gelo, necromante, elemental de magma, cão infernal, juggernaut).
+  Nenhuma passa de 2× o dano máximo do ataque básico do monstro (teste).
+- O cliente desenha com o mesmo código das magias (`monsterAbilitySpell`: o grito aparece no lugar das palavras mágicas).
+- Primeiro uso entre 30% e 100% do cooldown (sorteado: um bando não solta tudo junto); área/onda que não pegaria o
+  alvo (diagonal fora do cone) não é usada; armadura conta inteira, como no ataque básico; invocados no Coliseu
+  herdam a escala de vida do invocador.
+
+### Estágios de XP
+- `XP_STAGES`: XP de caça (abates e ondas do Coliseu) × 1 até o lv 59, × 0,6 do 60, × 0,4 do 80 e × 0,3 do 100.
+  Missões e desafios dão a XP cheia; a curva de XP não mudou (ninguém perde level). Aviso ao entrar num estágio novo e
+  dica na barra de XP.
+
+### PvP
+- **Correção:** sair do jogo apagava a caveira branca e o bloqueio de PZ. Agora o personagem fica no mundo até o
+  bloqueio acabar (também depois de uma queda sem reconexão; `/kick` continua tirando na hora) e o prazo da caveira
+  branca e do bloqueio ficam salvos no personagem (`pvpWhiteUntil`, `pvpPzLockUntil`): relogar não apaga nenhum dos
+  dois. Parado no mundo, o personagem não ataca nem segue ninguém; se o bloqueio for renovado nesse meio-tempo, fica
+  até ele acabar. Quem já está dentro da PZ sai na hora.
+
+### Testes
+- `e2e/arena.spec.ts`: o lobby mostra "2" (sem limite de pessoas desde b988e19), não "2/4".
+
 ## [Não lançado] — 2026-10-20 · Costa Esmeralda e quests estilo Tibia
 
 ### Mapa: Costa Esmeralda (segunda expansão a leste, 280 → 400 colunas)
