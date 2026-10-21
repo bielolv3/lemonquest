@@ -20,7 +20,7 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const HOTKEY_CODES: ReadonlySet<string> = new Set([
   ...Array.from({ length: 10 }, (_, i) => `Digit${i}`),
   ...[...LETTERS].map((c) => `Key${c}`),
-  "F2", "F3", "F4", "F10", "F11", "F12",
+  "F2", "F3", "F4", "F10", // F11 (tela cheia) e F12 (ferramentas do navegador) ficam de fora
   "Minus", "Equal", "Backquote", "BracketLeft", "BracketRight", "Semicolon", "Quote", "Comma", "Period", "Slash",
   "Backslash", "IntlBackslash", "IntlRo", "Space",
 ]);
@@ -75,20 +75,21 @@ export function keyLabel(key: string, layout?: ReadonlyMap<string, string>): str
 
 /**
  * Lista recebida do cliente → lista válida: até HOTKEY_MAX linhas, tecla válida e sem repetir, magia que a vocação
- * pode usar (pode ser de level ainda não alcançado: a barra mostra bloqueada). Linhas inválidas são descartadas.
+ * pode usar e sem repetir (pode ser de level ainda não alcançado: a barra mostra bloqueada). Linhas inválidas saem.
  */
 export function sanitizeHotkeys(raw: unknown, vocation: Vocation): Hotkey[] {
   if (!Array.isArray(raw)) return [];
   const out: Hotkey[] = [];
-  const keys = new Set<string>();
+  const keys = new Set<string>(), spells = new Set<string>();
   for (const r of raw.slice(0, HOTKEY_MAX * 2)) {
     if (out.length >= HOTKEY_MAX) break;
     if (!r || typeof r !== "object") continue;
     const { key, spellId } = r as Record<string, unknown>;
-    if (!isHotkeyKey(key) || keys.has(key) || typeof spellId !== "string") continue;
+    if (!isHotkeyKey(key) || keys.has(key) || typeof spellId !== "string" || spells.has(spellId)) continue;
     const def = spellDef(spellId);
     if (!def || !def.vocations.includes(vocation)) continue;
     keys.add(key);
+    spells.add(spellId);
     out.push({ key, spellId });
   }
   return out;
@@ -97,14 +98,26 @@ export function sanitizeHotkeys(raw: unknown, vocation: Vocation): Hotkey[] {
 /** Teclas da barra padrão: 1, 2, ..., 9, 0. */
 export const DEFAULT_KEYS: readonly string[] = [...Array.from({ length: 9 }, (_, i) => `Digit${i + 1}`), "Digit0"];
 
-/** Atalhos padrão da vocação: magias em ordem de level nas teclas 1–0. */
+/** Ordem em que teclas livres são sugeridas: 1–0, depois as letras livres, depois as mesmas com Shift. */
+export const SUGGESTED_KEYS: readonly string[] = (() => {
+  const plain = [...DEFAULT_KEYS, ...[...LETTERS].map((c) => `Key${c}`)];
+  return [...plain, ...plain.map((c) => SHIFT_PREFIX + c)].filter(isHotkeyKey);
+})();
+
+/** Próxima tecla sugerida que ainda não está em `taken` (null = nenhuma). */
+export function nextFreeKey(taken: Iterable<string>): string | null {
+  const used = new Set(taken);
+  return SUGGESTED_KEYS.find((k) => !used.has(k)) ?? null;
+}
+
+/** Atalhos padrão da vocação: TODAS as magias em ordem de level (1–0 e, se não couberem, letras livres). */
 export function defaultHotkeys(vocation: Vocation): Hotkey[] {
-  return spellsFor(vocation).slice(0, DEFAULT_KEYS.length).map((s, i) => ({ key: DEFAULT_KEYS[i]!, spellId: s.id }));
+  return spellsFor(vocation).slice(0, HOTKEY_MAX).map((s, i) => ({ key: SUGGESTED_KEYS[i]!, spellId: s.id }));
 }
 
 /**
  * Migração da barra antiga (ordem salva no navegador, slot i = tecla i+1): mesmas magias nas mesmas teclas; as
- * magias que não estavam na barra entram nas teclas livres seguintes (até 0).
+ * magias que não estavam na barra entram nas teclas livres seguintes (1–0, depois letras), até HOTKEY_MAX.
  */
 export function hotkeysFromOrder(order: readonly (string | null)[] | null, vocation: Vocation): Hotkey[] {
   if (!order) return defaultHotkeys(vocation);
@@ -113,11 +126,12 @@ export function hotkeysFromOrder(order: readonly (string | null)[] | null, vocat
   order.slice(0, 8).forEach((id, i) => {
     if (id && !used.has(id) && spellDef(id)?.vocations.includes(vocation)) { out.push({ key: DEFAULT_KEYS[i]!, spellId: id }); used.add(id); }
   });
-  const freeKeys = DEFAULT_KEYS.filter((k) => !out.some((h) => h.key === k));
   for (const s of spellsFor(vocation)) {
-    if (used.has(s.id) || !freeKeys.length) continue;
-    out.push({ key: freeKeys.shift()!, spellId: s.id });
+    if (used.has(s.id) || out.length >= HOTKEY_MAX) continue;
+    const key = nextFreeKey(out.map((h) => h.key));
+    if (!key) break;
+    out.push({ key, spellId: s.id });
     used.add(s.id);
   }
-  return sanitizeHotkeys(out.sort((a, b) => DEFAULT_KEYS.indexOf(a.key) - DEFAULT_KEYS.indexOf(b.key)), vocation);
+  return sanitizeHotkeys(out.sort((a, b) => SUGGESTED_KEYS.indexOf(a.key) - SUGGESTED_KEYS.indexOf(b.key)), vocation);
 }

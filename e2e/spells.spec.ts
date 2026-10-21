@@ -1,17 +1,42 @@
-// Magias do fim de jogo (lv 35–90) no jogo de verdade: palavras no chat → conjura (gasta mana). A Fúria do cavaleiro
+// Magias do fim de jogo (lv 35–90) no jogo de verdade: palavras no chat → conjura (o slot entra em recarga). A Fúria do cavaleiro
 // aparece na faixa de condições.
 import { expect, test, type Page } from "@playwright/test";
-import { enterGame, meState, say, setLevel, targetNearest, teleport, walkableNear } from "./helpers.ts";
+import { enterGame, me, monsters, say, setLevel, targetNearest, teleport, walkableNear } from "./helpers.ts";
 
 /** Floresta ao norte da vila (fora da PZ; ratos e gosmas para os alvos). */
 const FOREST = { x: 70, y: 62 };
 
-async function castSpends(page: Page, words: string, needsTarget: boolean): Promise<void> {
-  if (needsTarget) await targetNearest(page);
-  const mana0 = (await meState(page))!.mana as number;
-  await say(page, words);
-  await expect.poll(async () => (await meState(page))!.mana as number, { timeout: 5000, message: words }).toBeLessThan(mana0);
-  await page.waitForTimeout(1100); // recarga global
+/**
+ * Fala as palavras e confere que a magia saiu: o slot dela na barra entra em recarga (confirmação do servidor). Mana não
+ * serve de prova no lv 90: a regeneração por tique cobre o custo de algumas magias.
+ */
+async function castWorks(page: Page, words: string, name: string, needsTarget: boolean): Promise<void> {
+  const slot = page.locator(`.action-slot[data-tip="${name}"]`);
+  // Alvo de rato morre fácil (queimadura/veneno das magias anteriores) entre a mira e a magia: até 3 tentativas.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (needsTarget) {
+      // As magias de área anteriores limpam os ratos de perto, e um rato longe pode estar embaixo do HUD (o clique não
+      // pega): vai para o lado do monstro mais próximo e então mira.
+      const pos = (await me(page))!;
+      const t = (await monsters(page)).sort((a, b) => Math.max(Math.abs(a.x - pos.x), Math.abs(a.y - pos.y)) - Math.max(Math.abs(b.x - pos.x), Math.abs(b.y - pos.y)))[0];
+      const near = t && (await walkableNear(page, t.x, t.y, 2)).find((w) => w.x !== t.x || w.y !== t.y);
+      if (near) await teleport(page, near.x, near.y);
+      await targetNearest(page);
+    }
+    await say(page, words);
+    const ok = await slot.evaluate((el) => new Promise<boolean>((res) => {
+      const t0 = performance.now();
+      const check = () => {
+        if (el.classList.contains("cooling")) return res(true);
+        if (performance.now() - t0 > 4000) return res(false);
+        requestAnimationFrame(check);
+      };
+      check();
+    }));
+    if (ok || !needsTarget) { expect(ok, words).toBe(true); await page.waitForTimeout(1100); return; }
+    await page.waitForTimeout(1100);
+  }
+  throw new Error(`${words}: não conjurou em 3 tentativas`);
 }
 
 test("feiticeiro lv 90: as 4 magias novas conjuram pelas palavras", async ({ page }) => {
@@ -20,12 +45,15 @@ test("feiticeiro lv 90: as 4 magias novas conjuram pelas palavras", async ({ pag
   await setLevel(page, 90);
   const spot = (await walkableNear(page, FOREST.x, FOREST.y, 4))[0]!;
   await teleport(page, spot.x, spot.y);
-  await castSpends(page, "exevo flam hur", false);
-  await castSpends(page, "exori mort", true);
-  await castSpends(page, "exevo gran mas vis", false);
-  await castSpends(page, "exori gran flam", true);
-  // Os atalhos padrão (1–0) não comportam as 12 magias: as duas últimas ficam para o jogador pôr no painel.
-  await expect(page.locator(".action-slot")).toHaveCount(10);
+  // Primeiro as de alvo, com os ratos de vida cheia (morrem de um golpe). Depois das de área, os que sobram fogem
+  // com pouca vida (ratos fogem a 15%) e saem do alcance.
+  await castWorks(page, "exori mort", "Morte Súbita", true);
+  await castWorks(page, "exori gran flam", "Chama Eterna", true);
+  await castWorks(page, "exevo flam hur", "Onda de Fogo", false);
+  await castWorks(page, "exevo gran mas vis", "Tempestade Elétrica", false);
+  // Os atalhos padrão cobrem as 12 magias: 1–0 e, depois, C e F.
+  await expect(page.locator(".action-slot")).toHaveCount(12);
+  await expect(page.locator(".action-slot").nth(11).locator(".action-key")).toHaveText("F");
 });
 
 test("cavaleiro lv 50: Fúria (utito tempo) gasta mana e aparece nas condições", async ({ page }) => {
@@ -33,7 +61,7 @@ test("cavaleiro lv 50: Fúria (utito tempo) gasta mana e aparece nas condições
   await setLevel(page, 50);
   const spot = (await walkableNear(page, FOREST.x, FOREST.y, 4))[0]!;
   await teleport(page, spot.x, spot.y);
-  await castSpends(page, "utito tempo", false);
+  await castWorks(page, "utito tempo", "Fúria", false);
   await expect(page.locator(".conditions [data-tip^='Fúria']")).toHaveCount(1);
-  await castSpends(page, "exori min", false);
+  await castWorks(page, "exori min", "Golpe Frontal", false);
 });

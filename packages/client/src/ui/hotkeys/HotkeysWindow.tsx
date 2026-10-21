@@ -39,7 +39,7 @@ export function HotkeysWindow() {
   // Captura da tecla: antes de qualquer outro atalho do jogo (fase de captura + stopImmediatePropagation). Layout effect:
   // fica ativo antes de o "Pressione uma tecla…" aparecer (senão uma tecla apertada logo depois ia para o jogo).
   useLayoutEffect(() => {
-    if (capturing === null) return;
+    if (capturing === null || !open || !voc) return;
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -53,11 +53,21 @@ export function HotkeysWindow() {
       apply(r.list);
       setCapturing(null);
     };
+    // Clicar em outro lugar ou focar um campo de texto (chat) cancela a captura: senão ela engoliria o que for digitado.
+    const cancel = (e: Event) => {
+      if (!(e.target as HTMLElement | null)?.closest?.(".hk-key.capturing")) setCapturing(null);
+    };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [capturing, voc]);
+    window.addEventListener("pointerdown", cancel, true);
+    window.addEventListener("focusin", cancel, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", cancel, true);
+      window.removeEventListener("focusin", cancel, true);
+    };
+  }, [capturing, voc, open]);
 
-  useEffect(() => { if (!open) { setCapturing(null); setMsg(null); } }, [open]);
+  useEffect(() => { if (!open || !voc) { setCapturing(null); setMsg(null); } }, [open, voc]);
 
   if (!open || !me || !voc) return null;
   const pos = stored.x < 0 ? clampPos((window.innerWidth - W) / 2 - 110, 90) : clampPos(stored.x, stored.y);

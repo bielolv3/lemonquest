@@ -12,6 +12,18 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-21c",
+    date: "21 de outubro (à noite)",
+    title: "Atalhos de magia e magias novas",
+    items: [
+      "Aperte H (ou ⚙ no fim da barra) para escolher a tecla de cada magia: até 12 atalhos, também com Shift. Fica salvo no seu personagem.",
+      "Arrastar uma magia na barra para cima de outra troca as duas de tecla.",
+      "16 magias novas do lv 35 ao 90, quatro por vocação: ondas de fogo e gelo, Morte Súbita, tempestades, Chuva de Estrelas...",
+      "Cavaleiros ganham a Fúria (utito tempo): +25% de dano por 10 segundos.",
+      "Todas as magias da vocação já vêm na barra: 1–0 e, para quem tem 11 ou 12, C e F. Troque como quiser no painel (H).",
+    ],
+  },
+  {
     id: "2026-10-21b",
     date: "21 de outubro (à tarde)",
     title: "Coliseu mais rápido",

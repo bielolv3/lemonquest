@@ -18,6 +18,7 @@ import { Tooltip } from "./Tooltip.tsx";
 import "../items/bind.ts";
 import { DragLayer } from "../items/DragLayer.tsx";
 import { closeTopOverlay, useItemKeys } from "../items/keys.ts";
+import { dialogStore } from "../items/dialogs.ts";
 import { ItemTooltip } from "../items/ItemTooltip.tsx";
 import { LootToasts } from "../items/LootToasts.tsx";
 import { QuickPotions } from "../items/QuickPotions.tsx";
@@ -81,8 +82,12 @@ function useHudKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping() || e.ctrlKey || e.altKey || e.metaKey) return;
+      // Select do HUD focado (ex.: magia no painel H) não troca de opção por digitação: solta o foco antes.
+      const ae = document.activeElement;
+      if (ae instanceof HTMLSelectElement && ae.closest("#ui") && !/^(Arrow|Enter|Space|Tab)/.test(e.code)) { e.preventDefault(); ae.blur(); }
       // Atalhos de magia (painel H). Teclas do jogo nunca viram atalho (shared/hotkeys.ts), então não há disputa.
-      const slot = hotkeyIndex(effectiveHotkeys(meStore.get()?.vocation as Vocation | undefined), keyFromEvent(e));
+      // Com o diálogo de quantidade aberto as teclas são dele (o Esc continua fechando, mais abaixo).
+      const slot = dialogStore.get() ? -1 : hotkeyIndex(effectiveHotkeys(meStore.get()?.vocation as Vocation | undefined), keyFromEvent(e));
       if (slot >= 0) {
         e.preventDefault();
         if (!e.repeat) activateSlot(slot);

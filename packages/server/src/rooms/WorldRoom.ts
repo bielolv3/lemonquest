@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
-  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, type HotkeysMsg, type SetHotkeysMsg,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, type Hotkey, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -72,7 +72,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4, [C2S.SetHotkeys]: 2,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4, [C2S.SetHotkeys]: 5,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -665,7 +665,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const inv = this.inventory.inventoryMsg(p.id);
     if (inv) client.send(S2C.Inventory, inv);
     if (trained) client.send(S2C.TrainingResult, trained);
-    client.send(S2C.Hotkeys, { list: rec.data.hotkeys ?? null } satisfies HotkeysMsg);
+    client.send(S2C.Hotkeys, { list: this.hotkeysOf(rec, p.vocation) } satisfies HotkeysMsg);
     if (auth.weakPassword) {
       client.send(S2C.Notice, {
         text: "Sua senha é curta (menos de 6 caracteres). Considere uma senha mais forte.", kind: "warn",
@@ -791,6 +791,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(p.id);
     if (!rec || !m || typeof m !== "object") return;
     rec.data.hotkeys = sanitizeHotkeys(m.list, p.vocation);
+    // Confirma a lista salva: o cliente descobre se alguma edição se perdeu.
+    this.clients.getById(p.id)?.send(S2C.Hotkeys, { list: rec.data.hotkeys } satisfies HotkeysMsg);
+  }
+
+  /** Atalhos salvos, limpos de novo (magia renomeada/removida numa atualização); null = nunca configurou. */
+  private hotkeysOf(rec: CharacterRecord, vocation: Vocation): Hotkey[] | null {
+    return rec.data.hotkeys ? sanitizeHotkeys(rec.data.hotkeys, vocation) : null;
   }
 
   /** /tp <nome>: leva o admin para um tile livre ao redor do alvo (raio 1, depois 2). */
@@ -836,7 +843,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.conditions.refreshPlayer(sid);
     this.arena.resend(sid);
     this.quests.resend(sid);
-    { const rec = this.records.get(sid); if (rec) client.send(S2C.Hotkeys, { list: rec.data.hotkeys ?? null } satisfies HotkeysMsg); }
+    { const rec = this.records.get(sid), p = this.state.players.get(sid); if (rec && p) client.send(S2C.Hotkeys, { list: this.hotkeysOf(rec, p.vocation) } satisfies HotkeysMsg); }
     this.ach.sendState(sid);
     this.party.resend(sid);
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);

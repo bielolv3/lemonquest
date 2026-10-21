@@ -1,5 +1,29 @@
 # Changelog
 
+## [Não lançado] — 2026-10-21 · atalhos de magia e magias de fim de jogo
+
+### Painel de atalhos (tecla H ou ⚙ na barra)
+- Cada atalho liga uma **tecla** a uma **magia**: até 12, qualquer tecla livre (números, letras, F2–F4, F10–F12,
+  símbolos), também com Shift. Ctrl/Alt ficam de fora (o navegador usa).
+- Teclas do próprio jogo (andar, Q/E, I, K, L, M, B, O, J, R, H, F1, F5–F9, Enter, Esc) são recusadas com o motivo
+  ("Tecla Q usada por: Poção de vida"); escolher a tecla de outra linha troca as duas.
+- **Salvo no personagem** (servidor, `rec.data.hotkeys`): vale em qualquer PC. Na primeira entrada a barra antiga
+  (ordem salva no navegador) vira atalhos nas teclas 1–8; sem ela, o padrão é 1–0 em ordem de level.
+- A barra mostra um slot por atalho, com a tecla de cada um; arrastar um slot sobre outro troca as magias (as teclas
+  ficam). O arrastar estava quebrado no Chrome (o `mousedown` dos botões do HUD era cancelado) — corrigido.
+
+### 16 magias novas (lv 35, 50, 70 e 90)
+- Cavaleiro: Golpe Frontal (`exori min`), **Fúria** (`utito tempo`, +25% de dano por 10 s), Fúria Giratória
+  (`exori mas`), Golpe Aniquilador (`exori gran ico`).
+- Paladino: Flecha Explosiva (`exevo con flam`), Flecha Paralisante (`exori con hur`), Julgamento Divino
+  (`exori gran san`), Chuva de Estrelas (`exevo gran mas con`).
+- Feiticeiro: Onda de Fogo (`exevo flam hur`), Morte Súbita (`exori mort`), Tempestade Elétrica (`exevo gran mas vis`),
+  Chama Eterna (`exori gran flam`).
+- Druida: Onda de Gelo (`exevo frigo hur`), Esmagar Terra (`exori gran tera`), Tempestade de Terra
+  (`exevo gran mas tera`), Fúria da Natureza (`exori gran frigo`).
+- Nenhuma cura nova. Metas em `spells.test.ts`: cada uma rende 1–1,7× a antecessora da mesma categoria no level em que
+  libera; mana ≤ 35% da máxima; cooldowns por categoria.
+
 ## [Não lançado] — 2026-10-21 · Coliseu sem esperas e com botão de sair
 
 - **Ondas emendadas:** entre ondas comuns só um respiro de 3 s (`ARENA_BREAK_MS`, fase `break`), sem loja nem "Pronto".

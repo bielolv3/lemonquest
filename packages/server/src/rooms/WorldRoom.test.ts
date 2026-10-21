@@ -398,6 +398,8 @@ describe("WorldRoom: atalhos de magia", () => {
     expect(first?.[1]).toEqual({ list: null });
     const p = r.state.players.get("h1");
     r.setHotkeys(p, { list: [{ key: "KeyF", spellId: "fireball" }, { key: "KeyQ", spellId: "inferno" }, { key: "Digit2", spellId: "ice_shard" }] });
+    // Confirma ao cliente a lista que ficou salva (limpa).
+    expect(c.send.mock.calls.filter(([t]: any[]) => t === "hotkeys").at(-1)?.[1]).toEqual({ list: [{ key: "KeyF", spellId: "fireball" }] });
     r.onLeave(c, 4000);
     expect(getCharacterByName("Hugo")!.data.hotkeys).toEqual([{ key: "KeyF", spellId: "fireball" }]);
     const c2 = fakeClient(r, "h2");

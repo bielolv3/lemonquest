@@ -35,13 +35,49 @@ let send: (list: Hotkey[]) => void = (list) => { session.room?.send(C2S.SetHotke
 /** Testes/harness: troca o envio ao servidor. */
 export function setHotkeysTransport(fn: (list: Hotkey[]) => void): void { send = fn; }
 
-/** Aplica (já limpa pelas mesmas regras do servidor) e envia. */
+/**
+ * Envio com espera: várias edições seguidas (adicionar 3 linhas, arrastar duas vezes) viram UM envio com a lista final
+ * (o servidor limita as mensagens por segundo). O servidor responde com a lista salva (S2C.Hotkeys).
+ */
+export const HOTKEYS_SEND_DELAY_MS = 400;
+let sendTimer = 0;
+/** Última lista enviada que o servidor ainda não confirmou. */
+let awaiting: Hotkey[] | null = null;
+let mismatches = 0;
+const same = (a: readonly Hotkey[] | null, b: readonly Hotkey[] | null) => JSON.stringify(a) === JSON.stringify(b);
+
+function flush(): void {
+  if (sendTimer) { clearTimeout(sendTimer); sendTimer = 0; }
+  const list = hotkeysStore.get();
+  if (!list) return;
+  awaiting = list;
+  send(list);
+}
+
+/** Aplica na hora (já limpa pelas mesmas regras do servidor) e agenda o envio. */
 export function setHotkeys(list: readonly Hotkey[]): void {
   const voc = meStore.get()?.vocation as Vocation | undefined;
   const clean = voc ? sanitizeHotkeys(list, voc) : list.slice();
   hotkeysStore.set(clean);
-  send(clean);
+  mismatches = 0;
+  if (sendTimer) clearTimeout(sendTimer);
+  sendTimer = window.setTimeout(flush, HOTKEYS_SEND_DELAY_MS);
 }
+
+/**
+ * Lista vinda do servidor. Com edição local ainda não enviada, fica a local. Se ela não bate com o que enviamos
+ * (reenvio da reconexão com a lista velha, envio perdido), manda a local de novo — uma vez; na segunda divergência
+ * vale a do servidor.
+ */
+function receive(list: Hotkey[]): void {
+  if (sendTimer) return;
+  if (awaiting && !same(list, awaiting) && mismatches < 1) { mismatches++; flush(); return; }
+  awaiting = null;
+  hotkeysStore.set(list);
+}
+
+// Fechar/recarregar a página logo depois de editar: manda o que falta.
+try { window.addEventListener("pagehide", () => { if (sendTimer) flush(); }); } catch { /* sem window */ }
 
 // --- carga e migração ------------------------------------------------------------------
 
@@ -60,7 +96,7 @@ function tryMigrate(): void {
 
 session.onRoom((room) => {
   room.onMessage(S2C.Hotkeys, (m: HotkeysMsg) => {
-    if (Array.isArray(m?.list)) { migrate = false; hotkeysStore.set(m.list); return; }
+    if (Array.isArray(m?.list)) { migrate = false; receive(m.list); return; }
     hotkeysStore.set(null);
     migrate = true;
     tryMigrate();

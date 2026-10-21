@@ -47,6 +47,14 @@ describe("edição dos atalhos", () => {
     expect(list).toHaveLength(HOTKEY_MAX);
     expect(addRow(list, "druid").error).toBe(true);
     expect(new Set(list.map((h) => h.key)).size).toBe(HOTKEY_MAX);
-    expect(nextFreeKey([{ key: "Digit1", spellId: "x" }])).toBe("Digit2");
+    expect(nextFreeKey(["Digit1"])).toBe("Digit2");
+  });
+
+  it("sem magia repetida: escolher a magia de outra linha troca as duas; com todas já em atalhos, não adiciona", () => {
+    expect(setRowSpell(L, 1, "fireball")).toEqual([{ key: "Digit1", spellId: "energy_wave" }, { key: "Digit2", spellId: "fireball" }]);
+    let list: Hotkey[] = [];
+    for (let i = 0; i < 11; i++) list = addRow(list, "knight").list; // cavaleiro tem 11 magias
+    expect(new Set(list.map((h) => h.spellId)).size).toBe(11);
+    expect(addRow(list, "knight")).toMatchObject({ error: true, message: "Todas as suas magias já têm atalho." });
   });
 });

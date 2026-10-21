@@ -182,7 +182,8 @@ export function WorldMapOverlay() {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") { setOpen(false); return; }
-      if ((e.key === "m" || e.key === "M") && !isTyping()) { e.preventDefault(); setOpen((o) => !o); }
+      // Tecla física (code), como os atalhos de magia: em outros layouts o "m" cai noutra tecla, que pode ser um atalho.
+      if (e.code === "KeyM" && !isTyping()) { e.preventDefault(); setOpen((o) => !o); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

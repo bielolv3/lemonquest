@@ -1,8 +1,10 @@
 // Edição dos atalhos no painel (puro, sem DOM: testável). As regras de validade são as do servidor (shared/hotkeys.ts).
 import {
-  DEFAULT_KEYS, HOTKEY_CODES, HOTKEY_MAX, SHIFT_PREFIX, isHotkeyKey, reservedFor, spellsFor,
+  HOTKEY_MAX, SHIFT_PREFIX, isHotkeyKey, nextFreeKey, reservedFor, spellsFor,
   type Hotkey, type Vocation,
 } from "@lemonquest/shared";
+
+export { nextFreeKey };
 
 export interface EditResult {
   list: Hotkey[];
@@ -36,31 +38,29 @@ export function assignKey(list: readonly Hotkey[], i: number, key: string, label
   return { list: out };
 }
 
+/** Troca a magia da linha `i`. Se a magia já está em outra linha, as duas linhas trocam de magia (sem repetir). */
 export function setRowSpell(list: readonly Hotkey[], i: number, spellId: string): Hotkey[] {
-  return list.map((h, k) => (k === i ? { ...h, spellId } : { ...h }));
+  const out = list.map((h) => ({ ...h }));
+  const row = out[i];
+  if (!row) return out;
+  const j = out.findIndex((h, k) => k !== i && h.spellId === spellId);
+  if (j >= 0) out[j]!.spellId = row.spellId;
+  row.spellId = spellId;
+  return out;
 }
 
 export function removeRow(list: readonly Hotkey[], i: number): Hotkey[] {
   return list.filter((_, k) => k !== i).map((h) => ({ ...h }));
 }
 
-/** Próxima tecla livre: 1–0, depois letras livres, depois as mesmas com Shift. */
-export function nextFreeKey(list: readonly Hotkey[]): string | null {
-  const taken = new Set(list.map((h) => h.key));
-  const letters = [...HOTKEY_CODES].filter((c) => c.startsWith("Key"));
-  const plain = [...DEFAULT_KEYS, ...letters];
-  for (const k of [...plain, ...plain.map((c) => SHIFT_PREFIX + c)]) if (!taken.has(k) && isHotkeyKey(k)) return k;
-  return null;
-}
-
-/** Nova linha: tecla livre + a primeira magia da vocação que ainda não tem atalho (ou a primeira de todas). */
+/** Nova linha: tecla livre + a primeira magia da vocação que ainda não tem atalho. */
 export function addRow(list: readonly Hotkey[], vocation: Vocation): EditResult {
   const out = list.map((h) => ({ ...h }));
   if (out.length >= HOTKEY_MAX) return { list: out, error: true, message: `No máximo ${HOTKEY_MAX} atalhos.` };
-  const key = nextFreeKey(out);
-  const spells = spellsFor(vocation);
-  const spell = spells.find((s) => !out.some((h) => h.spellId === s.id)) ?? spells[0];
-  if (!key || !spell) return { list: out };
+  const spell = spellsFor(vocation).find((s) => !out.some((h) => h.spellId === s.id));
+  if (!spell) return { list: out, error: true, message: "Todas as suas magias já têm atalho." };
+  const key = nextFreeKey(out.map((h) => h.key));
+  if (!key) return { list: out };
   out.push({ key, spellId: spell.id });
   return { list: out };
 }

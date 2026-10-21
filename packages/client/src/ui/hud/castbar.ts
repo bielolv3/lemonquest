@@ -54,14 +54,28 @@ function publishSlot(i: number) {
   } : null);
 }
 
-/** Slots = atalhos (tecla + magia). A recarga acompanha a MAGIA quando ela muda de slot. */
+/**
+ * Recarga por MAGIA (não por slot): sobrevive a tirar a magia da barra e pôr de volta. `globalCd` = recarga global
+ * atual, aplicada também a uma magia que entra na barra no meio dela.
+ */
+const spellCd = new Map<string, Cooldown>();
+let globalCd: Cooldown | null = null;
+const active = (c: Cooldown | null | undefined, now: number): c is Cooldown => !!c && c.end > now;
+
+/** Slots = atalhos (tecla + magia). A recarga acompanha a MAGIA quando ela muda de slot ou sai e volta. */
 function fillSlots(vocation: Vocation | undefined) {
+  const now = performance.now();
+  slotSpells.forEach((s, i) => { const c = cooldownStore.get()[i]; if (s && active(c, now)) spellCd.set(s.id, c); });
   const list = effectiveHotkeys(vocation).slice(0, ACTION_SLOTS);
-  const oldCd = new Map<string, Cooldown | null>();
-  slotSpells.forEach((s, i) => { if (s) oldCd.set(s.id, cooldownStore.get()[i] ?? null); });
   slotSpells = Array.from({ length: ACTION_SLOTS }, (_, i) => (list[i] ? spellDef(list[i]!.spellId) ?? null : null));
   slotKeys = list.map((h) => h.key);
-  slotSpells.forEach((s, i) => { publishSlot(i); setCooldownAt(i, s ? oldCd.get(s.id) ?? null : null); });
+  slotSpells.forEach((s, i) => {
+    publishSlot(i);
+    const own = s ? spellCd.get(s.id) : undefined;
+    const g = s && s.global !== false && active(globalCd, now) ? globalCd : null;
+    const cd = active(own, now) ? (g && g.end > own.end ? g : own) : g;
+    setCooldownAt(i, cd ?? null);
+  });
   slotCountStore.set(list.length);
 }
 
@@ -94,6 +108,8 @@ function activate(slot: number) {
   const set: (Cooldown | null)[] = Array(ACTION_SLOTS).fill(null);
   const own: Cooldown = { start: now, end: now + Math.max(spell.cooldownMs, spell.global === false ? 0 : GLOBAL_SPELL_COOLDOWN_MS) };
   setCooldownAt(slot, own); set[slot] = own;
+  spellCd.set(spell.id, own);
+  if (spell.global !== false) globalCd = { start: now, end: now + GLOBAL_SPELL_COOLDOWN_MS };
   if (spell.global !== false) {
     slotSpells.forEach((s, i) => {
       if (i === slot || !s || s.global === false) return;
@@ -115,8 +131,11 @@ export function handleCastResult(r: CastResultMsg): void {
   const now = performance.now();
   if (r.ok) {
     const spell = slotSpells[slot];
-    if (slot >= 0) setCooldownAt(slot, { start: now, end: now + (r.cooldownMs ?? spell?.cooldownMs ?? 0) });
+    const mine: Cooldown = { start: now, end: now + (r.cooldownMs ?? spell?.cooldownMs ?? 0) };
+    spellCd.set(r.spellId, mine);
+    if (slot >= 0) setCooldownAt(slot, mine);
     const g = r.globalMs ?? GLOBAL_SPELL_COOLDOWN_MS;
+    globalCd = { start: now, end: now + g };
     slotSpells.forEach((s, i) => {
       if (i === slot || !s || s.global === false) return;
       const c = cooldownStore.get()[i];
@@ -127,7 +146,13 @@ export function handleCastResult(r: CastResultMsg): void {
   if (p) {
     p.set.forEach((mine, i) => { if (mine && cooldownStore.get()[i] === mine) setCooldownAt(i, p.prev[i]); });
   }
-  if (slot >= 0 && r.reason === "cooldown" && r.cooldownMs) setCooldownAt(slot, { start: now, end: now + r.cooldownMs });
+  // A recarga otimista não valeu: a da magia só fica se o servidor disse que ela está em recarga; a global some.
+  if (p) globalCd = null;
+  if (r.reason === "cooldown" && r.cooldownMs) {
+    const cd: Cooldown = { start: now, end: now + r.cooldownMs };
+    spellCd.set(r.spellId, cd);
+    if (slot >= 0) setCooldownAt(slot, cd);
+  } else spellCd.delete(r.spellId);
   fail(Math.max(slot, 0), r.reason ?? "unknown");
 }
 
