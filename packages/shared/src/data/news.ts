@@ -12,6 +12,16 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-21b",
+    date: "21 de outubro (à tarde)",
+    title: "Coliseu mais rápido",
+    items: [
+      "Acabou a espera entre as ondas: venceu uma, a próxima vem 3 segundos depois.",
+      "O vendedor do Coliseu abre só depois das ondas de chefe (5, 10, 15...), com tempo para comprar e se curar.",
+      "Botão Sair na barra do Coliseu: dá para sair a qualquer momento, ficando com o que já ganhou.",
+    ],
+  },
+  {
     id: "2026-10-21",
     date: "21 de outubro",
     title: "Monstros mais espertos",

@@ -236,7 +236,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.npcs = new NpcSystem({
       npcs: parseNpcs(this.map.tiled), inventory: this.inventory,
       players: () => this.state.players.values(), getPlayer, send, broadcast,
-      blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende nas pausas entre as ondas." : null),
+      blocked: (p, npcId) => (this.arena && !this.arena.canUseShop(p, npcId) ? "A loja do Coliseu só atende na pausa depois das ondas de chefe (5, 10, 15...)." : null),
       travel: (p, x, y) => {
         const to = nearestFreeTile(x, y, (tx, ty) => this.isFreeTile(tx, ty, p.id)) || { x, y };
         this.fight.cancelFollow(p);

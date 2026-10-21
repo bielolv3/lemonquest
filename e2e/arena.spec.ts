@@ -1,5 +1,5 @@
-// Coliseu: janela do Mestre (lobbies), partida solo (ondas, pausa com vendedor, Pronto, desistir → resultado) e grupo
-// com dois navegadores.
+// Coliseu: janela do Mestre (lobbies), partida solo (ondas emendadas, pausa com vendedor depois da onda-chefe, Pronto,
+// sair → resultado) e grupo com dois navegadores.
 import { expect, test, type Page } from "@playwright/test";
 import { clickTile, enterGame, me, meState, monsters, setChase, setLevel, snap, targetNearest, teleport, tileToClient, walkableNear } from "./helpers.ts";
 
@@ -51,19 +51,25 @@ async function seenUi(page: Page, cls: string, text: string, timeout = 15_000): 
   return hit!;
 }
 
-/** Mata todos os monstros da onda atual (alvo no mais perto, modo seguir ligado). */
-async function clearWave(page: Page): Promise<void> {
-  await expect(bar(page)).toContainText("Onda", { timeout: 20_000 });
+/** Mata todos os monstros da onda `wave` (alvo no mais perto, modo seguir ligado) até o aviso "Onda N vencida". */
+async function clearWave(page: Page, wave: number): Promise<void> {
+  const done = () => page.evaluate((t) => ((window as any).__seenUi as SeenUi[]).some((s) => s.cls === "toast" && s.text.includes(t)), `Onda ${wave} vencida`);
   await expect.poll(async () => {
-    const t = await bar(page).textContent().catch(() => "");
-    if (!t || /Pausa/.test(t)) return "pausa";
-    // Espera curta: se a onda acabar durante a mira, a pausa (25 s) não pode passar inteira dentro desta chamada.
+    if (await done()) return true;
+    // Espera curta na mira: as ondas comuns emendam (respiro de 3 s), então a onda pode acabar durante a chamada.
     if ((await monsters(page)).length) await targetNearest(page, undefined, 3000).catch(() => "");
-    return /Pausa/.test((await bar(page).textContent().catch(() => "")) ?? "") ? "pausa" : t;
-  }, { timeout: 90_000, intervals: [1000] }).toBe("pausa");
+    return done();
+  }, { timeout: 90_000, intervals: [1000], message: `onda ${wave} vencida` }).toBe(true);
 }
 
-test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 2 → desistir → resultado", async ({ page }) => {
+/** Botão "Sair" da barra do coliseu + confirmação no próprio HUD. */
+async function leaveArena(page: Page): Promise<void> {
+  await bar(page).getByRole("button", { name: "Sair" }).click();
+  await bar(page).getByRole("button", { name: "Sim, sair" }).click();
+}
+
+test("coliseu solo: ondas 1–5 emendadas → pausa (vendedor) → Pronto → onda 6 → sair → resultado", async ({ page }) => {
+  test.setTimeout(300_000);
   await enterGame(page, "knight");
   await setLevel(page, 40);
   await setChase(page, true);
@@ -81,9 +87,13 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
   await seenUi(page, "banner", "Onda 1", 20_000);
   const hp0 = (await meState(page))!.hp;
   expect(hp0).toBeGreaterThan(0);
-  await clearWave(page);
+  // Ondas comuns emendam: só um respiro curto, sem vendedor nem "Pronto".
+  await clearWave(page, 1);
+  await seenUi(page, "bar", "Onda 1 vencida! Próxima em");
+  await seenUi(page, "banner", "Onda 2", 20_000);
+  for (let w = 2; w <= 5; w++) await clearWave(page, w);
 
-  // Pausa: botão Pronto, ganho acumulado e o vendedor do coliseu abre a loja.
+  // Depois da onda-chefe (5): pausa com botão Pronto, ganho acumulado e o vendedor do coliseu abre a loja.
   await expect(bar(page)).toContainText("Vendedor do Coliseu aberto");
   await snap(page, "arena-pause");
   // O aviso da onda vencida aparece ABAIXO da barra (antes ficava escondido atrás dela).
@@ -128,17 +138,16 @@ test("coliseu solo: iniciar → onda 1 → pausa (vendedor) → Pronto → onda 
   await ready.click();
   await expect(page.locator(".arena-bar.pause")).toContainText("Pronto ✓");
   // Pronto (todos) → começa em 3 s.
-  await seenUi(page, "banner", "Onda 2");
-  await seenUi(page, "bar", "Onda 2/30");
+  await seenUi(page, "banner", "Onda 6");
+  await seenUi(page, "bar", "Onda 6/30");
 
-  // Desistir (⚑ + confirmação) → cartão de resultado com a onda vencida.
-  page.once("dialog", (d) => d.accept());
-  await bar(page).locator(".arena-mini").click();
+  // Sair (botão + confirmação no HUD) → cartão de resultado com as ondas vencidas.
+  await leaveArena(page);
   const card = page.getByRole("dialog", { name: "Resultado do Coliseu" });
   await expect(card).toBeVisible({ timeout: 10_000 });
   await expect(card).toContainText("Você saiu do Coliseu");
-  // 1 onda (ou 2, se a onda 2 acabou antes do clique em desistir com a máquina lenta).
-  await expect(card).toContainText(/[12] ondas? vencidas?/);
+  // 5 ondas (ou 6, se a onda 6 acabou antes do clique em sair com a máquina lenta).
+  await expect(card).toContainText(/[56] ondas vencidas/);
   await snap(page, "arena-result");
   // Centralizado na tela (a animação de entrada não pode deslocar o cartão) e sem a faixa "Onda N!" por cima.
   await expect(page.locator(".arena-banner")).toHaveCount(0);
@@ -180,12 +189,10 @@ test("coliseu em grupo: dois jogadores, lobby → entrar → iniciar → ambos n
     const ma = (await me(a))!, mb = (await me(b))!;
     expect(Math.max(Math.abs(ma.x - mb.x), Math.abs(ma.y - mb.y))).toBeLessThan(10);
     // Um desiste: o outro continua; depois o segundo também.
-    a.once("dialog", (d) => d.accept());
-    await bar(a).locator(".arena-mini").click();
+    await leaveArena(a);
     await expect(a.getByRole("dialog", { name: "Resultado do Coliseu" })).toBeVisible();
     await expect(bar(b)).toContainText("Onda");
-    b.once("dialog", (d) => d.accept());
-    await bar(b).locator(".arena-mini").click();
+    await leaveArena(b);
     await expect(b.getByRole("dialog", { name: "Resultado do Coliseu" })).toBeVisible();
   } finally {
     await ca.close();

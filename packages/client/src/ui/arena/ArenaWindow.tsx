@@ -31,7 +31,7 @@ export function ArenaWindow() {
         <div class="arena-info">
           Arenas livres: <b>{list?.freeArenas ?? "?"}/{ARENA_COUNT}</b> · Fila: <b>{list?.queue ?? 0}</b>
         </div>
-        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (sem limite de pessoas). Pausas entre as ondas para comprar e curar. Cair aqui não tem penalidade. XP das ondas só para quem tem pelo menos 2/3 do level do mais alto do grupo.</div>
+        <div class="arena-hint">Enfrente ondas de monstros sozinho ou em grupo (sem limite de pessoas). As ondas vêm uma atrás da outra; depois de cada chefe (ondas 5, 10, 15...) há uma pausa para comprar e curar. Dá para sair a qualquer momento (botão Sair) ficando com o que já ganhou. Cair aqui não tem penalidade. XP das ondas só para quem tem pelo menos 2/3 do level do mais alto do grupo.</div>
         <ArenaQuests />
         {mine ? (
           <div class="arena-mine">

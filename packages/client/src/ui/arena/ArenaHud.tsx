@@ -1,5 +1,5 @@
-// HUD da partida do coliseu (topo, centro): contagem 3-2-1, "Onda 7 · 5 monstros", pausa com "Pronto", faixa de onda e
-// cartão de resultado.
+// HUD da partida do coliseu (topo, centro): contagem 3-2-1, "Onda 7 · 5 monstros", respiro entre ondas, pausa com
+// "Pronto" (depois das ondas-chefe), botão de sair (com confirmação), faixa de onda e cartão de resultado.
 import { useEffect, useState } from "preact/hooks";
 import { ARENA_MAX_WAVE, partyMinLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
@@ -23,7 +23,7 @@ export function ArenaHud() {
 function MatchBar() {
   const st = useStore(arenaStateStore);
   const phase = st?.s.phase;
-  useTicker(phase === "countdown" || phase === "pause" || phase === "queued" ? 200 : 0);
+  useTicker(phase === "countdown" || phase === "pause" || phase === "break" || phase === "queued" ? 200 : 0);
   if (!st) return null;
   const s = st.s;
   const left = phaseRemaining(st);
@@ -36,7 +36,7 @@ function MatchBar() {
     if (s.phase === "countdown") return <div class="arena-bar">Entrando no Coliseu em <b>{secs}</b> s</div>;
     return (
       <div class="arena-bar small">
-        Coliseu · {s.phase === "queued" ? "na fila, aguardando uma arena" : `grupo ${s.members.length}/4 — fique perto do Mestre`}
+        Coliseu · {s.phase === "queued" ? "na fila, aguardando uma arena" : `grupo de ${s.members.length} — fique perto do Mestre`}
       </div>
     );
   }
@@ -48,7 +48,16 @@ function MatchBar() {
         <span>Onda <b>{s.wave}</b>/{ARENA_MAX_WAVE}</span>
         <span class="sep">·</span>
         <span>{s.monstersLeft ?? 0} {s.monstersLeft === 1 ? "monstro" : "monstros"}</span>
-        <button class="arena-mini" onClick={() => { if (confirm("Desistir do Coliseu? Você fica com o que já ganhou.")) arenaAction({ action: "leave" }); }} data-tip="Desistir">⚑</button>
+        <LeaveButton />
+      </div>
+    );
+  }
+  if (s.phase === "break") {
+    const next = s.wave + 1;
+    return (
+      <div class="arena-bar">
+        <span>Onda <b>{s.wave}</b> vencida! Próxima{next % 5 === 0 ? " (chefe!)" : ""} em <b>{secs}</b> s</span>
+        <LeaveButton />
       </div>
     );
   }
@@ -63,6 +72,7 @@ function MatchBar() {
           <button class={`arena-btn primary${me?.ready ? " done" : ""}`} disabled={!me?.alive || me?.ready} onClick={() => arenaAction({ action: "ready" })}>
             {me?.ready ? "Pronto ✓" : "Pronto"}
           </button>
+          <LeaveButton />
         </div>
         <div class="arena-pause-members">
           {s.members.map((m) => (
@@ -77,6 +87,26 @@ function MatchBar() {
     );
   }
   return null;
+}
+
+/** Sair do Coliseu: o primeiro clique pede confirmação ali mesmo (sem diálogo do navegador); some sozinha em 4 s. */
+function LeaveButton() {
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (!asking) return;
+    const t = window.setTimeout(() => setAsking(false), 4000);
+    return () => clearTimeout(t);
+  }, [asking]);
+  if (!asking) {
+    return <button class="arena-btn arena-leave" onClick={() => setAsking(true)} data-tip="Volta para a Vila com o que já ganhou">Sair</button>;
+  }
+  return (
+    <span class="arena-leave-ask">
+      Sair do Coliseu?
+      <button class="arena-btn danger" onClick={() => { setAsking(false); arenaAction({ action: "leave" }); }}>Sim, sair</button>
+      <button class="arena-btn" onClick={() => setAsking(false)}>Não</button>
+    </span>
+  );
 }
 
 function WaveBanner() {

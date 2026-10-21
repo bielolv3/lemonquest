@@ -1,5 +1,14 @@
 # Changelog
 
+## [Não lançado] — 2026-10-21 · Coliseu sem esperas e com botão de sair
+
+- **Ondas emendadas:** entre ondas comuns só um respiro de 3 s (`ARENA_BREAK_MS`, fase `break`), sem loja nem "Pronto".
+- **Pausa com o vendedor só depois das ondas-chefe** (5, 10, 15...): 45 s (`ARENA_SHOP_PAUSE_MS`), "Pronto" continua
+  encurtando. A cura de 30% no fim de cada onda continua.
+- **Sair do Coliseu:** botão "Sair" sempre visível na barra da partida (luta, respiro e pausa), com confirmação no
+  próprio HUD (antes: um ⚑ pequeno só durante a luta, com o diálogo do navegador).
+- Lobby mostra "grupo de N" (sem limite de pessoas; antes "N/4").
+
 ## [Não lançado] — 2026-10-21 · habilidades de monstros, estágios de XP e correção do PvP
 
 ### Habilidades de monstros

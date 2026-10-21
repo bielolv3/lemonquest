@@ -97,7 +97,7 @@ export type ArenaActionMsg =
   | { action: "join"; lobbyId: string }
   | { action: "leave" }                       // sai do lobby OU desiste da partida (volta à vila)
   | { action: "start" }                       // só o líder: inicia (precisa estar perto do NPC do coliseu)
-  | { action: "ready" };                      // durante a pausa: "pronto" (todos prontos = próxima onda já)
+  | { action: "ready" };                      // durante a pausa com vendedor: "pronto" (todos prontos = próxima onda já)
 
 export interface FightModeMsg { stance: FightStance; chase: boolean; /** Ataque automático: escolhe sozinho o monstro mais próximo. */ auto?: boolean }
 export interface FollowMsg { targetId: string | null }
@@ -308,14 +308,15 @@ export interface TrainingOpenMsg { statueId: string }
 export interface TrainingResultMsg { skill: SkillId; minutes: number; levelsGained: number; newLevel: number; pct: number }
 export interface ArenaLobbySummary { id: string; leader: string; members: string[]; avgLevel: number }
 export interface ArenaLobbiesMsg { lobbies: ArenaLobbySummary[]; freeArenas: number; queue: number }
-export type ArenaPhase = "lobby" | "queued" | "countdown" | "fight" | "pause" | "ended";
+/** "break" = respiro curto entre ondas comuns (sem loja); "pause" = pausa com vendedor e "Pronto" (depois de chefe). */
+export type ArenaPhase = "lobby" | "queued" | "countdown" | "fight" | "break" | "pause" | "ended";
 export interface ArenaStateMsg {
   state: null | {
     lobbyId: string;
     arenaId?: number;              // 1..ARENA_COUNT quando em partida
     phase: ArenaPhase;
     wave: number;                  // onda atual (1..); 0 antes de começar
-    /** Fim da contagem/pausa (ms epoch do servidor), se houver. */
+    /** Fim da contagem/respiro/pausa (ms epoch do servidor), se houver. */
     phaseEndsAt?: number;
     /** Relógio do servidor no envio (o cliente corrige a diferença de relógio para a contagem). */
     serverNow?: number;

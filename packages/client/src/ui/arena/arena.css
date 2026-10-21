@@ -41,7 +41,10 @@
 .arena-pause-members { display: flex; gap: 10px; font-size: 12px; color: var(--hud-text); }
 .arena-pause-members .out { color: var(--hud-faint); text-decoration: line-through; }
 .arena-pause-hint { font-size: 11px; color: var(--hud-muted); }
-.arena-mini { width: 22px; height: 22px; padding: 0; margin-left: 4px; font-size: 12px; opacity: 0.7; }
+.arena-leave { height: 22px; padding: 0 10px; margin-left: 6px; font-size: 12px; }
+.arena-leave-ask { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; font-size: 12px; }
+.arena-leave-ask .arena-btn { height: 22px; padding: 0 10px; font-size: 12px; }
+.arena-btn.danger { border-color: rgba(230, 90, 80, 0.7); color: #ff9a8f !important; }
 
 .arena-banner {
   position: fixed; top: 22%; left: calc((100vw - var(--hud-right, 0px)) / 2); transform: translateX(-50%); z-index: 26; pointer-events: none;

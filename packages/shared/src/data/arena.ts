@@ -8,9 +8,10 @@ export const ARENA_LOBBY_RANGE = 8;
 export const ARENA_COUNTDOWN_MS = 5000;
 /** Contagem dentro da arena (3-2-1) antes da onda 1. */
 export const ARENA_INTRO_MS = 3000;
-/** Pausa entre ondas (loja/cura); a cada ARENA_BOSS_EVERY ondas a pausa é maior. */
-export const ARENA_PAUSE_MS = 25_000;
-export const ARENA_LONG_PAUSE_MS = 45_000;
+/** Respiro entre ondas comuns (sem loja): a próxima onda vem logo. */
+export const ARENA_BREAK_MS = 3000;
+/** Pausa com o vendedor (loja/"Pronto") só depois das ondas-chefe (a cada ARENA_BOSS_EVERY). */
+export const ARENA_SHOP_PAUSE_MS = 45_000;
 /** Todos os vivos "prontos" → próxima onda em ARENA_READY_MS. */
 export const ARENA_READY_MS = 3000;
 /** Aviso visual antes de cada monstro aparecer (o tile de spawn "brilha"); monstros seguintes escalonados. */
@@ -99,8 +100,10 @@ export const ARENA_WAVES: ArenaWave[] = [
 
 export const arenaWave = (wave: number): ArenaWave | undefined => ARENA_WAVES[wave - 1];
 export const isBossWave = (wave: number): boolean => wave > 0 && wave % ARENA_BOSS_EVERY === 0;
-/** Duração da pausa DEPOIS de vencer a onda `wave`. */
-export const arenaPauseMs = (wave: number): number => (isBossWave(wave) ? ARENA_LONG_PAUSE_MS : ARENA_PAUSE_MS);
+/** Depois de vencer a onda `wave` abre a pausa com o vendedor? (só nas ondas-chefe: 5, 10, 15...) */
+export const arenaShopAfter = (wave: number): boolean => isBossWave(wave);
+/** Duração do intervalo DEPOIS de vencer a onda `wave` (pausa com loja ou respiro curto). */
+export const arenaPauseMs = (wave: number): number => (arenaShopAfter(wave) ? ARENA_SHOP_PAUSE_MS : ARENA_BREAK_MS);
 
 /** Quantidade de monstros comuns: base × (1 + 0.6 × (n − 1)). */
 export const arenaCountMult = (n: number): number => 1 + 0.6 * (Math.max(1, n) - 1);

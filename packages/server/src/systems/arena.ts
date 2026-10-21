@@ -1,10 +1,11 @@
 // Coliseu: lobbies no NPC "arena_master" (vila), fila FIFO quando as ARENA_COUNT arenas estão ocupadas, e a partida
-// por instância (ondas de shared/data/arena.ts → pausa com loja/cura → próxima onda). Sem penalidade de morte:
+// por instância (ondas de shared/data/arena.ts → respiro curto → próxima onda; depois das ondas-chefe, pausa com
+// loja e "Pronto"). Sem penalidade de morte:
 // quem cai volta para "arena_exit" com vida cheia e fica com o que já ganhou (recompensa paga no fim de cada onda).
 // Tudo vem do mapa (objetos "arena", "arena_entry", "arena_spawn", "arena_exit"); sem eles o coliseu fica fechado.
 import {
   ARENA_COMPLETE_GOLD, ARENA_COMPLETE_XP_PCT, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_LOBBY_RANGE,
-  ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, applyXpStage, arenaPauseMs,
+  ARENA_MAX_WAVE, ARENA_PAUSE_HEAL, ARENA_READY_MS, ARENA_SPAWN_DELAY_MS, ARENA_SPAWN_STAGGER_MS, S2C, applyXpStage, arenaPauseMs, arenaShopAfter,
   arenaWaveGold, arenaWaveSpawns, arenaWaveXp, findObjects, monsterDef, objectTile, partyMinLevel,
   type ArenaActionMsg, type ArenaLobbiesMsg, type ArenaLobbySummary, type ArenaPhase, type ArenaResultMsg,
   type ArenaSpawnSpec, type ArenaStateMsg, type FeedMsg, type MonsterDef, type NoticeMsg, type TiledMap,
@@ -364,7 +365,7 @@ export class ArenaSystem {
       if (now >= party.phaseEndsAt) this.startWave(party, 1, now);
       return;
     }
-    if (party.phase === "pause") {
+    if (party.phase === "pause" || party.phase === "break") {
       if (now >= party.phaseEndsAt) this.startWave(party, party.wave + 1, now);
       return;
     }
@@ -485,7 +486,8 @@ export class ArenaSystem {
     }
     party.spawns = [];
     if (wave >= ARENA_MAX_WAVE) { this.endMatch(party, "completed"); return; }
-    party.phase = "pause";
+    // Ondas comuns emendam (respiro curto); a pausa com o vendedor só vem depois das ondas-chefe.
+    party.phase = arenaShopAfter(wave) ? "pause" : "break";
     party.phaseEndsAt = now + arenaPauseMs(wave);
     party.readyTriggered = false;
     for (const m of party.members) m.ready = false;

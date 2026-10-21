@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_PAUSE_MS, ARENA_LONG_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
+  ARENA_BREAK_MS, ARENA_COUNTDOWN_MS, ARENA_INTRO_MS, ARENA_SHOP_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
   arenaWaveSpawns, monsterDef, type TiledMap,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -197,7 +197,7 @@ describe("coliseu: partida", () => {
     expect(a.hp).toBeLessThan(1e9);
   });
 
-  it("vencer a onda paga XP e ouro divididos, cura 30% e abre a pausa; sem loot nem XP por abate", () => {
+  it("vencer a onda paga XP e ouro divididos, cura 30% e dá um respiro curto; sem loot nem XP por abate", () => {
     const k = setup();
     const a = k.add("a"), b = k.add("b");
     k.arena.onAction(a, { action: "create" });
@@ -214,8 +214,8 @@ describe("coliseu: partida", () => {
     expect(k.gold.get("a")).toBe(arenaWaveGold(1));
     expect(a.hp).toBe(Math.min(a.maxHp, 50 + Math.round(a.maxHp * 0.3)));
     const st = k.lastOf("a", S2C.ArenaState).state;
-    expect(st).toMatchObject({ phase: "pause", wave: 1, earned: { xp, gold: arenaWaveGold(1) } });
-    expect(st.phaseEndsAt - k.w.now()).toBeGreaterThan(ARENA_PAUSE_MS - 500);
+    expect(st).toMatchObject({ phase: "break", wave: 1, earned: { xp, gold: arenaWaveGold(1) } });
+    expect(st.phaseEndsAt - k.w.now()).toBeLessThanOrEqual(ARENA_BREAK_MS);
     expect(k.w.sent.some((s) => s.type === S2C.Loot)).toBe(false);
   });
 
@@ -239,7 +239,7 @@ describe("coliseu: partida", () => {
     expect(k.lastOf("lo", S2C.ArenaState).state.members.map((m: any) => m.level).sort((x: number, y: number) => x - y)).toEqual([5, 20, 30]);
   });
 
-  it("pausa acaba no tempo → próxima onda; todos prontos → começa em 3 s", () => {
+  it("ondas comuns emendam: respiro de 3 s, sem loja nem Pronto", () => {
     const k = setup();
     const a = k.add("a"), b = k.add("b");
     k.arena.onAction(a, { action: "create" });
@@ -248,40 +248,42 @@ describe("coliseu: partida", () => {
     k.toWave1();
     k.killAll();
     k.run(100);
-    k.run(ARENA_PAUSE_MS - 1000);
-    expect(k.arena.partyFor("a")!.phase).toBe("pause");
-    k.run(1100);
+    expect(k.arena.partyFor("a")!.phase).toBe("break");
+    k.arena.onAction(a, { action: "ready" }); // ignorado no respiro
+    expect(k.lastOf("a", S2C.ArenaState).state.members.every((m: any) => m.ready === undefined)).toBe(true);
+    expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(false);
+    k.run(ARENA_BREAK_MS);
     expect(k.arena.partyFor("a")).toMatchObject({ phase: "fight", wave: 2 });
-    // onda 2 → pronto
-    k.run(ARENA_SPAWN_DELAY_MS + 1500);
-    k.killAll();
-    k.run(100);
-    expect(k.arena.partyFor("a")!.phase).toBe("pause");
-    k.arena.onAction(a, { action: "ready" });
-    expect(k.lastOf("b", S2C.ArenaState).state.members).toEqual([
-      { name: "a", alive: true, level: 1, ready: true }, { name: "b", alive: true, level: 1, ready: false },
-    ]);
-    k.run(3500);
-    expect(k.arena.partyFor("a")!.phase).toBe("pause");
-    k.arena.onAction(b, { action: "ready" });
-    k.run(3100);
-    expect(k.arena.partyFor("a")).toMatchObject({ phase: "fight", wave: 3 });
   });
 
-  it("a pausa depois de onda-chefe é maior", () => {
+  it("pausa com vendedor só depois da onda-chefe (5); acaba no tempo ou quando todos clicam em Pronto", () => {
     const k = setup();
-    const a = k.add("a", { level: 50, maxHp: 1e6, hp: 1e6 });
+    const a = k.add("a", { level: 50, maxHp: 1e6, hp: 1e6 }), b = k.add("b", { level: 50, maxHp: 1e6, hp: 1e6 });
     k.arena.onAction(a, { action: "create" });
+    k.arena.onAction(b, { action: "join", lobbyId: k.arena.partyFor("a")!.id });
     k.arena.onAction(a, { action: "start" });
     k.toWave1();
     for (let w = 1; w <= 5; w++) {
       k.killAll();
       k.run(100);
-      if (w < 5) { k.arena.onAction(a, { action: "ready" }); k.run(3100 + ARENA_SPAWN_DELAY_MS + 2000); }
+      if (w < 5) {
+        expect(k.arena.partyFor("a")!.phase).toBe("break");
+        k.run(ARENA_BREAK_MS + ARENA_SPAWN_DELAY_MS + 2000);
+      }
     }
     const st = k.lastOf("a", S2C.ArenaState).state;
-    expect(st.wave).toBe(5);
-    expect(st.phaseEndsAt - k.w.now()).toBeGreaterThan(ARENA_LONG_PAUSE_MS - 500);
+    expect(st).toMatchObject({ phase: "pause", wave: 5 });
+    expect(st.phaseEndsAt - k.w.now()).toBeGreaterThan(ARENA_SHOP_PAUSE_MS - 500);
+    expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(true);
+    k.arena.onAction(a, { action: "ready" });
+    expect(k.lastOf("b", S2C.ArenaState).state.members).toEqual([
+      { name: "a", alive: true, level: 50, ready: true }, { name: "b", alive: true, level: 50, ready: false },
+    ]);
+    k.run(3500);
+    expect(k.arena.partyFor("a")!.phase).toBe("pause");
+    k.arena.onAction(b, { action: "ready" });
+    k.run(3100);
+    expect(k.arena.partyFor("a")).toMatchObject({ phase: "fight", wave: 6 });
   });
 
   it("morte: sem penalidade, volta na saída com vida cheia, resultado; o grupo segue; wipe libera a arena", () => {
@@ -294,7 +296,7 @@ describe("coliseu: partida", () => {
     k.killAll();
     k.run(100);
     const xp = a.xp;
-    k.run(ARENA_PAUSE_MS + ARENA_SPAWN_DELAY_MS + 2000);
+    k.run(ARENA_BREAK_MS + ARENA_SPAWN_DELAY_MS + 2000);
     k.w.combat.damagePlayer(a, "", 1e6, "physical", k.w.now(), { killerName: "Rato" });
     expect(a.xp).toBe(xp);
     expect(a.hp).toBe(a.maxHp);
@@ -377,17 +379,20 @@ describe("coliseu: partida", () => {
     expect(k.arena.loginPosition(null, null)).toBeNull();
   });
 
-  it("loja da arena só na pausa e só para a partida daquela arena", () => {
+  it("loja da arena só na pausa (depois da onda-chefe) e só para a partida daquela arena", () => {
     const k = setup();
-    const a = k.add("a");
+    const a = k.add("a", { level: 50, maxHp: 1e6, hp: 1e6 });
     expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(false);
     expect(k.arena.canUseShop(a, "shop")).toBe(true);
     k.arena.onAction(a, { action: "create" });
     k.arena.onAction(a, { action: "start" });
     k.toWave1();
     expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(false);
-    k.killAll();
-    k.run(100);
+    for (let w = 1; w <= 5; w++) {
+      k.killAll();
+      k.run(100);
+      if (w < 5) { expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(false); k.run(ARENA_BREAK_MS + ARENA_SPAWN_DELAY_MS + 2000); }
+    }
     expect(k.arena.canUseShop(a, "arena_shop_1")).toBe(true);
     expect(k.arena.canUseShop(a, "arena_shop_2")).toBe(false);
   });
