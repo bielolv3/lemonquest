@@ -1,9 +1,10 @@
-// Inventário (M4): equipamento (8 slots), mochila (BACKPACK_SIZE), ouro e depot (DEPOT_SIZE, só com o NPC aberto).
+// Inventário (M4): equipamento (8 slots), mochila (backpackCapacity(level): 20 no lv 1 até BACKPACK_MAX), ouro e depot
+// (DEPOT_SIZE, só com o NPC aberto).
 // Valida equipar (slot, vocação, level, duas mãos), empilha/divide, usa poções (cooldown compartilhado),
 // calcula os atributos do equipamento e envia S2C.Inventory/S2C.Depot (uma vez por tick, em flush()).
 import { randomBytes } from "node:crypto";
 import {
-  BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, RARITIES, S2C, baseStats, itemDef,
+  BACKPACK_MAX, BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, backpackCapacity, RARITIES, S2C, baseStats, itemDef,
   type DepotMsg, type DiscardItemMsg, type DropFrom, type PickupTo, type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance,
   type ItemLocation, type MoveItemMsg, type NoticeMsg, type QuickPotionMsg, type Rarity, type SkillId,
   type StatId, type Stats, type UseItemMsg, type Vocation,
@@ -91,6 +92,16 @@ function loadArray(raw: unknown, size: number, defs: ItemDefs): (ItemInstance | 
   return out;
 }
 
+/**
+ * Mochila do tamanho da capacidade do level: completa com espaços vazios; acima dela só tira espaços VAZIOS do fim
+ * (level menor por comando de dev, ou mochila salva maior): item nenhum some.
+ */
+export function fitBackpack(inv: Pick<Inventory, "backpack">, level: number): void {
+  const cap = backpackCapacity(level);
+  while (inv.backpack.length < cap) inv.backpack.push(null);
+  while (inv.backpack.length > cap && inv.backpack[inv.backpack.length - 1] === null) inv.backpack.pop();
+}
+
 /** Soma dos atributos (definição + bônus) dos itens equipados. */
 export function totalStats(inv: Inventory, defs: ItemDefs): Stats {
   const out: Stats = {};
@@ -156,7 +167,8 @@ export class InventorySystem {
         if (it && this.defs(it.defId)?.slot === slot) inv.equipment[slot] = it;
       }
     }
-    inv.backpack = loadArray(data.backpack, BACKPACK_SIZE, this.defs);
+    inv.backpack = loadArray(data.backpack, BACKPACK_MAX, this.defs);
+    fitBackpack(inv, p.level);
     inv.depot = loadArray(data.depot, DEPOT_SIZE, this.defs);
     inv.gold = Number.isFinite(data.gold) ? Math.max(0, Math.floor(data.gold!)) : 0;
     this.inv.set(p.id, inv);
@@ -199,6 +211,19 @@ export class InventorySystem {
   }
 
   /** maxHp/maxMana = baseStats + bônus. `fill` = enche vida/mana (level up); senão só limita ao novo máximo. */
+  /**
+   * Ajusta a mochila à capacidade do level (cresce no level up; só encolhe espaços vazios do fim, nunca some item).
+   * Retorna quantos espaços ganhou (0 = nada mudou ou encolheu).
+   */
+  fitBackpack(p: PlayerState): number {
+    const inv = this.inv.get(p.id);
+    if (!inv) return 0;
+    const before = inv.backpack.length;
+    fitBackpack(inv, p.level);
+    if (inv.backpack.length !== before) this.dirty.add(p.id);
+    return Math.max(0, inv.backpack.length - before);
+  }
+
   applyStats(p: PlayerState, fill = false): void {
     const b = baseStats(p.vocation, p.level);
     p.maxHp = Math.max(1, b.maxHp + this.stat(p.id, "hpMax"));
@@ -437,7 +462,7 @@ export class InventorySystem {
     const inv = this.inv.get(p.id);
     if (!inv || !msg || typeof msg !== "object") return;
     const { from, to } = msg;
-    if (!this.validLoc(from) || !this.validLoc(to)) return;
+    if (!this.validLoc(inv, from) || !this.validLoc(inv, to)) return;
     if (msg.count !== undefined && msg.count !== null && (!isInt(msg.count) || msg.count < 1)) return;
     if ((from.where === "depot" || to.where === "depot") && !this.o.depotOpen?.(p.id)) return this.warn(p, MSG.depotClosed);
     if (p.hp <= 0) return;
@@ -500,7 +525,7 @@ export class InventorySystem {
     const inv = this.inv.get(id);
     if (!inv) return undefined;
     const used = inv.backpack.filter(Boolean).length;
-    return { equipment: inv.equipment, backpack: inv.backpack, gold: inv.gold, stats: this.stats(id), cap: { used, max: BACKPACK_SIZE } };
+    return { equipment: inv.equipment, backpack: inv.backpack, gold: inv.gold, stats: this.stats(id), cap: { used, max: inv.backpack.length } };
   }
 
   // --- internos -----------------------------------------------------------------------
@@ -513,10 +538,11 @@ export class InventorySystem {
     this.o.send(p.id, S2C.Notice, { text, kind: "warn" } satisfies NoticeMsg);
   }
 
-  private validLoc(l: ItemLocation | undefined): l is ItemLocation {
+  /** Posição válida PARA ESTE inventário (a mochila tem o tamanho da capacidade do level do dono). */
+  private validLoc(inv: Inventory, l: ItemLocation | undefined): l is ItemLocation {
     if (!l || typeof l !== "object") return false;
     if (l.where === "equip") return EQUIP_SLOTS.includes(l.slot);
-    if (l.where === "backpack") return isInt(l.index) && l.index >= 0 && l.index < BACKPACK_SIZE;
+    if (l.where === "backpack") return isInt(l.index) && l.index >= 0 && l.index < inv.backpack.length;
     if (l.where === "depot") return isInt(l.index) && l.index >= 0 && l.index < DEPOT_SIZE;
     return false;
   }

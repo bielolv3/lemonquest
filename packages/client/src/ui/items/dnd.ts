@@ -52,7 +52,8 @@ function computeValid(from: DragFrom, inst: ItemInstance): Pick<DragState, "vali
   const me = selectMe(playersStore.get());
   const meReq = me ? { level: me.level, vocation: me.vocation } : null;
   const fromKey = locKey(from);
-  for (let i = 0; i < BACKPACK_SIZE; i++) if (`bp:${i}` !== fromKey) valid.add(`bp:${i}`);
+  const bpSize = inv?.backpack.length ?? BACKPACK_SIZE;
+  for (let i = 0; i < bpSize; i++) if (`bp:${i}` !== fromKey) valid.add(`bp:${i}`);
   for (const slot of EQUIP_SLOTS) {
     const key = `eq:${slot}`;
     if (from.where === "equip") { reasons.set(key, "Escolha um slot da mochila"); continue; }

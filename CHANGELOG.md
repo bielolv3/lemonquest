@@ -1,5 +1,13 @@
 # Changelog
 
+## [Não lançado] — 2026-10-21 · mochila cresce com o level e rolagem minimalista
+
+- **Capacidade da mochila** (`backpackCapacity`): 20 espaços no lv 1, +1 a cada 5 levels, até 40 (lv 25 → 24,
+  lv 50 → 29, lv 100 → 39, lv 101+ → 40). A mochila cresce ao entrar, no level up (aviso "Sua mochila cresceu") e no
+  `/level`; só encolhe espaços vazios do fim, então nenhum item some. Posições além da capacidade são recusadas no
+  servidor.
+- **Barras de rolagem** iguais em todas as janelas: 6 px, sem setas nem trilho, aparecem com o mouse sobre a área.
+
 ## [Não lançado] — 2026-10-21 · atalhos de magia e magias de fim de jogo
 
 ### Painel de atalhos (tecla H ou ⚙ na barra)

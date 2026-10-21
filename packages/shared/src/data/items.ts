@@ -87,7 +87,18 @@ export interface LootEntry {
   max?: number;
 }
 
+/** Espaços da mochila no level 1. A capacidade cresce com o level (backpackCapacity). */
 export const BACKPACK_SIZE = 20;
+/** Teto de espaços da mochila (alcançado no level 101). */
+export const BACKPACK_MAX = 40;
+/** A mochila ganha um espaço a cada tantos levels. */
+export const BACKPACK_LEVELS_PER_SLOT = 5;
+
+/** Espaços da mochila no level: 20 no lv 1, +1 a cada 5 levels, até 40 (lv 25 → 24, lv 50 → 29, lv 100 → 39). */
+export function backpackCapacity(level: number): number {
+  const lv = Number.isFinite(level) ? Math.max(1, Math.floor(level)) : 1;
+  return Math.min(BACKPACK_MAX, BACKPACK_SIZE + Math.floor((lv - 1) / BACKPACK_LEVELS_PER_SLOT));
+}
 export const DEPOT_SIZE = 60;
 
 // ---------------------------------------------------------------------------

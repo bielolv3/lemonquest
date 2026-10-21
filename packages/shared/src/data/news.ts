@@ -12,6 +12,16 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-21d",
+    date: "21 de outubro (mais tarde)",
+    title: "Mochila maior com o level",
+    items: [
+      "A mochila agora cresce com você: 20 espaços no level 1 e mais 1 a cada 5 levels, até 40.",
+      "Quem já tem level alto ganha os espaços na hora, ao entrar.",
+      "Barras de rolagem mais discretas em todas as janelas.",
+    ],
+  },
+  {
     id: "2026-10-21c",
     date: "21 de outubro (à noite)",
     title: "Atalhos de magia e magias novas",

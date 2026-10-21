@@ -58,6 +58,7 @@ export function handleDevCommand(p: PlayerState, text: string, ctx: DevContext):
       p.level = n;
       p.xp = xpForLevel(n);
       inv.applyStats(p, true);
+      inv.fitBackpack(p);
       reply(`Level ${n}.`, "good");
       break;
     }

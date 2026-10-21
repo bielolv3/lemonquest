@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BACKPACK_SIZE, S2C, baseStats, weaponDamageRange, playerDamageRange } from "@lemonquest/shared";
-import { MSG, makeItem } from "./inventory.ts";
+import { BACKPACK_MAX, BACKPACK_SIZE, S2C, backpackCapacity, baseStats, weaponDamageRange, playerDamageRange } from "@lemonquest/shared";
+import { MSG, fitBackpack, makeItem } from "./inventory.ts";
 import { attackProfile } from "./combat.ts";
 import { invWorld, itemsFx } from "./m4kit.ts";
 
@@ -74,6 +74,54 @@ describe("inventory: equip", () => {
     w.inv.onMoveItem(p, { from: { where: "equip", slot: "armor" }, to: { where: "backpack", index: 3 } });
     expect(w.notices().at(-1)).toBe("Mochila cheia.");
     expect(eq(w).armor?.defId).toBe("vest");
+  });
+});
+
+describe("inventory: capacidade da mochila cresce com o level", () => {
+  it("fórmula: 20 no lv 1, +1 a cada 5 levels, teto 40", () => {
+    expect(backpackCapacity(1)).toBe(BACKPACK_SIZE);
+    expect(backpackCapacity(5)).toBe(20);
+    expect(backpackCapacity(6)).toBe(21);
+    expect(backpackCapacity(25)).toBe(24);
+    expect(backpackCapacity(50)).toBe(29);
+    expect(backpackCapacity(100)).toBe(39);
+    expect(backpackCapacity(101)).toBe(BACKPACK_MAX);
+    expect(backpackCapacity(300)).toBe(BACKPACK_MAX);
+    expect(backpackCapacity(NaN)).toBe(BACKPACK_SIZE);
+  });
+
+  it("carrega no tamanho do level, cresce no level up (sem mexer nos itens) e a mensagem mostra o máximo", () => {
+    const w = invWorld();
+    const p = w.mk("p1", { level: 30 });
+    expect(bp(w)).toHaveLength(25);
+    w.inv.addItem(p, makeItem("sword"));
+    p.level = 50;
+    expect(w.inv.fitBackpack(p)).toBe(4);
+    expect(bp(w)).toHaveLength(29);
+    expect(bp(w)[0]?.defId).toBe("sword");
+    expect(w.inv.fitBackpack(p)).toBe(0);
+    expect(w.inv.inventoryMsg("p1")!.cap).toEqual({ used: 1, max: 29 });
+  });
+
+  it("level menor (comando de dev) só tira espaços vazios do fim: nenhum item some", () => {
+    const inv = { backpack: Array(29).fill(null) as any[] };
+    inv.backpack[26] = makeItem("sword");
+    fitBackpack(inv, 1);
+    expect(inv.backpack).toHaveLength(27);
+    expect(inv.backpack[26]?.defId).toBe("sword");
+  });
+
+  it("mover para além da capacidade é recusado (cliente adulterado não aumenta a mochila)", () => {
+    const w = invWorld();
+    const p = w.mk("p1", { level: 1 });
+    w.inv.addItem(p, makeItem("sword"));
+    w.inv.onMoveItem(p, { from: { where: "backpack", index: 0 }, to: { where: "backpack", index: 25 } });
+    expect(bp(w)).toHaveLength(BACKPACK_SIZE);
+    expect(bp(w)[0]?.defId).toBe("sword");
+    p.level = 30;
+    w.inv.fitBackpack(p);
+    w.inv.onMoveItem(p, { from: { where: "backpack", index: 0 }, to: { where: "backpack", index: 24 } });
+    expect(bp(w)[24]?.defId).toBe("sword");
   });
 });
 

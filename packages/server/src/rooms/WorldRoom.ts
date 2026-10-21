@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
-  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, type Hotkey, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -355,6 +355,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       takenMult: stanceTaken,
       onLevelUp: (p) => {
         this.inventory.applyStats(p, true);
+        const slots = this.inventory.fitBackpack(p);
+        if (slots > 0) {
+          const total = backpackCapacity(p.level), id = p.id;
+          this.combat.later(() => this.clients.getById(id)?.send(S2C.Notice, { text: `Sua mochila cresceu: agora tem ${total} espaços.`, kind: "good" } satisfies NoticeMsg));
+        }
         if (p.level >= FEED_LEVEL_MIN) {
           const text = `⭐ ${p.name} chegou ao level ${p.level}!`;
           this.combat.later(() => this.broadcast(S2C.Feed, { text, kind: "level" } satisfies FeedMsg));

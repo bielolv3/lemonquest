@@ -1,6 +1,6 @@
 // Estado do inventário (mochila/equipamento/ouro/depot) alimentado por S2C.Inventory e S2C.Depot + ações (C2S).
 import {
-  BACKPACK_SIZE, C2S, itemDef,
+  C2S, itemDef,
   type EquipSlot, type InventoryMsg, type ItemDef, type ItemInstance, type ItemLocation,
   type MoveItemMsg, type UseItemMsg,
 } from "@lemonquest/shared";
@@ -23,7 +23,7 @@ export function itemAt(loc: ItemLocation): ItemInstance | null {
 export function firstEmptyBackpack(): number {
   const bp = inventoryStore.get()?.backpack;
   if (!bp) return -1;
-  for (let i = 0; i < BACKPACK_SIZE; i++) if (!bp[i]) return i;
+  for (let i = 0; i < bp.length; i++) if (!bp[i]) return i;
   return -1;
 }
 

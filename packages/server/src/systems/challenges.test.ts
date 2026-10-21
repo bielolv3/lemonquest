@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKPACK_SIZE, CHALLENGES, CHALLENGE_BONUS, S2C, challengeTarget, xpForLevel } from "@lemonquest/shared";
+import { CHALLENGES, CHALLENGE_BONUS, S2C, challengeTarget, xpForLevel } from "@lemonquest/shared";
 import { ChallengeSystem } from "./challenges.ts";
 import { makeItem } from "./inventory.ts";
 import { invWorld } from "./m4kit.ts";
@@ -65,7 +65,7 @@ describe("desafios da semana", () => {
 
     const f = setup();
     f.gain("fish", 12);
-    for (let i = 0; i < BACKPACK_SIZE; i++) f.w.inv.addItem(f.p, makeItem("vest"));
+    for (let i = 0; i < f.w.inv.get("p")!.backpack.length; i++) f.w.inv.addItem(f.p, makeItem("vest"));
     f.sys.onMessage(f.p, { action: "claim", id: "pescaria" });
     expect(f.notices().at(-1)).toContain("mochila está cheia");
     expect(f.w.inv.gold("p")).toBe(0);
