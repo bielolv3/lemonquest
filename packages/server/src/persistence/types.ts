@@ -19,6 +19,8 @@ export interface CharacterData {
   pvpWhiteUntil?: number;
   /** PvP: fim do bloqueio de zona de proteção (ms epoch); relogar não o apaga. */
   pvpPzLockUntil?: number;
+  /** Atalhos de magia (painel H): tecla → magia. Ausente = nunca configurou (o cliente migra/usa o padrão). */
+  hotkeys?: { key: string; spellId: string }[];
   /** Inventário (M4). */
   equipment?: Partial<Record<string, unknown>>;
   backpack?: unknown[];

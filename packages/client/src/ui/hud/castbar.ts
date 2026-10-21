@@ -1,17 +1,17 @@
-// Barra de ações = magias da vocação. Preenche os slots, envia C2S.Cast, aplica cooldown otimista e reconcilia
-// com S2C.CastResult (falhas: tremida no slot + toast + piscada na barra de mana).
+// Barra de ações = atalhos de magia (ui/hotkeys). Preenche os slots, envia C2S.Cast, aplica cooldown otimista e
+// reconcilia com S2C.CastResult (falhas: tremida no slot + toast + piscada na barra de mana).
 import {
-  C2S, GLOBAL_SPELL_COOLDOWN_MS, S2C, spellMana, spellsFor,
-  type CastFailReason, type CastMsg, type CastResultMsg, type SpellDef,
+  C2S, GLOBAL_SPELL_COOLDOWN_MS, S2C, spellDef, spellMana,
+  type CastFailReason, type CastMsg, type CastResultMsg, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
 import { cssColor, PAL } from "../../game/spellPalette.ts";
 import { sfx } from "../../game/sfx.ts";
 import { session } from "../../session.ts";
 import { pushToast } from "../toasts.ts";
 import {
-  ACTION_SLOTS, cooldownStore, onSlotActivate, setCooldownAt, setSlotAction, shakeSlot, type Cooldown,
+  ACTION_SLOTS, cooldownStore, onSlotActivate, setCooldownAt, setSlotAction, shakeSlot, slotCountStore, type Cooldown,
 } from "./actionbar.ts";
-import { arrange, parseOrder, swapped } from "./slotOrder.ts";
+import { effectiveHotkeys, hotkeyLabel, hotkeysStore, layoutStore, setHotkeys, swapHotkeySpells } from "../hotkeys/hotkeys.ts";
 import { spellIcon } from "./spellIcons.ts";
 import { createStore } from "./store.ts";
 import { getTarget } from "./target.ts";
@@ -43,36 +43,33 @@ export function setCastTransport(fn: (m: CastMsg) => void): void { transport = f
 
 export const spellInSlot = (slot: number): SpellDef | null => slotSpells[slot] ?? null;
 
-/** Ordem salva da barra por personagem (arrastar e soltar). */
-const orderKey = () => `lemonquest.actionbar.${(session.myName || "?").normalize("NFC").toLowerCase()}`;
-const loadOrder = () => { try { return parseOrder(localStorage.getItem(orderKey())); } catch { return null; } };
-const saveOrder = () => { try { localStorage.setItem(orderKey(), JSON.stringify(slotSpells.map((s) => s?.id ?? null))); } catch { /* indisponível */ } };
+let slotKeys: string[] = [];
 
 function publishSlot(i: number) {
   const s = slotSpells[i];
   setSlotAction(i, s ? {
     label: s.name, mana: s.mana, spellId: s.id, words: s.words, desc: s.description, level: s.level,
     cooldownMs: s.cooldownMs, fx: s.fx, color: cssColor(PAL[s.fx]?.main ?? 0xffffff),
-    icon: spellIcon(s.fx, s.target),
+    icon: spellIcon(s.fx, s.target), keyLabel: slotKeys[i] ? hotkeyLabel(slotKeys[i]!) : undefined,
   } : null);
 }
 
-function fillSlots(vocation: string) {
-  const list = spellsFor(vocation as never).slice(0, ACTION_SLOTS);
-  const byId = new Map(list.map((s) => [s.id, s]));
-  slotSpells = arrange(list.map((s) => s.id), loadOrder(), ACTION_SLOTS).map((id) => (id ? byId.get(id) ?? null : null));
-  slotSpells.forEach((_, i) => publishSlot(i));
+/** Slots = atalhos (tecla + magia). A recarga acompanha a MAGIA quando ela muda de slot. */
+function fillSlots(vocation: Vocation | undefined) {
+  const list = effectiveHotkeys(vocation).slice(0, ACTION_SLOTS);
+  const oldCd = new Map<string, Cooldown | null>();
+  slotSpells.forEach((s, i) => { if (s) oldCd.set(s.id, cooldownStore.get()[i] ?? null); });
+  slotSpells = Array.from({ length: ACTION_SLOTS }, (_, i) => (list[i] ? spellDef(list[i]!.spellId) ?? null : null));
+  slotKeys = list.map((h) => h.key);
+  slotSpells.forEach((s, i) => { publishSlot(i); setCooldownAt(i, s ? oldCd.get(s.id) ?? null : null); });
+  slotCountStore.set(list.length);
 }
 
-/** Troca duas magias de lugar na barra (arrastar e soltar): leva junto a recarga e grava a ordem do personagem. */
+/** Arrastar um slot sobre outro: as duas teclas trocam de magia (salvo no personagem). */
 export function swapSlots(a: number, b: number): void {
   if (a === b || a < 0 || b < 0 || a >= ACTION_SLOTS || b >= ACTION_SLOTS) return;
-  slotSpells = swapped(slotSpells, a, b);
-  const cds = cooldownStore.get();
-  const ca = cds[a] ?? null, cb = cds[b] ?? null;
-  setCooldownAt(a, cb); setCooldownAt(b, ca);
-  publishSlot(a); publishSlot(b);
-  saveOrder();
+  const voc = meStore.get()?.vocation as Vocation | undefined;
+  setHotkeys(swapHotkeySpells(effectiveHotkeys(voc), a, b));
 }
 
 function fail(slot: number, reason: CastFailReason) {
@@ -138,13 +135,17 @@ export function handleCastResult(r: CastResultMsg): void {
 export function startCastBar(): () => void {
   let voc = "";
   const offStore = meStore.subscribe((me) => {
-    if (me && me.vocation !== voc) { voc = me.vocation; fillSlots(voc); }
+    if (me && me.vocation !== voc) { voc = me.vocation; fillSlots(voc as Vocation); }
   });
+  const refill = () => fillSlots((meStore.get()?.vocation as Vocation | undefined) ?? undefined);
+  const offKeys = hotkeysStore.subscribe(refill);
+  const offLayout = layoutStore.subscribe(refill);
+  refill();
   const first = meStore.get();
-  if (first) { voc = first.vocation; fillSlots(voc); }
+  if (first) voc = first.vocation;
   const offAct = onSlotActivate(activate);
   const offRoom = session.onRoom((room) => {
     room.onMessage(S2C.CastResult, (m: CastResultMsg) => handleCastResult(m));
   });
-  return () => { offStore(); offAct(); offRoom(); };
+  return () => { offStore(); offKeys(); offLayout(); offAct(); offRoom(); };
 }

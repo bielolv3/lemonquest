@@ -388,6 +388,28 @@ describe("WorldRoom: sair em combate", () => {
   });
 });
 
+describe("WorldRoom: atalhos de magia", () => {
+  it("nunca configurou → null; SetHotkeys válido fica no personagem e volta no próximo login; lixo é limpo", () => {
+    const r = makeRoom();
+    createAccount("Hugo", "h", "s", "sorcerer");
+    const c = fakeClient(r, "h1");
+    r.onJoin(c, {}, auth("Hugo"));
+    const first = c.send.mock.calls.find(([t]: any[]) => t === "hotkeys");
+    expect(first?.[1]).toEqual({ list: null });
+    const p = r.state.players.get("h1");
+    r.setHotkeys(p, { list: [{ key: "KeyF", spellId: "fireball" }, { key: "KeyQ", spellId: "inferno" }, { key: "Digit2", spellId: "ice_shard" }] });
+    r.onLeave(c, 4000);
+    expect(getCharacterByName("Hugo")!.data.hotkeys).toEqual([{ key: "KeyF", spellId: "fireball" }]);
+    const c2 = fakeClient(r, "h2");
+    r.onJoin(c2, {}, auth("Hugo"));
+    expect(c2.send.mock.calls.find(([t]: any[]) => t === "hotkeys")?.[1]).toEqual({ list: [{ key: "KeyF", spellId: "fireball" }] });
+    r.setHotkeys(r.state.players.get("h2"), "lixo"); // mensagem que nem é objeto: ignorada
+    expect(r.records.get("h2").data.hotkeys).toEqual([{ key: "KeyF", spellId: "fireball" }]);
+    r.setHotkeys(r.state.players.get("h2"), { list: "lixo" }); // lista inválida: sem atalhos
+    expect(r.records.get("h2").data.hotkeys).toEqual([]);
+  });
+});
+
 describe("WorldRoom: crédito de missão só para quem está perto", () => {
   it("quem bateu e foi para longe não conta o abate na missão", () => {
     const r = makeRoom();

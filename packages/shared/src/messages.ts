@@ -1,6 +1,7 @@
 import type { ChatChannel, ChatMessage, CombatEvent, Dir, FightStance, Vocation } from "./types.ts";
 import type { ConditionId, SpellFx } from "./data/spells.ts";
 import type { SkillId } from "./skills.ts";
+import type { Hotkey } from "./hotkeys.ts";
 import type { PartyShareReason } from "./party.ts";
 export type { SkillId };
 import type { EquipSlot, ItemInstance, Rarity, Stats } from "./data/items.ts";
@@ -16,8 +17,10 @@ export const C2S = {
   Chat: "chat",
   /** Selecionar/limpar alvo de ataque automático (estilo Tibia). */
   Attack: "attack",
-  /** Conjurar magia (hotkey 1–8 ou palavras no chat). */
+  /** Conjurar magia (atalho da barra ou palavras no chat). */
   Cast: "cast",
+  /** Salva os atalhos de magia do personagem (painel H). */
+  SetHotkeys: "setHotkeys",
   /** Mover item entre mochila/equipamento/depot (arrastar e soltar). */
   MoveItem: "moveItem",
   /** Usar item da mochila (poção). */
@@ -149,6 +152,8 @@ export const S2C = {
   CastResult: "castResult",
   /** Uma magia foi conjurada (para todos verem o efeito). */
   SpellCast: "spellCast",
+  /** Atalhos de magia salvos no personagem (ao entrar/reconectar). null = nunca configurou. */
+  Hotkeys: "hotkeys",
   /** Habilidade de monstro com aviso: tiles marcados no chão por `ms` antes do golpe (dá para sair). */
   MonsterTelegraph: "monsterTelegraph",
   /** Lista completa de condições ativas do jogador (enviada a ele quando muda). */
@@ -261,6 +266,8 @@ export interface SpellCastMsg {
   /** Tiles afetados (pares x,y achatados) para áreas/ondas. */
   tiles?: number[];
 }
+export interface SetHotkeysMsg { list: Hotkey[] }
+export interface HotkeysMsg { list: Hotkey[] | null }
 export interface MonsterTelegraphMsg {
   casterId: string;
   /** Tiles que vão ser atingidos (pares x,y achatados). */

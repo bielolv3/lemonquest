@@ -3,6 +3,7 @@ export * from "./types.ts";
 export * from "./messages.ts";
 export * from "./map.ts";
 export * from "./formulas.ts";
+export * from "./hotkeys.ts";
 export * from "./explore.ts";
 export * from "./data/monsters.ts";
 export * from "./data/monsterAbilities.ts";

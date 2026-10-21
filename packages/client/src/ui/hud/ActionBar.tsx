@@ -1,7 +1,9 @@
-// Barra de ações (1–8) centralizada na área visível, com overlay radial de cooldown.
+// Barra de ações (um slot por atalho de magia) centralizada na área visível, com overlay radial de cooldown e o botão
+// que abre o painel de atalhos (H).
 import { spellDef, spellMana } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { activateSlot, ACTION_SLOTS, cooldownStore, flashStore, shakeStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
+import { activateSlot, cooldownStore, flashStore, shakeStore, slotCountStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
+import { toggleHotkeys } from "../hotkeys/hotkeys.ts";
 import { useStore } from "./store.ts";
 import { meStore } from "./world.ts";
 import { swapSlots } from "./castbar.ts";
@@ -12,13 +14,15 @@ export function ActionBar() {
   const flashes = useStore(flashStore);
   const shakes = useStore(shakeStore);
   const me = useStore(meStore);
+  const count = useStore(slotCountStore);
   const now = useCooldownClock(cds);
 
   return (
     <div class="action-bar" role="toolbar" aria-label="Barra de ações">
-      {Array.from({ length: ACTION_SLOTS }, (_, i) => (
+      {Array.from({ length: count }, (_, i) => (
         <ActionSlot key={i} index={i} action={slots[i]} cd={cds[i]} now={now} flash={flashes[i]} shake={shakes[i]} level={me?.level ?? 1} mana={me?.mana ?? 0} />
       ))}
+      <button class="action-config" onClick={toggleHotkeys} aria-label="Configurar atalhos" data-tip="Atalhos de magia" data-tip-sub="Escolha a tecla de cada magia · H">⚙</button>
     </div>
   );
 }
@@ -73,7 +77,7 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
   const active = cd && cd.end > now;
   const remain = active ? cd.end - now : 0;
   const frac = active ? remain / (cd.end - cd.start) : 0;
-  const key = String(index + 1);
+  const key = action?.keyLabel ?? "";
   const locked = !!action?.level && level < action.level;
   const def = action?.spellId ? spellDef(action.spellId) : undefined;
   const cost = def ? spellMana(def, level) : action?.mana;
@@ -94,8 +98,8 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); const from = Number(e.dataTransfer?.getData("text/plain")); if (Number.isInteger(from)) swapSlots(from, index); }}
       onAnimationEnd={(e) => (e.currentTarget as HTMLElement).classList.remove("flash", "shake")}
-      data-tip={action ? action.label : `Atalho ${key}`}
-      data-tip-sub={action ? sub : "Vazio · arraste uma magia para cá"}
+      data-tip={action ? action.label : "Atalho vazio"}
+      data-tip-sub={action ? `${sub} · tecla ${key}` : "Configure no painel de atalhos (H)"}
       data-tip-words={action?.words}
       data-tip-desc={action?.desc ? (locked ? `${action.desc} (Requer level ${action.level})` : action.desc) : undefined}
     >

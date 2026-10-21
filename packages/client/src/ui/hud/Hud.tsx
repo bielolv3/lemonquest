@@ -2,7 +2,10 @@
 import { useEffect } from "preact/hooks";
 import { isTyping } from "../focus.ts";
 import { ActionBar } from "./ActionBar.tsx";
-import { activateSlot, ACTION_SLOTS } from "./actionbar.ts";
+import { activateSlot } from "./actionbar.ts";
+import { effectiveHotkeys, hotkeyIndex, hotkeysOpen, keyFromEvent, toggleHotkeys } from "../hotkeys/hotkeys.ts";
+import { HotkeysWindow } from "../hotkeys/HotkeysWindow.tsx";
+import type { Vocation } from "@lemonquest/shared";
 import { startCastBar } from "./castbar.ts";
 import { ConditionsStrip } from "./ConditionsStrip.tsx";
 import { LowHpVignette } from "./LowHpVignette.tsx";
@@ -60,6 +63,7 @@ export function Hud() {
       <TrainingWindow />
       <LootToasts />
       <SkillsWindow />
+      <HotkeysWindow />
       <OutfitWindow />
       <QuestLog />
       <AchievementsWindow />
@@ -77,17 +81,15 @@ function useHudKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping() || e.ctrlKey || e.altKey || e.metaKey) return;
-      // Teclas 1–8 (linha de cima; o numpad é movimento).
-      const m = /^Digit([1-9])$/.exec(e.code);
-      if (m) {
-        const slot = Number(m[1]) - 1;
-        if (slot < ACTION_SLOTS) {
-          e.preventDefault();
-          if (!e.repeat) activateSlot(slot);
-        }
+      // Atalhos de magia (painel H). Teclas do jogo nunca viram atalho (shared/hotkeys.ts), então não há disputa.
+      const slot = hotkeyIndex(effectiveHotkeys(meStore.get()?.vocation as Vocation | undefined), keyFromEvent(e));
+      if (slot >= 0) {
+        e.preventDefault();
+        if (!e.repeat) activateSlot(slot);
         return;
       }
       if (e.repeat) return;
+      if (e.code === "KeyH") { e.preventDefault(); toggleHotkeys(); return; }
       if (e.code === "KeyK") { e.preventDefault(); toggle(skillsOpen); return; }
       if (e.code === "KeyO") { e.preventDefault(); toggleOutfit(); return; }
       if (e.code === "KeyL") { e.preventDefault(); toggleQuestLog(); return; }
@@ -98,7 +100,8 @@ function useHudKeys() {
       if (e.key === "Escape") {
         if (closeTopOverlay()) return;
         // Fecha o que estiver aberto, um por vez; por último limpa o alvo.
-        if (achievementsOpen.get()) achievementsOpen.set(false);
+        if (hotkeysOpen.get()) hotkeysOpen.set(false);
+        else if (achievementsOpen.get()) achievementsOpen.set(false);
         else if (rankingOpen.get()) rankingOpen.set(false);
         else if (helpOpen.get()) helpOpen.set(false);
         else if (skillsOpen.get()) skillsOpen.set(false);
@@ -119,10 +122,13 @@ function useHudKeys() {
  */
 function useNoButtonFocus() {
   useEffect(() => {
+    const DRAGGABLE = '#ui button[draggable="true"]';
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t?.closest("#ui button")) e.preventDefault();
+      // Botão arrastável (slot da barra): preventDefault no mousedown impede o arrasto no Chrome; o foco sai no clique/fim do arrasto.
+      if (t?.closest("#ui button") && !t.closest(DRAGGABLE)) e.preventDefault();
     };
+    const dropFocus = (e: Event) => { (((e.target as HTMLElement | null)?.closest(DRAGGABLE)) as HTMLElement | null)?.blur(); };
     const onChange = (e: Event) => {
       const t = e.target as HTMLElement | null;
       if (!t?.closest("#ui")) return;
@@ -130,9 +136,13 @@ function useNoButtonFocus() {
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("change", onChange);
+    document.addEventListener("click", dropFocus);
+    document.addEventListener("dragend", dropFocus);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("change", onChange);
+      document.removeEventListener("click", dropFocus);
+      document.removeEventListener("dragend", dropFocus);
     };
   }, []);
 }

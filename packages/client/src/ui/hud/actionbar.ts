@@ -1,8 +1,9 @@
-// Barra de ações (teclas 1–8). Magias chegam no M3: preenchem slots, recebem ativações e disparam cooldowns.
-// Slots são 0-based na API (tecla "1" = slot 0).
+// Barra de ações = atalhos de magia (ui/hotkeys): um slot por atalho, na ordem do painel. Recebem ativações (tecla do
+// atalho ou clique) e disparam cooldowns. Slots são 0-based na API.
+import { HOTKEY_MAX } from "@lemonquest/shared";
 import { createStore, type Unsubscribe } from "./store.ts";
 
-export const ACTION_SLOTS = 8;
+export const ACTION_SLOTS = HOTKEY_MAX;
 
 export interface SlotAction {
   /** Nome exibido no tooltip. */
@@ -20,7 +21,12 @@ export interface SlotAction {
   fx?: string;
   /** Cor do elemento (CSS) para a borda do slot. */
   color?: string;
+  /** Rótulo da tecla do atalho ("1", "⇧F"). */
+  keyLabel?: string;
 }
+
+/** Quantos slots a barra mostra (= atalhos configurados). */
+export const slotCountStore = createStore(0);
 
 export interface Cooldown { start: number; end: number }
 
@@ -68,7 +74,7 @@ export function flashSlot(slot: number): void {
 type ActivateHandler = (slot: number) => void;
 const handlers = new Set<ActivateHandler>();
 
-/** Assina ativações (tecla 1–8 ou clique no slot). */
+/** Assina ativações (tecla do atalho ou clique no slot). */
 export function onSlotActivate(fn: ActivateHandler): Unsubscribe {
   handlers.add(fn);
   return () => { handlers.delete(fn); };

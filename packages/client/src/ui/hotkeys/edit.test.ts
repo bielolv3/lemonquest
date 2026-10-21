@@ -1,0 +1,52 @@
+import { describe, expect, it } from "vitest";
+import { HOTKEY_MAX, keyLabel, type Hotkey } from "@lemonquest/shared";
+import { addRow, assignKey, hotkeyIndex, keyFromEvent, nextFreeKey, removeRow, setRowSpell, swapHotkeySpells } from "./edit.ts";
+
+const L: Hotkey[] = [{ key: "Digit1", spellId: "fireball" }, { key: "Digit2", spellId: "energy_wave" }];
+const ev = (code: string, o: Partial<KeyboardEvent> = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, ...o });
+
+describe("edição dos atalhos", () => {
+  it("tecla do evento: Shift vira prefixo; Ctrl/Alt/Meta não são atalho", () => {
+    expect(keyFromEvent(ev("KeyF"))).toBe("KeyF");
+    expect(keyFromEvent(ev("Digit2", { shiftKey: true }))).toBe("Shift+Digit2");
+    expect(keyFromEvent(ev("Digit2", { ctrlKey: true }))).toBeNull();
+    expect(keyFromEvent(ev("Digit2", { altKey: true }))).toBeNull();
+    expect(hotkeyIndex(L, "Digit2")).toBe(1);
+    expect(hotkeyIndex(L, null)).toBe(-1);
+  });
+
+  it("tecla do jogo é recusada com o motivo; tecla livre é aplicada", () => {
+    const bad = assignKey(L, 0, "KeyQ", keyLabel);
+    expect(bad).toMatchObject({ error: true, message: "Tecla Q usada por: Poção de vida" });
+    expect(bad.list).toEqual(L);
+    expect(assignKey(L, 0, "KeyF", keyLabel).list[0]).toEqual({ key: "KeyF", spellId: "fireball" });
+  });
+
+  it("tecla de outra linha: as duas trocam de tecla (com aviso)", () => {
+    const r = assignKey(L, 0, "Digit2", keyLabel);
+    expect(r.error).toBeUndefined();
+    expect(r.message).toMatch(/trocaram/);
+    expect(r.list).toEqual([{ key: "Digit2", spellId: "fireball" }, { key: "Digit1", spellId: "energy_wave" }]);
+    expect(L[0]!.key).toBe("Digit1"); // não muta a original
+  });
+
+  it("magia, remover, trocar magias e adicionar", () => {
+    expect(setRowSpell(L, 1, "inferno")[1]).toEqual({ key: "Digit2", spellId: "inferno" });
+    expect(removeRow(L, 0)).toEqual([{ key: "Digit2", spellId: "energy_wave" }]);
+    expect(swapHotkeySpells(L, 0, 1)).toEqual([{ key: "Digit1", spellId: "energy_wave" }, { key: "Digit2", spellId: "fireball" }]);
+    expect(swapHotkeySpells(L, 0, 5)).toEqual(L);
+    const added = addRow(L, "sorcerer").list;
+    expect(added).toHaveLength(3);
+    expect(added[2]!.key).toBe("Digit3");
+    expect(["fireball", "energy_wave"]).not.toContain(added[2]!.spellId);
+  });
+
+  it("no máximo HOTKEY_MAX; teclas livres acabam nas letras e depois com Shift", () => {
+    let list: Hotkey[] = [];
+    for (let i = 0; i < HOTKEY_MAX + 3; i++) list = addRow(list, "druid").list;
+    expect(list).toHaveLength(HOTKEY_MAX);
+    expect(addRow(list, "druid").error).toBe(true);
+    expect(new Set(list.map((h) => h.key)).size).toBe(HOTKEY_MAX);
+    expect(nextFreeKey([{ key: "Digit1", spellId: "x" }])).toBe("Digit2");
+  });
+});
