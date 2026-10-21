@@ -4,14 +4,14 @@
 .npc-title { cursor: default; }
 .npc-title > span:nth-child(2) { flex: 1; color: var(--hud-text); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; }
 .npc-gold { font-size: 12px; margin-right: 2px; }
-.npc-body { display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 10px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent; }
+.npc-body { display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 10px; min-height: 0; overflow-y: auto; }
 .npc-say { position: relative; padding: 7px 10px; font-size: 13px; line-height: 1.45; color: #d9d7cc; cursor: pointer; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--hud-line-soft); border-radius: 5px; min-height: 18px; }
 .npc-say-rest { visibility: hidden; }
 .npc-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hud-line); padding-bottom: 6px; }
 .npc-tab { padding: 4px 12px; background: transparent; border-color: transparent; color: var(--hud-muted) !important; }
 .npc-tab.active { background: rgba(217, 164, 65, 0.12); border-color: rgba(217, 164, 65, 0.5); color: var(--hud-gold) !important; }
 
-.shop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent; }
+.shop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
 .shop-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 4px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--hud-line-soft); border-radius: 5px; }
 .shop-row:hover { border-color: var(--hud-line-hi); }
 .shop-icon { flex: none; }
@@ -29,4 +29,4 @@
 .shop-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .depot-hint { font-size: 11px; color: var(--hud-faint); margin-bottom: 6px; }
-.depot-grid { display: grid; grid-template-columns: repeat(8, 40px); gap: 4px; justify-content: center; max-height: 276px; overflow-y: auto; padding: 2px; scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent; }
+.depot-grid { display: grid; grid-template-columns: repeat(8, 40px); gap: 4px; justify-content: center; max-height: 276px; overflow-y: auto; padding: 2px; }

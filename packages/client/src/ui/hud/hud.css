@@ -283,12 +283,7 @@
 /* ---------- Corpo de altura fixa (Batalha/Mochila): rolagem interna + alça de redimensionar ---------- */
 .sized-body {
   overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; box-sizing: border-box;
-  scrollbar-width: thin; scrollbar-color: var(--hud-line-hi) transparent;
 }
-.sized-body::-webkit-scrollbar { width: 6px; }
-.sized-body::-webkit-scrollbar-track { background: transparent; }
-.sized-body::-webkit-scrollbar-thumb { background: var(--hud-line-hi); border-radius: 3px; }
-.sized-body::-webkit-scrollbar-thumb:hover { background: var(--hud-muted); }
 .sized-backpack { padding: 0; }
 .size-grip {
   position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize; touch-action: none; z-index: 1;
