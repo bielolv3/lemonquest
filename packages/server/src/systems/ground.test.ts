@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { BACKPACK_SIZE, S2C } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
-import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, LOOT_PROTECT_MS, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
-import { LootSystem, PARTY_LOOT_PROTECT_MS } from "./loot.ts";
+import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
+import { LootSystem } from "./loot.ts";
 import { def, grid } from "./testkit.ts";
 import { invWorld } from "./m4kit.ts";
 import type { Monster } from "./monsters.ts";
@@ -21,7 +21,7 @@ const MAP = grid([
   "............",
 ]);
 
-function groundWorld(partyOf: Record<string, string> = {}) {
+function groundWorld() {
   const w = invWorld();
   const collection = new Map<string, GroundItemState>();
   const logs: string[] = [];
@@ -30,7 +30,6 @@ function groundWorld(partyOf: Record<string, string> = {}) {
     canHold: (x, y) => MAP.isWalkable(x, y) && !(x === 2 && y === 2),
     seeThrough: (x, y) => MAP.isWalkable(x, y),
     send: (to, type, msg) => w.sent.push({ to, type, msg }),
-    partyIdOf: (p) => partyOf[p.id],
   });
   const add = (id: string, x: number, y: number, over: Partial<PlayerState> = {}) => {
     const p = w.mk(id, { name: id.toUpperCase(), ...over });
@@ -283,7 +282,7 @@ describe("ground: decay and caps", () => {
 });
 
 describe("ground: loot overflow", () => {
-  it("loot that doesn't fit falls on the killer's tile, owned 60 s, then anyone", () => {
+  it("loot que não coube cai no tile de quem matou, e qualquer um pega na hora (o chão não tem dono)", () => {
     const t = groundWorld();
     const killer = t.add("k", 4, 4, { name: "Kiko" });
     const other = t.add("o", 5, 4);
@@ -301,27 +300,10 @@ describe("ground: loot overflow", () => {
     const lootMsg = t.w.sent.find((s) => s.type === S2C.Loot)!.msg;
     expect(lootMsg.fellToGround).toBe(2);
     expect(lootMsg.lostFull).toBeUndefined();
-    // Outro jogador não pega durante a proteção.
     const vest = items.find((e) => e.item.defId === "vest")!.state.id;
-    t.ground.onPickup(other, { groundId: vest });
-    expect(t.ground.get(vest)).toBeDefined();
-    expect(t.w.notices().at(-1)).toBe(GROUND_MSG.notYours);
-    // Depois de 60 s, qualquer um.
-    t.w.advance(LOOT_PROTECT_MS);
     t.ground.onPickup(other, { groundId: vest });
     expect(t.ground.get(vest)).toBeUndefined();
     expect(t.bp("o")[0]?.defId).toBe("vest");
-    // O dono pode pegar durante a proteção (mesmo com outra sessão: vale o nome).
-    const bone = t.onTile(4, 4)[0]!.state.id;
-    expect(t.ground.get(bone)!.owner).toBe("kiko");
-  });
-
-  it("killer's own drop during protection can be picked by the killer", () => {
-    const t = groundWorld();
-    const k = t.add("k", 4, 4, { name: "Kiko" });
-    const id = t.ground.place(makeItem("vest"), 4, 4, { name: "Kiko", ms: LOOT_PROTECT_MS })!;
-    t.ground.onPickup(k, { groundId: id });
-    expect(t.bp("k")[0]?.defId).toBe("vest");
   });
 });
 
@@ -343,13 +325,13 @@ describe("ground: persistência", () => {
     send: () => {},
   });
 
-  it("flush grava só quando mudou; restore recarrega itens, ordem da pilha e dono", () => {
+  it("flush grava só quando mudou; restore recarrega itens e a ordem da pilha", () => {
     const w = invWorld();
     const store = memStore();
     const g1 = make(w, store);
     g1.place(makeItem("bone", 5), 4, 4);
     g1.place(makeItem("sword", 1, "rare", [{ stat: "attack", value: 3 }]), 4, 4);
-    g1.place(makeItem("vest"), 5, 5, { name: "Kiko", ms: LOOT_PROTECT_MS });
+    g1.place(makeItem("vest"), 5, 5);
     g1.flush();
     expect(store.rows).toHaveLength(3);
     const g2 = make(w, store);
@@ -357,24 +339,21 @@ describe("ground: persistência", () => {
     const ids = g2.at(4, 4);
     expect(ids.map((i) => g2.get(i)!.item.defId)).toEqual(["bone", "sword"]);
     expect(g2.get(ids[1]!)!.item.bonuses).toEqual([{ stat: "attack", value: 3 }]);
-    const vest = g2.get(g2.at(5, 5)[0]!)!;
-    expect(vest.owner).toBe("kiko");
-    expect(vest.ownerUntil).toBeGreaterThan(w.now());
+    expect(g2.get(g2.at(5, 5)[0]!)!.item.defId).toBe("vest");
   });
 
-  it("restore descarta o que expirou durante o 'servidor desligado' e dono vencido", () => {
+  it("restore descarta o que expirou durante o 'servidor desligado'", () => {
     const w = invWorld();
     const store = memStore();
     const g1 = make(w, store);
     g1.place(makeItem("bone", 1), 4, 4);                                      // 10 min
     g1.place(makeItem("sword", 1, "rare"), 5, 5);                             // 20 min
-    g1.place(makeItem("vest", 1, "rare"), 6, 6, { name: "Kiko", ms: LOOT_PROTECT_MS });  // dono 60 s
+    g1.place(makeItem("vest", 1, "rare"), 6, 6);                              // 20 min
     g1.flush();
     w.advance(DECAY_MS.common + 1000);
     const g2 = make(w, store);
     expect(g2.restore()).toBe(2);
     expect(g2.at(4, 4)).toHaveLength(0);
-    expect(g2.get(g2.at(6, 6)[0]!)!.owner).toBeUndefined();
     g2.flush();
     expect(store.rows).toHaveLength(2); // lista limpa regravada
   });
@@ -434,7 +413,7 @@ describe("ground: mover no chão (arrastar de um tile para outro)", () => {
     expect(t.ground.get(far)!.state.x).toBe(4 + DROP_RANGE + 1);
   });
 
-  it("parte de uma pilha (count) e protegido de outro jogador não se mexe", () => {
+  it("parte de uma pilha (count)", () => {
     const t = groundWorld();
     const p = t.add("p1", 4, 4);
     const id = t.ground.place(makeItem("bone", 5), 4, 5)!;
@@ -443,15 +422,10 @@ describe("ground: mover no chão (arrastar de um tile para outro)", () => {
     const part = t.onTile(5, 5)[0]!;
     expect(part.item.count).toBe(2);
     expect(part.item.uid).not.toBe(t.ground.get(id)!.item.uid);
-    const owned = t.ground.place(makeItem("vest"), 3, 4, { name: "Outro", ms: LOOT_PROTECT_MS })!;
-    t.step();
-    t.ground.onMoveGround(p, { groundId: owned, x: 3, y: 3 });
-    expect(t.ground.get(owned)!.state.y).toBe(4);
-    expect(t.w.notices().at(-1)).toBe(GROUND_MSG.notYours);
   });
 });
 
-describe("loot de grupo: cai no chão e qualquer membro do grupo pega", () => {
+describe("loot de grupo: cai no chão e qualquer um pega", () => {
   const md = def({ name: "Rato", gold: [7, 7], loot: [{ itemId: "vest", chance: 1 }] });
   const kill = (t: ReturnType<typeof groundWorld>, killer: PlayerState, players: Map<string, PlayerState>, party?: string) => {
     const loot = new LootSystem({
@@ -462,8 +436,8 @@ describe("loot de grupo: cai no chão e qualquer membro do grupo pega", () => {
     loot.onKill({ s: { id: "m1", x: 9, y: 8, ownerId: "" }, def: md, damageBy: new Map([[killer.id, 10]]) } as unknown as Monster);
   };
 
-  it("itens e ouro no tile do monstro; outro membro do grupo pega; quem não é do grupo só depois de 60 s", () => {
-    const t = groundWorld({ k: "pt1", a: "pt1" });
+  it("itens e ouro no tile do monstro; o grupo e quem é de fora pegam na hora", () => {
+    const t = groundWorld();
     const killer = t.add("k", 9, 7), ally = t.add("a", 8, 8), stranger = t.add("s", 10, 8);
     kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "pt1");
     const items = t.onTile(9, 8);
@@ -473,14 +447,11 @@ describe("loot de grupo: cai no chão e qualquer membro do grupo pega", () => {
     const msg = t.w.sent.find((x) => x.type === S2C.Loot)!.msg;
     expect(msg).toMatchObject({ onGround: true, gold: 7 });
     const vest = items.find((e) => e.item.defId === "vest")!.state.id;
-    t.ground.onPickup(stranger, { groundId: vest });
-    expect(t.ground.get(vest)).toBeDefined();
-    t.step();
     t.ground.onPickup(ally, { groundId: vest });
     expect(t.ground.get(vest)).toBeUndefined();
     expect(t.bp("a").some((x) => x?.defId === "vest")).toBe(true);
     const gold = items.find((e) => e.item.defId === "gold_coin")!.state.id;
-    t.w.advance(PARTY_LOOT_PROTECT_MS + 1);
+    t.step();
     t.ground.onPickup(stranger, { groundId: gold });
     expect(t.w.inv.gold("s")).toBe(7);
   });

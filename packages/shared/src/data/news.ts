@@ -16,7 +16,8 @@ export const NEWS: readonly NewsEntry[] = [
     date: "21 de outubro (noite)",
     title: "Loot do grupo no chão",
     items: [
-      "Em grupo, o loot dos monstros cai no chão: qualquer um do grupo pode pegar (depois de 1 minuto, qualquer pessoa).",
+      "Em grupo, o loot dos monstros cai no chão onde o monstro morreu.",
+      "O que está no chão é de qualquer um: dá para pegar na hora, sem esperar.",
       "Arraste um item do chão para outro tile para mudá-lo de lugar (Shift numa pilha escolhe quanto).",
     ],
   },

@@ -259,17 +259,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       store: {
         load: () => loadGroundRows().flatMap((r) => {
           try {
-            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt, owner: r.owner ?? undefined, ownerUntil: r.ownerUntil ?? undefined }];
+            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt }];
           } catch { return []; }
         }),
         save: (rows) => replaceGroundRows(rows.map((r) => ({
-          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, owner: r.owner ?? null, ownerUntil: r.ownerUntil ?? null,
+          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, owner: null, ownerUntil: null, // chão sem dono
         }))),
       },
       inventory: this.inventory, collection: this.state.groundItems, send,
       onDropped: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "drop"); },
       onPickedUp: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "pickup"); },
-      partyIdOf: (p) => this.partyLootId(p),
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });

@@ -2,12 +2,13 @@
 
 ## [Não lançado] — 2026-10-21 · loot de grupo no chão e mover itens no chão
 
-- **Loot em grupo** (2+ membros): itens e ouro caem no chão onde o monstro morreu, e qualquer membro do grupo pega
-  por 60 s (`PARTY_LOOT_PROTECT_MS`); depois, qualquer um. O toast de loot diz "(no chão, para o grupo)". O que não
-  couber no chão vai para quem matou. Sozinho, continua indo direto para a mochila.
+- **Loot em grupo** (2+ membros): itens e ouro caem no chão onde o monstro morreu. O toast de loot diz "(no chão)". O
+  que não couber no chão vai para quem matou. Sozinho, continua indo direto para a mochila.
+- **O chão não tem dono**: tudo o que está no chão (loot de grupo, loot que não coube na mochila, ouro da caveira
+  vermelha) qualquer um pega ou move na hora. Acabou o "Esse item ainda não é seu." (as colunas `owner`/`owner_until`
+  da tabela `ground_items` ficam sem uso).
 - **Mover item no chão**: arrastar um item do chão para outro tile (`C2S.MoveGroundItem`): origem e destino a até
-  3 tiles com linha livre; `Shift` numa pilha escolhe a quantidade; item protegido de outro não se mexe; o tempo até
-  sumir não reinicia.
+  3 tiles com linha livre; `Shift` numa pilha escolhe a quantidade; o tempo até sumir não reinicia.
 
 ## [Não lançado] — 2026-10-21 · mochila cresce com o level e rolagem minimalista
 

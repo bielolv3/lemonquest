@@ -303,11 +303,11 @@ export interface TravelMsg { npcId: string; dest: string }
 export interface MoveGroundItemMsg { groundId: string; x: number; y: number; count?: number | null }
 export interface LootMsg {
   x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number;
-  /** Loot de grupo: tudo caiu no chão onde o monstro morreu (qualquer membro do grupo pega por 60 s). */
+  /** Loot de grupo: tudo caiu no chão onde o monstro morreu (qualquer um pega). */
   onGround?: boolean;
   /** Itens perdidos (mochila cheia e sem espaço no chão). */
   lostFull?: number;
-  /** Itens que não couberam e caíram no chão (no seu tile, só você pega por 60 s). */
+  /** Itens que não couberam e caíram no chão (no seu tile; qualquer um pega). */
   fellToGround?: number;
 }
 export interface FeedMsg { text: string; kind: "drop" | "level" | "boss" | "death" | "info"; rarity?: Rarity }

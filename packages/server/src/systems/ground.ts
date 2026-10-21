@@ -1,7 +1,6 @@
 // Itens no chão (estilo Tibia): largar da mochila/equipamento num tile (≤ 3 tiles, linha livre) ou no próprio,
-// mover de um tile para outro (arrastar no mundo), pegar de volta (alcance 1, qualquer jogador), sumir com o tempo
-// (10/20 min) e receber loot protegido por 60 s: o que não coube na mochila (só quem matou) e o loot de grupo (qualquer
-// membro do grupo de quem matou). Estado sincronizado: state.groundItems (sem bônus); a instância completa
+// mover de um tile para outro (arrastar no mundo), pegar de volta (alcance 1), sumir com o tempo (10/20 min) e receber
+// loot (o que não coube na mochila e o loot de grupo). O que está no chão é de qualquer um: não há reserva de dono. Estado sincronizado: state.groundItems (sem bônus); a instância completa
 // fica aqui. Persistência (`store`, opcional): grava a lista inteira (com debounce) quando algo muda e no desligamento;
 // no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
 // servidor desligado também conta).
@@ -24,8 +23,6 @@ export const MAX_GROUND_ITEMS = 2000;
 export const DECAY_MS: Record<Rarity, number> = {
   common: 10 * 60_000, uncommon: 10 * 60_000, rare: 20 * 60_000, epic: 20 * 60_000, legendary: 20 * 60_000,
 };
-/** Loot que não coube: só quem matou pode pegar durante este tempo. */
-export const LOOT_PROTECT_MS = 60_000;
 /** Mensagens por segundo (largar + pegar, cada um). Excesso descartado em silêncio. */
 export const GROUND_RATE = 10;
 const SWEEP_MS = 1000;
@@ -34,22 +31,13 @@ const LOG_RARITIES: Rarity[] = ["epic", "legendary"];
 export const GROUND_MSG = {
   tileFull: "Não cabe mais nada aqui.",
   full: "Mochila cheia.",
-  notYours: "Esse item ainda não é seu.",
 } as const;
 
 export interface GroundEntry {
   state: GroundItemState;
   item: ItemInstance;
   expiresAt: number;
-  /** Nome (minúsculo) de quem tem prioridade até ownerUntil. */
-  owner?: string;
-  /** Grupo (party id) com prioridade até ownerUntil: qualquer membro pega. Só em memória (grupos não sobrevivem ao reinício). */
-  ownerParty?: string;
-  ownerUntil?: number;
 }
-
-/** Prioridade de quem pode pegar/mover um item protegido: nome (minúsculo) e/ou grupo, por `ms`. */
-export interface GroundOwner { name?: string; party?: string; ms: number }
 
 /** Coleção sincronizada (MapSchema no jogo, Map nos testes). */
 export interface GroundCollection {
@@ -58,7 +46,7 @@ export interface GroundCollection {
   get(k: string): GroundItemState | undefined;
 }
 
-export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number; owner?: string; ownerUntil?: number }
+export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number }
 /** Armazenamento dos itens do chão (o jogo usa o SQLite; os testes, um array). */
 export interface GroundStore {
   load(): GroundRecord[];
@@ -81,16 +69,11 @@ export interface GroundOptions {
   /** Conquistas: o jogador largou / pegou um item. */
   onDropped?: (p: PlayerState) => void;
   onPickedUp?: (p: PlayerState) => void;
-  /** Grupo (party id) atual do jogador, para o loot de grupo. Ausente = sem grupos. */
-  partyIdOf?: (p: PlayerState) => string | undefined;
 }
 
 export const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 const isInt = (n: unknown): n is number => Number.isInteger(n);
 const tileKey = (x: number, y: number) => `${x},${y}`;
-const ownerKey = (p: PlayerState) => p.name.toLowerCase();
-/** Ainda protegido (dono por nome ou por grupo dentro do prazo)? */
-const isProtected = (e: GroundEntry, now: number) => !!(e.owner || e.ownerParty) && (e.ownerUntil ?? 0) > now;
 
 /** Linha livre para arremessar (mesma regra da linha de visão de combate/magias: `lineOfSight` do shared). */
 export const lineClear = lineOfSight;
@@ -142,7 +125,6 @@ export class GroundSystem {
     const e = this.entries.get(msg.groundId);
     if (!e) return; // já pegaram / sumiu: silencioso
     if (cheb(p.x, p.y, e.state.x, e.state.y) > PICKUP_RANGE) return;
-    if (!this.mayTake(e, p)) return this.warn(p, GROUND_MSG.notYours);
     const to = msg.to && typeof msg.to === "object" ? msg.to : undefined;
     const n = e.item.count;
     const left = this.o.inventory.placePickup(p, e.item, to);
@@ -163,10 +145,10 @@ export class GroundSystem {
   // --- API ----------------------------------------------------------------------------
 
   /**
-   * Coloca um item no chão em (x,y). `owner` = só esse jogador/grupo pega por `ms`. Empilha em cima de uma pilha
-   * igual sem dono. Retorna o id (ou undefined se o tile está cheio/inválido).
+   * Coloca um item no chão em (x,y). Empilha em cima de uma pilha igual. Retorna o id (ou undefined se o tile está
+   * cheio/inválido).
    */
-  place(item: ItemInstance, x: number, y: number, owner?: GroundOwner): string | undefined {
+  place(item: ItemInstance, x: number, y: number): string | undefined {
     if (!this.o.canHold(x, y) || item.count < 1) return undefined;
     const now = this.now();
     const ids = this.at(x, y);
@@ -175,7 +157,7 @@ export class GroundSystem {
     // Empilha no topo se for o mesmo item empilhável (e nenhum dos dois tiver dono).
     const topId = ids[ids.length - 1];
     const top = topId ? this.entries.get(topId) : undefined;
-    if (top && !owner && !isProtected(top, now) && d.stackable
+    if (top && d.stackable
       && top.item.defId === item.defId && top.item.rarity === item.rarity && top.item.count + item.count <= maxStackOf(d)) {
       top.item.count += item.count;
       top.state.count = top.item.count;
@@ -197,11 +179,6 @@ export class GroundSystem {
     s.x = x;
     s.y = y;
     const e: GroundEntry = { state: s, item, expiresAt: now + (DECAY_MS[item.rarity] ?? DECAY_MS.common) };
-    if (owner) {
-      if (owner.name) e.owner = owner.name.toLowerCase();
-      if (owner.party) e.ownerParty = owner.party;
-      e.ownerUntil = now + owner.ms;
-    }
     this.entries.set(s.id, e);
     const k = tileKey(x, y);
     const list = this.tiles.get(k);
@@ -211,34 +188,27 @@ export class GroundSystem {
     return s.id;
   }
 
-  /** Loot que não coube: no tile de quem matou (ou vizinho), protegido por LOOT_PROTECT_MS. */
+  /** Loot que não coube: no tile de quem matou (ou vizinho). */
   placeLoot(p: PlayerState, item: ItemInstance): boolean {
-    return !!this.placeNear(item, p.x, p.y, { name: p.name, ms: LOOT_PROTECT_MS });
+    return !!this.placeNear(item, p.x, p.y);
   }
 
   /** Coloca em (x,y) ou no tile livre mais perto (até 2 de distância). Retorna o id (undefined = não coube). */
-  placeNear(item: ItemInstance, x: number, y: number, owner?: GroundOwner): string | undefined {
+  placeNear(item: ItemInstance, x: number, y: number): string | undefined {
     for (let r = 0; r <= 2; r++) {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const id = this.place(item, x + dx, y + dy, owner);
+        const id = this.place(item, x + dx, y + dy);
         if (id) return id;
       }
     }
     return undefined;
   }
 
-  /** Pode pegar/mover? Sem proteção (ou vencida): qualquer um. Protegido: o dono pelo nome ou alguém do grupo dono. */
-  mayTake(e: GroundEntry, p: PlayerState, now = this.now()): boolean {
-    if (!isProtected(e, now)) return true;
-    if (e.owner && e.owner === ownerKey(p)) return true;
-    return !!e.ownerParty && this.o.partyIdOf?.(p) === e.ownerParty;
-  }
-
   /**
    * C2S.MoveGroundItem: arrasta um item do chão para outro tile. O item tem de estar a até DROP_RANGE do jogador com
-   * linha livre, e o destino segue a regra de largar (alcance, linha livre, tile que segura item). Protegido de outro
-   * não mexe. O tempo até sumir não reinicia (mover não deixa o item eterno).
+   * linha livre, e o destino segue a regra de largar (alcance, linha livre, tile que segura item). O tempo até sumir não
+   * reinicia (mover não deixa o item eterno).
    */
   onMoveGround(p: PlayerState, msg: MoveGroundItemMsg): void {
     if (!msg || typeof msg !== "object" || typeof msg.groundId !== "string" || p.hp <= 0) return;
@@ -249,22 +219,18 @@ export class GroundSystem {
     if (!e) return;
     const { x: sx, y: sy } = e.state;
     if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return;
-    if (!this.mayTake(e, p)) return this.warn(p, GROUND_MSG.notYours);
     if (msg.x === sx && msg.y === sy) return;
     if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !this.o.canHold(msg.x, msg.y) || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return;
     const n = Math.min(msg.count ?? e.item.count, e.item.count);
     if (!this.fits(msg.x, msg.y, e.item.defId, e.item.rarity, n)) return this.warn(p, GROUND_MSG.tileFull);
-    const now = this.now();
-    const owner: GroundOwner | undefined = isProtected(e, now)
-      ? { name: e.owner, party: e.ownerParty, ms: (e.ownerUntil ?? now) - now } : undefined;
     const whole = n >= e.item.count;
     const moving: ItemInstance = whole ? e.item : { ...e.item, uid: newUid(), count: n, bonuses: e.item.bonuses.map((b) => ({ ...b })) };
     const expiresAt = e.expiresAt;
     if (whole) this.remove(e.state.id);
-    const id = this.place(moving, msg.x, msg.y, owner);
+    const id = this.place(moving, msg.x, msg.y);
     if (!id) {
       // Não deveria acontecer (checado acima): devolve ao tile de origem.
-      if (whole) { const back = this.place(moving, sx, sy, owner); const b = back ? this.entries.get(back) : undefined; if (b) b.expiresAt = expiresAt; }
+      if (whole) { const back = this.place(moving, sx, sy); const b = back ? this.entries.get(back) : undefined; if (b) b.expiresAt = expiresAt; }
       return this.warn(p, GROUND_MSG.tileFull);
     }
     if (!whole) { e.item.count -= n; e.state.count = e.item.count; }
@@ -304,7 +270,7 @@ export class GroundSystem {
     this.lastSave = now;
     try {
       store.save([...this.entries.values()].map((e) => ({
-        x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt, owner: e.owner, ownerUntil: e.ownerUntil,
+        x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt,
       })));
     } catch (err) {
       this.dirty = true; // tenta de novo na próxima varredura
@@ -333,7 +299,6 @@ export class GroundSystem {
       s.x = r.x;
       s.y = r.y;
       const e: GroundEntry = { state: s, item: r.item, expiresAt: r.expiresAt };
-      if (r.owner && (r.ownerUntil ?? 0) > now) { e.owner = r.owner; e.ownerUntil = r.ownerUntil; }
       this.entries.set(s.id, e);
       const k = tileKey(r.x, r.y);
       const list = this.tiles.get(k);
@@ -386,7 +351,7 @@ export class GroundSystem {
     const top = this.entries.get(ids[ids.length - 1]!);
     const d = this.o.inventory.defs(defId);
     const now = this.now();
-    return !!top && !!d?.stackable && !isProtected(top, now)
+    return !!top && !!d?.stackable
       && top.item.defId === defId && top.item.rarity === rarity && top.item.count + n <= maxStackOf(d);
   }
 
