@@ -105,8 +105,17 @@ export interface LootOptions {
   /** Multiplicador da chance de cada item do loot (evento com bônus). Ausente = 1. */
   lootMult?: () => number;
   /** Itens no chão (systems/ground.ts): o que não coube cai no tile de quem matou (protegido por 60 s). */
-  ground?: { placeLoot: (p: PlayerState, item: ItemInstance) => boolean };
+  ground?: {
+    placeLoot: (p: PlayerState, item: ItemInstance) => boolean;
+    /** Loot de grupo: no tile do monstro (ou o livre mais perto), protegido para o grupo. Retorna o id (undefined = não coube). */
+    placeNear?: (item: ItemInstance, x: number, y: number, owner?: { name?: string; party?: string; ms: number }) => string | undefined;
+  };
+  /** Grupo (party id) do jogador quando tem 2+ membros: o loot cai no chão para o grupo. Ausente/undefined = sozinho. */
+  partyIdOf?: (p: PlayerState) => string | undefined;
 }
+
+/** Proteção do loot de grupo no chão (depois disso, qualquer um pega). */
+export const PARTY_LOOT_PROTECT_MS = 60_000;
 
 export const FEED_RARITIES: Rarity[] = ["epic", "legendary"];
 
@@ -149,6 +158,8 @@ export class LootSystem {
     const def = m.def;
     if (def.boss) this.feed(`☠️ ${p.name} derrotou ${def.name}!`, "boss");
     const roll = rollLoot(def, this.rng, this.o.inventory.defs, this.o.lootMult?.() ?? 1);
+    const party = this.o.partyIdOf?.(p);
+    if (party && this.o.ground?.placeNear) return this.dropForParty(p, m, party, roll.items, roll.gold);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
     const got: ItemInstance[] = [];
     let lost = 0, fell = 0;
@@ -172,6 +183,34 @@ export class LootSystem {
       if (lost > 0) msg.lostFull = lost;
       if (fell > 0) msg.fellToGround = fell;
       this.o.send(p.id, S2C.Loot, msg);
+    }
+  }
+
+  /**
+   * Em grupo, o loot (itens e ouro) cai no chão onde o monstro morreu: qualquer membro do grupo pega por
+   * PARTY_LOOT_PROTECT_MS, depois qualquer um. O que não couber no chão vai para a mochila de quem matou.
+   */
+  private dropForParty(p: PlayerState, m: Monster, party: string, items: ItemInstance[], gold: number): void {
+    const { x, y } = m.s;
+    const owner = { name: p.name, party, ms: PARTY_LOOT_PROTECT_MS };
+    const all = gold > 0 ? [...items, makeItem(GOLD_ID, gold)] : items;
+    const onGround: ItemInstance[] = [];
+    let groundGold = 0;
+    for (const it of all) {
+      if (this.o.ground!.placeNear!(it, x, y, owner)) {
+        if (it.defId === GOLD_ID) groundGold += it.count; else onGround.push(it);
+        continue;
+      }
+      // Chão cheio em volta: vai para quem matou (ou se perde, com a mochila cheia).
+      if (it.defId === GOLD_ID) this.o.inventory.addGold(p, it.count);
+      else if (this.o.inventory.addItem(p, it) > 0) this.o.send(p.id, S2C.Notice, { text: "Mochila cheia: um item do loot se perdeu.", kind: "warn" } satisfies NoticeMsg);
+    }
+    for (const it of items) {
+      const d = this.o.inventory.defs(it.defId);
+      if (d && FEED_RARITIES.includes(it.rarity)) this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
+    }
+    if (onGround.length || groundGold > 0) {
+      this.o.send(p.id, S2C.Loot, { x, y, monsterName: m.def.name, items: onGround, gold: groundGold, onGround: true } satisfies LootMsg);
     }
   }
 

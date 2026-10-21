@@ -14,7 +14,7 @@ export function LootToasts() {
       <div class="loot-stack" aria-live="polite">
         {list.map((t) => (
           <div key={t.id} class={`hud-card loot-toast${t.big ? " big" : ""}`}>
-            <span class="loot-from">{t.msg.monsterName}:</span>
+            <span class="loot-from">{t.msg.monsterName}{t.msg.onGround ? " (no chão, para o grupo)" : ""}:</span>
             <span class="loot-items">
               {t.msg.gold > 0 && <span class="loot-gold"><Coin size={14} />{fmtNum(t.msg.gold)} ouro</span>}
               {t.msg.items.map((it) => (

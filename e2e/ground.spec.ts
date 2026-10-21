@@ -103,3 +103,28 @@ test("itens no chão: largar arrastando e outro jogador pega (direito, Ctrl, dup
     await cb.close();
   }
 });
+
+test("itens no chão: arrastar um item do chão para outro tile", async ({ page }) => {
+  test.setTimeout(120_000);
+  await enterGame(page, "knight");
+  // Canto fora da vila com três tiles livres em linha (largar no do meio, mover para o da direita).
+  const mobs = await page.evaluate(() => (window as any).__lq.monsters() as { x: number; y: number }[]);
+  const items = await ground(page);
+  const clear = (x: number, y: number) => !mobs.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= 6)
+    && !items.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= 1);
+  const spots = (await walkableNear(page, 60, 80, 8)).filter((t, _i, all) =>
+    all.some((o) => o.x === t.x + 1 && o.y === t.y) && all.some((o) => o.x === t.x + 2 && o.y === t.y) && clear(t.x, t.y) && clear(t.x + 2, t.y));
+  const base = spots[0]!;
+  await teleport(page, base.x, base.y);
+  await say(page, "/item mana_potion 1");
+  await expect.poll(() => countOf(page, "mana_potion"), { timeout: 10_000 }).toBe(1);
+  await dropToTile(page, "mana_potion", base.x + 1, base.y);
+  await waitSettled(page);
+  // Arrasta do tile do meio para o da direita.
+  const from = await tileToClient(page, base.x + 1, base.y, 0.6);
+  const to = await tileToClient(page, base.x + 2, base.y, 0.6);
+  await drag(page, from, to);
+  await expect.poll(async () => (await ground(page)).filter((g) => g.defId === "mana_potion").map((g) => `${g.x},${g.y}`), { timeout: 10_000 })
+    .toEqual([`${base.x + 2},${base.y}`]);
+  expect(await countOf(page, "mana_potion")).toBe(0);
+});

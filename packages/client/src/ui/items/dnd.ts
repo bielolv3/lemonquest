@@ -1,7 +1,7 @@
 // Arrastar e soltar com pointer events entre mochila, equipamento, depot e o chão do mundo.
 // Os slots declaram `data-loc="bp:3" | "eq:helmet" | "dp:12"`. O alvo é achado com elementFromPoint ao soltar.
 // Soltar fora dos painéis (sobre o mundo) = largar no chão naquele tile (sem confirmação). Arrastar um item
-// do chão (WorldScene → beginGroundPress) até um slot = pegar.
+// do chão (WorldScene → beginGroundPress) até um slot = pegar; até outro tile do mundo = mover no chão.
 import {
   BACKPACK_SIZE, DEPOT_SIZE, EQUIP_SLOTS, type EquipSlot, type ItemDef, type ItemInstance, type ItemLocation,
 } from "@lemonquest/shared";
@@ -9,7 +9,7 @@ import { createStore } from "../hud/store.ts";
 import { playersStore, selectMe } from "../hud/world.ts";
 import { npcStore } from "../npc/npc.ts";
 import { closeDialog, openDialog } from "./dialogs.ts";
-import { dropAtPointer, pickupItem } from "./ground.ts";
+import { dropAtPointer, moveGroundAtPointer, pickupItem } from "./ground.ts";
 import { defOf, inventoryStore, moveItem } from "./inventory.ts";
 import { canEquip } from "./itemInfo.ts";
 import { itemTipStore } from "./tipStore.ts";
@@ -183,10 +183,21 @@ function drop(d: DragState, x: number, y: number, shift: boolean) {
   const slot = target?.closest("[data-loc]") as HTMLElement | null;
   const from = d.from;
   if (from.where === "ground") {
-    // Do chão para um slot: pegar. Mover entre tiles do chão não é suportado.
-    const to = slot ? parseLoc(slot.dataset.loc) : null;
-    if (!to || !d.valid.has(locKey(to))) return;
-    if (to.where === "backpack" || to.where === "equip") pickupItem(from.id, to);
+    // Do chão para um slot: pegar. Soltou no mundo (fora dos painéis): move para o tile sob o mouse (Shift numa
+    // pilha escolhe quanto).
+    if (slot) {
+      const to = parseLoc(slot.dataset.loc);
+      if (!to || !d.valid.has(locKey(to))) return;
+      if (to.where === "backpack" || to.where === "equip") pickupItem(from.id, to);
+      return;
+    }
+    if (target?.closest(PANEL_SEL)) return;
+    if (shift && d.inst.count > 1) {
+      openDialog({
+        kind: "count", title: `Mover ${d.def?.name ?? "item"}`, verb: "Mover", max: d.inst.count, initial: d.inst.count,
+        onConfirm: (n) => { closeDialog(); moveGroundAtPointer(from.id, x, y, n); },
+      });
+    } else moveGroundAtPointer(from.id, x, y);
     return;
   }
   if (slot) {

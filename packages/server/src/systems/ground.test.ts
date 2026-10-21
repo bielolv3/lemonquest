@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BACKPACK_SIZE, S2C } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
 import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, LOOT_PROTECT_MS, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
-import { LootSystem } from "./loot.ts";
+import { LootSystem, PARTY_LOOT_PROTECT_MS } from "./loot.ts";
 import { def, grid } from "./testkit.ts";
 import { invWorld } from "./m4kit.ts";
 import type { Monster } from "./monsters.ts";
@@ -21,7 +21,7 @@ const MAP = grid([
   "............",
 ]);
 
-function groundWorld() {
+function groundWorld(partyOf: Record<string, string> = {}) {
   const w = invWorld();
   const collection = new Map<string, GroundItemState>();
   const logs: string[] = [];
@@ -30,6 +30,7 @@ function groundWorld() {
     canHold: (x, y) => MAP.isWalkable(x, y) && !(x === 2 && y === 2),
     seeThrough: (x, y) => MAP.isWalkable(x, y),
     send: (to, type, msg) => w.sent.push({ to, type, msg }),
+    partyIdOf: (p) => partyOf[p.id],
   });
   const add = (id: string, x: number, y: number, over: Partial<PlayerState> = {}) => {
     const p = w.mk(id, { name: id.toUpperCase(), ...over });
@@ -407,5 +408,89 @@ describe("ground: persistência", () => {
       { x: 3, y: 3, item: makeItem("nao_existe", 1), expiresAt: w.now() + 1e6 },
     ];
     expect(make(w, store).restore()).toBe(1);
+  });
+});
+
+describe("ground: mover no chão (arrastar de um tile para outro)", () => {
+  it("move dentro do alcance com linha livre; o tempo até sumir não reinicia; fora do alcance/atrás da parede não", () => {
+    const t = groundWorld();
+    const p = t.add("p1", 4, 4);
+    const id = t.ground.place(makeItem("vest"), 5, 4)!;
+    const expires = t.ground.get(id)!.expiresAt;
+    t.w.advance(5000);
+    t.ground.onMoveGround(p, { groundId: id, x: 6, y: 5 });
+    expect(t.onTile(5, 4)).toHaveLength(0);
+    const moved = t.onTile(6, 5)[0]!;
+    expect(moved.item.defId).toBe("vest");
+    expect(moved.expiresAt).toBe(expires);
+    t.step();
+    t.ground.onMoveGround(p, { groundId: moved.state.id, x: 4 + DROP_RANGE + 1, y: 4 }); // destino longe
+    t.step();
+    t.ground.onMoveGround(p, { groundId: moved.state.id, x: 8, y: 5 }); // atrás da parede (x=7)
+    expect(t.onTile(6, 5)).toHaveLength(1);
+    const far = t.ground.place(makeItem("bone"), 4 + DROP_RANGE + 1, 4)!;
+    t.step();
+    t.ground.onMoveGround(p, { groundId: far, x: 5, y: 5 }); // origem longe
+    expect(t.ground.get(far)!.state.x).toBe(4 + DROP_RANGE + 1);
+  });
+
+  it("parte de uma pilha (count) e protegido de outro jogador não se mexe", () => {
+    const t = groundWorld();
+    const p = t.add("p1", 4, 4);
+    const id = t.ground.place(makeItem("bone", 5), 4, 5)!;
+    t.ground.onMoveGround(p, { groundId: id, x: 5, y: 5, count: 2 });
+    expect(t.ground.get(id)!.item.count).toBe(3);
+    const part = t.onTile(5, 5)[0]!;
+    expect(part.item.count).toBe(2);
+    expect(part.item.uid).not.toBe(t.ground.get(id)!.item.uid);
+    const owned = t.ground.place(makeItem("vest"), 3, 4, { name: "Outro", ms: LOOT_PROTECT_MS })!;
+    t.step();
+    t.ground.onMoveGround(p, { groundId: owned, x: 3, y: 3 });
+    expect(t.ground.get(owned)!.state.y).toBe(4);
+    expect(t.w.notices().at(-1)).toBe(GROUND_MSG.notYours);
+  });
+});
+
+describe("loot de grupo: cai no chão e qualquer membro do grupo pega", () => {
+  const md = def({ name: "Rato", gold: [7, 7], loot: [{ itemId: "vest", chance: 1 }] });
+  const kill = (t: ReturnType<typeof groundWorld>, killer: PlayerState, players: Map<string, PlayerState>, party?: string) => {
+    const loot = new LootSystem({
+      inventory: t.w.inv, getPlayer: (id) => players.get(id), ground: t.ground, rng: () => 0,
+      send: (to, type, msg) => t.w.sent.push({ to, type, msg }), broadcast: () => {},
+      partyIdOf: () => party,
+    });
+    loot.onKill({ s: { id: "m1", x: 9, y: 8, ownerId: "" }, def: md, damageBy: new Map([[killer.id, 10]]) } as unknown as Monster);
+  };
+
+  it("itens e ouro no tile do monstro; outro membro do grupo pega; quem não é do grupo só depois de 60 s", () => {
+    const t = groundWorld({ k: "pt1", a: "pt1" });
+    const killer = t.add("k", 9, 7), ally = t.add("a", 8, 8), stranger = t.add("s", 10, 8);
+    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "pt1");
+    const items = t.onTile(9, 8);
+    expect(items.map((e) => e.item.defId).sort()).toEqual(["gold_coin", "vest"]);
+    expect(t.bp("k").filter(Boolean)).toHaveLength(0);
+    expect(t.w.inv.gold("k")).toBe(0);
+    const msg = t.w.sent.find((x) => x.type === S2C.Loot)!.msg;
+    expect(msg).toMatchObject({ onGround: true, gold: 7 });
+    const vest = items.find((e) => e.item.defId === "vest")!.state.id;
+    t.ground.onPickup(stranger, { groundId: vest });
+    expect(t.ground.get(vest)).toBeDefined();
+    t.step();
+    t.ground.onPickup(ally, { groundId: vest });
+    expect(t.ground.get(vest)).toBeUndefined();
+    expect(t.bp("a").some((x) => x?.defId === "vest")).toBe(true);
+    const gold = items.find((e) => e.item.defId === "gold_coin")!.state.id;
+    t.w.advance(PARTY_LOOT_PROTECT_MS + 1);
+    t.ground.onPickup(stranger, { groundId: gold });
+    expect(t.w.inv.gold("s")).toBe(7);
+  });
+
+  it("sozinho continua igual: direto na mochila de quem matou", () => {
+    const t = groundWorld();
+    const killer = t.add("k", 9, 7);
+    kill(t, killer, new Map([["k", killer]]));
+    expect(t.onTile(9, 8)).toHaveLength(0);
+    expect(t.bp("k").some((x) => x?.defId === "vest")).toBe(true);
+    expect(t.w.inv.gold("k")).toBe(7);
   });
 });

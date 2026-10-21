@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
-  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -269,6 +269,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       inventory: this.inventory, collection: this.state.groundItems, send,
       onDropped: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "drop"); },
       onPickedUp: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "pickup"); },
+      partyIdOf: (p) => this.partyLootId(p),
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });
@@ -293,7 +294,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       },
       send, broadcast,
     });
-    this.loot = new LootSystem({ inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground, lootMult: () => this.events?.lootMult() ?? 1 });
+    this.loot = new LootSystem({
+      inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground, lootMult: () => this.events?.lootMult() ?? 1,
+      partyIdOf: (p) => this.partyLootId(p),
+    });
     this.regen = new RegenSystem({
       inCombat: (id, now) => this.combat.inCombat(id, now),
       inPz: (x, y) => this.monsters.inPz(x, y),
@@ -506,6 +510,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<DiscardItemMsg>(C2S.DiscardItem, (p, m) => this.ground.onDiscard(p, m));
     this.on<DropItemMsg>(C2S.DropItem, (p, m) => this.ground.onDrop(p, m));
     this.on<PickupItemMsg>(C2S.PickupItem, (p, m) => this.ground.onPickup(p, m));
+    this.on<MoveGroundItemMsg>(C2S.MoveGroundItem, (p, m) => this.ground.onMoveGround(p, m));
     this.on<NpcInteractMsg>(C2S.NpcInteract, (p, m) => {
       this.npcs.onInteract(p, m);
       if (m?.npcId && this.npcs.openFor(p.id) === m.npcId) this.quests.onTalk(p, m.npcId);
@@ -784,6 +789,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const c = this.clients.getById(sessionId);
     if (!c) return;
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
+  }
+
+  /** Grupo do jogador para o loot no chão (só com 2+ membros); undefined = sozinho. */
+  private partyLootId(p: PlayerState): string | undefined {
+    const party = this.party?.partyFor(p.id);
+    return party && party.members.length >= 2 ? party.id : undefined;
   }
 
   /** Multiplicador do dano causado: postura × Fúria (condição "berserk", +value%). */

@@ -33,6 +33,8 @@ export const C2S = {
   DropItem: "dropItem",
   /** Pegar item do chão (alcance 1) para a mochila (ou um slot específico). */
   PickupItem: "pickupItem",
+  /** Mover item do chão para outro tile (arrastar no mundo). */
+  MoveGroundItem: "moveGroundItem",
   /** Falar com NPC (abre diálogo/loja/depot). */
   NpcInteract: "npcInteract",
   /** Comprar/vender com NPC aberto. */
@@ -297,8 +299,12 @@ export interface NpcOpenMsg {
   travel?: { id: string; label: string; price: number }[];
 }
 export interface TravelMsg { npcId: string; dest: string }
+/** Arrastar um item do chão para outro tile (count = parte da pilha). */
+export interface MoveGroundItemMsg { groundId: string; x: number; y: number; count?: number | null }
 export interface LootMsg {
   x: number; y: number; monsterName: string; items: ItemInstance[]; gold: number;
+  /** Loot de grupo: tudo caiu no chão onde o monstro morreu (qualquer membro do grupo pega por 60 s). */
+  onGround?: boolean;
   /** Itens perdidos (mochila cheia e sem espaço no chão). */
   lostFull?: number;
   /** Itens que não couberam e caíram no chão (no seu tile, só você pega por 60 s). */

@@ -12,6 +12,15 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-21e",
+    date: "21 de outubro (noite)",
+    title: "Loot do grupo no chão",
+    items: [
+      "Em grupo, o loot dos monstros cai no chão: qualquer um do grupo pode pegar (depois de 1 minuto, qualquer pessoa).",
+      "Arraste um item do chão para outro tile para mudá-lo de lugar (Shift numa pilha escolhe quanto).",
+    ],
+  },
+  {
     id: "2026-10-21d",
     date: "21 de outubro (mais tarde)",
     title: "Mochila maior com o level",
