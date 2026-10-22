@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLOSE_REPLACED, OUT_OF_COMBAT_MS, PARTY_SHARE_RANGE, PZ_LOCK_MS, RED_SKULL_KILLS, S2C, backpackCapacity, findObjects, objectTile, questChestDef } from "@lemonquest/shared";
+import { CLOSE_REPLACED, HOTKEYS_VERSION, OUT_OF_COMBAT_MS, defaultHotkeys, PARTY_SHARE_RANGE, PZ_LOCK_MS, RED_SKULL_KILLS, S2C, backpackCapacity, findObjects, objectTile, questChestDef } from "@lemonquest/shared";
 import { RECONNECT_S, REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
 import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, loadGroundRows, saveCharacter } from "../persistence/db.ts";
 import { GOLD_ID, makeItem } from "../systems/inventory.ts";
@@ -390,13 +390,13 @@ describe("WorldRoom: sair em combate", () => {
 });
 
 describe("WorldRoom: atalhos de magia", () => {
-  it("nunca configurou → null; SetHotkeys válido fica no personagem e volta no próximo login; lixo é limpo", () => {
+  it("personagem novo recebe a barra recomendada; SetHotkeys válido fica no personagem e volta no próximo login; lixo é limpo", () => {
     const r = makeRoom();
     createAccount("Hugo", "h", "s", "sorcerer");
     const c = fakeClient(r, "h1");
     r.onJoin(c, {}, auth("Hugo"));
     const first = c.send.mock.calls.find(([t]: any[]) => t === "hotkeys");
-    expect(first?.[1]).toEqual({ list: null });
+    expect(first?.[1]).toEqual({ list: defaultHotkeys("sorcerer") });
     const p = r.state.players.get("h1");
     r.setHotkeys(p, { list: [{ key: "KeyF", spellId: "fireball" }, { key: "KeyQ", spellId: "inferno" }, { key: "Digit2", spellId: "ice_shard" }] });
     // Confirma ao cliente a lista que ficou salva (limpa).
@@ -410,6 +410,37 @@ describe("WorldRoom: atalhos de magia", () => {
     expect(r.records.get("h2").data.hotkeys).toEqual([{ key: "KeyF", spellId: "fireball" }]);
     r.setHotkeys(r.state.players.get("h2"), { list: "lixo" }); // lista inválida: sem atalhos
     expect(r.records.get("h2").data.hotkeys).toEqual([]);
+  });
+
+  it("barra salva de antes das famílias vira a recomendada uma vez (com aviso); a editada depois não é trocada de novo", () => {
+    const r = makeRoom();
+    createAccount("Iris", "i", "s", "sorcerer");
+    const rec = getCharacterByName("Iris")!;
+    rec.data.hotkeys = [{ key: "Digit1", spellId: "fireball" }, { key: "Digit2", spellId: "energy_beam" }];
+    saveCharacter(rec);
+    const c = fakeClient(r, "i1");
+    r.onJoin(c, {}, auth("Iris"));
+    expect(c.send.mock.calls.find(([t]: any[]) => t === "hotkeys")?.[1]).toEqual({ list: defaultHotkeys("sorcerer") });
+    expect(r.records.get("i1").data.hotkeysVersion).toBe(HOTKEYS_VERSION);
+    r.clock.currentTime -= 3100; // avisos de entrada saem 3 s depois
+    r.clock.tick();
+    expect(c.send.mock.calls.some(([t, m]: any[]) => t === S2C.Notice && /famílias/.test(m.text))).toBe(true);
+    // O jogador arruma a barra do jeito dele: o próximo login não troca de novo.
+    r.setHotkeys(r.state.players.get("i1"), { list: [{ key: "KeyF", spellId: "fireball" }] });
+    r.onLeave(c, 4000);
+    const c2 = fakeClient(r, "i2");
+    r.onJoin(c2, {}, auth("Iris"));
+    expect(c2.send.mock.calls.find(([t]: any[]) => t === "hotkeys")?.[1]).toEqual({ list: [{ key: "KeyF", spellId: "fireball" }] });
+  });
+
+  it("personagem novo (sem barra e sem XP) não recebe o aviso de barra reorganizada", () => {
+    const r = makeRoom();
+    createAccount("Juca", "j", "s", "druid");
+    const c = fakeClient(r, "j1");
+    r.onJoin(c, {}, auth("Juca"));
+    r.clock.currentTime -= 3100; // avisos de entrada saem 3 s depois
+    r.clock.tick();
+    expect(c.send.mock.calls.some(([t, m]: any[]) => t === S2C.Notice && /famílias/.test(m.text))).toBe(false);
   });
 });
 

@@ -12,6 +12,9 @@ export interface Hotkey {
   spellId: string;
 }
 
+/** Versão da barra padrão: 2 = famílias de magia (o servidor converte barras de versões anteriores uma vez). */
+export const HOTKEYS_VERSION = 2;
+
 /** Máximo de atalhos (= slots da barra de ações). */
 export const HOTKEY_MAX = 12;
 

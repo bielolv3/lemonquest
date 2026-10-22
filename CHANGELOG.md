@@ -1,5 +1,11 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · barras antigas convertidas para as famílias
+
+- No primeiro login depois da atualização, toda barra salva (e a de quem nunca configurou) vira a barra recomendada
+  com as famílias ◆, uma vez (`CharacterData.hotkeysVersion`, `HOTKEYS_VERSION = 2`), com um aviso no chat ("Ajuste no
+  H"). Personagem novo não recebe o aviso. Editar os atalhos marca a versão atual: não há segunda conversão.
+
 ## [Não lançado] — 2026-10-22 · famílias de magia e barra mais esperta
 
 Benchmark (Tibia, WoW, RuneScape, Albion/ARPGs): ver a conversa do ciclo; escolhidos os itens 1–3.

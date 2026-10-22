@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
-  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type LookGroundMsg, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation, zoneAt,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type LookGroundMsg, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation, zoneAt, HOTKEYS_VERSION, defaultHotkeys,
   OUTFIT_TONE_PRICE, toneDef, type BuyOutfitToneMsg, type OutfitTonesMsg, type MaterialRequestActionMsg, imbuementDef,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -732,6 +732,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const inv = this.inventory.inventoryMsg(p.id);
     if (inv) client.send(S2C.Inventory, inv);
     if (trained) client.send(S2C.TrainingResult, trained);
+    const barRebuilt = this.upgradeHotkeys(rec, p.vocation);
     client.send(S2C.Hotkeys, { list: this.hotkeysOf(rec, p.vocation) } satisfies HotkeysMsg);
     if (auth.weakPassword) {
       client.send(S2C.Notice, {
@@ -746,6 +747,12 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const pl = this.state.players.get(sid);
       if (!pl) return;
       this.social.onJoin(pl);
+      if (barRebuilt) {
+        this.clients.getById(sid)?.send(S2C.Notice, {
+          text: "Sua barra de magias foi reorganizada com as famílias ◆ (uma tecla para magias parecidas). Ajuste no H.",
+          kind: "info", log: true,
+        } satisfies NoticeMsg);
+      }
       // Bônus de dias seguidos. Desligado nos testes (E2E e unitários contam ouro/itens do kit inicial): LEMONQUEST_LOGIN_BONUS=0.
       if (!e2eMode() && process.env.LEMONQUEST_LOGIN_BONUS !== "0") {
         const r = this.records.get(sid);
@@ -877,8 +884,21 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const rec = this.records.get(p.id);
     if (!rec || !m || typeof m !== "object") return;
     rec.data.hotkeys = sanitizeHotkeys(m.list, p.vocation);
+    rec.data.hotkeysVersion = HOTKEYS_VERSION;
     // Confirma a lista salva: o cliente descobre se alguma edição se perdeu.
     this.clients.getById(p.id)?.send(S2C.Hotkeys, { list: rec.data.hotkeys } satisfies HotkeysMsg);
+  }
+
+  /**
+   * Barra de uma versão anterior (ou nunca configurada): vira a recomendada (famílias de magia), uma vez. Retorna true
+   * se trocou uma barra que o jogador já usava (personagem novo, sem barra e sem XP, não recebe aviso).
+   */
+  private upgradeHotkeys(rec: CharacterRecord, vocation: Vocation): boolean {
+    if ((rec.data.hotkeysVersion ?? 0) >= HOTKEYS_VERSION) return false;
+    const used = !!rec.data.hotkeys || rec.xp > 0;
+    rec.data.hotkeys = defaultHotkeys(vocation);
+    rec.data.hotkeysVersion = HOTKEYS_VERSION;
+    return used;
   }
 
   /** Atalhos salvos, limpos de novo (magia renomeada/removida numa atualização); null = nunca configurou. */

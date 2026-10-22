@@ -171,6 +171,7 @@ Recusado: refatorar o `WorldRoom` (o registro de "o que reenviar/limpar" por sis
 | Teste de carga no mapa de 400 colunas com ataque automático | ⏳ | medição anterior é de antes da expansão |
 | Lista de sistemas para `onReconnect`/`cleanupSession` | ⏳ | a troca ficou de fora por ser lista manual |
 | E2E `look.spec.ts` instável (criatura/Shift+clique e item do chão) | ⏳ | já falhava no `main` (2 de 9 em `--repeat-each=3`); o clique que fecha o cartão faz o personagem andar antes do Shift+clique |
+| E2E `spells.spec.ts` "feiticeiro lv 90" instável (alvo rato morre antes da magia de alvo) | ⏳ | 1 de 2 após as famílias; o teste já tenta 3 vezes |
 | E2E `quests.spec.ts` "missão de matar" instável no último passo (Esc não fecha o diário) | ⏳ | já falhava no `main` (2 de 3); passa com 500 ms antes do Esc: corrida no registro do listener do diário |
 
 ## Ciclo 7b (2026-10-22, PR #4) — correções e lacunas do delta pós-expansão (auditoria paralela)

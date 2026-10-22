@@ -25,6 +25,11 @@ export interface CharacterData {
   limitedBuyWeek?: string;
   /** Atalhos de magia (painel H): tecla → magia. Ausente = nunca configurou (o cliente migra/usa o padrão). */
   hotkeys?: { key: string; spellId: string }[];
+  /**
+   * Versão da barra: abaixo de HOTKEYS_VERSION (ou ausente), o login troca a barra pela recomendada (famílias de
+   * magia) uma vez e avisa. Editar os atalhos marca a versão atual.
+   */
+  hotkeysVersion?: number;
   /** Inventário (M4). */
   equipment?: Partial<Record<string, unknown>>;
   backpack?: unknown[];
