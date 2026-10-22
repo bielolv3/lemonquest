@@ -6,7 +6,8 @@ dist/
 *.db-shm
 assets/_download/
 .DS_Store
-.claude/
+.claude/*
+!.claude/settings.json
 /data/
 /data/backups/
 
