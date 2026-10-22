@@ -88,10 +88,15 @@ describe("LOS: player ranged auto-attack", () => {
     });
     fight.tick(w.now(), [p]);
     expect(calls).toHaveLength(1);
-    // Com visão: para.
-    p.x = 10; p.y = 11;
+    // Com visão, mas longe: continua indo (perseguir gruda no alvo).
+    p.x = 10; p.y = 8;
     calls.length = 0;
     fight.tick(w.now() + 1000, [p]);
+    expect(calls).toHaveLength(1);
+    // Ao lado: para.
+    p.x = 10; p.y = 6;
+    calls.length = 0;
+    fight.tick(w.now() + 2000, [p]);
     expect(calls).toHaveLength(0);
   });
 });

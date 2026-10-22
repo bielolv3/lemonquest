@@ -482,6 +482,7 @@ describe("ground: mover no chão (arrastar de um tile para outro)", () => {
     expect(moved.expiresAt).toBe(expires);
     t.step();
     t.ground.onMoveGround(p, { groundId: moved.state.id, x: 4 + DROP_RANGE + 1, y: 4 }); // destino longe
+    expect(t.w.notices().at(-1)).toBe(GROUND_MSG.throwFar);
     t.step();
     t.ground.onMoveGround(p, { groundId: moved.state.id, x: 8, y: 5 }); // atrás da parede (x=7)
     expect(t.onTile(6, 5)).toHaveLength(1);
@@ -489,6 +490,7 @@ describe("ground: mover no chão (arrastar de um tile para outro)", () => {
     t.step();
     t.ground.onMoveGround(p, { groundId: far, x: 5, y: 5 }); // origem longe
     expect(t.ground.get(far)!.state.x).toBe(4 + DROP_RANGE + 1);
+    expect(t.w.notices().at(-1)).toBe(GROUND_MSG.itemFar);
   });
 
   it("parte de uma pilha (count)", () => {

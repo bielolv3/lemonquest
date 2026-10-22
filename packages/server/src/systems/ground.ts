@@ -5,7 +5,7 @@
 // no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
 // servidor desligado também conta).
 import {
-  RARITY_LABEL, S2C, lineOfSight,
+  DROP_RANGE, RARITY_LABEL, S2C, lineOfSight,
   type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type LookGroundMsg, type LookItemMsg, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
   type Rarity,
 } from "@lemonquest/shared";
@@ -14,7 +14,7 @@ import { PerSecond } from "../persistence/ratelimit.ts";
 import { GOLD_ID, maxStackOf, newUid, type InventorySystem } from "./inventory.ts";
 
 /** Distância máxima (Chebyshev) para largar num tile que não seja o próprio. */
-export const DROP_RANGE = 3;
+export { DROP_RANGE };
 /** Distância máxima (Chebyshev) para "olhar" um item do chão (o que cabe na tela). */
 export const LOOK_RANGE = 12;
 /** Distância máxima (Chebyshev) para pegar. */
@@ -34,6 +34,8 @@ const PROTECTED_RARITIES: Rarity[] = ["rare", "epic", "legendary"];
 
 export const GROUND_MSG = {
   tileFull: "Não cabe mais nada aqui.",
+  itemFar: "O item está longe demais.",
+  throwFar: "Você não alcança esse lugar daqui.",
   full: "Mochila cheia.",
 } as const;
 
@@ -244,9 +246,10 @@ export class GroundSystem {
     const e = this.entries.get(msg.groundId);
     if (!e) return;
     const { x: sx, y: sy } = e.state;
-    if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return;
+    if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return this.warn(p, GROUND_MSG.itemFar);
     if (msg.x === sx && msg.y === sy) return;
-    if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !this.o.canHold(msg.x, msg.y) || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return;
+    if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return this.warn(p, GROUND_MSG.throwFar);
+    if (!this.o.canHold(msg.x, msg.y)) return;
     const n = Math.min(msg.count ?? e.item.count, e.item.count);
     if (!this.fits(msg.x, msg.y, e.item.defId, e.item.rarity, n)) return this.warn(p, GROUND_MSG.tileFull);
     const whole = n >= e.item.count;

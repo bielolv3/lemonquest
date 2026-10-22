@@ -1,5 +1,13 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · mover item longe e perseguir grudado
+
+- **Mover item do chão longe**: arrastar um item fora do alcance (3 tiles) faz o personagem andar até ele (pelo lado
+  mais perto do destino) e mover ao chegar, como já acontecia ao pegar. O servidor avisa em vez de falhar calado: "O
+  item está longe demais." / "Você não alcança esse lugar daqui." `DROP_RANGE` passou para o shared.
+- **Perseguir o alvo (F8) gruda no monstro** em qualquer vocação: paladino e magos também chegam ao lado, em vez de
+  parar no alcance do ataque.
+
 ## [Não lançado] — 2026-10-22 · ciclo 7: auditoria em equipe, troca segura, balanço do fim de jogo e social
 
 Auditoria de 5 agentes (game design, engenharia, UX, QA, crítica) sobre os 47 commits desde `7d8bc4b`; detalhes e

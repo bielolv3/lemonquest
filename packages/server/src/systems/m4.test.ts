@@ -227,13 +227,14 @@ describe("fight modes", () => {
     expect([k.chase, k.stance, s.chase, s.stance]).toEqual([false, "offensive", true, "defensive"]);
   });
 
-  it("chase walks toward the target until in range; ranged stops at range", () => {
+  it("chase walks until it is next to the target, whatever the attack range", () => {
     const c = chaseWorld(1);
     c.w.run(6000, c.step);
     expect(cheb(c.p.x, c.p.y, c.m.s.x, c.m.s.y)).toBe(1);
+    // À distância também gruda (não para no alcance do ataque).
     const r = chaseWorld(4);
     r.w.run(6000, r.step);
-    expect(cheb(r.p.x, r.p.y, r.m.s.x, r.m.s.y)).toBe(4);
+    expect(cheb(r.p.x, r.p.y, r.m.s.x, r.m.s.y)).toBe(1);
   });
 
   it("manual move pauses the chase; chase off = stays", () => {
