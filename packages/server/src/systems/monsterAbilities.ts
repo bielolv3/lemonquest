@@ -4,7 +4,7 @@
 //   monstro antes cancela).
 // - Invocações: ajudantes sem respawn, XP nem loot; somem quando o invocador some (morte, despawn, fim da partida).
 import {
-  S2C, dirFromDelta, mitigate, monsterAbilityFxId, monsterDef, rollInt,
+  CALL_HELP_ID, S2C, dirFromDelta, mitigate, monsterAbilityFxId, monsterDef, rollInt,
   type CollisionGrid, type MonsterAbility, type MonsterTelegraphMsg, type SpellCastMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -44,6 +44,10 @@ export class MonsterAbilitySystem {
   constructor(private readonly o: MonsterAbilityOptions) {
     this.rng = o.rng ?? Math.random;
     o.monsters.abilityHook = (m, target, now) => this.tryUse(m, target, now);
+    // Pedido de reforço dos bandos: o grito sobre a cabeça (mesmo efeito das habilidades, id `call_help`).
+    o.monsters.onCallHelp = (m) => {
+      this.o.broadcast(S2C.SpellCast, { spellId: monsterAbilityFxId(m.def.id, CALL_HELP_ID), casterId: m.s.id, x: m.s.x, y: m.s.y, dir: m.s.dir } satisfies SpellCastMsg);
+    };
   }
 
   /** Turno de ataque do monstro: usa a primeira habilidade pronta e possível. true = usou (o turno foi gasto). */
@@ -107,6 +111,7 @@ export class MonsterAbilitySystem {
   private usable(m: Monster, a: MonsterAbility, target: CreatureState): boolean {
     const s = m.s;
     if (a.heal) return s.hp < s.maxHp * a.heal.belowHpPct;
+    if (a.healAllies) { const h = a.healAllies; return this.alliesOf(m, h.radius).some((o) => o.s.hp < o.s.maxHp * h.belowHpPct); }
     if (a.summon) return this.minionCount(s.id) < a.summon.max && !!monsterDef(a.summon.monsterId);
     if (a.shape === "self") return false;
     const d = cheb(s.x, s.y, target.x, target.y);
@@ -130,6 +135,13 @@ export class MonsterAbilitySystem {
     if (a.heal) {
       this.o.broadcast(S2C.SpellCast, msg);
       s.hp = Math.min(s.maxHp, s.hp + Math.max(1, Math.round(s.maxHp * a.heal.pct)));
+      return;
+    }
+    if (a.healAllies) {
+      const healed = this.alliesOf(m, a.healAllies.radius).filter((o) => o.s.hp < o.s.maxHp);
+      for (const o of healed) o.s.hp = Math.min(o.s.maxHp, o.s.hp + Math.max(1, Math.round(o.s.maxHp * a.healAllies.pct)));
+      msg.tiles = flat(healed.map((o) => ({ x: o.s.x, y: o.s.y }))); // brilho de cura em cada aliado curado
+      this.o.broadcast(S2C.SpellCast, msg);
       return;
     }
     if (a.summon) {
@@ -193,6 +205,21 @@ export class MonsterAbilitySystem {
       }
       if (a.condition && c.hp > 0) this.o.conditions.apply(c.id, a.condition.id, a.condition.durationMs, a.condition.value, m.s.id, now);
     }
+  }
+
+  /**
+   * Aliados para a cura em grupo: o próprio monstro e os monstros selvagens vivos a até `radius` (mesma arena/sala;
+   * nunca invocações de jogador nem chefes) com linha de visão.
+   */
+  private alliesOf(m: Monster, radius: number): Monster[] {
+    const mm = this.o.monsters, out: Monster[] = [];
+    for (const o of mm.all()) {
+      if (o.s.ownerId || o.s.hp <= 0 || o.def.stationary || o.arenaId !== m.arenaId || o.questLever !== m.questLever) continue;
+      if (o.def.boss && o !== m) continue; // chefe não é curado pelos ajudantes (Bruxa do Gelo curava o Yeti)
+      if (o !== m && (cheb(o.s.x, o.s.y, m.s.x, m.s.y) > radius || !mm.los(m.s.x, m.s.y, o.s.x, o.s.y))) continue;
+      out.push(o);
+    }
+    return out;
   }
 
   private summon(m: Monster, o: NonNullable<MonsterAbility["summon"]>, now: number): Point[] {

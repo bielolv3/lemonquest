@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { GEAR_SHAPES, GEAR_TIERS, MATERIAL_ICONS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
+import { GEAR_SHAPES, GEAR_TIERS, HEALTH_POTION_CD_MS, MANA_POTION_CD_MS, MATERIAL_ICONS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
 import { MONSTERS } from "./monsters.ts";
 import { playerDamageRange } from "../formulas.ts";
 import { VOCATIONS, type Vocation } from "../types.ts";
@@ -202,5 +202,16 @@ describe("cobertura de armaduras", () => {
         }
       }
     }
+  });
+});
+
+describe("ciclo 8: recarga das poções", () => {
+  it("vida 2 s, mana 1 s (o temporizador é um só para qualquer poção)", () => {
+    for (const it of Object.values(ITEMS)) {
+      if (it.kind !== "potion") continue;
+      expect(it.use!.cooldownMs, it.id).toBe(it.use!.heal ? HEALTH_POTION_CD_MS : MANA_POTION_CD_MS);
+    }
+    expect([HEALTH_POTION_CD_MS, MANA_POTION_CD_MS]).toEqual([2000, 1000]);
+    expect(ITEMS.health_potion_large!.use!.cooldownMs).toBe(2000);
   });
 });

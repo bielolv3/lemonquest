@@ -143,8 +143,15 @@ const TIER_LEVEL = [1, 8, 15, 25, 35, 50, 70];
 // ---------------------------------------------------------------------------
 add({ id: "gold_coin", name: "Moeda de Ouro", kind: "material", stackable: true, maxStack: 1_000_000, value: 1, icon: img("Treasure/GoldCoin.png") });
 
+/**
+ * Recarga das poções (ciclo 8): vida 2 s, mana 1 s. O temporizador é UM só para qualquer poção (server
+ * inventory.potionCdUntil): beber uma de vida bloqueia qualquer poção por 2 s; uma de mana, por 1 s. Antes era 1 s
+ * para todas — a Poção de Vida Grande (450/s) sobrava contra qualquer caça do level.
+ */
+export const HEALTH_POTION_CD_MS = 2000;
+export const MANA_POTION_CD_MS = 1000;
 const potion = (id: string, name: string, icon: ItemIcon, value: number, level: number, use: { heal?: number; mana?: number }, description: string): void =>
-  add({ id, name, kind: "potion", stackable: true, value, level, use: { ...use, cooldownMs: 1000 }, icon, description });
+  add({ id, name, kind: "potion", stackable: true, value, level, use: { ...use, cooldownMs: use.heal ? HEALTH_POTION_CD_MS : MANA_POTION_CD_MS }, icon, description });
 potion("health_potion", "Poção de Vida", img("Potion/LifePot.png"), 40, 1, { heal: 60 }, "Recupera 60 de vida.");
 potion("health_potion_medium", "Poção de Vida Média", img("Potion/Medipack.png"), 120, 15, { heal: 180 }, "Recupera 180 de vida.");
 potion("health_potion_large", "Poção de Vida Grande", img("Potion/Heart.png"), 300, 30, { heal: 450 }, "Recupera 450 de vida.");

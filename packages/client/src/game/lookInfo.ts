@@ -1,25 +1,29 @@
 // Conteúdo do "olhar" (puro: recebe os dados, devolve título/cor/linhas). A cena decide o que está sob o mouse.
-import { SKULL_LABEL, TITLES, monsterDef, npcDef, questLeverDef } from "@lemonquest/shared";
+import { ELITE, SKULL_LABEL, TITLES, monsterDef, npcDef, questLeverDef } from "@lemonquest/shared";
 import { DAMAGE_LABEL, VOCATION_LABEL } from "../ui/items/itemInfo.ts";
 import { chestLookLines } from "./chestInfo.ts";
-import { levelColor, levelDifficulty } from "./creatures.ts";
+import { creatureColor, levelDifficulty } from "./creatures.ts";
 
 export interface LookContent { title: string; color?: string; lines: string[] }
 
 const pct = (hp: number, max: number) => `${Math.max(0, Math.round((hp / Math.max(1, max)) * 100))}%`;
 
-export function lookCreature(c: { defId: string; name: string; level: number; boss: boolean; hp: number; maxHp: number }, myLevel: number): LookContent {
+export function lookCreature(c: { defId: string; name: string; level: number; boss: boolean; hp: number; maxHp: number; elite?: boolean }, myLevel: number): LookContent {
   const def = monsterDef(c.defId);
   const lines = [
-    `Level ${c.level} · ${levelDifficulty(c.level, myLevel, c.boss)}`,
+    `Level ${c.level} · ${levelDifficulty(c.level, myLevel, c.boss)}${c.elite ? " · ELITE" : ""}`,
     `Vida ${c.hp.toLocaleString("pt-BR")}/${c.maxHp.toLocaleString("pt-BR")} (${pct(c.hp, c.maxHp)})`,
   ];
   if (def) {
-    lines.push(`Ataque: ${def.attackRange > 1 ? `à distância (${def.attackRange} sqm)` : "corpo a corpo"}, ${DAMAGE_LABEL[def.damageKind]}`);
+    // Dano real (os dados já vêm com o multiplicador por level; a elite ainda bate ELITE.dmg a mais).
+    const k = c.elite ? ELITE.dmg : 1;
+    const dmg = `${Math.round(def.damage[0] * k)}–${Math.round(def.damage[1] * k)}`;
+    lines.push(`Ataque: ${def.attackRange > 1 ? `à distância (${def.attackRange} sqm)` : "corpo a corpo"}, ${DAMAGE_LABEL[def.damageKind]}, ${dmg}`);
     if (def.abilities?.length) lines.push(`Habilidades: ${def.abilities.map((a) => a.name).join(", ")}`);
-    lines.push(`XP: ${def.xp.toLocaleString("pt-BR")}`);
+    if (def.pack) lines.push("Chama o bando quando atacado");
+    lines.push(`XP: ${(def.xp * (c.elite ? ELITE.xp : 1)).toLocaleString("pt-BR")}`);
   }
-  return { title: `${c.boss ? "☠ " : ""}${c.name}`, color: levelColor(c.level, myLevel, c.boss), lines };
+  return { title: `${c.boss ? "☠ " : ""}${c.name}`, color: creatureColor(c.level, myLevel, c.boss, c.elite), lines };
 }
 
 export function lookPlayer(p: { name: string; level: number; vocation: string; title?: string; skull?: string }, o: { me: boolean; party: boolean }): LookContent {

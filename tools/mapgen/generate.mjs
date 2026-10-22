@@ -775,6 +775,73 @@ const lateNpcs = [['coach_village', 98, 100], ['coach_frontier', 213, 62]];
 for (const [id, x, y] of lateNpcs) big.tileObj('npc', x, y, { npcId: id }, id);
 // ===================================================================== COSTA ESMERALDA (segunda expansão a leste: tools/mapgen/expansion2.mjs)
 const world = expand2({ old: big, ts, S, L: LEMON, OW_H, spawnTile: SPAWN }).map;
+// Caves mais cheias (ciclo 8): spawns acrescentados no FIM do pipeline, só como objeto, depois de todos os outros
+// objetos (ids antigos intactos) e sem tocar em tile nem no gerador aleatório — o mapa de quem já joga fica idêntico.
+// Em cada cave: um bando grande do monstro mais fraco/corpo a corpo da área (magia em área, cavaleiro puxar e girar) e
+// mistos colados (tanque + atirador/conjurador no mesmo ponto). Pontos escolhidos fora da PZ, andáveis e alcançáveis,
+// com o raio inteiro dentro da zona da cave, a 7+ tiles (mais o raio) de portais/escadas, 9+ das chegadas, 8+ de NPCs,
+// 11+ de covis de chefe e longe da alavanca/placas/sala da Aniquilação e dos baús de quest.
+// [monstro, count, radius, level, x, y]
+const caveSpawns = [
+  ['snake', 10, 5, 12, 4, 153], // Cavernas (bando) — 10 tiles do spawn mais perto
+  ['bat', 8, 5, 18, 38, 152], // Cavernas (bando) — 8 tiles do spawn mais perto
+  ['skeleton', 3, 4, 24, 22, 153], // Cavernas (misto) — 8 tiles do spawn mais perto
+  ['spider', 3, 4, 16, 22, 153], // Cavernas (misto) — 8 tiles do spawn mais perto
+  ['skeleton', 2, 4, 24, 47, 163], // Cavernas (misto) — 8 tiles do spawn mais perto
+  ['spider', 2, 4, 16, 47, 163], // Cavernas (misto) — 8 tiles do spawn mais perto
+  ['bat', 3, 4, 18, 38, 170], // Cavernas — 8 tiles do spawn mais perto
+  ['snake', 3, 4, 12, 29, 160], // Cavernas — 7 tiles do spawn mais perto
+  ['skeleton', 10, 5, 24, 150, 161], // Cripta (bando) — 9 tiles do spawn mais perto
+  ['skeleton', 3, 4, 24, 155, 168], // Cripta (misto) — 7 tiles do spawn mais perto
+  ['ghost', 3, 4, 31, 155, 168], // Cripta (misto) — 7 tiles do spawn mais perto
+  ['ghost', 2, 3, 31, 119, 173], // Cripta — 7 tiles do spawn mais perto
+  ['hero', 8, 5, 72, 305, 253], // Caverna dos Heróis (bando) — 13 tiles do spawn mais perto
+  ['hero', 3, 4, 72, 338, 240], // Caverna dos Heróis (misto) — 12 tiles do spawn mais perto
+  ['necromancer', 2, 4, 68, 338, 240], // Caverna dos Heróis (misto) — 12 tiles do spawn mais perto
+  ['hero', 2, 4, 72, 330, 252], // Caverna dos Heróis (misto) — 12 tiles do spawn mais perto
+  ['necromancer', 3, 4, 68, 330, 252], // Caverna dos Heróis (misto) — 12 tiles do spawn mais perto
+  ['frost_dragon', 8, 5, 80, 366, 193], // Ninho dos Dragões de Gelo (bando) — 14 tiles do spawn mais perto
+  ['frost_dragon', 1, 3, 80, 357, 192], // Ninho dos Dragões de Gelo — 8 tiles do spawn mais perto
+  ['pirate_marauder', 12, 5, 30, 308, 157], // Caverna dos Piratas (bando) — 12 tiles do spawn mais perto
+  ['pirate_buccaneer', 3, 4, 38, 331, 167], // Caverna dos Piratas (misto) — 11 tiles do spawn mais perto
+  ['pirate_corsair', 3, 4, 35, 331, 167], // Caverna dos Piratas (misto) — 11 tiles do spawn mais perto
+  ['pirate_buccaneer', 2, 4, 38, 320, 147], // Caverna dos Piratas (misto) — 10 tiles do spawn mais perto
+  ['pirate_corsair', 2, 4, 35, 320, 147], // Caverna dos Piratas (misto) — 10 tiles do spawn mais perto
+  ['pirate_marauder', 2, 4, 30, 320, 147], // Caverna dos Piratas (misto) — 10 tiles do spawn mais perto
+  ['pirate_buccaneer', 3, 4, 38, 309, 167], // Caverna dos Piratas (misto) — 10 tiles do spawn mais perto
+  ['pirate_corsair', 3, 4, 35, 309, 167], // Caverna dos Piratas (misto) — 10 tiles do spawn mais perto
+  ['minotaur', 10, 5, 48, 201, 171], // Labirinto dos Minotauros (bando) — 16 tiles do spawn mais perto
+  ['minotaur', 3, 4, 48, 168, 149], // Labirinto dos Minotauros (misto) — 14 tiles do spawn mais perto
+  ['minotaur_mage', 3, 4, 50, 168, 149], // Labirinto dos Minotauros (misto) — 14 tiles do spawn mais perto
+  ['minotaur', 3, 4, 48, 224, 154], // Labirinto dos Minotauros (misto) — 14 tiles do spawn mais perto
+  ['minotaur_mage', 3, 4, 50, 224, 154], // Labirinto dos Minotauros (misto) — 14 tiles do spawn mais perto
+  ['minotaur', 3, 4, 48, 225, 134], // Labirinto dos Minotauros (misto) — 12 tiles do spawn mais perto
+  ['minotaur_mage', 3, 4, 50, 225, 134], // Labirinto dos Minotauros (misto) — 12 tiles do spawn mais perto
+  ['winter_wolf', 8, 5, 50, 306, 194], // Caverna do Yeti (bando) — 11 tiles do spawn mais perto
+  ['barbarian', 2, 4, 55, 284, 196], // Caverna do Yeti (misto) — 11 tiles do spawn mais perto
+  ['ice_witch', 2, 4, 62, 284, 196], // Caverna do Yeti (misto) — 11 tiles do spawn mais perto
+  ['winter_wolf', 2, 4, 50, 330, 190], // Caverna do Yeti (misto) — 9 tiles do spawn mais perto
+  ['ice_witch', 1, 4, 62, 330, 190], // Caverna do Yeti (misto) — 9 tiles do spawn mais perto
+  ['kongra', 10, 4, 28, 393, 154], // Templo de Banuta (bando) — 9 tiles do spawn mais perto
+  ['kongra', 3, 4, 28, 396, 142], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['merlkin', 2, 4, 32, 396, 142], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['tarantula', 3, 4, 30, 372, 144], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['merlkin', 2, 4, 32, 372, 144], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['sibang', 2, 4, 26, 384, 144], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['kongra', 2, 4, 28, 384, 144], // Templo de Banuta (misto) — 6 tiles do spawn mais perto
+  ['behemoth', 8, 5, 90, 271, 169], // Abismo (bando) — 14 tiles do spawn mais perto
+  ['behemoth', 3, 4, 90, 271, 144], // Abismo (misto) — 11 tiles do spawn mais perto
+  ['demon', 2, 4, 100, 271, 144], // Abismo (misto) — 11 tiles do spawn mais perto
+  ['behemoth', 3, 4, 90, 249, 162], // Abismo (misto) — 9 tiles do spawn mais perto
+  ['demon', 2, 4, 100, 249, 162], // Abismo (misto) — 9 tiles do spawn mais perto
+  ['juggernaut', 2, 4, 110, 233, 231], // Cidadela de Ferumbras (misto) — 19 tiles do spawn mais perto
+  ['demon', 2, 4, 100, 233, 231], // Cidadela de Ferumbras (misto) — 19 tiles do spawn mais perto
+  ['hellhound', 2, 4, 95, 268, 224], // Cidadela de Ferumbras — 16 tiles do spawn mais perto
+];
+for (const [m, count, radius, level, x, y] of caveSpawns) {
+  if (world.blocked(x, y)) fail(`cave spawn ${m} at ${x},${y} is on a blocked tile`);
+  world.tileObj('monster_spawn', x, y, { monster: m, count, radius, level }, m);
+}
 
 // ===================================================================== OUTPUT
 fs.mkdirSync(MAPS_DIR, { recursive: true });

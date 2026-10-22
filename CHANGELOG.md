@@ -1,5 +1,33 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
+
+**Caves** (`tools/mapgen/generate.mjs`, bloco `caveSpawns` no fim do pipeline: 0 tiles alterados, objetos antigos
+intactos): 373 → 573 monstros. Cavernas 23 → 57, Cripta 12 → 30, Heróis 12 → 30, Ninho dos Dragões de Gelo 6 → 15,
+Piratas 20 → 50, Labirinto 18 → 46, Yeti 9 → 24, Templo de Banuta 15 → 39, Abismo 11 → 29, Cidadela 11 → 17. Cada cave
+tem um **bando** (8–12 do mesmo monstro, para área) e **spawns mistos** (tanque + atirador + conjurador no mesmo ponto).
+
+**Monstros**
+- Dano por level do monstro (ataque e habilidades, chefes inclusive): <20 ×1; 20–39 ×1,4; 40–69 ×1,5; 70–99 ×1,6;
+  ≥100 ×1,7. Ex.: orc guerreiro 40–80 → 60–120; demônio 130–250 → 221–425. Dano/s de 3 monstros do level contra cavaleiro
+  bem equipado: lv 42 70 → 120; lv 65 143 → 239; lv 100 230 → 429.
+- **Poção de vida com recarga de 2 s** (mana segue 1 s; temporizador único). Poção Grande: 450 → 225 de cura por segundo.
+- **Elites**: 5% dos monstros comuns lv 10+ nascem "Elite" (nome dourado): vida ×2,5, dano ×1,3, XP ×3, ouro e chance
+  de loot ×2. Nunca em chefe, invocação, Coliseu ou sala de quest.
+- **Conjuradores curam aliados** (xamã orc, mago minotauro, necromante, bruxa do gelo, merlkin): 10–12% da vida dos
+  monstros feridos a até 4 tiles; chefes não recebem.
+- **Bandos chamam reforço** (lobos, goblins, orcs, minotauros, piratas, bárbaros, macacos): no 1º golpe, abaixo de 50%
+  e ao fugir, os da família a até 6 tiles atacam quem bateu (um grito por família por segundo). Fogem a 20%: goblin,
+  piratas, sibang, merlkin.
+- Respawn dos monstros comuns ×0,7.
+
+**Coliseu muito mais forte** (dono: "solei de mago, não é para isso acontecer"): o dano novo vale na arena, mais vida
+×2,5 e dano por onda (×1,5 na 1 → ×5 na 30 → ×1,7 na 60); desconto para grupos pequenos quase todo removido (monstros a
+mais por membro 0,6 → 0,2; chefe de zona solo ≥ 80% da vida de grupo); sem reforço por level acima do justo. Modelo de
+calibração novo com o poder real do jogador (o antigo subestimava ~4×). Solo: cai na onda ~22–30 em qualquer level
+(antes um feiticeiro lv 20 chegava à 50). Grupo de 4 no level justo da onda 45: cai na 44; completar as 60 pede grupo
+lv 120. XP e ouro por onda iguais.
+
 ## [Não lançado] — 2026-10-22 · barras antigas convertidas para as famílias
 
 - No primeiro login depois da atualização, toda barra salva (e a de quem nunca configurou) vira a barra recomendada

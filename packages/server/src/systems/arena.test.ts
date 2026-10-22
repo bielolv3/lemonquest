@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ARENA_BREAK_MS, ARENA_COUNTDOWN_MS, ARENA_MAX_WAVE, arenaWave, ARENA_INTRO_MS, ARENA_SHOP_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
-  ARENA_COMPLETE_GOLD, arenaWaveSpawns, monsterDef, type TiledMap,
+  ARENA_COMPLETE_GOLD, ITEMS, arenaWaveSpawns, autoAttackRange, baseStats, manaRegenAmount, mitigateSpell, monsterDef,
+  shieldArmorBonus, spellMana, spellsFor, type ItemDef, type TiledMap, type Vocation,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { ArenaSystem, parseArenas, type ArenaLayout } from "./arena.ts";
@@ -162,20 +163,20 @@ describe("coliseu: partida", () => {
     expect(k.arena.freeArenas).toBe(0);
   });
 
-  it("quantidade escala com o grupo (2 → ×1.6, 4 → ×2.8)", () => {
+  it("quantidade escala com o grupo (2 → ×1,2, 4 → ×1,6; antes ×1,6 / ×2,8)", () => {
     expect(arenaWaveSpawns(1, 1, 1)).toHaveLength(3);
-    expect(arenaWaveSpawns(1, 2, 1)).toHaveLength(5);
-    expect(arenaWaveSpawns(1, 4, 1)).toHaveLength(8);
-    // elite: sempre 1, a vida escala com o grupo
+    expect(arenaWaveSpawns(1, 2, 1)).toHaveLength(4);
+    expect(arenaWaveSpawns(1, 4, 1)).toHaveLength(5);
+    // elite: sempre 1, a vida escala com o grupo (×1,6 de quantidade × 1,3 de grupo)
     const solo = arenaWaveSpawns(5, 1, 6).find((s) => s.elite)!, quad = arenaWaveSpawns(5, 4, 6).find((s) => s.elite)!;
-    expect(quad.hpMult).toBeGreaterThan(solo.hpMult * 3);
+    expect(quad.hpMult / solo.hpMult).toBeCloseTo(2.08, 6);
     const k = setup();
     const a = k.add("a"), b = k.add("b");
     k.arena.onAction(a, { action: "create" });
     k.arena.onAction(b, { action: "join", lobbyId: k.arena.partyFor("a")!.id });
     k.arena.onAction(a, { action: "start" });
     k.toWave1();
-    expect(k.arenaMonsters()).toHaveLength(5);
+    expect(k.arenaMonsters()).toHaveLength(4);
   });
 
   it("monstros da arena ficam no retângulo e só atacam membros", () => {
@@ -420,54 +421,151 @@ describe("coliseu: partida", () => {
 });
 
 /**
- * Sanidade do balanço (modelo grosseiro): o grupo foca um monstro por vez; todos os monstros batem desde o início.
- * dps por jogador ≈ (6 + 1.6·L)·1.35/2 (arma + magias), vida média 150 + 10·(L−1), armadura ≈ L/4.
- * razão = dano recebido por jogador ÷ vida máxima numa onda (sem poções/cura/kiting).
- * Leitura: < 1 tranquilo; 1–2 exige poções; 2–3 sofrido; > 3 alguém cai.
+ * Modelo de balanço do Coliseu (ciclo 8), com o poder REAL do jogador (o modelo antigo usava 6 + 1,6·L de dano e
+ * subestimava o jogador ~4×: um mago completava o Coliseu sozinho):
+ * - Jogador "bem equipado": melhor item da vocação até o level, skill da arma 10 + 0,6·L, magic level de
+ *   `spells.test.ts` (mago 0,75·L) — um teto otimista; Fúria do cavaleiro contada como média.
+ * - Dano: ataque automático + rotação de magias no cooldown global (as de área pegam até 4 monstros, as ondas 3),
+ *   com a armadura do monstro em foco; mana: regeneração em combate + poções de mana (400).
+ * - Cura: Poção de Vida Grande (450 a cada 2 s); o tempo gasto em poções de mana sai dela (o temporizador é um só).
+ *   Sem exura, cura em grupo ou kiting.
+ * - Grupo: vida e cura somadas; o grupo foca um monstro (as áreas acertam os outros); todos os vivos batem.
+ * - Entre ondas +30% da vida (ARENA_PAUSE_HEAL); depois de onda-chefe (pausa de 45 s com loja), vida cheia.
+ * Resultado: a onda em que o grupo cai (0 = completou).
  */
-function estimate(wave: number, n: number, L: number): number {
-  const dps = ((6 + 1.6 * L) * 1.35) / 2, hp = 150 + 10 * (L - 1), armor = Math.round(L / 4);
-  let t = 0, dmg = 0;
-  for (const s of arenaWaveSpawns(wave, n, L)) {
-    const d = monsterDef(s.defId)!;
-    t += (d.hp * s.hpMult) / (dps * n);
-    dmg += (Math.max(0, ((d.damage[0] + d.damage[1]) / 2) * s.dmgMult - armor) / (d.attackMs / 1000)) * t;
+const SLOTS = ["helmet", "amulet", "armor", "weapon", "shield", "legs", "ring", "boots"] as const;
+const AREA_CAP: Record<string, number> = { target: 1, area_target: 4, area_self: 4, wave: 3 };
+
+function fighter(v: Vocation, L: number) {
+  const gear: ItemDef[] = [];
+  for (const sl of SLOTS) {
+    let best: ItemDef | undefined;
+    for (const it of Object.values(ITEMS)) {
+      if (it.slot !== sl || (it.vocations && !it.vocations.includes(v)) || (it.level ?? 0) > L) continue;
+      if (!best || it.value > best.value) best = it;
+    }
+    if (best) gear.push(best);
   }
-  return dmg / n / hp;
+  const bonus = (st: string) => gear.reduce((s, it) => s + ((it.stats as Record<string, number> | undefined)?.[st] ?? 0), 0);
+  const mage = v === "sorcerer" || v === "druid";
+  const ml = (mage ? Math.floor(0.75 * L) : v === "paladin" ? Math.floor(L / 4) : Math.floor(L / 7)) + bonus("magic");
+  const wsk = Math.min(10 + Math.floor(0.6 * L), 80);
+  const skills = { melee: v === "knight" ? wsk : 10, distance: v === "paladin" ? wsk : 10, magic: ml };
+  const { maxHp, maxMana } = baseStats(v, L);
+  const weapon = gear.find((g) => g.slot === "weapon");
+  const r = autoAttackRange(v, L, skills, weapon, (st) => bonus(st));
+  const crit = (v === "knight" || v === "paladin" ? 0.07 : 0) + bonus("crit") / 100;
+  const mana = maxMana + bonus("manaMax");
+  return {
+    v, L, ml, hp: maxHp + bonus("hpMax"),
+    armor: bonus("armor") + (gear.some((g) => g.slot === "shield") ? shieldArmorBonus(v === "knight" ? wsk : 10) : 0),
+    auto: ((r[0] + r[1]) / 2) * (1 + 0.5 * crit) * 0.95,
+    regen: manaRegenAmount(mana, L, true, false) / 2,
+    spells: spellsFor(v).filter((s) => s.damage && s.level <= L),
+  };
+}
+type Fighter = ReturnType<typeof fighter>;
+
+/** Dano por segundo no foco e em área (por alvo) contra `k` monstros de armadura `arm`; cura de poção por segundo. */
+function rotation(f: Fighter, k: number, arm: number) {
+  const list = f.spells.map((s) => {
+    const raw = s.damage!.base + f.L * s.damage!.perLevel + f.ml * s.damage!.perMagic;
+    const cap = AREA_CAP[s.target] ?? 1;
+    return { d: mitigateSpell(raw, arm, s.damage!.kind), t: Math.min(k, cap), area: cap > 1, cd: s.cooldownMs / 1000, mana: spellMana(s, f.L) };
+  }).sort((a, b) => b.d * b.t - a.d * a.t);
+  let gcd = 1, st = Math.max(0, f.auto - arm) / 2, aoe = 0, manaPs = 0;
+  for (const x of list) {
+    const rate = Math.min(1 / x.cd, gcd);
+    if (rate <= 0) break;
+    gcd -= rate;
+    manaPs += x.mana * rate;
+    if (x.area) aoe += x.d * rate; else st += x.d * rate;
+  }
+  const potsMana = Math.max(0, manaPs - f.regen) / 400; // poções de mana por segundo
+  const scale = potsMana > 1 ? 1 / potsMana : 1;
+  const fury = f.v === "knight" && f.L >= 50 ? 1 + 0.25 / 3 : 1; // Fúria: +25% por 10 s a cada 30 s
+  return { st: st * scale * fury, aoe: aoe * scale * fury, heal: (450 * (1 - Math.min(1, potsMana))) / 2 };
 }
 
-describe("coliseu: balanço (estimativa)", () => {
-  it("solo level 10: ondas 1–6 tranquilas, sofre entre 8 e 10", () => {
-    for (let w = 1; w <= 6; w++) expect(estimate(w, 1, 10)).toBeLessThan(1);
-    expect(estimate(8, 1, 10)).toBeGreaterThan(1.2);
-    expect(estimate(10, 1, 10)).toBeGreaterThan(2);
-    expect(estimate(10, 1, 10)).toBeLessThan(5);
-  });
+/** Dano por segundo de um monstro da onda contra a armadura `armor` (habilidades com aviso: 60% acertam). */
+function monsterDps(s: { defId: string; dmgMult: number }, armor: number): number {
+  const d = monsterDef(s.defId)!;
+  const avg = ((d.damage[0] + d.damage[1]) / 2) * s.dmgMult;
+  let dps = Math.max(0, avg - armor) / (d.attackMs / 1000);
+  for (const a of d.abilities ?? []) {
+    if (!a.damage) continue;
+    const ad = Math.max(0, ((a.damage.min + a.damage.max) / 2) * s.dmgMult - armor);
+    dps += (((ad - Math.max(0, avg - armor)) * (d.attackMs / a.cooldownMs)) / (d.attackMs / 1000)) * (a.windupMs ? 0.6 : 1);
+  }
+  return Math.max(0, dps);
+}
 
-  it("grupo de 4 level 25: ondas 1–14 sem drama, limite entre 15 e 20", () => {
-    for (let w = 1; w <= 14; w++) expect(estimate(w, 4, 25)).toBeLessThan(2);
-    expect(estimate(18, 4, 25)).toBeGreaterThan(2.5);
-    expect(estimate(20, 4, 25)).toBeGreaterThan(2.5);
-  });
-
-  it("grupo de 4 level 40 chega longe, mas o fim ainda é difícil", () => {
-    for (let w = 1; w <= 20; w++) expect(estimate(w, 4, 40)).toBeLessThan(3.5);
-    expect(estimate(29, 4, 40)).toBeGreaterThan(3);
-  });
-
-  it("ondas 31–60 (fim de jogo): grupo de 4 no level justo de cada onda fica na faixa do fim antigo (2,5–5,5)", () => {
-    expect(ARENA_MAX_WAVE).toBe(60);
-    for (let w = 31; w <= ARENA_MAX_WAVE; w++) {
-      const L = arenaWave(w)!.level;
-      expect(estimate(w, 4, L), `onda ${w}`).toBeGreaterThan(2.5);
-      expect(estimate(w, 4, L), `onda ${w}`).toBeLessThan(5.5);
+/** Onda em que o grupo cai (0 = venceu as 60). */
+function arenaRun(vocs: Vocation[], L: number): number {
+  const fs = vocs.map((v) => fighter(v, L));
+  const n = fs.length, maxHp = fs.reduce((s, f) => s + f.hp, 0), armor = fs.reduce((s, f) => s + f.armor, 0) / n;
+  let hp = maxHp;
+  for (let w = 1; w <= ARENA_MAX_WAVE; w++) {
+    const mons = arenaWaveSpawns(w, n, L).map((s) => ({ hp: monsterDef(s.defId)!.hp * s.hpMult, armor: monsterDef(s.defId)!.armor, dps: monsterDps(s, armor) }));
+    for (let t = 0; mons.some((m) => m.hp > 0); t += 0.25) {
+      const alive = mons.filter((m) => m.hp > 0);
+      let st = 0, aoe = 0, heal = 0;
+      for (const f of fs) { const r = rotation(f, alive.length, alive[0]!.armor); st += r.st; aoe += r.aoe; heal += r.heal; }
+      alive[0]!.hp -= st * 0.25;
+      for (const m of alive.slice(0, 4)) m.hp -= aoe * 0.25;
+      hp = Math.min(maxHp, hp + (heal - alive.reduce((s, m) => s + m.dps, 0)) * 0.25);
+      if (hp <= 0 || t > 600) return w;
     }
-    for (let w = 31; w <= ARENA_MAX_WAVE; w++) expect(arenaWave(w)!.level).toBeGreaterThan(arenaWave(w - 1)!.level);
+    hp = w % 5 === 0 ? maxHp : Math.min(maxHp, hp + maxHp * 0.3);
+  }
+  return 0;
+}
+
+const VOCS: Vocation[] = ["sorcerer", "druid", "knight", "paladin"];
+const GROUP: Vocation[] = ["knight", "paladin", "sorcerer", "druid"];
+const fell = (w: number) => (w === 0 ? ARENA_MAX_WAVE + 1 : w);
+
+describe("coliseu: balanço (modelo com o poder real do jogador)", () => {
+  it("solo do mago (e de qualquer vocação) não passa da onda ~25, nem no level 120", () => {
+    // Modelo: lv 34 (justo da 25) cai na 22–23; lv 60 na 24–26; lv 120 na 27–30.
+    for (const v of VOCS) {
+      expect(fell(arenaRun([v], 34)), `${v} lv 34`).toBeGreaterThanOrEqual(20);
+      expect(fell(arenaRun([v], 34)), `${v} lv 34`).toBeLessThanOrEqual(25);
+      expect(fell(arenaRun([v], 60)), `${v} lv 60`).toBeLessThanOrEqual(28);
+      expect(fell(arenaRun([v], 120)), `${v} lv 120`).toBeLessThanOrEqual(32);
+    }
+    expect(fell(arenaRun(["sorcerer"], 120))).toBeLessThanOrEqual(30);
   });
 
-  it("a dificuldade cresce com as ondas (média por bloco de 5)", () => {
-    const block = (b: number) => [1, 2, 3, 4, 5].reduce((s, i) => s + estimate(b * 5 + i, 1, 20), 0);
-    for (let b = 1; b < 6; b++) expect(block(b)).toBeGreaterThan(block(b - 1));
+  it("grupo de 4 no level justo da onda X cai perto de X (no justo da 45: entre 40 e 45)", () => {
+    // Modelo (justo da 40/45/50/55/60): 37, 44, 48, 54, 58.
+    for (const x of [40, 45, 50, 55, 60]) {
+      const w = fell(arenaRun(GROUP, arenaWave(x)!.level));
+      expect(w, `justo da ${x}`).toBeGreaterThanOrEqual(x - 5);
+      expect(w, `justo da ${x}`).toBeLessThanOrEqual(x);
+    }
+    expect(fell(arenaRun(GROUP, arenaWave(45)!.level))).toBeGreaterThanOrEqual(40);
+  });
+
+  it("completar as 60 pede grupo acima do level justo (110): lv 120 completa, o justo não", () => {
+    expect(arenaRun(GROUP, 110)).toBeGreaterThan(0);
+    expect(arenaRun(GROUP, 120)).toBe(0);
+  });
+
+  it("o golpe médio dos monstros cresce a cada bloco de 10 ondas", () => {
+    const hit = (b: number) => {
+      let sum = 0, n = 0;
+      for (let w = b * 10 + 1; w <= b * 10 + 10; w++) {
+        for (const s of arenaWaveSpawns(w, 1, 1)) { const d = monsterDef(s.defId)!; sum += ((d.damage[0] + d.damage[1]) / 2) * s.dmgMult; n++; }
+      }
+      return sum / n;
+    };
+    for (let b = 1; b < 6; b++) expect(hit(b), `bloco ${b + 1}`).toBeGreaterThan(hit(b - 1));
+  });
+
+  it("ondas 31–60 seguem com o level justo crescente", () => {
+    expect(ARENA_MAX_WAVE).toBe(60);
+    for (let w = 31; w <= ARENA_MAX_WAVE; w++) expect(arenaWave(w)!.level).toBeGreaterThan(arenaWave(w - 1)!.level);
   });
 });
 

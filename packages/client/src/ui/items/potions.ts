@@ -1,4 +1,5 @@
-// Poções rápidas (Q = vida, E = mana) e recarga compartilhada (1 s) para qualquer poção usada.
+// Poções rápidas (Q = vida, E = mana) e recarga compartilhada: a de quem bebeu vale para qualquer poção (vida 2 s,
+// mana 1 s — `use.cooldownMs` do item, HEALTH_POTION_CD_MS / MANA_POTION_CD_MS no shared).
 import { C2S, type QuickPotionMsg } from "@lemonquest/shared";
 import { pushToast } from "../toasts.ts";
 import { createStore } from "../hud/store.ts";

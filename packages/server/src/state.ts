@@ -57,6 +57,7 @@ export class MonsterState extends Schema implements MonsterView {
   @type("uint32") maxHp = 1;
   @type("string") targetId = "";
   @type("string") ownerId = "";
+  @type("boolean") elite = false;
 }
 
 /** Deve espelhar GroundItemView (packages/shared/src/types.ts). Bônus ficam só no servidor (systems/ground.ts). */

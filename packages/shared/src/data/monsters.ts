@@ -1,6 +1,6 @@
 import type { DamageKind } from "../types.ts";
 import type { LootEntry } from "./items.ts";
-import { MONSTER_ABILITY_PREFIX, ability, type MonsterAbility } from "./monsterAbilities.ts";
+import { CALL_HELP_ID, MONSTER_ABILITY_PREFIX, ability, type MonsterAbility } from "./monsterAbilities.ts";
 import type { SpellDef, SpellTarget } from "./spells.ts";
 
 /**
@@ -67,6 +67,11 @@ export interface MonsterDef {
   loot?: LootEntry[];
   /** Habilidades (data/monsterAbilities.ts): usadas no lugar do ataque básico quando prontas. */
   abilities?: MonsterAbility[];
+  /**
+   * Bando: ao levar o 1º golpe, cair abaixo de 50% da vida ou começar a fugir, grita `shout` e chama os monstros da
+   * mesma `family` a até HELP_RADIUS tiles para atacar quem bateu.
+   */
+  pack?: { family: string; shout: string };
   sprite: CreatureSprite;
 }
 
@@ -130,6 +135,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   wolf: {
     id: "wolf", name: "Lobo", level: 8, hp: 80, xp: 35, damage: [6, 15], damageKind: "physical", armor: 1,
     attackMs: 1600, attackRange: 1, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 40_000,
+    pack: { family: "wolf", shout: "Auuuu!" },
     gold: [8, 20],
     loot: [
       { itemId: "meat", chance: 0.1 },
@@ -224,6 +230,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   goblin: {
     id: "goblin", name: "Goblin", level: 25, hp: 280, xp: 200, damage: [18, 40], damageKind: "physical", armor: 6,
     attackMs: 1800, attackRange: 1, stepMs: 340, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    pack: { family: "goblin", shout: "Goblins, aqui!" },
     gold: [35, 80],
     loot: [
       { itemId: "onigiri", chance: 0.06 },
@@ -344,6 +351,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   orc_warrior: {
     id: "orc_warrior", name: "Orc Guerreiro", level: 42, hp: 700, xp: 900, damage: [40, 80], damageKind: "physical", armor: 12,
     attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 80_000,
+    pack: { family: "orc", shout: "Orcs, ao ataque!" },
     gold: [100, 200],
     loot: [
       { itemId: "orc_leather", chance: 0.45 },
@@ -359,9 +367,11 @@ export const MONSTERS: Record<string, MonsterDef> = {
   orc_shaman: {
     id: "orc_shaman", name: "Orc Xamã", level: 44, hp: 600, xp: 800, damage: [35, 70], damageKind: "energy", armor: 8,
     abilities: [
+      ability.healAllies({ name: "Bênção Xamânica", pct: 0.12, radius: 4, belowHpPct: 0.7, cooldownMs: 10000 }),
       ability.heal({ name: "Cura Xamânica", pct: 0.15, belowHpPct: 0.5, cooldownMs: 12_000 }),
     ],
     attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 80_000,
+    pack: { family: "orc", shout: "Orcs, ao ataque!" },
     gold: [110, 210],
     loot: [
       { itemId: "orc_leather", chance: 0.3 },
@@ -377,6 +387,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   minotaur: {
     id: "minotaur", name: "Minotauro", level: 48, hp: 900, xp: 1260, damage: [50, 95], damageKind: "physical", armor: 14,
     attackMs: 1800, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 80_000,
+    pack: { family: "minotaur", shout: "Muuu! Irmãos!" },
     gold: [130, 250],
     loot: [
       { itemId: "minotaur_horn", chance: 0.45 },
@@ -392,9 +403,11 @@ export const MONSTERS: Record<string, MonsterDef> = {
   minotaur_mage: {
     id: "minotaur_mage", name: "Minotauro Mago", level: 50, hp: 800, xp: 1150, damage: [45, 90], damageKind: "fire", armor: 10,
     abilities: [
+      ability.healAllies({ name: "Bálsamo Taurino", pct: 0.12, radius: 4, belowHpPct: 0.7, cooldownMs: 10000 }),
       ability.blast({ name: "Bola de Fogo", radius: 1, range: 4, min: 50, max: 95, kind: "fire", fx: "fire", chance: 0.6, cooldownMs: 8000 }),
     ],
     attackMs: 2200, attackRange: 4, stepMs: 360, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 80_000,
+    pack: { family: "minotaur", shout: "Muuu! Irmãos!" },
     gold: [140, 260],
     loot: [
       { itemId: "minotaur_horn", chance: 0.35 },
@@ -620,6 +633,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   sibang: {
     id: "sibang", name: "Sibang", level: 26, hp: 300, xp: 240, damage: [18, 42], damageKind: "physical", armor: 5,
     attackMs: 2000, attackRange: 3, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    pack: { family: "ape", shout: "Uh uh! Ah ah!" },
     gold: [64, 144],
     loot: [
       { itemId: "ape_fur", chance: 0.4 },
@@ -632,6 +646,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   kongra: {
     id: "kongra", name: "Kongra", level: 28, hp: 340, xp: 290, damage: [22, 46], damageKind: "physical", armor: 7,
     attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
+    pack: { family: "ape", shout: "Uh uh! Ah ah!" },
     gold: [72, 152],
     loot: [
       { itemId: "ape_fur", chance: 0.5 },
@@ -659,7 +674,11 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   merlkin: {
     id: "merlkin", name: "Merlkin", level: 32, hp: 360, xp: 350, damage: [25, 50], damageKind: "energy", armor: 5,
-    attackMs: 2200, attackRange: 4, stepMs: 340, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 60_000,
+    abilities: [
+      ability.healAllies({ name: "Ritual do Macaco", pct: 0.1, radius: 4, belowHpPct: 0.7, cooldownMs: 12000 }),
+    ],
+    attackMs: 2200, attackRange: 4, stepMs: 340, aggroRange: 7, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    pack: { family: "ape", shout: "Uh uh! Ah ah!" },
     gold: [96, 184],
     loot: [
       { itemId: "ape_fur", chance: 0.3 },
@@ -703,7 +722,8 @@ export const MONSTERS: Record<string, MonsterDef> = {
   // Caverna dos Piratas (lv 30-42).
   pirate_marauder: {
     id: "pirate_marauder", name: "Pirata Saqueador", level: 30, hp: 360, xp: 320, damage: [24, 48], damageKind: "physical", armor: 8,
-    attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
+    attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    pack: { family: "pirate", shout: "Piratas, abordar!" },
     gold: [80, 168],
     loot: [
       { itemId: "pirate_coin", chance: 0.45, min: 1, max: 3 },
@@ -715,7 +735,8 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   pirate_corsair: {
     id: "pirate_corsair", name: "Pirata Corsário", level: 35, hp: 420, xp: 440, damage: [28, 56], damageKind: "physical", armor: 8,
-    attackMs: 2100, attackRange: 4, stepMs: 330, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 60_000,
+    attackMs: 2100, attackRange: 4, stepMs: 330, aggroRange: 7, fleeAtHpPct: 0.2, respawnMs: 60_000,
+    pack: { family: "pirate", shout: "Piratas, abordar!" },
     gold: [112, 232],
     loot: [
       { itemId: "pirate_coin", chance: 0.5, min: 1, max: 4 },
@@ -728,7 +749,8 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
   pirate_buccaneer: {
     id: "pirate_buccaneer", name: "Pirata Bucaneiro", level: 38, hp: 560, xp: 660, damage: [34, 68], damageKind: "physical", armor: 12,
-    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 70_000,
+    attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 70_000,
+    pack: { family: "pirate", shout: "Piratas, abordar!" },
     gold: [144, 296],
     loot: [
       { itemId: "pirate_coin", chance: 0.55, min: 2, max: 5 },
@@ -743,6 +765,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   winter_wolf: {
     id: "winter_wolf", name: "Lobo do Inverno", level: 50, hp: 850, xp: 1230, damage: [50, 95], damageKind: "ice", armor: 12,
     attackMs: 1700, attackRange: 1, stepMs: 260, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 80_000,
+    pack: { family: "wolf", shout: "Auuuu!" },
     gold: [140, 265],
     loot: [
       { itemId: "winter_fur", chance: 0.45 },
@@ -755,6 +778,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   barbarian: {
     id: "barbarian", name: "Bárbaro", level: 55, hp: 1250, xp: 1900, damage: [65, 130], damageKind: "physical", armor: 18,
     attackMs: 2000, attackRange: 1, stepMs: 330, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 90_000,
+    pack: { family: "barbarian", shout: "Pelo norte! Comigo!" },
     gold: [160, 305],
     loot: [
       { itemId: "winter_fur", chance: 0.3 },
@@ -770,6 +794,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   ice_witch: {
     id: "ice_witch", name: "Bruxa do Gelo", level: 62, hp: 1150, xp: 1900, damage: [60, 115], damageKind: "ice", armor: 10,
     abilities: [
+      ability.healAllies({ name: "Geada Restauradora", pct: 0.12, radius: 4, belowHpPct: 0.7, cooldownMs: 10000 }),
       ability.bolt({ name: "Rajada Gélida", range: 4, min: 60, max: 110, kind: "ice", fx: "ice", cooldownMs: 10_000, condition: { id: "slow", durationMs: 3000, value: 40 } }),
     ],
     attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 90_000,
@@ -807,6 +832,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   necromancer: {
     id: "necromancer", name: "Necromante", level: 68, hp: 1500, xp: 2550, damage: [70, 135], damageKind: "death", armor: 14,
     abilities: [
+      ability.healAllies({ name: "Pacto Sombrio", pct: 0.12, radius: 4, belowHpPct: 0.7, cooldownMs: 10000 }),
       ability.summon({ name: "Erguer os Mortos", monsterId: "skeleton", count: 1, max: 2, cooldownMs: 15_000 }),
     ],
     attackMs: 2100, attackRange: 4, stepMs: 380, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 100_000,
@@ -975,6 +1001,66 @@ export const MONSTERS: Record<string, MonsterDef> = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Transformação única dos dados (ciclo 8): dano por level e respawn mais rápido. Aplicada UMA vez ao carregar, então
+// servidor, cliente (olhar, bestiário) e testes veem o mesmo número.
+// ---------------------------------------------------------------------------
+
+/**
+ * Multiplicador do dano dos monstros pelo level (ataque básico e habilidades, chefes inclusive): a cura dos jogadores
+ * (poção grande 450, exura ~150–200/s) sobrava contra 25–90 de dano por segundo por monstro do level.
+ */
+export const MONSTER_DAMAGE_TIERS: readonly { fromLevel: number; mult: number }[] = [
+  { fromLevel: 1, mult: 1 },
+  { fromLevel: 20, mult: 1.4 },
+  { fromLevel: 40, mult: 1.5 },
+  { fromLevel: 70, mult: 1.6 },
+  { fromLevel: 100, mult: 1.7 },
+];
+/** Respawn dos monstros comuns (não chefes): ×0,7 (~30% mais rápido). */
+export const MONSTER_RESPAWN_MULT = 0.7;
+
+/** Fica de fora do multiplicador e das elites: invocação de jogador e boneco de treino (XP 0, parados). */
+const scalesWithLevel = (d: Pick<MonsterDef, "xp" | "stationary" | "invulnerable">) => d.xp > 0 && !d.stationary && !d.invulnerable;
+
+/** Multiplicador de dano já aplicado aos dados deste monstro (1 para quem não escala). */
+export function monsterDamageMult(d: Pick<MonsterDef, "level" | "xp" | "stationary" | "invulnerable">): number {
+  if (!scalesWithLevel(d)) return 1;
+  let mult = 1;
+  for (const t of MONSTER_DAMAGE_TIERS) if (d.level >= t.fromLevel) mult = t.mult;
+  return mult;
+}
+
+for (const d of Object.values(MONSTERS)) {
+  const k = monsterDamageMult(d);
+  if (k !== 1) {
+    d.damage = [Math.round(d.damage[0] * k), Math.round(d.damage[1] * k)];
+    d.abilities = d.abilities?.map((a) => a.damage ? { ...a, damage: { ...a.damage, min: Math.round(a.damage.min * k), max: Math.round(a.damage.max * k) } } : a);
+  }
+  if (!d.boss && scalesWithLevel(d)) d.respawnMs = Math.round(d.respawnMs * MONSTER_RESPAWN_MULT);
+}
+
+// ---------------------------------------------------------------------------
+// Elites e pedido de reforço (ciclo 8)
+// ---------------------------------------------------------------------------
+
+/** Chance de um monstro comum (não chefe, level ≥ ELITE_MIN_LEVEL) nascer elite. */
+export const ELITE_CHANCE = 0.05;
+export const ELITE_MIN_LEVEL = 10;
+/** Multiplicadores da elite: vida, dano, XP, ouro e chance de cada item do loot. */
+export const ELITE = { hp: 2.5, dmg: 1.3, xp: 3, gold: 2, loot: 2 } as const;
+/** Cor do nome da elite (dourado). */
+export const ELITE_COLOR = "#f0c040";
+export const eliteName = (name: string): string => `Elite ${name}`;
+
+/** Este tipo pode nascer elite? (o servidor ainda exclui invocações, ondas do Coliseu e salas de quest). */
+export function canBeElite(d: Pick<MonsterDef, "boss" | "level" | "xp" | "stationary" | "invulnerable">): boolean {
+  return !d.boss && d.level >= ELITE_MIN_LEVEL && scalesWithLevel(d);
+}
+
+/** Raio (Chebyshev) do pedido de reforço dos bandos. */
+export const HELP_RADIUS = 6;
+
 export function monsterDef(id: string): MonsterDef | undefined {
   return Object.hasOwn(MONSTERS, id) ? MONSTERS[id] : undefined;
 }
@@ -985,7 +1071,11 @@ export function monsterAbilityByFxId(spellId: string): MonsterAbility | undefine
   const rest = spellId.slice(MONSTER_ABILITY_PREFIX.length);
   const i = rest.indexOf(":");
   if (i <= 0) return undefined;
-  return monsterDef(rest.slice(0, i))?.abilities?.find((a) => a.id === rest.slice(i + 1));
+  const def = monsterDef(rest.slice(0, i));
+  const id = rest.slice(i + 1);
+  // Pedido de reforço: não é habilidade da lista, mas usa o mesmo efeito/grito.
+  if (id === CALL_HELP_ID && def?.pack) return { id, name: def.pack.shout, shape: "self", radius: HELP_RADIUS, cooldownMs: 0, fx: "taunt" };
+  return def?.abilities?.find((a) => a.id === id);
 }
 
 const ABILITY_TARGET: Record<MonsterAbility["shape"], SpellTarget> = {
@@ -1005,6 +1095,8 @@ export function monsterAbilitySpell(spellId: string): SpellDef | undefined {
 
 /*
  * TABELA DE BALANCEAMENTO (acertos medios de um cavaleiro no level da zona: 6+1.6*lvl - armor)
+ * Ciclo 8: o "dano medio" abaixo é o escrito nos dados, ANTES de MONSTER_DAMAGE_TIERS (×1,4 do lv 20, ×1,5 do 40,
+ * ×1,6 do 70, ×1,7 do 100); o respawn dos comuns também fica ×0,7 depois de carregar.
  * monstro        lvl   hp    xp   dano medio   acertos p/ matar
  * rat             1    25     6     3.5         3.3 (lv1)
  * slime           2    40    10     5           ~4

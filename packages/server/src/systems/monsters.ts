@@ -1,7 +1,8 @@
 // Monstros: spawns (com respawn estilo Tibia), índice de ocupação O(1), passos e zonas proibidas.
 // A IA (decisões) fica em ai.ts; o dano/morte em combat.ts (via `attackHook`).
 import {
-  DIAGONAL_COST, DIR_DELTA, TICK_MS, Dir, applySpeedPct, canStepTerrain, findObjects, isDiagonal, lineOfSight, monsterDef, objectTile,
+  DIAGONAL_COST, DIR_DELTA, ELITE, ELITE_CHANCE, HELP_RADIUS, TICK_MS, Dir, applySpeedPct, canBeElite, canStepTerrain, findObjects,
+  isDiagonal, lineOfSight, monsterDef, objectTile,
   type CollisionGrid, type GroundSpeedGrid, type MonsterDef, type TiledMap,
 } from "@lemonquest/shared";
 import { MonsterState, type PlayerState } from "../state.ts";
@@ -81,7 +82,16 @@ export interface Monster {
   abilityReadyAt?: Map<string, number>;
   /** Invocado por outro monstro (id do invocador): sem respawn, XP nem loot; some quando o invocador some. */
   minionOf?: string;
+  /** Elite (nasceu com ELITE_CHANCE): vida ×2,5 e dano ×1,3 aqui; XP, ouro e loot maiores no abate. */
+  elite?: boolean;
+  /** Pedidos de reforço já feitos nesta vida (bits HELP_*), para gritar uma vez por motivo. */
+  helpCalled?: number;
 }
+
+/** Motivos do pedido de reforço (uma vez cada por vida do monstro). */
+export const HELP_FIRST_HIT = 1, HELP_HALF_HP = 2, HELP_FLEE = 4;
+/** No máximo um grito de reforço por família neste intervalo (o reforço em si continua acontecendo). */
+export const HELP_SHOUT_MS = 1000;
 
 /** Criatura que pode ser alvo de monstro: jogador ou invocação de jogador. */
 export type CreatureState = PlayerState | MonsterState;
@@ -109,6 +119,8 @@ export interface MonsterManagerOptions {
   defs?: (id: string) => MonsterDef | undefined;
   /** Aviso global (anúncio de boss). */
   notice?: (text: string, kind: "info" | "warn" | "good") => void;
+  /** Chance de um monstro comum nascer elite (padrão ELITE_CHANCE; testes usam 0 ou 1). */
+  eliteChance?: number;
   log?: (msg: string) => void;
   /** Log de erros (IA que lança): padrão ErrorLog com 1 linha/10 s. */
   errors?: ErrorLog;
@@ -180,6 +192,8 @@ export class MonsterManager {
   summonAi: ((m: Monster, w: MonsterManager, now: number) => void) | null = null;
   /** Invocação morreu/sumiu (summons.ts limpa o registro do dono). */
   onSummonRemoved: ((m: Monster) => void) | null = null;
+  /** Um monstro de bando pediu reforço (monsterAbilities.ts difunde o grito). */
+  onCallHelp: ((m: Monster, now: number) => void) | null = null;
 
   private readonly W: number;
   private readonly mask: Uint8Array;
@@ -187,6 +201,8 @@ export class MonsterManager {
   private readonly list = new Map<string, Monster>();
   private readonly respawns: { spawn: SpawnPoint; at: number; due: number }[] = [];
   private readonly warned = new Set<string>();
+  /** Último grito de reforço por família (HELP_SHOUT_MS). */
+  private readonly lastShoutAt = new Map<string, number>();
   private nextId = 1;
   private readonly errors: ErrorLog;
   /** Jogadores do tick atual (≤ 32; varrer é mais barato que indexar). */
@@ -382,6 +398,14 @@ export class MonsterManager {
       nextAttackAt: 0, path: null, pathAt: 0, pathGoal: { x: -1, y: -1 }, lostSince: 0, returnSince: 0,
       lastAttackerId: "", lastCreditId: "", damageBy: new Map(),
     };
+    // Elite: só monstros comuns dos spawns do mapa (nunca chefe, invocação, onda do Coliseu ou sala de quest).
+    if (canBeElite(def) && this.rng() < (this.o.eliteChance ?? ELITE_CHANCE)) {
+      m.elite = true;
+      m.dmgMult = ELITE.dmg;
+      s.elite = true;
+      s.maxHp = Math.round(def.hp * ELITE.hp);
+      s.hp = s.maxHp;
+    }
     this.list.set(s.id, m);
     this.occ.set(t.y * this.W + t.x, m);
     this.o.collection.set(s.id, s);
@@ -478,8 +502,9 @@ export class MonsterManager {
     s.x = t.x;
     s.y = t.y;
     s.dir = master.s.dir;
-    // Coliseu: mesma escala de vida do invocador (o dano vem de dmgMult, herdado abaixo).
-    s.maxHp = Math.max(1, Math.round(def.hp * (master.s.maxHp / Math.max(1, master.def.hp))));
+    // Coliseu: mesma escala de vida do invocador (o dano vem de dmgMult, herdado abaixo). Fora dele (elite), vida normal.
+    const scale = master.arenaId !== undefined ? master.s.maxHp / Math.max(1, master.def.hp) : 1;
+    s.maxHp = Math.max(1, Math.round(def.hp * scale));
     s.hp = s.maxHp;
     const m: Monster = {
       s, def, spawn: { defId: def.id, x: master.spawn.x, y: master.spawn.y, count: 1, radius: master.spawn.radius },
@@ -488,7 +513,8 @@ export class MonsterManager {
       damageBy: new Map(), minionOf: master.s.id,
       ...(master.arenaId !== undefined ? { arenaId: master.arenaId } : {}),
       ...(b ? { bounds: b } : {}), ...(master.allow ? { allow: master.allow } : {}),
-      ...(master.dmgMult !== undefined ? { dmgMult: master.dmgMult } : {}),
+      // Escala do Coliseu passa para o ajudante; o dano da elite não (ajudante de elite é um monstro comum).
+      ...(master.arenaId !== undefined && master.dmgMult !== undefined ? { dmgMult: master.dmgMult } : {}),
     };
     const target = this.validTarget(master.s.targetId);
     if (target && this.allowedFor(m, target.id)) { m.mode = "chase"; s.targetId = target.id; }
@@ -552,6 +578,12 @@ export class MonsterManager {
     }
     m.lastAttackerId = attackerId;
     m.sleeping = false;
+    // Bando: o 1º golpe e a queda abaixo de 50% chamam os da mesma família (o dano ainda não foi descontado aqui).
+    if (m.def.pack && !m.s.ownerId) {
+      const flags = m.helpCalled ?? 0;
+      if (!(flags & HELP_FIRST_HIT)) this.callForHelp(m, attackerId, now, HELP_FIRST_HIT);
+      else if (!(flags & HELP_HALF_HP) && (m.s.hp - amount) * 2 < m.s.maxHp) this.callForHelp(m, attackerId, now, HELP_HALF_HP);
+    }
     if (m.mode === "idle" || m.mode === "return" || ((m.mode === "chase" || m.mode === "flee") && !this.validTarget(m.s.targetId))) {
       if (this.validTarget(attackerId) && this.allowedFor(m, attackerId)) {
         m.mode = "chase";
@@ -561,6 +593,38 @@ export class MonsterManager {
         m.nextThinkAt = Math.min(m.nextThinkAt, now);
       }
     }
+  }
+
+  /**
+   * Pedido de reforço (`m.def.pack`): grita e faz os monstros da mesma família a até HELP_RADIUS tiles — ociosos,
+   * voltando ou sem alvo válido — atacarem `attackerId` (ou o alvo atual de `m`). Uma vez por motivo (`reason`) por
+   * vida. Retorna quantos atenderam.
+   */
+  callForHelp(m: Monster, attackerId: string, now: number, reason: number): number {
+    const family = m.def.pack?.family;
+    if (!family || ((m.helpCalled ?? 0) & reason)) return 0;
+    m.helpCalled = (m.helpCalled ?? 0) | reason;
+    // Um grito por família a cada HELP_SHOUT_MS: uma área que acerta 12 do bando não gera 12 gritos/efeitos.
+    const last = this.lastShoutAt.get(family);
+    if (last === undefined || now - last >= HELP_SHOUT_MS) { this.lastShoutAt.set(family, now); this.onCallHelp?.(m, now); }
+    const target = this.validTarget(attackerId) ?? this.validTarget(m.s.targetId);
+    if (!target) return 0;
+    let n = 0;
+    for (const o of this.list.values()) {
+      if (o === m || o.s.ownerId || o.s.hp <= 0 || o.def.pack?.family !== family) continue;
+      if (o.arenaId !== m.arenaId || o.questLever !== m.questLever) continue; // nunca puxa monstro de outra arena/sala
+      if (cheb(o.s.x, o.s.y, m.s.x, m.s.y) > HELP_RADIUS || !this.allowedFor(o, target.id)) continue;
+      const busy = (o.mode === "chase" || o.mode === "flee") && this.validTarget(o.s.targetId);
+      if (busy) continue;
+      o.mode = "chase";
+      o.s.targetId = target.id;
+      o.lostSince = 0;
+      o.path = null;
+      o.sleeping = false;
+      o.nextThinkAt = Math.min(o.nextThinkAt, now);
+      n++;
+    }
+    return n;
   }
 
   /** Jogador saiu/morreu: ninguém mais o persegue. */

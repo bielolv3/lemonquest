@@ -1,6 +1,6 @@
 // Visual das criaturas: converte MonsterDef.sprite (shared) em CharacterSheet/CharacterLook do cliente.
 import type Phaser from "phaser";
-import { MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@lemonquest/shared";
+import { ELITE_COLOR, MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@lemonquest/shared";
 import { gridSheet, type CharacterLook, type CharacterSheet } from "./sprites.ts";
 
 const sheets = new Map<string, CharacterSheet>();
@@ -79,6 +79,11 @@ const DIFFICULTY_COLOR: Record<Difficulty, string> = {
 /** Cor do nome conforme a dificuldade (a lista de batalha também diz em texto — não depender só da cor). */
 export function levelColor(monsterLevel: number, myLevel: number, boss: boolean): string {
   return DIFFICULTY_COLOR[levelDifficulty(monsterLevel, myLevel, boss)];
+}
+
+/** Cor do nome da criatura: elite em dourado (o nome já diz "Elite"); senão a cor da dificuldade. */
+export function creatureColor(monsterLevel: number, myLevel: number, boss: boolean, elite?: boolean): string {
+  return elite ? ELITE_COLOR : levelColor(monsterLevel, myLevel, boss);
 }
 
 export interface SheetTrim { top: number; bottom: number }

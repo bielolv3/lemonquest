@@ -1,7 +1,7 @@
 // Loot (M4): ao matar um monstro rola a tabela (chances independentes), o ouro e a raridade/bônus dos
 // equipáveis; entrega ao jogador online que mais causou dano. S2C.Loot para ele; S2C.Feed para drops épicos/lendários e chefes.
 import {
-  RARITIES, RARITY_LABEL, S2C, isEquipable, rollInt,
+  ELITE, RARITIES, RARITY_LABEL, S2C, eliteName, isEquipable, rollInt,
   type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -79,9 +79,9 @@ export function createItem(d: ItemDef, count: number, rng: () => number, o: { bo
 
 export interface LootRoll { items: ItemInstance[]; gold: number }
 
-/** Rola o loot de um abate. Moedas de ouro da tabela vão para o ouro. */
-export function rollLoot(def: MonsterDef, rng: () => number, defs: ItemDefs, chanceMult = 1): LootRoll {
-  let gold = def.gold ? rollInt(def.gold[0], def.gold[1], rng) : 0;
+/** Rola o loot de um abate. Moedas de ouro da tabela vão para o ouro. `goldMult` multiplica o ouro rolado (elite). */
+export function rollLoot(def: MonsterDef, rng: () => number, defs: ItemDefs, chanceMult = 1, goldMult = 1): LootRoll {
+  let gold = def.gold ? Math.round(rollInt(def.gold[0], def.gold[1], rng) * goldMult) : 0;
   const items: ItemInstance[] = [];
   for (const e of def.loot ?? []) {
     if (!(rng() < Math.min(1, e.chance * chanceMult))) continue;
@@ -159,7 +159,9 @@ export class LootSystem {
     const { x, y } = m.s;
     const def = m.def;
     if (def.boss) this.feed(`☠️ ${p.name} derrotou ${def.name}!`, "boss");
-    const roll = rollLoot(def, this.rng, this.o.inventory.defs, this.o.lootMult?.() ?? 1);
+    // Elite: chance de cada item ×2 e ouro ×2 (ELITE).
+    const roll = rollLoot(def, this.rng, this.o.inventory.defs, (this.o.lootMult?.() ?? 1) * (m.elite ? ELITE.loot : 1), m.elite ? ELITE.gold : 1);
+    const monsterName = m.elite ? eliteName(def.name) : def.name;
     const party = this.o.partyIdOf?.(p, m);
     if (party && this.o.ground?.placeNear) return this.dropForParty(p, m, roll.items, roll.gold);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
@@ -181,7 +183,7 @@ export class LootSystem {
     if (fell > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${fell === 1 ? "1 item caiu" : `${fell} itens caíram`} no chão.`, kind: "warn" } satisfies NoticeMsg);
     if (lost > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${lost === 1 ? "1 item perdido" : `${lost} itens perdidos`}.`, kind: "warn" } satisfies NoticeMsg);
     if (got.length || roll.gold > 0 || lost > 0 || fell > 0) {
-      const msg: LootMsg = { x, y, monsterName: def.name, items: got, gold: roll.gold };
+      const msg: LootMsg = { x, y, monsterName, items: got, gold: roll.gold };
       if (lost > 0) msg.lostFull = lost;
       if (fell > 0) msg.fellToGround = fell;
       this.o.send(p.id, S2C.Loot, msg);
@@ -211,7 +213,7 @@ export class LootSystem {
       if (d && FEED_RARITIES.includes(it.rarity)) this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
     }
     if (onGround.length || groundGold > 0) {
-      this.o.send(p.id, S2C.Loot, { x, y, monsterName: m.def.name, items: onGround, gold: groundGold, onGround: true } satisfies LootMsg);
+      this.o.send(p.id, S2C.Loot, { x, y, monsterName: m.elite ? eliteName(m.def.name) : m.def.name, items: onGround, gold: groundGold, onGround: true } satisfies LootMsg);
     }
   }
 

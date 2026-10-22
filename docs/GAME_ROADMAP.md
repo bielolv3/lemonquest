@@ -193,6 +193,21 @@ Detalhe de cada achado em [GAME_AUDIT.md, Ciclo 5](GAME_AUDIT.md#ciclo-5-auditor
 | F | E2E de um segundo jogador pegando/movendo o loot de outro no chão | ⏳ | garantia central do "chão sem dono" |
 | F | E2E da Aniquilação (4 placas + alavanca) | ⏳ | hoje só a checagem de alcançabilidade no gerador do mapa |
 
+## Ciclo 8 (2026-10-22) — caves cheias, monstros mais fortes e Coliseu difícil
+
+Pedido do dono: "caves mais fortes, com mais bichos, mais variedade de caça"; "está muito fácil tancar"; "solei o
+Coliseu de mago". Diagnóstico: a cura sobrava (Poção Grande 450/s + exura) contra 25–90 de dano/s por monstro, e as
+caves tinham poucos monstros. Duas frentes em arquivos separados, com revisão cruzada.
+
+| Frente | Item | Implementou / revisou | Status | Validação |
+|---|---|---|---|---|
+| Mapa | Caves 373 → 573 monstros (bandos e mistos), bloco `caveSpawns` no fim do gerador | engenharia / orquestrador | ✅ | 0 tiles alterados e 538 objetos antigos idênticos (conferido à parte) |
+| Monstros | Dano por level ×1,4–1,7; poção de vida 2 s; elites 5%; cura de aliados (sem chefes); reforço do bando; fuga 20%; respawn ×0,7 | game design / engenharia | ✅ | `monsterHunt.test.ts` (novo), `monsters.test.ts`, `items.test.ts`, `lookInfo.test.ts` |
+| Coliseu | Muito mais forte: vida ×2,5, dano por onda até ×5 (onda 30), desconto de grupo pequeno removido, modelo de calibração com o poder real | game design | ✅ | `arena.test.ts` "coliseu: balanço": solo ≤ onda ~25–30; grupo de 4 no justo cai entre X−5 e X; lv 120 completa |
+
+Pendências: medir no jogo de verdade (o modelo é otimista para o jogador); Ninho dos Dragões de Gelo com bando de 8 pode
+ficar pesado demais (trocar o count na linha `frost_dragon` do `caveSpawns`); teste de carga com 573 monstros.
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |

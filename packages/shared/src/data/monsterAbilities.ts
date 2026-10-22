@@ -34,6 +34,11 @@ export interface MonsterAbility {
   condition?: { id: MonsterAbilityCondition; durationMs: number; value: number };
   /** Cura em si mesmo: fração da vida máxima. Só usa abaixo de `belowHpPct` da vida. */
   heal?: { pct: number; belowHpPct: number };
+  /**
+   * Cura em grupo (conjuradores): cada monstro aliado a até `radius` tiles (inclusive ele mesmo) recupera `pct` da
+   * própria vida máxima. Só usa se algum deles estiver abaixo de `belowHpPct`.
+   */
+  healAllies?: { pct: number; radius: number; belowHpPct: number };
   /** Invoca `count` monstros (no máximo `max` vivos por vez). Somem quando o invocador some; não dão XP nem loot. */
   summon?: { monsterId: string; count: number; max: number };
   /**
@@ -43,6 +48,9 @@ export interface MonsterAbility {
   windupMs?: number;
   fx: SpellFx;
 }
+
+/** Id do efeito do pedido de reforço (`m:<monstro>:call_help`): o grito é `MonsterDef.pack.shout`. */
+export const CALL_HELP_ID = "call_help";
 
 /** Prefixo do id do efeito visual (SpellCastMsg.spellId) de uma habilidade de monstro: `m:<monstro>:<habilidade>`. */
 export const MONSTER_ABILITY_PREFIX = "m:";
@@ -76,6 +84,11 @@ export const ability = {
   heal: (o: { name: string; pct: number; belowHpPct?: number; cooldownMs?: number }): MonsterAbility => ({
     id: "heal", name: o.name, shape: "self", cooldownMs: o.cooldownMs ?? 15_000,
     heal: { pct: o.pct, belowHpPct: o.belowHpPct ?? 0.5 }, fx: "heal",
+  }),
+  /** Cura dos aliados num raio (xamãs, magos, necromantes, bruxas). */
+  healAllies: (o: { name: string; pct: number; radius?: number; belowHpPct?: number; cooldownMs?: number }): MonsterAbility => ({
+    id: "heal_allies", name: o.name, shape: "self", cooldownMs: o.cooldownMs ?? 10_000,
+    healAllies: { pct: o.pct, radius: o.radius ?? 4, belowHpPct: o.belowHpPct ?? 0.7 }, fx: "heal",
   }),
   /** Invocação de ajudantes. */
   summon: (o: { name: string; monsterId: string; count: number; max: number; cooldownMs?: number }): MonsterAbility => ({

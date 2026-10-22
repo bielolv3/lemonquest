@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QUEST_CHESTS } from "@lemonquest/shared";
+import { ELITE_COLOR, QUEST_CHESTS } from "@lemonquest/shared";
 import { chestClass, chestLookLines } from "./chestInfo.ts";
 import { lookCreature, lookNpc, lookPlayer, lookQuestObject } from "./lookInfo.ts";
 
@@ -30,6 +30,19 @@ describe("olhar criaturas, jogadores e NPCs", () => {
       "Level 70 · perigosa", "Vida 1.000/2.000 (50%)", expect.stringMatching(/^Ataque: /), "Habilidades: Sopro de Fogo", "XP: 3.500",
     ]));
     expect(lookCreature({ defId: "demodras", name: "Demodras", level: 80, boss: true, hp: 1, maxHp: 1 }, 80).title).toBe("☠ Demodras");
+    // Dano real: dados 70–140 × 1,6 (lv 70+, ciclo 8).
+    expect(c.lines).toContain("Ataque: à distância (3 sqm), fogo, 112–224");
+  });
+
+  it("elite: título dourado com \"Elite\", marca ELITE, dano ×1,3 e XP ×3", () => {
+    const c = lookCreature({ defId: "dragon", name: "Elite Dragão", level: 70, boss: false, hp: 5000, maxHp: 5000, elite: true }, 60);
+    expect(c.title).toBe("Elite Dragão");
+    expect(c.color).toBe(ELITE_COLOR);
+    expect(c.lines).toEqual(expect.arrayContaining(["Level 70 · perigosa · ELITE", "Ataque: à distância (3 sqm), fogo, 146–291", "XP: 10.500"]));
+  });
+
+  it("monstro de bando avisa que chama o bando", () => {
+    expect(lookCreature({ defId: "orc_warrior", name: "Orc", level: 42, boss: false, hp: 1, maxHp: 1 }, 42).lines).toContain("Chama o bando quando atacado");
   });
 
   it("jogador: level e vocação, título, caveira, grupo; você", () => {

@@ -103,6 +103,8 @@ export interface MonsterView {
   targetId: string;    // sessionId do jogador que está atacando ("" = nenhum)
   /** sessionId do druida dono, se for invocação ("" = selvagem). */
   ownerId: string;
+  /** Elite (ciclo 8): nasceu mais forte (vida, dano, XP, ouro e loot maiores); nome "Elite <nome>" em dourado. */
+  elite?: boolean;
 }
 
 /**

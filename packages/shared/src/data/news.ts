@@ -12,6 +12,18 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22e",
+    date: "22 de outubro (noite)",
+    title: "Caves cheias e monstros mais fortes",
+    items: [
+      "As caves têm bem mais monstros, com bandos grandes (bom para magia em área) e grupos mistos com conjuradores que curam os aliados.",
+      "Monstros do level 20 para cima batem bem mais forte, e a poção de vida agora espera 2 segundos entre um gole e outro.",
+      "Elites: alguns monstros nascem com o nome dourado. Mais fortes, mas dão o triplo de XP e mais loot.",
+      "Lobos, orcs, minotauros, piratas e outros chamam o bando quando apanham. Alguns fogem com pouca vida.",
+      "O Coliseu ficou muito mais difícil: sozinho não passa do meio, e completar as 60 ondas pede um grupo forte.",
+    ],
+  },
+  {
     id: "2026-10-22d",
     date: "22 de outubro (noite)",
     title: "Famílias de magia",

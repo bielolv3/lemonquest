@@ -3,13 +3,13 @@ import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
   C2S, DROP_RANGE, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
-  monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type LookGroundMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
+  eliteName, monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type LookGroundMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, SPEECH_COLOR_PARTY, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
-import { allCreatureSheets, creatureVisual, levelColor, levelDifficulty, sheetTrim } from "../game/creatures.ts";
+import { allCreatureSheets, creatureColor, creatureVisual, levelDifficulty, sheetTrim } from "../game/creatures.ts";
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
@@ -59,7 +59,7 @@ import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from
 
 /** Último estado autoritativo conhecido de cada jogador/criatura (para detectar mudanças e checar ocupação). */
 interface Known { x: number; y: number; dir: number; stepMs: number }
-interface CreatureInfo { defId: string; name: string; level: number; boss: boolean; hp: number; maxHp: number }
+interface CreatureInfo { defId: string; name: string; level: number; boss: boolean; hp: number; maxHp: number; elite?: boolean }
 
 const DEPTH_ABOVE = 1_000_000;
 const DEPTH_FX_TOP = 2_000_000;
@@ -489,14 +489,16 @@ export class WorldScene extends Phaser.Scene {
   addMonster(id: string, m: MonsterView) {
     if (this.creatures.has(id)) return;
     const v = creatureVisual(m.defId);
+    const elite = !!m.elite;
+    const name = elite ? eliteName(v.name) : v.name;
     const actor = new Actor(
-      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + v.name, false, m.x, m.y, m.dir,
-      { scale: v.scale, fontSize: v.boss ? 12 : 10, nameColor: levelColor(v.level, this.myLevel, v.boss), trim: sheetTrim(this, v.look.sheet) },
+      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + name, false, m.x, m.y, m.dir,
+      { scale: v.scale, fontSize: v.boss ? 12 : 10, nameColor: creatureColor(v.level, this.myLevel, v.boss, elite), trim: sheetTrim(this, v.look.sheet) },
     );
     actor.setHp(m.hp, m.maxHp, true);
     this.creatures.set(id, actor);
     this.creatureKnown.set(id, { x: m.x, y: m.y, dir: m.dir, stepMs: m.stepMs });
-    this.creatureInfo.set(id, { defId: m.defId, name: v.name, level: v.level, boss: v.boss, hp: m.hp, maxHp: m.maxHp });
+    this.creatureInfo.set(id, { defId: m.defId, name, level: v.level, boss: v.boss, hp: m.hp, maxHp: m.maxHp, elite });
   }
 
   onMonsterChange(id: string, m: MonsterView) {
@@ -527,7 +529,7 @@ export class WorldScene extends Phaser.Scene {
   private recolorCreatures() {
     for (const [id, a] of this.creatures) {
       const i = this.creatureInfo.get(id);
-      if (i) a.setName(a.label.text, levelColor(i.level, this.myLevel, i.boss));
+      if (i) a.setName(a.label.text, creatureColor(i.level, this.myLevel, i.boss, i.elite));
     }
   }
 
@@ -1110,7 +1112,7 @@ export class WorldScene extends Phaser.Scene {
       const pct = hpPct(i.hp, i.maxHp);
       list.push({
         id, name: i.name, hpPct: pct, kind: "monster", distance: d,
-        color: levelColor(i.level, this.myLevel, i.boss), difficulty: levelDifficulty(i.level, this.myLevel, i.boss),
+        color: creatureColor(i.level, this.myLevel, i.boss, i.elite), difficulty: levelDifficulty(i.level, this.myLevel, i.boss),
       });
       sig += `${id}:${pct}:${d};`;
     }

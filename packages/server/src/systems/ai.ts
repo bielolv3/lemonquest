@@ -3,7 +3,7 @@
 import { DIR_DELTA, Dir, canStepTerrain, dirFromDelta } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { findPath, type Point } from "./pathfinding.ts";
-import { SLEEP_DIST, cheb, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
+import { HELP_FLEE, SLEEP_DIST, cheb, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
 
 export const THINK_MS = 250;
 /** Mais longe que isso do spawn → desiste e volta. */
@@ -94,6 +94,7 @@ function arrive(m: Monster, now: number) {
   m.damageBy.clear();
   m.lastAttackerId = "";
   m.lastCreditId = "";
+  m.helpCalled = 0; // de volta ao spawn e curado: pode pedir reforço de novo na próxima luta
   m.path = null;
   m.nextWanderAt = now + 2000;
 }
@@ -128,8 +129,13 @@ function think(m: Monster, w: MonsterManager, now: number) {
     }
   }
   m.lostSince = 0;
+  const was = m.mode;
   m.mode = m.def.fleeAtHpPct > 0 && s.hp < m.def.fleeAtHpPct * s.maxHp ? "flee" : "chase";
-  if (m.mode === "flee") { m.path = null; return; }
+  if (m.mode === "flee") {
+    m.path = null;
+    if (was !== "flee" && m.def.pack) w.callForHelp(m, target.id, now, HELP_FLEE); // fugindo, chama o bando
+    return;
+  }
 
   const d = cheb(s.x, s.y, target.x, target.y);
   const range = Math.max(1, m.def.attackRange);

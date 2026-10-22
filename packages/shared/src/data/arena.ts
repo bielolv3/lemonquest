@@ -147,57 +147,97 @@ export const arenaShopAfter = (wave: number): boolean => isBossWave(wave);
 /** Duração do intervalo DEPOIS de vencer a onda `wave` (pausa com loja ou respiro curto). */
 export const arenaPauseMs = (wave: number): number => (arenaShopAfter(wave) ? ARENA_SHOP_PAUSE_MS : ARENA_BREAK_MS);
 
-/** Quantidade de monstros comuns: base × (1 + 0.6 × (n − 1)). */
-export const arenaCountMult = (n: number): number => 1 + 0.6 * (Math.max(1, n) - 1);
+/**
+ * Dificuldade do Coliseu (ciclo 8). Os monstros já vêm com o dano por level dos dados (MONSTER_DAMAGE_TIERS) e a
+ * arena soma um multiplicador próprio. Calibrado no modelo de `arena.test.ts` (poder real: equipamento, magias,
+ * poções; ver "coliseu: balanço"): solo morre por volta da onda 20–25 em qualquer level e vocação; grupo de 4 no level
+ * justo da onda X chega perto de X (~40–45 no level justo da 45); completar as 60 pede grupo acima do level justo.
+ * Antes, o modelo antigo subestimava o jogador (~4× menos dano) e um mago completava o Coliseu sozinho.
+ */
+/** Vida das ondas: ×2,5. */
+export const ARENA_HP_MULT = 2.5;
+/**
+ * Dano das ondas, pontos (onda, ×) com interpolação linear. O pico no meio (onda 30) é o muro do solo: lá a cura de
+ * um jogador só (poção de vida 225/s) não segura o bando, mesmo no level 120. Depois cai, porque o poder do jogador
+ * cresce mais que o dos monstros no fim de jogo (magias do lv 70–90, equipamento do lv 70).
+ */
+export const ARENA_DMG_POINTS: readonly (readonly [number, number])[] = [[1, 1.5], [20, 2.5], [30, 5], [40, 3.5], [50, 3.3], [60, 1.7]];
+/** Monstros comuns a mais por membro além do primeiro (antes 0,6: o solo enfrentava 1/2,8 do bando de 4 — desconto demais). */
+export const ARENA_COUNT_PER_MEMBER = 0.2;
+/** Quantidade por membro que conta para a XP das ondas (a de antes do ciclo 8: a XP por onda não mudou). */
+export const ARENA_XP_COUNT_PER_MEMBER = 0.6;
+/** Vida mínima de um chefe de zona no Coliseu, como fração da vida "de grupo de 4" (antes 0,3 — Orshabaal solo com 30%). */
+export const ARENA_BOSS_MIN_HP = 0.8;
+
+/** Multiplicador próprio do Coliseu na onda: vida ARENA_HP_MULT; dano interpolado em ARENA_DMG_POINTS. */
+export function arenaWaveMult(wave: number): { hp: number; dmg: number } {
+  const pts = ARENA_DMG_POINTS;
+  let dmg = pts[pts.length - 1]![1];
+  if (wave <= pts[0]![0]) dmg = pts[0]![1];
+  else for (let i = 1; i < pts.length; i++) {
+    const [w0, m0] = pts[i - 1]!, [w1, m1] = pts[i]!;
+    if (wave <= w1) { dmg = m0 + ((m1 - m0) * (wave - w0)) / (w1 - w0); break; }
+  }
+  return { hp: ARENA_HP_MULT, dmg };
+}
+
+/** Quantidade de monstros comuns: base × (1 + ARENA_COUNT_PER_MEMBER × (n − 1)). */
+export const arenaCountMult = (n: number): number => 1 + ARENA_COUNT_PER_MEMBER * (Math.max(1, n) - 1);
 /**
  * Vida/dano extra por membro além do primeiro (+10% cada): sem isto um grupo de 4 recebe metade do dano por cabeça
- * (4× o dano causado contra 2.8× os monstros) e o coliseu fica fácil demais em grupo.
+ * e o coliseu fica fácil demais em grupo.
  */
 export const arenaPartyStatMult = (n: number): number => 1 + 0.1 * (Math.max(1, n) - 1);
-/** Elites/chefes (1 por onda): a vida escala com o grupo no lugar da quantidade. Chefes de zona (6000 de vida) já são para 3-4. */
+/**
+ * Elites/chefes (1 por onda): a vida escala com o grupo no lugar da quantidade. Chefes de zona já são para 3-4: grupo
+ * de 4 = vida cheia; grupos menores, no mínimo ARENA_BOSS_MIN_HP dela.
+ */
 export function arenaEliteHpMult(n: number, zoneBoss: boolean): number {
   const k = arenaCountMult(n) * arenaPartyStatMult(n);
-  return zoneBoss ? Math.max(0.3, k / (arenaCountMult(4) * arenaPartyStatMult(4))) : k;
+  return zoneBoss ? Math.max(ARENA_BOSS_MIN_HP, k / (arenaCountMult(4) * arenaPartyStatMult(4))) : k;
 }
 
 /**
- * Escala por level: um grupo acima do level justo da onda (+6 de folga) enfrenta monstros mais fortes
- * (+4% de vida e +2% de dano por level acima, até ×2 / ×1.5). Assim um grupo level 40 não passa
- * as primeiras ondas no tédio total (elas ficam curtas), e a progressão continua valendo.
+ * XP das ondas para um grupo acima do level justo (+6 de folga): +4% por level acima, até ×2. Até o ciclo 7 isto
+ * também subia a vida (e o dano, +2%/level até ×1,5) dos monstros; no ciclo 8 a vida/dano saíram (puniam quem está
+ * acima do level, o que deve ser vantagem) e ficou só a XP, que continua igual.
  */
-export function arenaLevelMult(avgLevel: number, waveLevel: number): { hp: number; dmg: number } {
+export function arenaLevelXpMult(avgLevel: number, waveLevel: number): number {
   const over = Math.max(0, avgLevel - waveLevel - 6);
-  return { hp: Math.min(2, 1 + 0.04 * over), dmg: Math.min(1.5, 1 + 0.02 * over) };
+  return Math.min(2, 1 + 0.04 * over);
 }
 
 export interface ArenaSpawnSpec {
   defId: string;
   hpMult: number;
   dmgMult: number;
-  /** XP que o monstro vale para a recompensa da onda (XP do def × hpMult). */
+  /** XP que o monstro vale para a recompensa da onda (XP do def × elite × bônus de level acima). */
   xp: number;
   elite: boolean;
 }
 
-/** Lista de monstros da onda para um grupo de `n` com level médio `avgLevel`. */
+/** Lista de monstros da onda para um grupo de `n` com level médio `avgLevel` (o level só mexe na XP). */
 export function arenaWaveSpawns(wave: number, n: number, avgLevel: number): ArenaSpawnSpec[] {
   const w = arenaWave(wave);
   if (!w) return [];
-  const lv = arenaLevelMult(avgLevel, w.level);
+  const xpLv = arenaLevelXpMult(avgLevel, w.level);
+  const am = arenaWaveMult(wave);
   const party = arenaPartyStatMult(n);
   const out: ArenaSpawnSpec[] = [];
   for (const e of w.monsters) {
     const def = monsterDef(e.id);
     if (!def || def.stationary || def.invulnerable) continue; // nunca bonecos de treino
     if (e.elite !== undefined) {
-      const hpMult = e.elite * arenaEliteHpMult(n, !!def.boss) * lv.hp;
-      const dmgMult = (e.eliteDmg ?? 1) * party * lv.dmg;
-      out.push({ defId: def.id, hpMult, dmgMult, xp: Math.round(def.xp * e.elite * lv.hp), elite: true });
+      const hpMult = e.elite * arenaEliteHpMult(n, !!def.boss) * am.hp;
+      const dmgMult = (e.eliteDmg ?? 1) * party * am.dmg;
+      out.push({ defId: def.id, hpMult, dmgMult, xp: Math.round(def.xp * e.elite * xpLv), elite: true });
       continue;
     }
     const count = Math.max(1, Math.round(e.count * arenaCountMult(n)));
-    const hpMult = party * lv.hp, dmgMult = party * lv.dmg;
-    for (let i = 0; i < count; i++) out.push({ defId: def.id, hpMult, dmgMult, xp: Math.round(def.xp * lv.hp), elite: false });
+    // XP da onda igual à de antes do ciclo 8: vale a quantidade antiga (1 + 0,6 por membro), repartida pelos que nascem.
+    const xpCount = Math.max(1, Math.round(e.count * (1 + ARENA_XP_COUNT_PER_MEMBER * (Math.max(1, n) - 1))));
+    const hpMult = party * am.hp, dmgMult = party * am.dmg, xp = (def.xp * xpLv * xpCount) / count;
+    for (let i = 0; i < count; i++) out.push({ defId: def.id, hpMult, dmgMult, xp, elite: false });
   }
   return out;
 }

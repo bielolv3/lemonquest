@@ -2,7 +2,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { MONSTERS } from "./monsters.ts";
+import { CALL_HELP_ID } from "./monsterAbilities.ts";
+import { ELITE, ELITE_CHANCE, HELP_RADIUS, MONSTERS, canBeElite, eliteName, monsterAbilitySpell, monsterDamageMult } from "./monsters.ts";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const world = JSON.parse(readFileSync(root + "assets/maps/world.json", "utf8"));
@@ -56,5 +57,70 @@ describe("MONSTERS", () => {
 
   it("bosses respawnam em ~2h", () => {
     for (const d of Object.values(MONSTERS).filter((m) => m.boss)) expect(d.respawnMs).toBeGreaterThanOrEqual(3_600_000);
+  });
+});
+
+describe("ciclo 8: dano por level, respawn, elites e bandos", () => {
+  it("dano por level já aplicado aos dados (ataque básico e habilidades, chefes inclusive)", () => {
+    // Números dos dados antes da transformação → depois.
+    expect(MONSTERS.rat!.damage).toEqual([1, 4]); // lv 1: ×1
+    expect(MONSTERS.skeleton!.damage).toEqual([28, 59]); // lv 24: [20, 42] × 1,4
+    expect(MONSTERS.orc_warrior!.damage).toEqual([60, 120]); // lv 42: [40, 80] × 1,5
+    expect(MONSTERS.dragon!.damage).toEqual([112, 224]); // lv 70: [70, 140] × 1,6
+    expect(MONSTERS.dragon!.abilities![0]!.damage).toMatchObject({ min: 144, max: 272 }); // sopro [90, 170] × 1,6
+    expect(MONSTERS.demon!.damage).toEqual([221, 425]); // lv 100: [130, 250] × 1,7
+    expect(MONSTERS.orshabaal!.damage).toEqual([374, 680]); // chefe lv 120: [220, 400] × 1,7
+    expect(MONSTERS.summoned_wolf!.damage).toEqual([14, 26]); // invocação do druida: fora
+    expect(monsterDamageMult(MONSTERS.summoned_wolf!)).toBe(1);
+    expect(monsterDamageMult(MONSTERS.training_dummy!)).toBe(1);
+    expect([19, 20, 39, 40, 69, 70, 99, 100].map((level) => monsterDamageMult({ level, xp: 1 }))).toEqual([1, 1.4, 1.4, 1.5, 1.5, 1.6, 1.6, 1.7]);
+  });
+
+  it("habilidades seguem ≤ 2× o dano máximo do ataque básico depois da escala", () => {
+    for (const m of Object.values(MONSTERS)) for (const a of m.abilities ?? []) {
+      if (a.damage) expect(a.damage.max, `${m.id}/${a.id}`).toBeLessThanOrEqual(2 * m.damage[1]);
+    }
+  });
+
+  it("respawn dos comuns ×0,7; chefes e boneco iguais", () => {
+    expect(MONSTERS.rat!.respawnMs).toBe(14_000); // 20 s
+    expect(MONSTERS.demon!.respawnMs).toBe(105_000); // 150 s
+    expect(MONSTERS.goblin_king!.respawnMs).toBe(7_200_000);
+    expect(MONSTERS.training_dummy!.respawnMs).toBe(5000);
+  });
+
+  it("elite: só comum de level ≥ 10 (nunca chefe, invocação ou boneco)", () => {
+    expect(ELITE).toEqual({ hp: 2.5, dmg: 1.3, xp: 3, gold: 2, loot: 2 });
+    expect(ELITE_CHANCE).toBe(0.05);
+    expect(canBeElite(MONSTERS.wolf!)).toBe(false); // lv 8
+    expect(canBeElite(MONSTERS.snake!)).toBe(true); // lv 12
+    expect(canBeElite(MONSTERS.goblin_king!)).toBe(false);
+    expect(canBeElite(MONSTERS.summoned_wolf!)).toBe(false);
+    expect(canBeElite(MONSTERS.training_dummy!)).toBe(false);
+    expect(eliteName("Dragão")).toBe("Elite Dragão");
+  });
+
+  it("bandos e fuga: famílias, grito do reforço e fujões a 20%", () => {
+    const fam = (id: string) => MONSTERS[id]!.pack?.family;
+    expect(["wolf", "winter_wolf"].map(fam)).toEqual(["wolf", "wolf"]);
+    expect(["orc_warrior", "orc_shaman"].map(fam)).toEqual(["orc", "orc"]);
+    expect(["minotaur", "minotaur_mage"].map(fam)).toEqual(["minotaur", "minotaur"]);
+    expect(["pirate_marauder", "pirate_corsair", "pirate_buccaneer"].map(fam)).toEqual(["pirate", "pirate", "pirate"]);
+    expect(["sibang", "kongra", "merlkin"].map(fam)).toEqual(["ape", "ape", "ape"]);
+    expect([fam("barbarian"), fam("goblin")]).toEqual(["barbarian", "goblin"]);
+    for (const id of ["goblin", "pirate_marauder", "pirate_corsair", "pirate_buccaneer", "sibang", "merlkin"]) expect(MONSTERS[id]!.fleeAtHpPct, id).toBe(0.2);
+    for (const m of Object.values(MONSTERS)) if (m.pack) expect(m.boss, m.id).toBeFalsy();
+    const shout = monsterAbilitySpell(`m:orc_warrior:${CALL_HELP_ID}`);
+    expect(shout).toMatchObject({ words: "Orcs, ao ataque!", fx: "taunt", radius: HELP_RADIUS });
+    expect(monsterAbilitySpell(`m:rat:${CALL_HELP_ID}`)).toBeUndefined(); // sem bando, sem grito
+  });
+
+  it("conjuradores curam os aliados (heal_allies primeiro na lista)", () => {
+    for (const id of ["orc_shaman", "minotaur_mage", "necromancer", "ice_witch", "merlkin"]) {
+      const a = MONSTERS[id]!.abilities![0]!;
+      expect(a.id, id).toBe("heal_allies");
+      expect(a.healAllies!.pct, id).toBeGreaterThan(0);
+      expect(a.fx).toBe("heal");
+    }
   });
 });
