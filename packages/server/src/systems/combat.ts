@@ -289,7 +289,8 @@ export class CombatSystem {
         ranged: o.ranged ? true : undefined,
       });
       this.markCombat(o.creditId ?? sourceId, now);
-      return shown;
+      // Dano "mostrado", não causado: quem chama (dreno de vida/mana do encantamento) não pode se curar com ele.
+      return 0;
     }
     const dealt = Math.min(m.s.hp, Math.max(0, Math.round(amount)));
     const credit = o.creditId ?? sourceId;

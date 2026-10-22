@@ -35,11 +35,13 @@ test("olhar: dois botões numa criatura (sem mirar nela) e Shift+clique em você
   }, { timeout: 20_000, intervals: [400] }).toMatch(/Level \d+ · .*Vida/);
   await snap(page, "look-creature");
   expect(await page.evaluate(() => (window as any).__lq.target())).toBeFalsy(); // o primeiro botão não deixou o alvo
-  // Clique fecha; Shift+clique em você mostra "(você)".
-  await page.mouse.click(20, 400);
+  // Esc fecha (um clique no chão também fecharia, mas viraria "andar" e tiraria o personagem do lugar antes do
+  // Shift+clique nele); Shift+clique em você mostra "(você)". Usa o tile do ATOR, não o do estado.
+  await page.keyboard.press("Escape");
   await expect(card).toHaveCount(0);
+  await waitSettled(page);
   const m = (await me(page))!;
-  const mc = await tileToClient(page, m.x, m.y, 0.6);
+  const mc = await tileToClient(page, m.tileX, m.tileY, 0.6);
   await page.keyboard.down("Shift");
   await page.mouse.click(mc.x, mc.y);
   await page.keyboard.up("Shift");
@@ -49,8 +51,12 @@ test("olhar: dois botões numa criatura (sem mirar nela) e Shift+clique em você
 
 test("olhar: item do chão abre o balão de detalhes do item", async ({ page }) => {
   await enterGame(page, "knight");
+  // Tile de destino sem nada no chão: o chão não tem dono e dura 10 min, então rodadas anteriores (ou outros testes)
+  // deixam poções pelo caminho e "existe poção em algum lugar" não prova que o arrasto desta rodada terminou.
   const tiles = await walkableNear(page, 60, 80, 6);
-  const base = tiles.find((t) => tiles.some((o) => o.x === t.x + 1 && o.y === t.y))!;
+  const busy = new Set((await ground(page)).map((g) => `${g.x},${g.y}`));
+  const base = tiles.find((t) => tiles.some((o) => o.x === t.x + 1 && o.y === t.y) && !busy.has(`${t.x + 1},${t.y}`))!;
+  const target = { x: base.x + 1, y: base.y };
   await teleport(page, base.x, base.y);
   await say(page, "/item mana_potion 1");
   await expect.poll(async () => ((await page.evaluate(() => (window as any).__lq.inventory()))?.backpack ?? []).some((s: any) => s?.defId === "mana_potion")).toBe(true);
@@ -58,11 +64,16 @@ test("olhar: item do chão abre o balão de detalhes do item", async ({ page }) 
   const slot = page.locator(`[data-loc="bp:${i}"]`);
   await slot.scrollIntoViewIfNeeded();
   await waitSettled(page);
-  await drag(page, await center(page, slot), await tileToClient(page, base.x + 1, base.y));
-  await expect.poll(async () => (await ground(page)).some((g) => g.defId === "mana_potion")).toBe(true);
-  const c = await tileToClient(page, base.x + 1, base.y, 0.6);
-  await chordAt(page, c.x, c.y);
-  await expect(page.locator(".item-tooltip.show")).toContainText("Poção de Mana");
+  await drag(page, await center(page, slot), await tileToClient(page, target.x, target.y));
+  await expect.poll(async () => (await ground(page)).some((g) => g.defId === "mana_potion" && g.x === target.x && g.y === target.y)).toBe(true);
+  // O chord logo depois de soltar o arrasto às vezes não abre o balão: tenta até abrir.
+  const tip = page.locator(".item-tooltip.show");
+  await expect.poll(async () => {
+    const c = await tileToClient(page, target.x, target.y, 0.6);
+    await chordAt(page, c.x, c.y);
+    await page.waitForTimeout(300);
+    return (await tip.textContent().catch(() => "")) ?? "";
+  }, { timeout: 15_000, intervals: [500] }).toContain("Poção de Mana");
   await snap(page, "look-item");
 });
 

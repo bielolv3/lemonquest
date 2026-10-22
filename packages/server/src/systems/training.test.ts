@@ -70,9 +70,9 @@ describe("boneco de treino (servidor)", () => {
     expect(p.targetId).toBe(w.dummy.s.id); // o alvo continua
   });
 
-  it("dano enorme também não o derruba", () => {
+  it("dano enorme também não o derruba (e o dano é só mostrado: retorno 0, para o dreno não curar)", () => {
     const w = setup();
-    expect(w.combat.damageMonster(w.dummy, "x", 5_000_000, "physical", w.now())).toBe(5_000_000);
+    expect(w.combat.damageMonster(w.dummy, "x", 5_000_000, "physical", w.now())).toBe(0);
     expect(w.dummy.s.hp).toBe(1_000_000);
     expect(w.mm.size).toBe(1);
   });

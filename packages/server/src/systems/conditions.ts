@@ -18,6 +18,10 @@ export const MAX_SPEED_PCT = 300;
 export const DOT_KIND: Partial<Record<ConditionId, DamageKind>> = {
   burn: "fire", poison: "earth", energy: "energy", bleed: "physical", freeze: "ice",
 };
+/** Nome em português para o aviso de morte ("X foi derrotado por veneno"), em vez do id interno. */
+export const DOT_LABEL: Partial<Record<ConditionId, string>> = {
+  burn: "queimadura", poison: "veneno", energy: "choque elétrico", bleed: "sangramento", freeze: "congelamento",
+};
 
 interface Cond {
   id: ConditionId;
@@ -113,7 +117,7 @@ export class ConditionSystem {
           if (c.value > 0) {
             if (c.id === "regen") { if (p) this.o.combat.healPlayer(p, c.sourceId || tid, c.value); }
             else if (m) this.o.combat.damageMonster(m, c.sourceId, c.value, kind!, now);
-            else if (p) this.o.combat.damagePlayer(p, c.sourceId, c.value, kind!, now, { killerName: c.id });
+            else if (p) this.o.combat.damagePlayer(p, c.sourceId, c.value, kind!, now, { killerName: DOT_LABEL[c.id] ?? c.id });
           }
           // O dano pode ter matado/limpado a criatura.
           if (this.byId.get(tid) !== map) break;

@@ -16,6 +16,9 @@ export interface StatusInfo {
   heapMb: number;
   /** Erros isolados (sistemas que lançaram) desde que subiu. */
   errors: number;
+  /** Duração do autosave (todos os jogadores) desde o último log de desempenho; ausente = ainda não houve. */
+  saveAvgMs?: number;
+  saveMaxMs?: number;
 }
 
 export function formatUptime(ms: number): string {
@@ -33,6 +36,7 @@ export function statusLines(i: StatusInfo): string[] {
     `Servidor no ar há ${formatUptime(i.uptimeMs)} · ${i.online} online (pico ${i.peakOnline}) · ${i.joins} entradas`,
     `Mundo: ${i.monsters} monstros (${i.pendingRespawns} voltando) · ${i.groundItems} itens no chão`,
     `Tick: média ${i.tickAvgMs.toFixed(2)} ms, máx ${i.tickMaxMs.toFixed(1)} ms de ${i.tickBudgetMs.toFixed(0)} ms (${load}% do orçamento)`,
-    `Memória: ${i.rssMb} MB (heap ${i.heapMb} MB) · erros isolados: ${i.errors}`,
+    `Memória: ${i.rssMb} MB (heap ${i.heapMb} MB) · erros isolados: ${i.errors}` +
+      (i.saveAvgMs !== undefined ? ` · autosave média ${i.saveAvgMs.toFixed(1)} ms, máx ${(i.saveMaxMs ?? 0).toFixed(1)} ms` : ""),
   ];
 }

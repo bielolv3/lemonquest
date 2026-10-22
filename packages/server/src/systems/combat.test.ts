@@ -157,9 +157,9 @@ describe("player combat", () => {
 });
 
 describe("imbuement (encantamento)", () => {
-  // Boneco invulnerável: não revida (ver damageMonster), isola o efeito do próprio ataque sem interferência do monstro.
+  // Monstro com dano 0 e muita vida: o revide não tira vida e ele não morre, isolando o efeito do próprio ataque.
   it("dreno de vida: cura % do dano causado contra monstro selvagem", () => {
-    const w = setup({ hp: 30, armor: 0, aggroRange: 0, invulnerable: true });
+    const w = setup({ hp: 3000, armor: 0, aggroRange: 0, damage: [0, 0] });
     w.combat.hooks = { imbuement: () => IMBUEMENTS.lifesteal };
     const p = w.add(player("k", 11, 10, { name: "Leo", hp: 50, maxHp: 500 }));
     w.combat.onAttack(p, { targetId: w.m.s.id });
@@ -170,13 +170,23 @@ describe("imbuement (encantamento)", () => {
   });
 
   it("dreno de mana: recupera % do dano causado", () => {
-    const w = setup({ hp: 30, armor: 0, aggroRange: 0, invulnerable: true });
+    const w = setup({ hp: 3000, armor: 0, aggroRange: 0, damage: [0, 0] });
     w.combat.hooks = { imbuement: () => IMBUEMENTS.manasteal };
     const p = w.add(player("k", 11, 10, { name: "Leo", mana: 10, maxMana: 500 }));
     w.combat.onAttack(p, { targetId: w.m.s.id });
     w.run(PLAYER_ATTACK_MS + 10);
     const dealt = w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).find((e: any) => e.targetId === w.m.s.id)!.amount;
     expect(p.mana).toBe(10 + Math.round(dealt * IMBUEMENTS.manasteal.value));
+  });
+
+  it("dreno não cura ao bater no boneco de treino (dano só mostrado)", () => {
+    const w = setup({ hp: 30, armor: 0, aggroRange: 0, invulnerable: true });
+    w.combat.hooks = { imbuement: () => IMBUEMENTS.lifesteal };
+    const p = w.add(player("k", 11, 10, { name: "Leo", hp: 50, maxHp: 500 }));
+    w.combat.onAttack(p, { targetId: w.m.s.id });
+    w.run(PLAYER_ATTACK_MS + 10);
+    expect(w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).some((e: any) => e.targetId === w.m.s.id)).toBe(true);
+    expect(p.hp).toBe(50);
   });
 
   // Jogador nunca ataca (targetId sempre ""): só o monstro (aggroRange 5) bate, isolando o reflexo dos espinhos.

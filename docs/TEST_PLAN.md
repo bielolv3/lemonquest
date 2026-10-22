@@ -95,6 +95,50 @@ mostrou `[tick] 425 ticks: média 8,3 ms, máx 1154 ms` (deveriam ser ~1200 tick
 confira essa linha do log. O efeito visível no cliente ("Carregando personagens…" sem fim) virou erro com timeout de
 15 s nas chamadas da API.
 
+## Resultados — ciclo 9 (2026-10-22, auditoria completa)
+
+Baseline antes de qualquer mudança (base `22a00c7`) e depois da Fase 0. Detalhe e procedimento de regressão em
+[docs/audit/2026-10-22/VALIDATION_BASELINE.md](audit/2026-10-22/VALIDATION_BASELINE.md).
+
+| Verificação | Antes (22a00c7) | Depois da Fase 0 |
+|---|---|---|
+| Typecheck | ok | ok |
+| Unitários | 774/774 (77 arquivos, 13 s) | **781/781** (78 arquivos; +7 `telemetry.test.ts`) |
+| Build | ok (cliente 4,9 s; `server.mjs` 2,6 MB) | ok |
+| `npm audit --omit=dev` | 0 | 0 |
+| Smoke (`tools/smoke.mjs`, servidor isolado) | ok 2/2, mas com aviso `@colyseus/schema buffer overflow` a cada login | ok; sem o aviso (`Encoder.BUFFER_SIZE` 64 KB) |
+| E2E completo (1 worker, `retries: 0`) | 44/46 em 10,3 min (`look` criatura e `quests` missão de matar, os instáveis conhecidos) | — (ver linhas abaixo) |
+| E2E instáveis `fishing`+`look`+`spells`+`quests` `--repeat-each=3` | — | 25/27: os 4 alvos passaram 3/3; o novo caso "olhar item do chão" falhou 2/3 por item de rodadas anteriores no mesmo tile |
+| `look.spec.ts` `--repeat-each=5` após tile livre + chord repetido | — | **15/15** |
+| CI do GitHub em `main` | **vermelho** nos 2 últimos runs (job E2E: `fishing.spec` 2/2 tentativas, clique em `y=-1662`) | corrigido no helper (#50); valida no próximo push |
+
+Causa raiz dos E2E instáveis (confirmada no trace do CI e no código): o helper `teleport()` esperava só o estado do
+servidor, e `settled()` dizia "parado" antes de a câmera sair do lugar (o ator salta 40 ms depois do estado e a câmera
+segue por lerp). Agora `teleport` exige o ator no tile e `settled` exige a câmera centrada nele (`PixelCamera.isCenteredOn`).
+
+Novos nesta rodada: `telemetry.test.ts` (tempo/mortes/ouro por level, resumo por faixa); `tools/loadtest.mjs` com
+`--tp`, `--level`, `--auto`, `--max-p95`, `--max-tick`; `tools/smoke.mjs` no CI (bundle e container).
+
+### Carga com 582 monstros e caves (pendência dos ciclos 7–8, medida em 2026-10-22)
+
+Servidor E2E isolado (`E2E_PORT=2872 E2E_SKIP_BUILD=1 E2E_ADMINS="$(node tools/loadtest.mjs --print-admins 32)"`),
+máquina ociosa, bots como admins para `/level`, `/tp` e `/status`. Limiares do protocolo (VALIDATION_BASELINE §6):
+média ≤ 5 ms, máx ≤ 25 ms, 0 erros, p95 de passo ≤ 300 ms.
+
+| Cenário | Tick média / máx | Passo p50 / p95 / máx | Autosave (sem transação, antes da #56) | Erros |
+|---|---|---|---|---|
+| Piso: 0 jogadores, 582 monstros (10 min) | **0,16–0,19 ms / 0,5–4,1 ms** | — | — | 0 |
+| Vila: 10 bots andando/atacando, 120 s | 0,56 ms / 6,8 ms | 52 / 285 / 404 ms | — | 0 |
+| Cave dos orcs (184,18): 10 bots lv 45 com ataque automático, 180 s | **0,50 ms / 8,0 ms** | 37 / 244 / 517 ms | média 13 ms, máx 18 ms | 0 |
+| Cave dos orcs: **32 bots** lv 45 com ataque automático, 120 s | **0,9–1,3 ms / 11–12 ms** | 38 / 252 / 999 ms | média 28 ms, máx 31 ms | 0 |
+
+Leitura: o servidor fica em 1–2 % do orçamento de 50 ms mesmo no pior cenário (32 jogadores numa cave cheia). Os
+itens PERF-02/03/04 do relatório de performance (índice de jogadores no A*, buffers no BFS, respawns espalhados) **não
+precisam ser feitos** agora. O autosave é o único pico mensurável fora do tick (13 ms com 10 jogadores, 28 ms com 32):
+corrigido na #56 (uma transação + `synchronous = NORMAL`); medir de novo no próximo ciclo. A telemetria de progressão
+apareceu no `/status` já nessa rodada ("40–59: 24,7 mortes/h" para bots que não se curam, como esperado). O `[status]`
+reportou 0 erros isolados e heap de 32–43 MB.
+
 ## Instabilidade conhecida do E2E (investigada)
 
 `arena.spec.ts` falhava de vez em quando com a máquina carregada: o toast "Onda N vencida" dura 3 s e a faixa

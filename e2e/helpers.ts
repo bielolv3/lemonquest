@@ -98,14 +98,19 @@ export async function setLevel(page: Page, level: number): Promise<void> {
   await expect.poll(async () => (await meState(page))?.level, { timeout: 10_000 }).toBe(level);
 }
 
-/** /tp x y e espera chegar (e a câmera parar). */
+/**
+ * /tp x y e espera chegar de verdade: o estado do servidor (x,y) E o ator na tela (tileX,tileY — o salto visual é
+ * aplicado ~40 ms depois do estado) e então a câmera centrada nele. Só com o estado, `tileToClient` usava a câmera
+ * ainda no lugar antigo e o clique caía fora da janela.
+ */
 export async function teleport(page: Page, x: number, y: number): Promise<void> {
   await say(page, `/tp ${x} ${y}`);
-  await expect.poll(async () => { const m = await me(page); return m ? `${m.x},${m.y}` : ""; }, { timeout: 10_000 }).toBe(`${x},${y}`);
+  await expect.poll(async () => { const m = await me(page); return m ? `${m.x},${m.y}|${m.tileX},${m.tileY}` : ""; }, { timeout: 10_000 })
+    .toBe(`${x},${y}|${x},${y}`);
   await waitSettled(page);
 }
 
-/** Jogador e câmera parados: coordenadas de tela confiáveis. */
+/** Jogador parado e câmera parada e centrada nele: coordenadas de tela confiáveis. */
 export async function waitSettled(page: Page): Promise<void> {
   await page.waitForFunction(() => (window as any).__lq.settled(), null, { timeout: 15_000 });
 }

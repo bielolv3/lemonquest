@@ -38,6 +38,7 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
 | Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
 | Mapa | `M` |
+| Janelas | `I` equipamento/mochila · `K` habilidades · `O` roupas · `L` missões · `J` conquistas · `R` ranking · `B` bestiário |
 | Volume / mudo | botão ♪ na barra de botões à direita |
 | Ajuda com todos os atalhos | `F1` ou `?` |
 
@@ -69,6 +70,9 @@ As respostas aparecem só para o admin (aviso + linha no chat). Toda ação fica
 | `/anuncio <texto>` | Faixa grande no centro da tela de todos + linha no chat. |
 | `/tp <nome>` | Leva você para perto do jogador. |
 | `/resetsenha <conta>` | Gera um **código de recuperação** (8 caracteres, vale 24 h, uso único) — só você vê. Passe para o dono da conta, que usa em "Esqueci minha senha" na tela de login. |
+| `/status` | Fotografia do servidor: online, monstros, tick, memória, autosave e a progressão medida (horas por level, mortes e ouro por faixa). |
+| `/evento <nome> [minutos]` · `/evento parar` | Liga um evento semanal fora do horário (sem argumentos lista os eventos e o estado). |
+| `/desbloquear <nome> <roupa\|addon\|título>` | Libera uma roupa, addon ou título para um personagem (ex.: `pirata`, `pirata_chapeu`, `title:persistente`). |
 
 Nomes com espaço funcionam (`/kick Ana Maria spam`). Sem nenhum admin online, o dono do servidor gera o código pelo terminal:
 
@@ -145,13 +149,24 @@ do inicial e nenhum uid se repete (sai com código 1 se acontecer).
 
 Diagnóstico técnico/gameplay em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md), prioridades e status em
 [docs/GAME_ROADMAP.md](docs/GAME_ROADMAP.md), estratégia e resultados de testes em [docs/TEST_PLAN.md](docs/TEST_PLAN.md),
-mudanças em [CHANGELOG.md](CHANGELOG.md).
+mudanças em [CHANGELOG.md](CHANGELOG.md). Auditorias completas ficam como snapshot datado em `docs/audit/<data>/`
+(a de 2026-10-22 tem o plano de evolução e a baseline de validação). Guia para sessões do Claude Code: [CLAUDE.md](CLAUDE.md).
+
+### Fumaça contra um servidor no ar
+
+```bash
+npm run smoke -- http://127.0.0.1:2567 [--drop | --expect-ground] [--user nome]
+```
+
+Cria (ou reaproveita) conta e personagem, entra no mundo pelo SDK e confere a sincronização do estado; `--drop` larga um
+item no chão e espera vê-lo; `--expect-ground` falha se não houver item no chão (usado depois de reiniciar o servidor).
+O CI roda isto contra o bundle e contra a imagem Docker.
 
 ## Produção (servidor do escritório)
 
 ```bash
 npm ci
-npm run build        # gera packages/client/dist (só os assets usados, ~20 MB)
+npm run build        # gera packages/client/dist (assets curados, ~25 MB)
 npm run start:fast   # inicia o servidor em produção (serve o cliente na mesma porta)
 npm start            # build + start
 ```

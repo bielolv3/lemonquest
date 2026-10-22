@@ -1,5 +1,31 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · ciclo 9: auditoria completa, CI verde de novo e telemetria de progressão
+
+Auditoria de 7 agentes com baseline executada: relatórios em `docs/audit/2026-10-22/` (repositório, gameplay, limpeza
+dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisões do dono e status em
+`docs/GAME_ROADMAP.md` (Ciclo 9); achados `#50–#65` em `docs/GAME_AUDIT.md`.
+
+**Fase 0 — estabilização**
+- **CI verde** (#50): o helper E2E `teleport()` agora espera o ator no tile (não só o estado do servidor) e `settled()`
+  exige a câmera centrada no jogador (`PixelCamera.isCenteredOn`). Era a corrida que derrubava `fishing.spec` no CI
+  (clique fora da tela) e deixava `look`, `spells` e `quests` instáveis. `look.spec` fecha o cartão com Esc e usa um
+  tile sem item; `quests.spec` repete o Esc do diário; `spells.spec` evita mirar ratos.
+- CI: cache dos navegadores do Playwright, `timeout-minutes: 45` no E2E, `tools/smoke.mjs` contra o bundle (job de
+  testes) e contra o container (job Docker).
+- **Telemetria de progressão** (`systems/telemetry.ts`): tempo jogado, mortes e ouro ganho/gasto por level ficam em
+  `CharacterData.play`; o `/status` ganhou uma linha "Progressão medida" por faixa de level (h/level, mortes/h, ouro/h)
+  e a duração do autosave (também no log `[tick]`). É o dado para recalibrar o ciclo 8 com jogo real.
+- `Encoder.BUFFER_SIZE` do `@colyseus/schema` em 64 KB: some o aviso "buffer overflow" a cada login (#58).
+- `tools/loadtest.mjs`: nomes fixos (`--print-admins` para o `E2E_ADMINS`), `--tp x,y`, `--level N`, `--auto`
+  (ataque automático), `--max-p95`/`--max-tick` com saída 1 e leitura do `/status` no fim.
+- Docs: `CLAUDE.md` na raiz e `.claude/settings.json` versionados; README com os 10 comandos de admin, teclas de janela
+  e `npm run smoke`; ROADMAP reorganizado (ciclo 9 no topo, ciclos 1–6 no histórico) e contradições corrigidas
+  (`proposta/todas`, cassino, propostas já decididas); TEST_PLAN com o ciclo 9; AUDIT com números reais (39 magias,
+  ~49 mil linhas, 774 testes) e a hipótese dos "fantasmas" refutada.
+- Limpeza: `tools/gen-placeholder-map.mjs` apagado (sem referências; sobrescreveria o mapa), 11 branches locais já
+  mescladas apagadas.
+
 ## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
 
 **Caves** (`tools/mapgen/generate.mjs`, bloco `caveSpawns` no fim do pipeline: 0 tiles alterados, objetos antigos

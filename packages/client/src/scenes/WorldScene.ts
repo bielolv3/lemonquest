@@ -977,11 +977,18 @@ export class WorldScene extends Phaser.Scene {
         const a = this.actors.get(this.myId), k = this.known.get(this.myId);
         return a && k ? { x: k.x, y: k.y, tileX: a.tileX, tileY: a.tileY, moving: a.isMoving } : null;
       },
-      /** Câmera parada há alguns frames e jogador parado: coordenadas de tela confiáveis. */
       /** Snapshot completo do jogador local (level, hp, outfit, skills…). */
       meState: () => selectMe(playersStore.get()),
       inventory: () => inventoryStore.get(),
-      settled: () => stableFrames >= 3 && !this.actors.get(this.myId)?.isMoving,
+      /**
+       * Jogador parado, câmera parada há alguns frames E centrada nele: coordenadas de tela confiáveis. Sem a última
+       * condição, logo após um /tp o estado já mudou, o ator ainda não saltou (40 ms) e a câmera ainda nem começou a
+       * seguir: `stableFrames` continua alto e o clique cairia fora da tela (foi o que derrubou o CI no ciclo 8).
+       */
+      settled: () => {
+        const a = this.actors.get(this.myId);
+        return !!a && stableFrames >= 3 && !a.isMoving && this.pcam.isCenteredOn(a.rx + TILE_SIZE / 2, a.ry + TILE_SIZE / 2);
+      },
       players: () => [...this.known].map(([id, k]) => ({ id, x: k.x, y: k.y })),
       monsters: () => [...this.creatureKnown].filter(([id]) => !this.dying.has(id))
         .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),

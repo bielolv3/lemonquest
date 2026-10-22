@@ -8,7 +8,7 @@
 // - Baús de quest do mapa (estilo Tibia, shared/data/questWorld.ts): um por grupo, uma vez por personagem; o pedido
 //   chega por systems/questWorld.ts (que confere alcance e level).
 import {
-  BOUNTIES_PER_DAY, BOUNTY_CHEST_ID, BOUNTY_NPC, ITEMS, MAX_TRACKED_QUESTS, QUEST_LIST, RARITIES, S2C,
+  BOUNTIES_PER_DAY, BOUNTY_CHEST_ID, BOUNTY_NPC, ITEMS, MAX_TRACKED_QUESTS, QUEST_LIST, RARITIES, S2C, applyXpStage,
   bountyBand, bountyTitle, isEquipable, questAvailable, questChestGroup, questDef, questReady, rollInt,
   type BountyStatus, type BountyView, type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type NoticeMsg,
   type QuestActionMsg, type QuestChestDef, type QuestCompleteMsg, type QuestDef, type QuestReward, type QuestsMsg, type Rarity, type Vocation,
@@ -382,9 +382,12 @@ export class QuestSystem {
     if (b.x.n < b.d.count) { this.notice(p.id, "Essa recompensa ainda não foi cumprida.", "warn"); return; }
     b.x.st = "done";
     this.dirty.add(p.id);
-    const items = this.grant(p, { xp: b.d.xp, gold: b.d.gold }, [makeItem(BOUNTY_CHEST_ID, 1)]);
+    // A XP da diária é "a XP dos próprios abates", então segue o mesmo estágio de XP da caça (#51): sem isto, no lv 100
+    // três diárias davam ~6 levels por dia contra ~1 h por level caçando. Missões da cadeia continuam cheias.
+    const xp = applyXpStage(b.d.xp, p.level);
+    const items = this.grant(p, { xp, gold: b.d.gold }, [makeItem(BOUNTY_CHEST_ID, 1)]);
     this.o.onComplete?.(p.id, b.d.monster, true);
-    this.o.send(p.id, S2C.QuestComplete, { name: bountyTitle(b.d), xp: b.d.xp, gold: b.d.gold, items, bounty: true } satisfies QuestCompleteMsg);
+    this.o.send(p.id, S2C.QuestComplete, { name: bountyTitle(b.d), xp, gold: b.d.gold, items, bounty: true } satisfies QuestCompleteMsg);
   }
 
   // --- Baú de Recompensa ------------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
+import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RANKING_CACHE_S } from "@lemonquest/shared";
 import { rankingJson } from "./persistence/ranking.ts";
@@ -112,6 +113,9 @@ if (SERVE_CLIENT) {
 }
 
 // --- Colyseus ---------------------------------------------------------------------------------------------------------
+// Estado inicial de uma entrada (580+ monstros + chão + jogadores) passa dos 16 KB do buffer padrão do schema: sem
+// isto a biblioteca realoca, recodifica e avisa "buffer overflow" a cada login (visto no ciclo 9).
+Encoder.BUFFER_SIZE = 64 * 1024;
 const httpServer = http.createServer(app);
 const gameServer = new Server({ transport: new WebSocketTransport({ server: httpServer }), gracefullyShutdown: false });
 gameServer.define("world", WorldRoom);

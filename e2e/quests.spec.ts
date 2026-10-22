@@ -91,8 +91,8 @@ test("missão de matar: aceitar no NPC, matar, entregar e receber a recompensa",
   const log = page.getByRole("dialog", { name: "Diário de missões" });
   await expect(log).toBeVisible();
   await expect(log.locator(".ql-item.done")).toContainText("Ratos no Celeiro");
-  await page.keyboard.press("Escape");
-  await expect(log).toBeHidden();
+  // O listener de Esc do diário é registrado num efeito (próximo frame): um Esc que chega antes se perde. Repete.
+  await expect.poll(async () => { await page.keyboard.press("Escape"); return log.isVisible(); }, { timeout: 10_000, intervals: [200] }).toBe(false);
 });
 
 test("quadro de recompensas: 3 recompensas do dia e aceitar uma", async ({ page }) => {

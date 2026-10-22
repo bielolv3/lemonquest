@@ -3,6 +3,268 @@
 Reflete o estado real. Números `#` = itens de [GAME_AUDIT.md](GAME_AUDIT.md). Status: ✅ concluído · 🔄 em andamento ·
 ⏳ pendente · 🧭 precisa de decisão do dono do jogo · ⛔ não fazer agora.
 
+Ordem de leitura: **Ciclo 9** (o que está em andamento e as decisões tomadas) → pendências dos ciclos 7/7b/8 → ⛔.
+Os ciclos 1–6 (100 % concluídos) estão no fim, em "Histórico".
+
+## Ciclo 9 (2026-10-22) — auditoria completa do repositório e plano de evolução
+
+Auditoria de 7 agentes (arquitetura, gameplay, bugs, performance, UX, testes, docs/Claude) com baseline executada:
+relatórios em [docs/audit/2026-10-22/](audit/2026-10-22/REPOSITORY_AUDIT.md) (snapshot, não editar). O plano está em
+[IMPROVEMENT_ROADMAP.md](audit/2026-10-22/IMPROVEMENT_ROADMAP.md); **o status vive aqui**. Achados novos numerados
+`#50+` no [GAME_AUDIT.md](GAME_AUDIT.md#ciclo-9).
+
+### Decisões do dono (2026-10-22)
+
+| Decisão | Escolha |
+|---|---|
+| XP das recompensas diárias (#51) | aplicar o estágio de XP (F1-2) |
+| Mana dos magos (#53) | poções de mana com 2–3× mais mana pelo mesmo preço (F2-1) |
+| Fim de jogo solo (#52) | esperar 1–2 semanas de telemetria (F0-3) e então ×1,35/×1,45 (F2-3) |
+| PvP | regra dos 2/3 para **iniciar** ataque; revide e caveira livres (F2-6). Substitui o 🧭 do ciclo 7 |
+| `/quem` | zona só de amigos, grupo e PZ (F2-6) |
+| Limpeza | branches mescladas, `proposta/todas` e `tools/gen-placeholder-map.mjs` apagados ✅; `assets/ninja-adventure/` fica por enquanto |
+| Claude Code | `CLAUDE.md` e `.claude/settings.json` versionados ✅ |
+| Docs | ROADMAP/AUDIT/TEST_PLAN continuam a fonte viva; `docs/audit/<data>/` é snapshot |
+
+### Fase 0 — estabilização
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| F0-1 | **CI verde**: helper `teleport()`/`settled()` só considera assentado com o ator no tile e a câmera centrada nele (#50); `look.spec` fecha o cartão com Esc e usa tile livre; `quests.spec` repete o Esc; `spells.spec` evita ratos | ✅ | `fishing`+`look`+`spells`+`quests` `--repeat-each=3` 25/27 → após o ajuste do item do chão, `look.spec` `--repeat-each=5` (ver TEST_PLAN ciclo 9) |
+| F0-2 | CI: cache dos navegadores do Playwright, `timeout-minutes: 45`, `tools/smoke.mjs` contra o bundle (job `test`) e contra o container (job `docker`) | ✅ (valida no próximo push) | `ci.yml` |
+| F0-3 | Telemetria de progressão (`systems/telemetry.ts`): tempo jogado, mortes e ouro por level em `CharacterData.play`; resumo por faixa no `/status`; duração do autosave no `[tick]` e no `/status`; `Encoder.BUFFER_SIZE` 64 KB (#58) | ✅ | `telemetry.test.ts` (7); `/status` num servidor real |
+| F0-4 | `tools/loadtest.mjs` com `--tp x,y`, `--level`, `--auto`, `--max-p95`, `--max-tick` e nomes fixos (`--print-admins`); medição nas caves com 582 monstros | ✅ | TEST_PLAN ciclo 9: 32 bots caçando na cave = tick 0,9–1,3 ms média / 12 ms máx, 0 erros → PERF-02/03/04 dispensados |
+| F0-5 | Docs consolidados: este ciclo no ROADMAP, `#50+` no AUDIT, TEST_PLAN, README (10 comandos de admin, `smoke`, teclas de janela), deploy, contradições corrigidas | ✅ | — |
+| F0-6 | Limpeza aprovada (branches, script obsoleto, `settings.json`) | ✅ | commit `37a9460` |
+
+### Fases 1–3
+
+Itens, prioridade e critérios em [IMPROVEMENT_ROADMAP.md](audit/2026-10-22/IMPROVEMENT_ROADMAP.md). Status por item
+entra nesta tabela conforme for feito.
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| F1-1 | Condição de habilidade de monstro não é aplicada quando o golpe mata (#54); morte por veneno/queimadura anuncia o nome em português | ✅ | `monsterAbilities.test.ts` (golpe letal) |
+| F1-2 | Estágio de XP nas recompensas diárias (#51) | ✅ | `quests.test.ts` (lv 50 recebe metade) |
+| F1-3 | Pilha única de Esc e foco de janelas (#60) | ⏳ | |
+| F1-4 | F5 devolvido ao navegador (posturas em F2/F3/F4), venda/largada com confirmação, textos (Novidades, `/ajuda`, dicas) | ⏳ | |
+| F1-5 | Contraste, "texto grande" só no corpo das janelas, mochila visível em 1366×768 | ⏳ | |
+| F1-6 | Hooks de sessão no `WorldRoom` (#55): evento reenviado na reconexão ✅, troca cancelada ao sair em combate ✅; array único de sistemas ⏳ (refatoração, fica para quando um sistema novo entrar) | 🔄 | typecheck + unitários |
+| F1-7 | Autosave em transação + `synchronous = NORMAL`; tom de tingimento e bônus de login gravados na hora (#56) | ✅ | medir o autosave no próximo ciclo (antes: 13 ms/10 jogadores) |
+| F1-8 | Testes: `ratelimit`, `ai`, `bounties`, consistência de `quests`/`spellFamilies`/`outfitTones`, fuzz com 34 tipos | ⏳ | |
+| F1-9 | Bugs pequenos: dreno não cura no boneco ✅, `limited` na loja ✅, cassino exige espaço na mochila ✅, `MESSAGE_LIMITS` para 8 tipos (#48) ✅, referências a `shared/data` removidas ✅ | ✅ | `combat.test.ts` (boneco) |
+| F2-1 | Poções de mana 120/350/900 (#53) | ⏳ | |
+| F2-2 | Curva de skills sem o ×1,15 (#57) | ⏳ | |
+| F2-3 | Fim de jogo solo (#52) — só com telemetria | ⏳ | |
+| F2-4..9 | Vocações, grupo/bandos, PvP 2/3, calibrações, conteúdo 90–120, loot de grupo | ⏳ | |
+| F3-* | Cliente, servidor (só se a medição pedir), repo/deploy, acessibilidade, testes, arquitetura | ⏳ | |
+
+## Ciclo 7 (2026-10-22) — auditoria em equipe dos 47 commits desde `7d8bc4b`
+
+Cinco agentes auditaram em paralelo (game design, engenharia, UX/UI, QA, crítica); cada achado aceito foi conferido no
+código pelo orquestrador. Implementação em 5 frentes com arquivos separados e **revisão cruzada** por outro agente;
+ligações no `WorldRoom` feitas na integração. Linha de base: typecheck ok, 672/672 unitários.
+
+| Frente | Item | Implementou / revisou | Status | Validação |
+|---|---|---|---|---|
+| A | **P1** Troca: confirm com `rev` (clique atrasado não vale para oferta trocada); ouro digitado antes do confirm; botão travado 1 s; `resend` na reconexão; Esc respeita o que está por cima; aviso para aba antiga | engenharia / QA | ✅ | `trade.test.ts`, `ui/trade/{trade,escape}.test.ts`, E2E `trade.spec.ts` (ouro sem blur) |
+| B | Morte (real, via combate) cancela troca e seguir; troca gravada em transação (inclusive com logout logo depois) | QA / engenharia | ✅ | `WorldRoom.test.ts` |
+| B | Bloqueio de PZ barra viagem (barco do Porto escapava) e mostra segundos | QA / engenharia | ✅ | `WorldRoom.test.ts`, `pvp.test.ts` |
+| B | Ouro da caveira vermelha via `placeNear`, desconto só depois de caber; recompensas no chão (baú/desafio) gravadas junto; `uid` novo na sobra; desafio confere a recompensa inteira | QA / engenharia | ✅ | `WorldRoom`, `quests`, `challenges` |
+| B | Chão: prazo não renova nem encurta (teto 2× desde `created_at`, migração v7); despejo prefere comuns | QA / engenharia | ✅ | `ground.test.ts`, `db.test.ts` |
+| B | Ataque automático pausado em linger/queda; loot de grupo exige membro perto do monstro; vender tudo sem raros (regra no shared) | QA / engenharia | ✅ | `WorldRoom`, `m4`, `combatFormulas` |
+| B | Testes que faltavam: Coliseu completo na onda 60, caveira vermelha com tile cheio, baú com mochila cheia | QA | ✅ | `arena.test.ts`, `WorldRoom.test.ts` |
+| C | **P1** "Animações reduzidas" escondia avisos/faixas; câmera sem tremor | UX / engenharia | ✅ | revisão do CSS; captura não feita |
+| C | **P1** Olhar com dois botões não executa a ação do primeiro (adiar 120 ms o irreversível; `WalkTo.stop` para a caminhada sem voltar passo) | UX / engenharia | ✅ | `movement.test.ts`; E2E `look.spec.ts` |
+| C | Avisos de erro no chat (sem repetir contador, máx. 15); Esc sem tirar alvo; F1, Bestiário no trilho, textos; `Shift+/` reservado | UX / engenharia | ✅ | `chatLines.test.ts`, `hotkeys.test.ts` |
+| D | Balanço aprovado: estágios de XP a partir do 40; ouro do Coliseu; Escudo com armadura e treino (limitado contra AFK); Golpe Frontal 3×3; Cura em Grupo; Selva/Piratas | game design / crítica | ✅ | `combat`, `combatFormulas`, `arena`, `spells` (formato 3×3), `items` |
+| E | Chefes no almoço; `/quem` com zona/ausente/✓ grupo; Aniquilação 2–4 (quem puxa precisa estar na placa) | crítica / engenharia | ✅ | `events`, `social`, `questWorld` (mapa real) |
+
+Recusado: refatorar o `WorldRoom` (o registro de "o que reenviar/limpar" por sistema fica como dívida, ver abaixo).
+
+### Pendências do ciclo 7
+
+| Item | Status | Nota |
+|---|---|---|
+| Proteção de novato no PvP (level mínimo ou opt-in) | 🧭 → decidido no ciclo 9 | level mínimo/opt-in recusados; regra dos 2/3 para iniciar ataque aprovada (F2-6) |
+| `/quem` mostra a zona de todos (um PK acha vítimas) | 🧭 → decidido no ciclo 9 | zona só de amigos/grupo/PZ (F2-6) |
+| Medir tempo jogado (`playedMs`, média por level no `/status`) | ✅ ciclo 9 | `systems/telemetry.ts`: tempo, mortes e ouro por level; resumo por faixa no `/status` |
+| Bênção nos sacerdotes (gasto de ouro) | ✅ | PR #4: zera a perda de XP da próxima morte (a penalidade sem bênção não mudou) |
+| Indicador de bloqueio de PZ no HUD | ⏳ | precisa de campo novo no estado |
+| Teto de itens no chão por jogador | ⏳ | hoje só despejo preferindo comuns |
+| Mochila não encolhe ao perder level na morte | ✅ fechado (ciclo 9) | a morte nunca derruba level (`deathPenalty` para no início do level); só acontece via `/level` de dev |
+| Teste de carga no mapa de 400 colunas com ataque automático | 🔄 ciclo 9 (F0-4) | `loadtest.mjs --tp --auto` pronto; medição em andamento |
+| Lista de sistemas para `onReconnect`/`cleanupSession` | ⏳ ciclo 9 (F1-6) | também `events.sendTo` ausente na reconexão (#55) |
+| E2E `look.spec.ts` instável (criatura/Shift+clique e item do chão) | ✅ ciclo 9 (F0-1) | causa comum: helper `teleport()`/`settled()` (#50) + clique no chão virava "andar"; Esc fecha o cartão |
+| E2E `spells.spec.ts` "feiticeiro lv 90" instável (alvo rato morre antes da magia de alvo) | ✅ ciclo 9 (F0-1) | #50 + mira evita ratos |
+| E2E `quests.spec.ts` "missão de matar" instável no último passo (Esc não fecha o diário) | ✅ ciclo 9 (F0-1, teste) | o teste repete o Esc; a causa de produto (diário fora da cadeia de Esc do HUD, #60) é a F1-3 |
+
+## Ciclo 7b (2026-10-22, PR #4) — correções e lacunas do delta pós-expansão (auditoria paralela)
+
+Auditoria do delta desde o ciclo 1 (185 commits): três frentes independentes sobre Coliseu até a onda 60, chão sem
+dono, mochila escalável, atalhos, habilidades de monstro, estágios de XP, PvP persistido, Costa Esmeralda e quests.
+Detalhe de cada achado em [GAME_AUDIT.md, Ciclo 5](GAME_AUDIT.md#ciclo-5-auditoria-do-delta-pós-expansão-2026-10-22).
+
+| Etapa | Item | Status | Nota |
+|---|---|---|---|
+| A | #47 Pilha no chão não reinicia o prazo de validade ao fazer merge (largar ou mover) | ✅ | resolvido no Ciclo 7 (teto 2× desde `created_at`) |
+| A | #48 Limite de taxa próprio para `C2S.MoveGroundItem` em `MESSAGE_LIMITS` | ⏳ | `WorldRoom.ts:75` |
+| A | #49 Migração do minimapa remapeia linha a linha mesmo sem `exploredW` salvo | ⏳ | `shared/explore.ts:51-69` |
+| D | Descarte automático do chão (2000 itens) poupa `rare`+ antes de olhar idade | ✅ já feito no ciclo 7 | `ground.ts` `PROTECTED_RARITIES`/`evictionVictim` (conferido no ciclo 9) |
+| C | Destaque visual quando a mochila cresce de level (hoje só texto no chat) | ⏳ | |
+| C | Atalho de teclado para abrir/fechar o painel de atalhos além de `H`; feedback ao soltar fora de slot | ⏳ | |
+| F | `docs/TEST_PLAN.md` atualizado com os ciclos 2 a 6 (Terras Selvagens até olhar) | ✅ ciclo 9 | resultados do ciclo 9 + baseline de regressão; o detalhe dos ciclos 7–8 está no CHANGELOG |
+| F | E2E das ondas-chefe 35-60 do Coliseu, da recompensa da onda 60 e do botão "Vender tudo" | ⏳ (F3-5) | |
+| F | E2E de um segundo jogador pegando/movendo o loot de outro no chão | ✅ já coberto | `ground.spec.ts:38` "largar arrastando e outro jogador pega" (conferido no ciclo 9) |
+| F | E2E da Aniquilação (4 placas + alavanca) | ⏳ | hoje só a checagem de alcançabilidade no gerador do mapa |
+
+## Ciclo 8 (2026-10-22) — caves cheias, monstros mais fortes e Coliseu difícil
+
+Pedido do dono: "caves mais fortes, com mais bichos, mais variedade de caça"; "está muito fácil tancar"; "solei o
+Coliseu de mago". Diagnóstico: a cura sobrava (Poção Grande 450/s + exura) contra 25–90 de dano/s por monstro, e as
+caves tinham poucos monstros. Duas frentes em arquivos separados, com revisão cruzada.
+
+| Frente | Item | Implementou / revisou | Status | Validação |
+|---|---|---|---|---|
+| Mapa | Caves 373 → 573 monstros (bandos e mistos), bloco `caveSpawns` no fim do gerador | engenharia / orquestrador | ✅ | 0 tiles alterados e 538 objetos antigos idênticos (conferido à parte) |
+| Monstros | Dano por level ×1,4–1,7; poção de vida 2 s; elites 5%; cura de aliados (sem chefes); reforço do bando; fuga 20%; respawn ×0,7 | game design / engenharia | ✅ | `monsterHunt.test.ts` (novo), `monsters.test.ts`, `items.test.ts`, `lookInfo.test.ts` |
+| Coliseu | Muito mais forte: vida ×2,5, dano por onda até ×5 (onda 30), desconto de grupo pequeno removido, modelo de calibração com o poder real | game design | ✅ | `arena.test.ts` "coliseu: balanço": solo ≤ onda ~25–30; grupo de 4 no justo cai entre X−5 e X; lv 120 completa |
+
+Pendências: medir no jogo de verdade (o modelo é otimista para o jogador); Ninho dos Dragões de Gelo com bando de 8 pode
+ficar pesado demais (trocar o count na linha `frost_dragon` do `caveSpawns`); teste de carga com 573 monstros.
+
+## Pendência antiga ainda aberta
+
+| Etapa | Item | Status | Nota |
+|---|---|---|---|
+| F | FPS do **cliente** numa sessão longa com vários jogadores | ⏳ | heap já medido (plano); FPS headless sem GPU não é confiável — medir num PC do escritório (protocolo em `docs/audit/2026-10-22/VALIDATION_BASELINE.md` §6) |
+
+(#13 timeout da predição e #11 saída voluntária em combate: ✅ nos ciclos 3–4, ver Histórico.)
+
+## Decididas ✅ e ainda pendentes 🧭
+
+As três propostas de balanço foram **aceitas pelo dono do jogo** e estão em `main` (as branches `proposta/31`, `32`, `33`
+e `proposta/todas` foram apagadas no ciclo 9; o conteúdo todo já estava mesclado).
+
+| Item | O que mudou | Status |
+|---|---|---|
+| #31 Ouro sem destino no lv 25+ | tier 4 nas lojas (Bento / Tomé / Dona Marta): kit completo 22–27 mil; tier 5 segue recompensa | ✅ |
+| #32 Fim de jogo (lv 40+) | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) | ✅ |
+| #33 Magos e paladino | magos 6 de vida/level (lv 30: 295 → 324); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) | ✅ |
+
+Sessões de conta persistidas (antes ficavam só na memória e todo mundo digitava a senha de novo a cada reinício): ✅
+tabela `account_sessions` guarda só o hash do token; mesma expiração de 30 min sem uso. Testado com reinício real do
+servidor (a mesma sessão voltou a valer) e em `auth.test.ts` (3 casos novos).
+
+Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
+novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
+
+| Item | O que mudou | Status |
+|---|---|---|
+| Atrito social do loot de grupo sem dono | Funciona como desenhado (qualquer um pega/move o que está no chão), mas numa rede de ~10 colegas pode gerar reclamação que nenhum teste automatizado capta | 🧭 revisitar só se houver reclamação real |
+
+Configuração de produção:
+
+| Item | O que fazer |
+|---|---|
+| #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
+| Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
+
+## Propostas — sink de ouro e conteúdo novo (2026-10-22) 🧭
+
+Motivo: personagem de lv 80 com 500 mil de ouro sem o que comprar (lojas vendem só até tier 4, tier 5-7 só caem de
+loot). Os itens marcados ✅ foram aprovados e implementados em 2026-10-22 (PR #4); só a montaria segue bloqueada. Benchmark:
+bênção e imbuement vêm do Tibia (identidade que o jogo já persegue), cassino vem de Diablo (sink "de diversão" sem
+custo de poder).
+
+| Item | O que é | Esforço | Status |
+|---|---|---|---|
+| Bênção no templo | Reduz a zero a penalidade de XP na próxima morte; preço = level × 200 de ouro. Vendida por Liora (Vila), Irmão Tadeu (Posto) e Irmã Celeste (Porto) | pequeno | ✅ |
+| Venda de tier 5-7 | Tier 5 no preço de tabela (Bento/Tomé/Dona Marta); tier 6-7 em "encomenda especial" a 1,5× o valor de loot, 1 peça por personagem por semana | pequeno | ✅ |
+| Tarefas de caça | **Já existia** (Quadro de Recompensas, `bounties.ts`): 3/dia por faixa de level, até lv 88+. Moeda nova (Marca de Caça) descartada nesta rodada, ver nota | quase zero | ✅ |
+| Missões recorrentes | NPC pede N de um material específico, rotação semanal. Reaproveita o próprio Quadro de Recompensas (aba "Encomenda") | pequeno | ✅ |
+| Encantamento (imbuement) | 1 efeito ativo por personagem (dreno de vida, dreno de mana, espinhos, perfurante, veloz), ouro + material, Dona Marta | médio | ✅ |
+| Montaria | Cosmética, sprite reaproveitado e tingido (sem bônus de velocidade) | médio (arte) | 🧭 bloqueado |
+| Tingimento de outfit (por conta) | 8 tons pré-definidos na sprite da roupa (reusa `tint`, já usado em monstro, e `kv` existente pro unlock por conta); 8.000 de ouro cada, vale pra qualquer personagem da conta | médio | ✅ |
+| Cassino | Ficha de 1.000 de ouro (Hanna, a Mascate): 45% nada, 35% +400 de ouro, 15% material, 5% +3.000 de ouro | pequeno | ✅ |
+
+Bênção e venda de tier 5-7 implementadas (2026-10-22): `blessingPrice` em `shared/formulas.ts`, ação `C2S.NpcTrade`
+`"blessing"`, flag `blessed` persistida no personagem, consumida em `combat.ts` na morte (zera `lostXp`, notice
+própria). Tier 6-7 usa `NpcShopEntry.limited` + semana ISO (`weekId`) guardada em `rec.data.limitedBuyWeek`, checada
+no servidor (não só esconder no cliente). Testes: `combatFormulas.test.ts`, `combat.test.ts` (morte com bênção),
+`m4.test.ts` (compra de bênção e limite semanal).
+
+Tingimento de outfit implementado (2026-10-22): catálogo em `shared/data/outfitTones.ts` (8 tons, `OUTFIT_TONE_PRICE`
+= 8.000). `CharacterRecord` ganhou `accountId` (já vinha na linha do banco, só não estava exposto). Unlock por conta
+guardado na tabela `kv` já existente (`account.tones.<id>`), sem migração de schema nova. Tingimento em si reaproveita
+o campo `tint` que `CharacterLook`/`Actor` já aplicavam só em monstro (`outfitLook` ganhou um 4º parâmetro). No preview
+da janela (canvas 2D puro, sem Phaser) foi preciso um tingimento manual (multiply + recorte pelo alpha original,
+cacheado por imagem+cor). Testes: `outfit.test.ts` (validação do tom e `addAccountTone`/`getAccountTones`).
+
+**Marca de Caça** (moeda nova, opcional, liga tarefas aos sinks sem imprimir mais ouro): descartada nesta rodada de
+construção. Tarefas de caça e missões recorrentes pagam ouro direto, mais simples de construir e manter. Fica
+anotada como ideia de reserva se algum dia o ouro direto dessas duas fontes virar demais.
+
+Tarefas de caça e missões recorrentes implementadas (2026-10-22): a primeira já existia (Quadro de Recompensas), só
+confirmado que cobre até o fim de jogo (banda lv 88+). A segunda é nova (`shared/data/materialRequest.ts`,
+`server/systems/materialRequest.ts`): pede N de um material específico por semana (10 faixas de level, mesmos
+materiais que já existem como loot vendável), paga ouro na entrega. Reaproveita o Quadro de Recompensas como NPC
+(aba "Encomenda" nova ao lado de "Recompensas") e o padrão leve de `challenges.ts` (estado em `rec.data.request`,
+sem passo de "aceitar"). Testes: `materialRequest.test.ts`.
+
+Cassino implementado (2026-10-22): ficha fixa em `CASINO_TICKET_PRICE` (1.000), vendida por Hanna (Posto da
+Fronteira, já era mercadora, só ganhou o flag `casino`). Prêmio puramente aleatório no servidor (`NpcSystem.rng`),
+em expectativa paga menos que a ficha (sink de verdade, não fonte): 45% nada, 35% +400, 15% um material de flavor
+(ferro/dente de goblin/ectoplasma/escama), 5% +3.000. Sem prêmio de poder nem de tom de tingimento (achei generoso
+demais dar um tom de 8.000 numa ficha de 1.000, ficou só pra compra direta na janela de roupas). Testes:
+caso novo em `m4.test.ts` (sorteio determinístico via `rng` injetado, uma faixa por vez).
+
+**Encantamento implementado (2026-10-22), simplificado em relação ao desenho original**: o plano original era 1
+slot na arma (o item), 3 tiers por efeito, decaimento por hora de combate, tier 3 preso a uma "Essência" nova só de
+chefe. Construído de verdade: 1 efeito ativo **por personagem** (não pela arma), sem tiers, sem decaimento, troca
+por outro a qualquer hora sem reembolso. Mais simples de manter e já entrega a parte que importava (a passiva em
+si). Preço único de 5.000 de ouro + 5 do material por efeito, vendido pela Dona Marta:
+
+| Efeito | Material | Onde aplica |
+|---|---|---|
+| Dreno de vida (5%) | Presa de Lobo | `combat.ts`, ataque automático contra monstro selvagem |
+| Dreno de mana (4%) | Olho de Aranha | idem |
+| Espinhos (8%) | Couro de Lobo | dano recebido de monstro, reflete de volta |
+| Perfurante (ignora 15% da armadura) | Barra de Ferro | mitigação do ataque automático |
+| Veloz (8% mais rápido) | Ferrão de Abelha | intervalo entre ataques automáticos |
+
+Atordoante (crítico) ficou de fora: precisava de um sistema novo de status no monstro (stun), risco maior sem poder
+testar visualmente. Só vale no PvE (ataque automático contra monstro selvagem), não em PvP nem em magia/invocação,
+pra limitar o escopo do que foi tocado em `combat.ts`. Testes: 5 casos novos em `combat.test.ts` (um por efeito,
+com monstro invulnerável pra isolar sem revide onde fazia sentido), 1 caso em `m4.test.ts` (compra/troca na loja).
+
+**Tier 5-7 à venda, números reais do `items.ts`**: kit tier 5 completo ≈ 50 mil, tier 6 ≈ 144 mil, tier 7 ≈ 360 mil
+(cavaleiro, paladino e mago na mesma escala, menores). Tier 6-7 a 1,5× o valor de loot (ex.: armadura da Coroa por
+84 mil em vez de 56 mil), 1 peça por conta por semana.
+
+**Cassino, estrutura de prêmio** (rascunho original, **não é o que foi construído**): ficha ≈ 1.000 ouro; 40% nada, 30%
+ouro de volta, 15% material raro, 10% tom de tingimento, 5% cosmético único. O código (`npcs.ts`) usa a tabela da
+seção acima: 45% nada, 35% +400, 15% material, 5% +3.000 (retorno esperado ≈ 335, sink de verdade).
+
+**Montaria: bloqueada, não por decisão, por risco de asset.** Dos 8 itens desta rodada, é o único que não dá pra
+construir só com código testável: precisa de uma sprite de montaria no formato de addon (32×32, grade 4×7,
+`tools/addons/generate.mjs`), e sem conseguir ver o resultado renderizado (sem navegador nesta sessão), o risco de
+entregar algo visualmente quebrado é alto. Técnica já mapeada (reaproveitar o mesmo `backSheet` que já existe pra
+addons de capa/mochila, desenhado atrás do personagem, sincronizado com o próprio ciclo de caminhada), só falta a
+arte em si e alguém conferir o resultado numa tela de verdade antes de ir pra produção.
+
+## Não fazer agora ⛔
+
+- **Reescrever `WorldScene.ts`** (1,1 mil linhas): funciona e tem E2E; dividir só quando uma mudança exigir.
+- **Interesse por área no servidor** (mandar combate só para quem está perto): o filtro no cliente resolve o
+  sintoma; no servidor muda o protocolo e só compensa com bem mais que 32 jogadores.
+- **Layout mobile/toque (#14)**: o público é o escritório no PC; custo alto sem demanda.
+- **Atualizar dependências em massa**: nenhuma vulnerabilidade alcançável; risco de regressão sem ganho.
+
+## Histórico — ciclos 1 a 6 (2026-10-14 a 2026-10-15, 100 % concluídos)
+
+Mantido para referência da numeração `#N` e das validações; nada aqui está pendente.
+
 ## Ciclo 1 (2026-10-14) — estabilidade, segurança e desempenho de base
 
 | Etapa | Item | Status | Validação |
@@ -133,205 +395,3 @@ por tipo/crítico, mapa-múndi em tela cheia (tecla M), chefes de zona e Coliseu
 Ficou de fora (precisa de mapa/arte novos): **dungeon instanciada própria** (o Coliseu e os chefes de zona cobrem o
 conteúdo para grupo), **mineração** (só a pesca foi feita) e **casas com decoração** (o depot já guarda itens; casa
 pede áreas no mapa e itens colocáveis no mundo).
-
-## Ciclo 7 (2026-10-22) — auditoria em equipe dos 47 commits desde `7d8bc4b`
-
-Cinco agentes auditaram em paralelo (game design, engenharia, UX/UI, QA, crítica); cada achado aceito foi conferido no
-código pelo orquestrador. Implementação em 5 frentes com arquivos separados e **revisão cruzada** por outro agente;
-ligações no `WorldRoom` feitas na integração. Linha de base: typecheck ok, 672/672 unitários.
-
-| Frente | Item | Implementou / revisou | Status | Validação |
-|---|---|---|---|---|
-| A | **P1** Troca: confirm com `rev` (clique atrasado não vale para oferta trocada); ouro digitado antes do confirm; botão travado 1 s; `resend` na reconexão; Esc respeita o que está por cima; aviso para aba antiga | engenharia / QA | ✅ | `trade.test.ts`, `ui/trade/{trade,escape}.test.ts`, E2E `trade.spec.ts` (ouro sem blur) |
-| B | Morte (real, via combate) cancela troca e seguir; troca gravada em transação (inclusive com logout logo depois) | QA / engenharia | ✅ | `WorldRoom.test.ts` |
-| B | Bloqueio de PZ barra viagem (barco do Porto escapava) e mostra segundos | QA / engenharia | ✅ | `WorldRoom.test.ts`, `pvp.test.ts` |
-| B | Ouro da caveira vermelha via `placeNear`, desconto só depois de caber; recompensas no chão (baú/desafio) gravadas junto; `uid` novo na sobra; desafio confere a recompensa inteira | QA / engenharia | ✅ | `WorldRoom`, `quests`, `challenges` |
-| B | Chão: prazo não renova nem encurta (teto 2× desde `created_at`, migração v7); despejo prefere comuns | QA / engenharia | ✅ | `ground.test.ts`, `db.test.ts` |
-| B | Ataque automático pausado em linger/queda; loot de grupo exige membro perto do monstro; vender tudo sem raros (regra no shared) | QA / engenharia | ✅ | `WorldRoom`, `m4`, `combatFormulas` |
-| B | Testes que faltavam: Coliseu completo na onda 60, caveira vermelha com tile cheio, baú com mochila cheia | QA | ✅ | `arena.test.ts`, `WorldRoom.test.ts` |
-| C | **P1** "Animações reduzidas" escondia avisos/faixas; câmera sem tremor | UX / engenharia | ✅ | revisão do CSS; captura não feita |
-| C | **P1** Olhar com dois botões não executa a ação do primeiro (adiar 120 ms o irreversível; `WalkTo.stop` para a caminhada sem voltar passo) | UX / engenharia | ✅ | `movement.test.ts`; E2E `look.spec.ts` |
-| C | Avisos de erro no chat (sem repetir contador, máx. 15); Esc sem tirar alvo; F1, Bestiário no trilho, textos; `Shift+/` reservado | UX / engenharia | ✅ | `chatLines.test.ts`, `hotkeys.test.ts` |
-| D | Balanço aprovado: estágios de XP a partir do 40; ouro do Coliseu; Escudo com armadura e treino (limitado contra AFK); Golpe Frontal 3×3; Cura em Grupo; Selva/Piratas | game design / crítica | ✅ | `combat`, `combatFormulas`, `arena`, `spells` (formato 3×3), `items` |
-| E | Chefes no almoço; `/quem` com zona/ausente/✓ grupo; Aniquilação 2–4 (quem puxa precisa estar na placa) | crítica / engenharia | ✅ | `events`, `social`, `questWorld` (mapa real) |
-
-Recusado: refatorar o `WorldRoom` (o registro de "o que reenviar/limpar" por sistema fica como dívida, ver abaixo).
-
-### Pendências do ciclo 7
-
-| Item | Status | Nota |
-|---|---|---|
-| Proteção de novato no PvP (level mínimo ou opt-in) | 🧭 | dono decidiu não fazer agora |
-| `/quem` mostra a zona de todos (um PK acha vítimas) | 🧭 | alternativa: zona só de amigos/grupo |
-| Medir tempo jogado (`playedMs`, média por level no `/status`) | ⏳ | pré-requisito para recalibrar progressão com dados reais |
-| Bênção nos sacerdotes (gasto de ouro) | ✅ | PR #4: zera a perda de XP da próxima morte (a penalidade sem bênção não mudou) |
-| Indicador de bloqueio de PZ no HUD | ⏳ | precisa de campo novo no estado |
-| Teto de itens no chão por jogador | ⏳ | hoje só despejo preferindo comuns |
-| Mochila não encolhe ao perder level na morte | ⏳ | inconsistência, sem perda de item |
-| Teste de carga no mapa de 400 colunas com ataque automático | ⏳ | medição anterior é de antes da expansão |
-| Lista de sistemas para `onReconnect`/`cleanupSession` | ⏳ | a troca ficou de fora por ser lista manual |
-| E2E `look.spec.ts` instável (criatura/Shift+clique e item do chão) | ⏳ | já falhava no `main` (2 de 9 em `--repeat-each=3`); o clique que fecha o cartão faz o personagem andar antes do Shift+clique |
-| E2E `spells.spec.ts` "feiticeiro lv 90" instável (alvo rato morre antes da magia de alvo) | ⏳ | 1 de 2 após as famílias; o teste já tenta 3 vezes |
-| E2E `quests.spec.ts` "missão de matar" instável no último passo (Esc não fecha o diário) | ⏳ | já falhava no `main` (2 de 3); passa com 500 ms antes do Esc: corrida no registro do listener do diário |
-
-## Ciclo 7b (2026-10-22, PR #4) — correções e lacunas do delta pós-expansão (auditoria paralela)
-
-Auditoria do delta desde o ciclo 1 (185 commits): três frentes independentes sobre Coliseu até a onda 60, chão sem
-dono, mochila escalável, atalhos, habilidades de monstro, estágios de XP, PvP persistido, Costa Esmeralda e quests.
-Detalhe de cada achado em [GAME_AUDIT.md, Ciclo 5](GAME_AUDIT.md#ciclo-5-auditoria-do-delta-pós-expansão-2026-10-22).
-
-| Etapa | Item | Status | Nota |
-|---|---|---|---|
-| A | #47 Pilha no chão não reinicia o prazo de validade ao fazer merge (largar ou mover) | ✅ | resolvido no Ciclo 7 (teto 2× desde `created_at`) |
-| A | #48 Limite de taxa próprio para `C2S.MoveGroundItem` em `MESSAGE_LIMITS` | ⏳ | `WorldRoom.ts:75` |
-| A | #49 Migração do minimapa remapeia linha a linha mesmo sem `exploredW` salvo | ⏳ | `shared/explore.ts:51-69` |
-| D | Descarte automático do chão (2000 itens) poupa `rare`+ antes de olhar idade | 🧭 | decisão do dono: vale a complexidade para um risco raro? |
-| C | Destaque visual quando a mochila cresce de level (hoje só texto no chat) | ⏳ | |
-| C | Atalho de teclado para abrir/fechar o painel de atalhos além de `H`; feedback ao soltar fora de slot | ⏳ | |
-| F | `docs/TEST_PLAN.md` atualizado com os ciclos 2 a 6 (Terras Selvagens até olhar) | ⏳ | hoje parado no ciclo 5 (2026-10-15) |
-| F | E2E das ondas-chefe 35-60 do Coliseu, da recompensa da onda 60 e do botão "Vender tudo" | ⏳ | |
-| F | E2E de um segundo jogador pegando/movendo o loot de outro no chão | ⏳ | garantia central do "chão sem dono" |
-| F | E2E da Aniquilação (4 placas + alavanca) | ⏳ | hoje só a checagem de alcançabilidade no gerador do mapa |
-
-## Ciclo 8 (2026-10-22) — caves cheias, monstros mais fortes e Coliseu difícil
-
-Pedido do dono: "caves mais fortes, com mais bichos, mais variedade de caça"; "está muito fácil tancar"; "solei o
-Coliseu de mago". Diagnóstico: a cura sobrava (Poção Grande 450/s + exura) contra 25–90 de dano/s por monstro, e as
-caves tinham poucos monstros. Duas frentes em arquivos separados, com revisão cruzada.
-
-| Frente | Item | Implementou / revisou | Status | Validação |
-|---|---|---|---|---|
-| Mapa | Caves 373 → 573 monstros (bandos e mistos), bloco `caveSpawns` no fim do gerador | engenharia / orquestrador | ✅ | 0 tiles alterados e 538 objetos antigos idênticos (conferido à parte) |
-| Monstros | Dano por level ×1,4–1,7; poção de vida 2 s; elites 5%; cura de aliados (sem chefes); reforço do bando; fuga 20%; respawn ×0,7 | game design / engenharia | ✅ | `monsterHunt.test.ts` (novo), `monsters.test.ts`, `items.test.ts`, `lookInfo.test.ts` |
-| Coliseu | Muito mais forte: vida ×2,5, dano por onda até ×5 (onda 30), desconto de grupo pequeno removido, modelo de calibração com o poder real | game design | ✅ | `arena.test.ts` "coliseu: balanço": solo ≤ onda ~25–30; grupo de 4 no justo cai entre X−5 e X; lv 120 completa |
-
-Pendências: medir no jogo de verdade (o modelo é otimista para o jogador); Ninho dos Dragões de Gelo com bando de 8 pode
-ficar pesado demais (trocar o count na linha `frost_dragon` do `caveSpawns`); teste de carga com 573 monstros.
-
-## Próximos (ordem sugerida)
-
-| Etapa | Item | Status | Nota |
-|---|---|---|---|
-| F | FPS do **cliente** numa sessão longa com vários jogadores | ⏳ | heap já medido (plano); FPS headless sem GPU não é confiável — medir num PC do escritório |
-| E | #13 Timeout da predição baseado na latência medida | ✅ | `predictor.test.ts`: 60 ms → 450 ms (igual); 600 ms → >1,2 s; teto 2 s. E2E de movimento ok |
-| A | #11 Saída voluntária em combate: o personagem fica RECONNECT_S (20 s) no mundo, como numa queda (pode morrer); relogin/kick cancelam | ✅ | `WorldRoom.test.ts` (4 casos: permanência, fora de combate/morto, relogin, kick) |
-
-## Decididas ✅ e ainda pendentes 🧭
-
-As três propostas de balanço foram **aceitas pelo dono do jogo** e já estão nesta branch (merges `proposta/31`, `32` e
-`33`). `proposta/todas` continua existindo e recebe por merge tudo o que entra aqui.
-
-| Item | O que mudou | Status |
-|---|---|---|
-| #31 Ouro sem destino no lv 25+ | tier 4 nas lojas (Bento / Tomé / Dona Marta): kit completo 22–27 mil; tier 5 segue recompensa | ✅ |
-| #32 Fim de jogo (lv 40+) | espíritos de chama 3 → 7 em dois bandos; mapa idêntico (0 tiles alterados) | ✅ |
-| #33 Magos e paladino | magos 6 de vida/level (lv 30: 295 → 324); paladino com conjuntos tier 3 (Caçador, loja do Tomé) e tier 5 (Arqueiro-Mestre, loot) | ✅ |
-
-Sessões de conta persistidas (antes ficavam só na memória e todo mundo digitava a senha de novo a cada reinício): ✅
-tabela `account_sessions` guarda só o hash do token; mesma expiração de 30 min sem uso. Testado com reinício real do
-servidor (a mesma sessão voltou a valer) e em `auth.test.ts` (3 casos novos).
-
-Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
-novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
-
-| Item | O que mudou | Status |
-|---|---|---|
-| Atrito social do loot de grupo sem dono | Funciona como desenhado (qualquer um pega/move o que está no chão), mas numa rede de ~10 colegas pode gerar reclamação que nenhum teste automatizado capta | 🧭 revisitar só se houver reclamação real |
-
-Configuração de produção:
-
-| Item | O que fazer |
-|---|---|
-| #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
-| Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
-
-## Propostas — sink de ouro e conteúdo novo (2026-10-22) 🧭
-
-Motivo: personagem de lv 80 com 500 mil de ouro sem o que comprar (lojas vendem só até tier 4, tier 5-7 só caem de
-loot). Nenhum item desta seção está decidido ainda, cada linha espera aprovação antes de virar código. Benchmark:
-bênção e imbuement vêm do Tibia (identidade que o jogo já persegue), cassino vem de Diablo (sink "de diversão" sem
-custo de poder).
-
-| Item | O que é | Esforço | Status |
-|---|---|---|---|
-| Bênção no templo | Reduz a zero a penalidade de XP na próxima morte; preço = level × 200 de ouro. Vendida por Liora (Vila), Irmão Tadeu (Posto) e Irmã Celeste (Porto) | pequeno | ✅ |
-| Venda de tier 5-7 | Tier 5 no preço de tabela (Bento/Tomé/Dona Marta); tier 6-7 em "encomenda especial" a 1,5× o valor de loot, 1 peça por personagem por semana | pequeno | ✅ |
-| Tarefas de caça | **Já existia** (Quadro de Recompensas, `bounties.ts`): 3/dia por faixa de level, até lv 88+. Moeda nova (Marca de Caça) descartada nesta rodada, ver nota | quase zero | ✅ |
-| Missões recorrentes | NPC pede N de um material específico, rotação semanal. Reaproveita o próprio Quadro de Recompensas (aba "Encomenda") | pequeno | ✅ |
-| Encantamento (imbuement) | 1 efeito ativo por personagem (dreno de vida, dreno de mana, espinhos, perfurante, veloz), ouro + material, Dona Marta | médio | ✅ |
-| Montaria | Cosmética, sprite reaproveitado e tingido (sem bônus de velocidade) | médio (arte) | 🧭 bloqueado |
-| Tingimento de outfit (por conta) | 8 tons pré-definidos na sprite da roupa (reusa `tint`, já usado em monstro, e `kv` existente pro unlock por conta); 8.000 de ouro cada, vale pra qualquer personagem da conta | médio | ✅ |
-| Cassino | Ficha de 1.000 de ouro (Hanna, a Mascate): 45% nada, 35% +400 de ouro, 15% material, 5% +3.000 de ouro | pequeno | ✅ |
-
-Bênção e venda de tier 5-7 implementadas (2026-10-22): `blessingPrice` em `shared/formulas.ts`, ação `C2S.NpcTrade`
-`"blessing"`, flag `blessed` persistida no personagem, consumida em `combat.ts` na morte (zera `lostXp`, notice
-própria). Tier 6-7 usa `NpcShopEntry.limited` + semana ISO (`weekId`) guardada em `rec.data.limitedBuyWeek`, checada
-no servidor (não só esconder no cliente). Testes: `combatFormulas.test.ts`, `combat.test.ts` (morte com bênção),
-`m4.test.ts` (compra de bênção e limite semanal).
-
-Tingimento de outfit implementado (2026-10-22): catálogo em `shared/data/outfitTones.ts` (8 tons, `OUTFIT_TONE_PRICE`
-= 8.000). `CharacterRecord` ganhou `accountId` (já vinha na linha do banco, só não estava exposto). Unlock por conta
-guardado na tabela `kv` já existente (`account.tones.<id>`), sem migração de schema nova. Tingimento em si reaproveita
-o campo `tint` que `CharacterLook`/`Actor` já aplicavam só em monstro (`outfitLook` ganhou um 4º parâmetro). No preview
-da janela (canvas 2D puro, sem Phaser) foi preciso um tingimento manual (multiply + recorte pelo alpha original,
-cacheado por imagem+cor). Testes: `outfit.test.ts` (validação do tom e `addAccountTone`/`getAccountTones`).
-
-**Marca de Caça** (moeda nova, opcional, liga tarefas aos sinks sem imprimir mais ouro): descartada nesta rodada de
-construção. Tarefas de caça e missões recorrentes pagam ouro direto, mais simples de construir e manter. Fica
-anotada como ideia de reserva se algum dia o ouro direto dessas duas fontes virar demais.
-
-Tarefas de caça e missões recorrentes implementadas (2026-10-22): a primeira já existia (Quadro de Recompensas), só
-confirmado que cobre até o fim de jogo (banda lv 88+). A segunda é nova (`shared/data/materialRequest.ts`,
-`server/systems/materialRequest.ts`): pede N de um material específico por semana (10 faixas de level, mesmos
-materiais que já existem como loot vendável), paga ouro na entrega. Reaproveita o Quadro de Recompensas como NPC
-(aba "Encomenda" nova ao lado de "Recompensas") e o padrão leve de `challenges.ts` (estado em `rec.data.request`,
-sem passo de "aceitar"). Testes: `materialRequest.test.ts`.
-
-Cassino implementado (2026-10-22): ficha fixa em `CASINO_TICKET_PRICE` (1.000), vendida por Hanna (Posto da
-Fronteira, já era mercadora, só ganhou o flag `casino`). Prêmio puramente aleatório no servidor (`NpcSystem.rng`),
-em expectativa paga menos que a ficha (sink de verdade, não fonte): 45% nada, 35% +400, 15% um material de flavor
-(ferro/dente de goblin/ectoplasma/escama), 5% +3.000. Sem prêmio de poder nem de tom de tingimento (achei generoso
-demais dar um tom de 8.000 numa ficha de 1.000, ficou só pra compra direta na janela de roupas). Testes:
-caso novo em `m4.test.ts` (sorteio determinístico via `rng` injetado, uma faixa por vez).
-
-**Encantamento implementado (2026-10-22), simplificado em relação ao desenho original**: o plano original era 1
-slot na arma (o item), 3 tiers por efeito, decaimento por hora de combate, tier 3 preso a uma "Essência" nova só de
-chefe. Construído de verdade: 1 efeito ativo **por personagem** (não pela arma), sem tiers, sem decaimento, troca
-por outro a qualquer hora sem reembolso. Mais simples de manter e já entrega a parte que importava (a passiva em
-si). Preço único de 5.000 de ouro + 5 do material por efeito, vendido pela Dona Marta:
-
-| Efeito | Material | Onde aplica |
-|---|---|---|
-| Dreno de vida (5%) | Presa de Lobo | `combat.ts`, ataque automático contra monstro selvagem |
-| Dreno de mana (4%) | Olho de Aranha | idem |
-| Espinhos (8%) | Couro de Lobo | dano recebido de monstro, reflete de volta |
-| Perfurante (ignora 15% da armadura) | Barra de Ferro | mitigação do ataque automático |
-| Veloz (8% mais rápido) | Ferrão de Abelha | intervalo entre ataques automáticos |
-
-Atordoante (crítico) ficou de fora: precisava de um sistema novo de status no monstro (stun), risco maior sem poder
-testar visualmente. Só vale no PvE (ataque automático contra monstro selvagem), não em PvP nem em magia/invocação,
-pra limitar o escopo do que foi tocado em `combat.ts`. Testes: 5 casos novos em `combat.test.ts` (um por efeito,
-com monstro invulnerável pra isolar sem revide onde fazia sentido), 1 caso em `m4.test.ts` (compra/troca na loja).
-
-**Tier 5-7 à venda, números reais do `items.ts`**: kit tier 5 completo ≈ 50 mil, tier 6 ≈ 144 mil, tier 7 ≈ 360 mil
-(cavaleiro, paladino e mago na mesma escala, menores). Tier 6-7 a 1,5× o valor de loot (ex.: armadura da Coroa por
-84 mil em vez de 56 mil), 1 peça por conta por semana.
-
-**Cassino, estrutura de prêmio**: ficha ≈ 1.000 ouro. 40% nada, 30% ouro de volta (≈ 50% do preço), 15% material raro,
-10% tom de tingimento, 5% cosmético único (título, moldura de ranking). Valor esperado de volta ≈ 600-700, número a
-calibrar com playtest, não é final.
-
-**Montaria: bloqueada, não por decisão, por risco de asset.** Dos 8 itens desta rodada, é o único que não dá pra
-construir só com código testável: precisa de uma sprite de montaria no formato de addon (32×32, grade 4×7,
-`tools/addons/generate.mjs`), e sem conseguir ver o resultado renderizado (sem navegador nesta sessão), o risco de
-entregar algo visualmente quebrado é alto. Técnica já mapeada (reaproveitar o mesmo `backSheet` que já existe pra
-addons de capa/mochila, desenhado atrás do personagem, sincronizado com o próprio ciclo de caminhada), só falta a
-arte em si e alguém conferir o resultado numa tela de verdade antes de ir pra produção.
-
-## Não fazer agora ⛔
-
-- **Reescrever `WorldScene.ts`** (1,1 mil linhas): funciona e tem E2E; dividir só quando uma mudança exigir.
-- **Interesse por área no servidor** (mandar combate só para quem está perto): o filtro no cliente resolve o
-  sintoma; no servidor muda o protocolo e só compensa com bem mais que 32 jogadores.
-- **Layout mobile/toque (#14)**: o público é o escritório no PC; custo alto sem demanda.
-- **Atualizar dependências em massa**: nenhuma vulnerabilidade alcançável; risco de regressão sem ganho.

@@ -173,7 +173,8 @@ O código fica em `github.com/leocsd/lemonquest` (privado). No servidor:
 
 Coloque o seu personagem em `LEMONQUEST_ADMINS` (seção `environment`) e rode `docker compose up -d`. No jogo, digite no
 chat: `/online`, `/kick <nome> [motivo]`, `/mute <nome> <minutos>`, `/unmute <nome>`, `/anuncio <texto>`, `/tp <nome>`,
-`/resetsenha <conta>` (detalhes no [README principal](../../README.md#administradores)). Tudo fica no log com `[admin]`:
+`/resetsenha <conta>`, `/status`, `/evento <nome> [minutos]`, `/desbloquear <nome> <roupa|addon|título>` (detalhes no
+[README principal](../../README.md#administradores)). Tudo fica no log com `[admin]`:
 `docker compose logs | grep "\[admin\]"`.
 
 **Recuperar a senha de alguém sem admin online** (o container precisa estar rodando; o diretório de trabalho da imagem

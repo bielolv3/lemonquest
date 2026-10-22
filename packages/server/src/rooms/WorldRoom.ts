@@ -51,9 +51,10 @@ import { applySetOutfit, loadOutfit } from "../systems/outfit.ts";
 import { AchievementSystem, setActiveAchievements } from "../systems/achievements.ts";
 import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
+import { PlayTelemetry, summarizePlay } from "../systems/telemetry.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import {
-  addAccountTone, getAccountTones, getCharacterByName, getKv, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction,
+  addAccountTone, getAccountTones, getCharacterByName, getKv, listRankingRows, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction,
 } from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
@@ -79,6 +80,10 @@ export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
   [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.BuyOutfitTone]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.MaterialRequest]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4, [C2S.SetHotkeys]: 5, [C2S.LookGround]: 5,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
+  // Ações de inventário/loja: cada uma é validada, mas gera mensagem de inventário e gravação; sem limite próprio só
+  // valia o teto global (60/s). MoveGroundItem já era limitado por dentro (GroundSystem, 10/s); aqui fica explícito (#48).
+  [C2S.NpcTrade]: 10, [C2S.UseItem]: 10, [C2S.QuickPotion]: 5, [C2S.DropItem]: 5, [C2S.PickupItem]: 5, [C2S.DiscardItem]: 5,
+  [C2S.MoveGroundItem]: 10, [C2S.FightMode]: 5,
 };
 /** Intervalo mínimo entre gravações "jogador + chão" depois de largar/pegar item (ver saveTransfers). */
 export const TRANSFER_SAVE_MS = 1000;
@@ -132,6 +137,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private challenges!: ChallengeSystem;
   private materialRequest!: MaterialRequestSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
+  /** Duração do autosave (todos os jogadores) desde o último log de desempenho. */
+  private savePerf = { n: 0, sum: 0, max: 0 };
+  /** Tempo jogado, mortes e ouro por level (gravado em CharacterData.play; resumo no /status). */
+  private readonly telemetry = new PlayTelemetry();
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
   private tickRingN = 0;
@@ -232,7 +241,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         if (ok) this.ach?.event(p.id, "eat");
         return ok;
       },
-      onGold: (p, n) => this.ach?.event(p.id, "gold", { n }),
+      onGold: (p, n) => { this.ach?.event(p.id, "gold", { n }); this.telemetry.onGold(p.id, n); },
+      onSpend: (p, n) => this.telemetry.onSpend(p.id, n),
       onStatsChanged: (p) => this.conditions.refreshPlayer(p.id),
       openChest: (p) => this.quests.openChest(p),
     });
@@ -361,6 +371,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       hasShield: (p) => !!this.inventory.get(p.id)?.equipment.shield,
       onShieldTry: (p) => this.skills.addTries(p, "shield", 1),
       onPlayerDied: (p, killer) => {
+        this.telemetry.onDeath(p.id);
         this.conditions.clear(p.id);
         this.summons.despawnOwner(p.id);
         this.loot.feed(`💀 ${p.name} foi derrotado por ${killer}`, "death");
@@ -372,6 +383,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       imbuement: (p) => imbuementDef(p.imbuement),
       takenMult: stanceTaken,
       onLevelUp: (p) => {
+        this.telemetry.onLevel(p.id, p.level);
         this.inventory.applyStats(p, true);
         const slots = this.inventory.fitBackpack(p);
         if (slots > 0) {
@@ -576,7 +588,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const unlocked = getAccountTones(rec.accountId);
       if (unlocked.includes(tone.id)) return c.send(S2C.Notice, { text: "Você já tem esse tom.", kind: "warn" } satisfies NoticeMsg);
       if (!this.inventory.spendGold(p, OUTFIT_TONE_PRICE)) return c.send(S2C.Notice, { text: "Ouro insuficiente.", kind: "warn" } satisfies NoticeMsg);
-      const list = addAccountTone(rec.accountId, tone.id);
+      // Tom (conta) e ouro (personagem) no mesmo commit: uma queda antes do autosave não deixa o tom de graça (#56).
+      const list = transaction(() => { const l = addAccountTone(rec.accountId, tone.id); this.save(p.id); return l; });
       c.send(S2C.OutfitTones, { unlocked: list } satisfies OutfitTonesMsg);
       c.send(S2C.Notice, { text: `Você comprou o tom ${tone.name} por ${OUTFIT_TONE_PRICE} de ouro.`, kind: "good" } satisfies NoticeMsg);
     });
@@ -648,10 +661,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     s.n++; s.sum += ms; if (ms > s.max) s.max = ms;
     this.tickRing[this.tickRingN++ % this.tickRing.length] = ms;
     if (now - s.since < PERF_LOG_MS) return;
-    if (DEV || s.max > PERF_PROD_MIN_MAX_MS) {
-      console.log(`[tick] ${s.n} ticks: média ${(s.sum / s.n).toFixed(3)} ms, máx ${s.max.toFixed(2)} ms — ${this.monsters.size} monstros, ${this.state.players.size} jogadores`);
+    const sv = this.savePerf;
+    if (DEV || s.max > PERF_PROD_MIN_MAX_MS || sv.max > PERF_PROD_MIN_MAX_MS) {
+      const save = sv.n ? ` · autosave média ${(sv.sum / sv.n).toFixed(1)} ms, máx ${sv.max.toFixed(1)} ms` : "";
+      console.log(`[tick] ${s.n} ticks: média ${(s.sum / s.n).toFixed(3)} ms, máx ${s.max.toFixed(2)} ms — ${this.monsters.size} monstros, ${this.state.players.size} jogadores${save}`);
     }
     this.perf = { n: 0, sum: 0, max: 0, since: now };
+    this.savePerf = { n: 0, sum: 0, max: 0 };
   }
 
   /** Linhas do /status (admin). */
@@ -660,12 +676,23 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     let sum = 0, max = 0;
     for (let i = 0; i < n; i++) { sum += this.tickRing[i]!; if (this.tickRing[i]! > max) max = this.tickRing[i]!; }
     const mem = process.memoryUsage();
-    return statusLines({
+    const sv = this.savePerf;
+    const lines = statusLines({
       uptimeMs: Date.now() - this.bootAt, online: this.state.players.size, peakOnline: this.peakOnline, joins: this.joins,
       monsters: this.monsters.size, pendingRespawns: this.monsters.pendingRespawns, groundItems: this.ground.size,
       tickAvgMs: n ? sum / n : 0, tickMaxMs: max, tickBudgetMs: TICK_MS,
       rssMb: Math.round(mem.rss / 1048576), heapMb: Math.round(mem.heapUsed / 1048576), errors: this.errors.total,
+      ...(sv.n ? { saveAvgMs: sv.sum / sv.n, saveMaxMs: sv.max } : {}),
     });
+    // Progressão medida: o que está salvo de todos os personagens, com os online substituídos pela contagem viva.
+    try {
+      const live = new Map<string, CharacterRecord["data"]["play"]>();
+      for (const [sid, rec] of this.records) live.set(rec.name, this.telemetry.serialize(sid, this.state.players.get(sid)?.level ?? rec.level) ?? rec.data.play);
+      lines.push(...summarizePlay(listRankingRows().map((r) => (live.has(r.name) ? live.get(r.name) : r.data.play))));
+    } catch (e) {
+      this.errors.report("status.play", e);
+    }
+    return lines;
   }
 
   /** Erros em onMessage/onJoin/onLeave/clock/tick (o Colyseus embrulha tudo com isto): loga e segue. */
@@ -740,6 +767,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       } satisfies NoticeMsg);
     }
     console.log(`[world] ${rec.name} entrou (${this.state.players.size} online)`);
+    this.telemetry.onJoin(sid, p.level, rec.data.play);
     this.events.sendTo(sid);
     // Avisos de entrada (amigos online e bônus de login) saem ~3 s depois: o chat e os avisos do cliente só passam a
     // escutar depois da entrada, então o que sai na hora se perde.
@@ -756,7 +784,10 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       // Bônus de dias seguidos. Desligado nos testes (E2E e unitários contam ouro/itens do kit inicial): LEMONQUEST_LOGIN_BONUS=0.
       if (!e2eMode() && process.env.LEMONQUEST_LOGIN_BONUS !== "0") {
         const r = this.records.get(sid);
-        if (r) grantLoginBonus({ send: (id, type, msg) => this.clients.getById(id)?.send(type, msg), inventory: this.inventory }, pl, r);
+        // Gravado na hora: uma queda antes do autosave repetia o prêmio no próximo login (#56).
+        if (r && grantLoginBonus({ send: (id, type, msg) => this.clients.getById(id)?.send(type, msg), inventory: this.inventory }, pl, r).fresh) {
+          runSafe("loginBonus.save", () => this.save(sid), this.errors);
+        }
       }
     }, 3000);
     this.joins++;
@@ -954,6 +985,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.ach.sendState(sid);
     this.party.resend(sid);
     this.trade.resend(sid);
+    this.events.sendTo(sid); // evento que começou/terminou durante a queda (#55)
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);
   }
 
@@ -970,6 +1002,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         p.targetId = "";
         p.followId = "";
         this.pauseAuto(p);
+        // Sem ninguém no teclado a troca não vai concluir: fecha já, em vez de prender o parceiro até a permanência acabar (#55).
+        this.trade.cancel(sid, `${p.name} saiu do jogo; troca cancelada.`);
       }
       console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${Math.ceil(ms / 1000)} s`);
       this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), ms));
@@ -1062,6 +1096,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         ["fishing", () => this.fishing.removePlayer(sid)],
         ["party", () => this.party.removePlayer(sid)],
         ["social", () => { const pl = this.state.players.get(sid); if (pl) this.social.onLeave(pl); }],
+        ["telemetry", () => this.telemetry.removePlayer(sid)],
       ];
       for (const [k, fn] of steps) runSafe(`saída/${k}`, fn, this.errors);
       this.throttle.clearPrefix(`${sid}:`);
@@ -1133,6 +1168,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     rec.data.tone = p.tone;
     const quests = this.quests.serialize(sessionId);
     if (quests) rec.data.quests = quests;
+    rec.data.play = this.telemetry.serialize(sessionId, p.level) ?? rec.data.play;
     this.persist(rec);
   }
 
@@ -1194,8 +1230,14 @@ export class WorldRoom extends Room<{ state: WorldState }> {
 
   /** Salva todos (autosave / desligamento). Um registro com erro não impede os outros. */
   saveAll(): number {
+    const t0 = performance.now();
     let n = 0;
-    for (const id of [...this.records.keys()]) if (runSafe("autosave", () => this.save(id), this.errors)) n++;
+    // Uma transação para todos: um commit/fsync em vez de um por jogador (#56). Um registro com erro não desfaz os
+    // outros (runSafe engole a exceção dentro da transação).
+    transaction(() => { for (const id of [...this.records.keys()]) if (runSafe("autosave", () => this.save(id), this.errors)) n++; });
+    const ms = performance.now() - t0;
+    const s = this.savePerf;
+    s.n++; s.sum += ms; if (ms > s.max) s.max = ms;
     return n;
   }
 }

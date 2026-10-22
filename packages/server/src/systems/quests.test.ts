@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BOUNTY_BANDS, BOUNTY_CHEST_ID, ITEMS, MONSTERS, QUEST_LIST, QUESTS, RARITIES, S2C, isEquipable, itemDef, npcMarker, npcDef,
-  bountyTitle, isValidUnlockId, pluralPt, questStatus, questsForNpc, xpForLevel, type QuestDef, type QuestsMsg,
+  applyXpStage, bountyTitle, isValidUnlockId, pluralPt, questStatus, questsForNpc, xpForLevel, type QuestDef, type QuestsMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { InventorySystem, makeItem } from "./inventory.ts";
@@ -318,6 +318,20 @@ describe("recompensas diárias", () => {
     w.qs.tick(w.now(), [p]);
     expect(w.state().bounties.list.map((x) => x.status)).toEqual(["open", "open", "open"]);
     expect(w.state().bounties.day).toBe(bountyDay(w.now()));
+  });
+
+  it("XP da diária segue o estágio de XP do level (lv 50 recebe metade)", () => {
+    const w = qworld();
+    const p = w.mk("p1", { level: 50 });
+    w.open.set("p1", "bounty_board");
+    w.qs.onAction(p, { action: "bountyAccept", index: 0 });
+    const b = w.state().bounties.list[0]!;
+    for (let i = 0; i < b.count; i++) w.qs.onKill(b.monster, ["p1"]);
+    w.qs.onAction(p, { action: "bountyTurnIn", index: 0 });
+    const staged = applyXpStage(b.xp, 50);
+    expect(staged).toBeLessThan(b.xp);
+    expect(w.xp.at(-1)).toEqual({ id: "p1", n: staged });
+    expect(w.sent.find((s) => s.type === S2C.QuestComplete && s.msg.bounty)!.msg.xp).toBe(staged);
   });
 
   it("faixa de level travada no dia (subir de level não troca a lista)", () => {

@@ -192,6 +192,9 @@ export class MonsterAbilitySystem {
       if (other?.s.ownerId && other.s.hp > 0 && mm.allowedFor(m, other.s.id)) hit.push(other.s);
     }
     for (const c of hit) {
+      // Golpe letal não deixa condição: o jogador morto renasce no templo com a vida cheia (c.hp > 0 de novo) e, sem
+      // esta checagem, aparecia lá envenenado/queimando, com o dano contínuo tiquando na zona de proteção (#54).
+      let survived = true;
       if (a.damage) {
         const raw = Math.round(rollInt(a.damage.min, a.damage.max, this.rng) * (m.dmgMult ?? 1));
         if (isMonsterState(c)) {
@@ -200,10 +203,12 @@ export class MonsterAbilitySystem {
         } else {
           // Armadura inteira, como no ataque básico do monstro (os números das habilidades foram calibrados assim).
           this.o.combat.shieldTry(c, now, { monsterLevel: m.def.level, raw });
-          this.o.combat.damagePlayer(c, m.s.id, mitigate(raw, this.o.combat.armorOf(c)), a.damage.kind, now, { ranged: true, killerName: m.def.name });
+          const before = c.hp;
+          const dealt = this.o.combat.damagePlayer(c, m.s.id, mitigate(raw, this.o.combat.armorOf(c)), a.damage.kind, now, { ranged: true, killerName: m.def.name });
+          survived = dealt < before;
         }
       }
-      if (a.condition && c.hp > 0) this.o.conditions.apply(c.id, a.condition.id, a.condition.durationMs, a.condition.value, m.s.id, now);
+      if (a.condition && c.hp > 0 && survived) this.o.conditions.apply(c.id, a.condition.id, a.condition.durationMs, a.condition.value, m.s.id, now);
     }
   }
 
