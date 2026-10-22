@@ -33,7 +33,7 @@ export function firstPotion(kind: PotionKind) {
 export function quickPotion(kind: PotionKind): void {
   const it = firstPotion(kind);
   if (!it) {
-    pushToast({ text: kind === "hp" ? "Sem poção de vida" : "Sem poção de mana", kind: "warn" }, 800);
+    pushToast({ text: kind === "hp" ? "Você não tem poção de vida." : "Você não tem poção de mana.", kind: "warn" }, 800);
     return;
   }
   if (potionCooling()) return;

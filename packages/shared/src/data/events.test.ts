@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WEEKLY_EVENTS, eventBonusText, nextScheduled, scheduledEvent, type GameEventDef } from "./events.ts";
 import { MONSTERS } from "./monsters.ts";
 
-// 2026-10-14 é uma quarta-feira (dia 3); 2026-10-16, sexta (5); 2026-10-17, sábado (6).
+// 2026-10-14 é uma quarta-feira (dia 3); 2026-10-16, sexta (5); 2026-10-17, sábado (6); 2026-10-19, segunda (1).
 const at = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min, 0, 0);
 
 describe("eventos semanais", () => {
@@ -23,7 +23,8 @@ describe("eventos semanais", () => {
     expect(scheduledEvent(at(2026, 10, 16, 19, 59))?.id).toBe("noite_de_cacada");
     expect(scheduledEvent(at(2026, 10, 16, 20, 0))).toBeNull();
     expect(scheduledEvent(at(2026, 10, 14, 12, 30))?.id).toBe("mare_de_tesouros"); // quarta
-    expect(scheduledEvent(at(2026, 10, 15, 12, 30))).toBeNull(); // quinta: nenhum
+    expect(scheduledEvent(at(2026, 10, 15, 12, 30))?.id).toBe("rugido_do_yeti"); // quinta: chefe do almoço
+    expect(scheduledEvent(at(2026, 10, 15, 14, 0))).toBeNull(); // quinta à tarde: nenhum
   });
 
   it("o fim vem em ms epoch e a janela que atravessa a meia-noite continua no dia seguinte", () => {
@@ -34,17 +35,17 @@ describe("eventos semanais", () => {
   });
 
   it("próximo evento: o mais cedo depois de agora", () => {
-    const n = nextScheduled(at(2026, 10, 14, 13, 0))!; // quarta depois da Maré (12h): o próximo é o Lich, às 20h
-    expect(n.def.id).toBe("despertar_do_lich");
-    expect(n.at).toBe(at(2026, 10, 14, 20, 0).getTime());
-    expect(nextScheduled(at(2026, 10, 14, 21, 0))!.def.id).toBe("rugido_do_yeti"); // depois do Lich: quinta 20h
-    expect(nextScheduled(at(2026, 10, 15, 22, 0))!.def.id).toBe("noite_de_cacada"); // depois do Yeti: sexta
+    const n = nextScheduled(at(2026, 10, 14, 13, 0))!; // quarta depois da Maré (12h): o próximo é o Yeti, quinta 12h15
+    expect(n.def.id).toBe("rugido_do_yeti");
+    expect(n.at).toBe(at(2026, 10, 15, 12, 15).getTime());
+    expect(nextScheduled(at(2026, 10, 15, 13, 0))!.def.id).toBe("furia_de_demodras"); // quinta depois do Yeti: sexta 12h15
+    expect(nextScheduled(at(2026, 10, 16, 13, 0))!.def.id).toBe("noite_de_cacada"); // sexta depois de Demodras: 19h
+    expect(nextScheduled(at(2026, 10, 16, 20, 0))!.def.id).toBe("tarde_de_sabado"); // sexta à noite: sábado 14h
     expect(nextScheduled(at(2026, 10, 17, 17, 0))!.def.id).toBe("invasao_de_orshabaal"); // sábado depois das 16h: 21h
-    expect(nextScheduled(at(2026, 10, 17, 23, 0))!.def.id).toBe("cacada_ao_rei"); // sábado depois de Orshabaal: domingo 20h
-    expect(nextScheduled(at(2026, 10, 19, 12, 0))!.def.id).toBe("retorno_de_ferumbras"); // segunda: 21h
-    expect(nextScheduled(at(2026, 10, 19, 23, 0))!.def.id).toBe("furia_de_demodras"); // segunda depois de Ferumbras: terça 20h
-    expect(nextScheduled(at(2026, 10, 18, 22, 0))!.def.id).toBe("retorno_de_ferumbras"); // domingo à noite: segunda 21h
-    expect(nextScheduled(at(2026, 10, 20, 22, 0))!.def.id).toBe("mare_de_tesouros"); // terça depois de Demodras: quarta 12h
+    expect(nextScheduled(at(2026, 10, 17, 23, 0))!.def.id).toBe("retorno_de_ferumbras"); // sábado à noite: domingo 15h
+    expect(nextScheduled(at(2026, 10, 18, 17, 0))!.def.id).toBe("despertar_do_lich"); // domingo depois de Ferumbras: segunda 12h15
+    expect(nextScheduled(at(2026, 10, 19, 13, 0))!.def.id).toBe("cacada_ao_rei"); // segunda depois do Lich: terça 12h15
+    expect(nextScheduled(at(2026, 10, 20, 13, 0))!.def.id).toBe("mare_de_tesouros"); // terça depois do Rei: quarta 12h
   });
 
   it("eventos de chefe: o chefe existe no catálogo e as janelas não se sobrepõem", () => {
@@ -57,8 +58,22 @@ describe("eventos semanais", () => {
       const as = a.hour * 60 + (a.minute ?? 0), bs = b.hour * 60 + (b.minute ?? 0);
       expect(as + a.durationMin <= bs || bs + b.durationMin <= as, `${a.id} × ${b.id}`).toBe(true);
     }
-    expect(scheduledEvent(at(2026, 10, 14, 20, 30))).toMatchObject({ id: "despertar_do_lich", boss: "swamp_lich" });
-    expect(scheduledEvent(at(2026, 10, 18, 21, 0))).toMatchObject({ id: "cacada_ao_rei", boss: "goblin_king" }); // domingo
+    expect(scheduledEvent(at(2026, 10, 19, 12, 30))).toMatchObject({ id: "despertar_do_lich", boss: "swamp_lich" }); // segunda
+    expect(scheduledEvent(at(2026, 10, 19, 12, 14))).toBeNull();
+    expect(scheduledEvent(at(2026, 10, 19, 13, 0))).toBeNull();
+    expect(scheduledEvent(at(2026, 10, 18, 15, 30))).toMatchObject({ id: "retorno_de_ferumbras", boss: "ferumbras" }); // domingo
+  });
+
+  it("chefes no horário do almoço: dias úteis entre 12h e 13h, e só um chefe à noite", () => {
+    const withBoss = WEEKLY_EVENTS.filter((e) => e.boss);
+    const lunch = withBoss.filter((e) => e.day >= 1 && e.day <= 5);
+    expect(lunch.length).toBe(4);
+    for (const e of lunch) {
+      const start = e.hour * 60 + (e.minute ?? 0);
+      expect(start, e.id).toBeGreaterThanOrEqual(12 * 60);
+      expect(start + e.durationMin, e.id).toBeLessThanOrEqual(13 * 60);
+    }
+    expect(withBoss.filter((e) => e.hour >= 18).map((e) => e.id)).toEqual(["invasao_de_orshabaal"]);
   });
 
   it("texto do bônus: só o que passa de 1, com vírgula decimal", () => {

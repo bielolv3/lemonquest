@@ -147,7 +147,11 @@ export interface CastMsg { spellId: string; targetId?: string | null }
 
 export interface AttackMsg { targetId: string | null }
 export interface MoveMsg { dir: Dir | null; seq: number }
-export interface WalkToMsg { x: number; y: number }
+/**
+ * Andar até (x,y) pelo caminho. `stop: true` = só cancela o caminho em andamento (o passo já começado termina);
+ * x/y são ignorados (o cliente manda o próprio tile, que num servidor antigo também para).
+ */
+export interface WalkToMsg { x: number; y: number; stop?: true }
 export interface TurnMsg { dir: Dir }
 export interface ChatSendMsg { text: string; channel: ChatChannel }
 

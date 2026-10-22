@@ -63,7 +63,7 @@ export class FishingSystem {
     if (this.o.inventory.countItem(p.id, FISH_ROD) < 1) { this.notice(p.id, "Você precisa de uma Vara de Pesca (o Velho Caçador Tomé vende).", "warn"); return; }
     if (!this.o.isWater(m.x, m.y)) { this.notice(p.id, "Aqui não tem água.", "warn"); return; }
     if (cheb(p, m.x, m.y) > FISH_RANGE) { this.notice(p.id, "Chegue mais perto da água.", "warn"); return; }
-    if (this.o.inArena(p.id)) { this.notice(p.id, "Agora não.", "warn"); return; }
+    if (this.o.inArena(p.id)) { this.notice(p.id, "Não dá para pescar no Coliseu.", "warn"); return; }
     if (this.o.inventory.roomFor(p.id, "trout") < 1) { this.notice(p.id, "Sua mochila está cheia: abra espaço para o peixe.", "warn"); return; }
     this.casts.set(p.id, { x: m.x, y: m.y, px: p.x, py: p.y, hp: p.hp, endsAt: this.now() + FISH_CAST_MS });
     this.bobber(p.id, m.x, m.y, FISH_CAST_MS);

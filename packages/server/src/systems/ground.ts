@@ -5,7 +5,7 @@
 // no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
 // servidor desligado também conta).
 import {
-  RARITY_LABEL, S2C, lineOfSight,
+  DROP_RANGE, RARITY_LABEL, S2C, lineOfSight,
   type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type LookGroundMsg, type LookItemMsg, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
   type Rarity,
 } from "@lemonquest/shared";
@@ -14,7 +14,7 @@ import { PerSecond } from "../persistence/ratelimit.ts";
 import { GOLD_ID, maxStackOf, newUid, type InventorySystem } from "./inventory.ts";
 
 /** Distância máxima (Chebyshev) para largar num tile que não seja o próprio. */
-export const DROP_RANGE = 3;
+export { DROP_RANGE };
 /** Distância máxima (Chebyshev) para "olhar" um item do chão (o que cabe na tela). */
 export const LOOK_RANGE = 12;
 /** Distância máxima (Chebyshev) para pegar. */
@@ -29,9 +29,13 @@ export const DECAY_MS: Record<Rarity, number> = {
 export const GROUND_RATE = 10;
 const SWEEP_MS = 1000;
 const LOG_RARITIES: Rarity[] = ["epic", "legendary"];
+/** Com o chão lotado, estes só saem depois de todos os comuns/incomuns. */
+const PROTECTED_RARITIES: Rarity[] = ["rare", "epic", "legendary"];
 
 export const GROUND_MSG = {
   tileFull: "Não cabe mais nada aqui.",
+  itemFar: "O item está longe demais.",
+  throwFar: "Você não alcança esse lugar daqui.",
   full: "Mochila cheia.",
 } as const;
 
@@ -39,7 +43,15 @@ export interface GroundEntry {
   state: GroundItemState;
   item: ItemInstance;
   expiresAt: number;
+  /** Quando a parte mais antiga da pilha caiu: o prazo nunca passa de createdAt + MAX_LIFE_MULT × DECAY_MS. */
+  createdAt: number;
 }
+
+/** Prazo (e "nascimento") de um item que muda de tile: viaja com ele. */
+export interface GroundStamp { expiresAt: number; createdAt: number }
+
+/** Juntar pilhas estende o prazo até, no máximo, este múltiplo do tempo normal contado de quando a mais antiga caiu. */
+export const MAX_LIFE_MULT = 2;
 
 /** Coleção sincronizada (MapSchema no jogo, Map nos testes). */
 export interface GroundCollection {
@@ -48,7 +60,7 @@ export interface GroundCollection {
   get(k: string): GroundItemState | undefined;
 }
 
-export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number }
+export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number; createdAt?: number | null }
 /** Armazenamento dos itens do chão (o jogo usa o SQLite; os testes, um array). */
 export interface GroundStore {
   load(): GroundRecord[];
@@ -148,30 +160,36 @@ export class GroundSystem {
 
   /**
    * Coloca um item no chão em (x,y). Empilha em cima de uma pilha igual. Retorna o id (ou undefined se o tile está
-   * cheio/inválido).
+   * cheio/inválido). `stamp` = prazo e "nascimento" do item que chega (padrão: caiu agora, prazo agora + DECAY_MS).
+   * Ao empilhar, a pilha fica com o prazo MAIS TARDE dos dois (o que acabou de cair não some junto com uma pilha velha),
+   * limitado a MAX_LIFE_MULT × DECAY_MS desde a parte mais antiga: juntar/mover pilhas nunca deixa nada eterno.
    */
-  place(item: ItemInstance, x: number, y: number): string | undefined {
+  place(item: ItemInstance, x: number, y: number, stamp?: GroundStamp): string | undefined {
     if (!this.o.canHold(x, y) || item.count < 1) return undefined;
     const now = this.now();
     const ids = this.at(x, y);
     const d = this.o.inventory.defs(item.defId);
     if (!d) return undefined;
-    // Empilha no topo se for o mesmo item empilhável (e nenhum dos dois tiver dono).
+    const decay = DECAY_MS[item.rarity] ?? DECAY_MS.common;
+    const until = stamp?.expiresAt ?? now + decay;
+    const created = stamp?.createdAt ?? now;
+    // Empilha no topo se for o mesmo item empilhável.
     const topId = ids[ids.length - 1];
     const top = topId ? this.entries.get(topId) : undefined;
     if (top && d.stackable
       && top.item.defId === item.defId && top.item.rarity === item.rarity && top.item.count + item.count <= maxStackOf(d)) {
       top.item.count += item.count;
       top.state.count = top.item.count;
-      top.expiresAt = now + DECAY_MS[item.rarity];
+      top.createdAt = Math.min(top.createdAt, created);
+      top.expiresAt = Math.min(Math.max(top.expiresAt, until), top.createdAt + MAX_LIFE_MULT * decay);
       this.dirty = true;
       return top.state.id;
     }
     if (ids.length >= MAX_PER_TILE) return undefined;
     while (this.entries.size >= MAX_GROUND_ITEMS) {
-      const oldest = this.entries.keys().next().value;
-      if (oldest === undefined) break;
-      this.remove(oldest);
+      const victim = this.evictionVictim();
+      if (victim === undefined) break;
+      this.remove(victim);
     }
     const s = new GroundItemState();
     s.id = `g${(++this.seq).toString(36)}`;
@@ -180,7 +198,7 @@ export class GroundSystem {
     s.rarity = item.rarity;
     s.x = x;
     s.y = y;
-    const e: GroundEntry = { state: s, item, expiresAt: now + (DECAY_MS[item.rarity] ?? DECAY_MS.common) };
+    const e: GroundEntry = { state: s, item, expiresAt: until, createdAt: created };
     this.entries.set(s.id, e);
     const k = tileKey(x, y);
     const list = this.tiles.get(k);
@@ -218,7 +236,7 @@ export class GroundSystem {
   /**
    * C2S.MoveGroundItem: arrasta um item do chão para outro tile. O item tem de estar a até DROP_RANGE do jogador com
    * linha livre, e o destino segue a regra de largar (alcance, linha livre, tile que segura item). O tempo até sumir não
-   * reinicia (mover não deixa o item eterno).
+   * reinicia: o item leva o próprio prazo e "nascimento"; fundindo com uma pilha vale a regra de `place` (teto de 2×).
    */
   onMoveGround(p: PlayerState, msg: MoveGroundItemMsg): void {
     if (!msg || typeof msg !== "object" || typeof msg.groundId !== "string" || p.hp <= 0) return;
@@ -228,24 +246,23 @@ export class GroundSystem {
     const e = this.entries.get(msg.groundId);
     if (!e) return;
     const { x: sx, y: sy } = e.state;
-    if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return;
+    if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return this.warn(p, GROUND_MSG.itemFar);
     if (msg.x === sx && msg.y === sy) return;
-    if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !this.o.canHold(msg.x, msg.y) || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return;
+    if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return this.warn(p, GROUND_MSG.throwFar);
+    if (!this.o.canHold(msg.x, msg.y)) return;
     const n = Math.min(msg.count ?? e.item.count, e.item.count);
     if (!this.fits(msg.x, msg.y, e.item.defId, e.item.rarity, n)) return this.warn(p, GROUND_MSG.tileFull);
     const whole = n >= e.item.count;
     const moving: ItemInstance = whole ? e.item : { ...e.item, uid: newUid(), count: n, bonuses: e.item.bonuses.map((b) => ({ ...b })) };
-    const expiresAt = e.expiresAt;
+    const stamp: GroundStamp = { expiresAt: e.expiresAt, createdAt: e.createdAt };
     if (whole) this.remove(e.state.id);
-    const id = this.place(moving, msg.x, msg.y);
+    const id = this.place(moving, msg.x, msg.y, stamp);
     if (!id) {
       // Não deveria acontecer (checado acima): devolve ao tile de origem.
-      if (whole) { const back = this.place(moving, sx, sy); const b = back ? this.entries.get(back) : undefined; if (b) b.expiresAt = expiresAt; }
+      if (whole) this.place(moving, sx, sy, stamp);
       return this.warn(p, GROUND_MSG.tileFull);
     }
     if (!whole) { e.item.count -= n; e.state.count = e.item.count; }
-    const placed = this.entries.get(id);
-    if (placed && placed.item === moving) placed.expiresAt = expiresAt;
     this.dirty = true;
   }
 
@@ -280,7 +297,7 @@ export class GroundSystem {
     this.lastSave = now;
     try {
       store.save([...this.entries.values()].map((e) => ({
-        x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt,
+        x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt, createdAt: e.createdAt,
       })));
     } catch (err) {
       this.dirty = true; // tenta de novo na próxima varredura
@@ -308,7 +325,9 @@ export class GroundSystem {
       s.rarity = r.item.rarity;
       s.x = r.x;
       s.y = r.y;
-      const e: GroundEntry = { state: s, item: r.item, expiresAt: r.expiresAt };
+      // Registro de antes do createdAt: estima pelo prazo (caiu DECAY_MS antes de vencer).
+      const createdAt = typeof r.createdAt === "number" ? r.createdAt : r.expiresAt - (DECAY_MS[r.item.rarity] ?? DECAY_MS.common);
+      const e: GroundEntry = { state: s, item: r.item, expiresAt: r.expiresAt, createdAt };
       this.entries.set(s.id, e);
       const k = tileKey(r.x, r.y);
       const list = this.tiles.get(k);
@@ -321,6 +340,16 @@ export class GroundSystem {
   }
 
   removePlayer(id: string): void { this.limiter.clearPrefix(`${id}:`); }
+
+  /** Chão lotado (MAX_GROUND_ITEMS): sai o comum/incomum mais antigo; só sem nenhum deles, o mais antigo de todos. */
+  private evictionVictim(): string | undefined {
+    let oldest: string | undefined;
+    for (const [id, e] of this.entries) {
+      oldest ??= id;
+      if (!PROTECTED_RARITIES.includes(e.item.rarity)) return id;
+    }
+    return oldest;
+  }
 
   // --- internos -----------------------------------------------------------------------
 

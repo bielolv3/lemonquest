@@ -332,7 +332,7 @@ export const NPCS: Record<string, NpcDef> = {
     greeting: "Sinto o calor do Vulcão de Goroma daqui. Lá dentro, Ferumbras espera. Poucos voltam da cratera... menos ainda da Cidadela.",
     idleLines: [
       "O magma pulsa como um coração. O coração de Ferumbras.",
-      "Na Cidadela há uma sala que exige quatro heróis. A Aniquilação.",
+      "Na Cidadela, de dois a quatro heróis sobem nas placas e quem está ao lado puxa a alavanca. A Aniquilação.",
       "Cães infernais não dormem. Nunca.",
     ],
   },

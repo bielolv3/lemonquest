@@ -5,8 +5,9 @@ import { findObjects, objectTile, type TiledMap, type TiledObject } from "../map
 //   grupo são uma escolha ("pegue um dos quatro"): abrir um esvazia os outros para aquele personagem.
 // - Portas de level/missão: objetos "portal" com `minLevel`, `quest` (missão concluída) e/ou `chestGroup` (baú aberto).
 //   Quem não cumpre bate na porta e volta para o tile de onde veio.
-// - Alavancas de grupo (objeto "quest_lever"): com um jogador em cada placa, puxar a alavanca leva todos para a sala da
-//   quest e solta os monstros (Aniquilação). As posições (placas, destinos, sala, monstros) vêm do mapa.
+// - Alavancas de grupo (objeto "quest_lever"): com jogadores em pelo menos `minPlayers` placas, puxar a alavanca leva
+//   todos para a sala da quest e solta os monstros, em número proporcional ao grupo (Aniquilação). As posições
+//   (placas, destinos, sala, monstros) vêm do mapa.
 
 export interface QuestChestGroupDef {
   id: string;
@@ -30,10 +31,21 @@ export interface QuestLeverDef {
   id: string;
   name: string;
   minLevel: number;
-  /** Jogadores necessários (um por placa). */
+  /** Máximo de jogadores (= placas do mapa; um por placa). */
   players: number;
-  /** Ids de MONSTERS soltos na sala, na ordem das posições `spawns` do objeto do mapa. */
+  /** Mínimo de jogadores ocupando placas para a alavanca mexer. */
+  minPlayers: number;
+  /** Ids de MONSTERS soltos na sala com o grupo cheio, na ordem das posições `spawns` do objeto do mapa. */
   monsters: string[];
+}
+
+/**
+ * Monstros soltos para `n` jogadores: a mesma carga por cabeça do grupo cheio (6 demônios ÷ 4 = 1,5 cada),
+ * arredondada para cima — 4 → 6, 3 → 5, 2 → 3. Grupo menor não fica mais fácil por jogador, só cabe no escritório.
+ */
+export function leverMonsters(def: QuestLeverDef, n: number): string[] {
+  const k = Math.max(1, Math.min(def.players, Math.floor(n)));
+  return def.monsters.slice(0, Math.min(def.monsters.length, Math.ceil((def.monsters.length * k) / def.players)));
 }
 
 /** Distância (Chebyshev) para abrir um baú ou puxar uma alavanca. */
@@ -74,7 +86,7 @@ export const QUEST_CHESTS: Record<string, QuestChestDef> = Object.fromEntries([
 ].map((c) => [c.id, c]));
 
 export const QUEST_LEVERS: Record<string, QuestLeverDef> = {
-  annihilator: { id: "annihilator", name: "A Aniquilação", minLevel: 100, players: 4, monsters: ["demon", "demon", "demon", "demon", "demon", "demon"] },
+  annihilator: { id: "annihilator", name: "A Aniquilação", minLevel: 100, players: 4, minPlayers: 2, monsters: ["demon", "demon", "demon", "demon", "demon", "demon"] },
 };
 
 export const questChestDef = (id: string): QuestChestDef | undefined => (Object.hasOwn(QUEST_CHESTS, id) ? QUEST_CHESTS[id] : undefined);

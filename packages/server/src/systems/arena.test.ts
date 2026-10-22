@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARENA_BREAK_MS, ARENA_COUNTDOWN_MS, ARENA_MAX_WAVE, arenaWave, ARENA_INTRO_MS, ARENA_SHOP_PAUSE_MS, ARENA_SPAWN_DELAY_MS, S2C, arenaWaveGold,
-  arenaWaveSpawns, monsterDef, type TiledMap,
+  ARENA_COMPLETE_GOLD, arenaWaveSpawns, monsterDef, type TiledMap,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { ArenaSystem, parseArenas, type ArenaLayout } from "./arena.ts";
@@ -219,7 +219,7 @@ describe("coliseu: partida", () => {
     expect(k.w.sent.some((s) => s.type === S2C.Loot)).toBe(false);
   });
 
-  it("XP das ondas só para quem está na faixa de level do grupo (2/3 do maior); o resto ganha só o ouro", () => {
+  it("XP e ouro das ondas só para quem está na faixa de level do grupo (2/3 do maior)", () => {
     const k = setup();
     const hi = k.add("hi", { level: 30 }), lo = k.add("lo", { level: 5 }), mid = k.add("mid", { level: 20 });
     k.arena.onAction(hi, { action: "create" });
@@ -232,8 +232,9 @@ describe("coliseu: partida", () => {
     expect(hi.xp).toBeGreaterThan(xp0.hi);
     expect(mid.xp - xp0.mid).toBe(hi.xp - xp0.hi); // 20 ≥ 2/3 de 30
     expect(lo.xp).toBe(xp0.lo);
-    expect(k.gold.get("lo")).toBe(arenaWaveGold(1));
-    expect(k.notices("lo").at(-1)).toMatch(/Sem XP: level abaixo de 20/);
+    expect(k.gold.get("lo") ?? 0).toBe(0);
+    expect(k.gold.get("mid")).toBe(arenaWaveGold(1));
+    expect(k.notices("lo").at(-1)).toMatch(/Sem XP nem ouro: level abaixo de 20/);
     expect(k.lastOf("lo", S2C.ArenaState).state.earned.xp).toBe(0);
     // A janela mostra o level de cada membro (para marcar quem fica sem XP).
     expect(k.lastOf("lo", S2C.ArenaState).state.members.map((m: any) => m.level).sort((x: number, y: number) => x - y)).toEqual([5, 20, 30]);
@@ -467,5 +468,34 @@ describe("coliseu: balanço (estimativa)", () => {
   it("a dificuldade cresce com as ondas (média por bloco de 5)", () => {
     const block = (b: number) => [1, 2, 3, 4, 5].reduce((s, i) => s + estimate(b * 5 + i, 1, 20), 0);
     for (let b = 1; b < 6; b++) expect(block(b)).toBeGreaterThan(block(b - 1));
+  });
+});
+
+describe("arena: fim do Coliseu", () => {
+  it(`vencer as ${ARENA_MAX_WAVE} ondas: resultado "completed", bônus de ouro e XP, recorde e arena liberada`, () => {
+    const k = setup();
+    const a = k.add("a", { level: 120, maxHp: 1e9, hp: 1e9 });
+    k.arena.onAction(a, { action: "create" });
+    k.arena.onAction(a, { action: "start" });
+    k.toWave1();
+    for (let guard = 0; !k.lastOf("a", S2C.ArenaResult) && guard < 400; guard++) {
+      a.hp = a.maxHp;
+      k.killAll();
+      k.run(1000);
+      k.arena.onAction(a, { action: "ready" });
+      k.run(3000);
+    }
+    const res = k.lastOf("a", S2C.ArenaResult);
+    expect(res).toMatchObject({ reason: "completed", wavesCleared: ARENA_MAX_WAVE, best: ARENA_MAX_WAVE });
+    let waveGold = 0;
+    for (let w = 1; w <= ARENA_MAX_WAVE; w++) waveGold += arenaWaveGold(w);
+    expect(res.gold).toBe(waveGold + ARENA_COMPLETE_GOLD);
+    expect(k.gold.get("a")).toBe(res.gold);
+    expect(a.xp).toBe(res.xp); // começou com 0: tudo veio das ondas + 25% de bônus
+    expect(k.best.get("a")).toBe(ARENA_MAX_WAVE);
+    expect(k.arena.inMatch("a")).toBe(false);
+    expect(k.arena.freeArenas).toBe(1);
+    expect(k.arenaMonsters()).toHaveLength(0);
+    expect([a.x, a.y]).toEqual([EXIT.x, EXIT.y]);
   });
 });

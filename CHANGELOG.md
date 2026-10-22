@@ -1,5 +1,73 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · famílias de magia e barra mais esperta
+
+Benchmark (Tibia, WoW, RuneScape, Albion/ARPGs): ver a conversa do ciclo; escolhidos os itens 1–3.
+
+- **Famílias de magia (tecla inteligente, ◆)** (`shared/data/spellFamilies.ts`): magias do mesmo papel num atalho só;
+  apertar conjura a mais forte que estiver liberada, fora de recarga, com mana e no alcance do alvo (o cliente escolhe e
+  manda a magia real: o servidor não muda). O slot mostra o ícone e a recarga da que vai sair. 9 famílias: ataque no
+  alvo e área para as 4 vocações (paladino: chuva no alvo), onda do feiticeiro. As magias continuam com palavras e
+  atalho próprio para quem preferir.
+- **Barra recomendada** ("Recomendado" no painel H; padrão de personagem novo): famílias + magias avulsas em ordem de
+  level. Teclas: cavaleiro 11 → 8, paladino 10 → 5, feiticeiro 12 → 7, druida 12 → 9.
+- **Barra que se monta sozinha**: magia (ou família) ainda bloqueada no level não aparece na barra (o atalho continua
+  salvo); ao subir de level, a magia nova entra na próxima tecla livre (como família, se nenhuma magia da família está
+  na barra) e um aviso diz a tecla.
+- **Barra que informa**: magia de alvo com o alvo ao alcance acende a borda na cor do elemento; com o alvo longe fica
+  avermelhada; sem alvo, apagada (o balão diz "Alvo fora de alcance"/"Sem alvo").
+- `DEFAULT_SPELL_RANGE` e `needsTarget` passaram para o shared. Probe E2E `__lq.spellCd(id)`.
+
+## [Não lançado] — 2026-10-22 · mover item longe e perseguir grudado
+
+- **Mover item do chão longe**: arrastar um item fora do alcance (3 tiles) faz o personagem andar até ele (pelo lado
+  mais perto do destino) e mover ao chegar, como já acontecia ao pegar. O servidor avisa em vez de falhar calado: "O
+  item está longe demais." / "Você não alcança esse lugar daqui." `DROP_RANGE` passou para o shared.
+- **Perseguir o alvo (F8) gruda no monstro** em qualquer vocação: paladino e magos também chegam ao lado, em vez de
+  parar no alcance do ataque.
+
+## [Não lançado] — 2026-10-22 · ciclo 7: auditoria em equipe, troca segura, balanço do fim de jogo e social
+
+Auditoria de 5 agentes (game design, engenharia, UX, QA, crítica) sobre os 47 commits desde `7d8bc4b`; detalhes e
+decisões em `docs/GAME_ROADMAP.md` (Ciclo 7).
+
+**Correções**
+- **Troca**: o confirmar leva a versão da oferta (`rev`); um clique que chega depois de o outro mudar a oferta não vale
+  ("A oferta mudou: confira e confirme de novo."). O ouro digitado é enviado antes de confirmar (antes confirmava com 0).
+  Botão travado 1 s após a oferta do outro mudar. A troca volta após reconexão (`resend`). Morrer cancela a troca e o
+  seguir. Os dois lados são gravados numa só transação (também no logout logo em seguida). Aba antiga sem `rev`: "Atualize
+  a página (F5)".
+- **Bloqueio de PZ**: viagem (barco/carroça) recusada enquanto dura, com os segundos que faltam (o barco do Porto
+  escapava do bloqueio); o aviso da entrada da PZ também mostra os segundos.
+- **Chão**: empilhar/fundir/mover não renova mais o prazo (itens ficavam eternos) nem encurta o do item recém-caído; teto
+  de 2× o prazo desde a parte mais antiga (`created_at`, migração v7). Chão lotado despeja comuns/incomuns primeiro.
+- **Caveira vermelha**: o ouro só sai da conta depois de caber no chão (`placeNear`); antes sumia com o tile cheio.
+- **Recompensas no chão** (baú de quest, desafio): gravadas junto com o jogador; sobra com `uid` novo; desafio confere se
+  a recompensa inteira cabe.
+- Personagem que fica no mundo após sair/cair não continua no ataque automático. Loot de grupo só vai ao chão com outro
+  membro perto do monstro. "Vender tudo" não vende raro, épico nem lendário.
+- **Cliente**: "Animações reduzidas" não esconde mais avisos e faixas (e não treme a câmera). Olhar com os dois botões
+  não executa a ação do primeiro (pegar item, abrir NPC/baú; o menu de pesca fecha; a caminhada para com `WalkTo.stop`). Avisos de erro
+  ficam no chat (esmaecidos, sem repetir contadores, até 15). Esc fecha janela sem tirar o alvo; Esc da troca respeita o
+  que está por cima. F1 atualizado, botão do Bestiário, textos de level/pesca/mochila, `Shift+/` reservado para a ajuda.
+
+**Balanço** (decisão do dono do jogo)
+- Estágios de XP {60: 0,6; 80: 0,4; 100: 0,3} → {40: 0,5; 60: 0,3; 80: 0,2; 100: 0,12} (abates por level no lv 40/70/100:
+  12,7/15,5/20,5 → 25/31/51). Missões e desafios com XP cheia.
+- Coliseu: ouro da onda w×(8+2w) → w×(8+w) (partida completa 192 mil → 118 mil por pessoa); quem fica abaixo de 2/3 do
+  maior level não ganha XP nem ouro.
+- Escudo: +floor((skill−10)/4) de armadura com escudo equipado (painel "Arm" mostra a conta). Treina com qualquer golpe
+  recebido com escudo, no máximo 1 a cada 2 s, e só de monstro com level ≥ 1/3 do seu ou golpe que passa da armadura.
+- Golpe Frontal: área 3×3 à frente (antes 1×3), base 20 → 30. Cura em Grupo: perLevel 1 → 2, perMagic 2 → 2,5, cd 8 → 5 s,
+  mana 50 → 80.
+- Selva e Piratas: ouro ×1,6; Pelo de Macaco 160 → 320, Presa de Tarântula 210 → 420, Couro de Crocodilo 320 → 600,
+  Dobrão Pirata 45 → 150.
+
+**Social**
+- Chefes no almoço (12h15–13h): Lich seg, Rei Goblin ter, Yeti qui, Demodras sex; Orshabaal sáb 21h; Ferumbras dom 15h.
+- `/quem` (`/who`): online com level, vocação, zona, "(ausente)" e "✓ grupo" (regra de 2/3).
+- Aniquilação de 2 a 4 jogadores (3/5/6 demônios); quem puxa a alavanca precisa estar numa placa.
+
 ## [Não lançado] — 2026-10-22 · olhar (dois botões) e classe dos baús
 
 - **Olhar**, como no Tibia: os dois botões do mouse juntos (ou `Shift`+clique) mostram um cartão do que está sob o

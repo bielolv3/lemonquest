@@ -109,8 +109,14 @@ describe("ITEMS", () => {
   });
 
   it("ouro dos monstros cresce com o level", () => {
+    // Por faixa de 10 levels (média do ouro máximo) e sem passar de nenhum monstro 20+ levels acima. Monotônico um a um
+    // não vale mais: Selva e Piratas pagam mais ouro que ghost/homem-lagarto da mesma faixa (o loot deles é mais pobre).
     const ms = Object.values(MONSTERS).filter((m) => !m.boss && m.gold).sort((a, b) => a.level - b.level);
-    for (let i = 1; i < ms.length; i++) expect(ms[i]!.gold![1], ms[i]!.id).toBeGreaterThanOrEqual(ms[i - 1]!.gold![1]);
+    const bands = new Map<number, number[]>();
+    for (const m of ms) bands.set(Math.floor(m.level / 10), [...(bands.get(Math.floor(m.level / 10)) ?? []), m.gold![1]]);
+    const avg = [...bands.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g.reduce((x, y) => x + y, 0) / g.length);
+    for (let i = 1; i < avg.length; i++) expect(avg[i], `faixa ${i}`).toBeGreaterThanOrEqual(avg[i - 1]!);
+    for (const m of ms) for (const n of ms) if (n.level >= m.level + 20) expect(n.gold![1], `${n.id} vs ${m.id}`).toBeGreaterThanOrEqual(m.gold![1]);
   });
 
   it("toda vocação tem arma de level 1 e de ~level 8", () => {

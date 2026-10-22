@@ -12,8 +12,9 @@ test("conquista: primeiro abate → toast, janela J, roupa bloqueada, ranking", 
   const spot = (await walkableNear(page, rat!.x, rat!.y, 2))[0]!;
   await teleport(page, spot.x, spot.y);
   await targetNearest(page, (d) => d === "rat");
-  const toast = page.locator(".toast", { hasText: "Conquista desbloqueada!" });
-  await expect(toast.first()).toContainText("Primeiro Sangue", { timeout: 60_000 });
+  // Pelo texto: os avisos das conquistas de level (do /level 60) ainda podem estar na pilha quando o rato morre.
+  const toast = page.locator(".toast", { hasText: "Conquista desbloqueada!" }).filter({ hasText: "Primeiro Sangue" });
+  await expect(toast.first()).toBeVisible({ timeout: 60_000 });
 
   await page.keyboard.press("j");
   const win = page.getByRole("dialog", { name: "Conquistas" });

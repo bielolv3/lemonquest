@@ -16,7 +16,7 @@ import {
 import type { PlayerState } from "../state.ts";
 import type { QuestSaveData } from "../persistence/types.ts";
 import { bountyDay, generateBounties, nextBountyReset, type BountyDef } from "./bounties.ts";
-import { makeItem, type ItemDefs } from "./inventory.ts";
+import { makeItem, newUid, type ItemDefs } from "./inventory.ts";
 import { createItem, rollRarity } from "./loot.ts";
 
 export interface ZoneRect { name: string; x0: number; y0: number; x1: number; y1: number }
@@ -339,11 +339,12 @@ export class QuestSystem {
     for (const it of items) {
       const left = this.o.inventory.addItem(p, it);
       if (left <= 0) continue;
-      const rest = { ...it, count: left };
+      // uid novo: a parte que coube pode estar na mochila com o uid original (addItem com pilha maior que maxStack).
+      const rest = { ...it, uid: newUid(), count: left, bonuses: it.bonuses.map((b) => ({ ...b })) };
       if (this.o.placeLoot?.(p, rest)) fell++; else lost++;
     }
-    if (fell) this.notice(p.id, `Mochila cheia: ${fell} item(ns) caíram no chão.`, "warn");
-    if (lost) this.notice(p.id, `Mochila cheia: ${lost} item(ns) perdido(s).`, "warn");
+    if (fell) this.notice(p.id, `Mochila cheia: ${fell === 1 ? "1 item caiu" : `${fell} itens caíram`} no chão.`, "warn");
+    if (lost) this.notice(p.id, `Mochila cheia: ${lost === 1 ? "1 item perdido" : `${lost} itens perdidos`}.`, "warn");
   }
 
   // --- recompensas diárias ---------------------------------------------------------------------------

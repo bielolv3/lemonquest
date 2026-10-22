@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   VOCATIONS, baseStats, blessingPrice, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
-  xpForLevel, XP_STAGES, applyXpStage, xpStage,
+  xpForLevel, XP_STAGES, applyXpStage, xpStage, shieldArmorBonus, keptBySellAll, RARITIES,
 } from "./index.ts";
 
 function seeded(seed: number) {
@@ -111,6 +111,18 @@ describe("baseStats", () => {
   });
 });
 
+describe("armadura da skill Escudo", () => {
+  it("+1 a cada 4 níveis acima de 10; nunca negativa", () => {
+    expect(shieldArmorBonus(10)).toBe(0);
+    expect(shieldArmorBonus(13)).toBe(0);
+    expect(shieldArmorBonus(14)).toBe(1);
+    expect(shieldArmorBonus(30)).toBe(5);
+    expect(shieldArmorBonus(50)).toBe(10);
+    expect(shieldArmorBonus(5)).toBe(0);
+    expect(shieldArmorBonus(Number.NaN)).toBe(0);
+  });
+});
+
 describe("estágios de XP", () => {
   it("faixas em ordem, começando no level 1 com XP cheia e sempre caindo", () => {
     expect(XP_STAGES[0]).toEqual({ fromLevel: 1, mult: 1 });
@@ -122,12 +134,20 @@ describe("estágios de XP", () => {
 
   it("xpStage e applyXpStage", () => {
     expect(xpStage(1).mult).toBe(1);
-    expect(xpStage(59).mult).toBe(1);
-    expect(xpStage(60).mult).toBe(0.6);
-    expect(xpStage(150).mult).toBe(0.3);
+    expect(xpStage(39).mult).toBe(1);
+    expect(xpStage(40).mult).toBe(0.5);
+    expect(xpStage(60).mult).toBe(0.3);
+    expect(xpStage(80).mult).toBe(0.2);
+    expect(xpStage(150).mult).toBe(0.12);
     expect(applyXpStage(1000, 30)).toBe(1000);
-    expect(applyXpStage(1000, 85)).toBe(400);
+    expect(applyXpStage(1000, 85)).toBe(200);
     expect(applyXpStage(1, 120)).toBe(1); // nunca zera um abate
     expect(applyXpStage(0, 120)).toBe(0);
+  });
+});
+
+describe("vender tudo (NPC)", () => {
+  it("deixa na mochila raro ou melhor; comum e incomum vendem", () => {
+    expect(RARITIES.filter((r) => keptBySellAll(r))).toEqual(["rare", "epic", "legendary"]);
   });
 });

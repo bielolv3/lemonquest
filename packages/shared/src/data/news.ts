@@ -12,6 +12,34 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22d",
+    date: "22 de outubro (noite)",
+    title: "Famílias de magia",
+    items: [
+      "Família de magias (◆): uma tecla para várias magias do mesmo tipo. Sai a mais forte que estiver pronta e no alcance.",
+      "Quer a barra nova? Aperte H e clique em \"Recomendado\": as magias parecidas viram uma tecla só.",
+      "Magias que o seu level ainda não libera não ocupam mais a barra; quando liberar, ela entra sozinha numa tecla livre.",
+      "Na barra, a magia de alvo fica avermelhada quando o alvo está longe e apagada sem alvo.",
+    ],
+  },
+  {
+    id: "2026-10-22c",
+    date: "22 de outubro (noite)",
+    title: "Chefes no almoço, /quem e balanço",
+    items: [
+      "Chefes no almoço, das 12h15 às 13h: Lich (segunda), Rei Goblin (terça), Yeti (quinta) e Demodras (sexta).",
+      "Fim de semana: Ferumbras no domingo às 15h e Orshabaal no sábado às 21h (o único chefe da noite).",
+      "/quem mostra quem está online, o level, a classe e onde está; \"✓ grupo\" marca quem pode caçar com você dividindo XP.",
+      "A Aniquilação agora aceita de 2 a 4 aventureiros: com menos gente, menos demônios (2 → 3, 3 → 5, 4 → 6). Quem puxa a alavanca fica na placa ao lado dela.",
+      "Os estágios de XP começam no level 40: subir do 40 em diante leva mais tempo (missões continuam com XP cheia).",
+      "A skill Escudo agora dá armadura com escudo equipado e treina com golpes recebidos de monstros à sua altura.",
+      "Coliseu: ouro das ondas menor e só para quem também ganha XP. Golpe Frontal acerta 3×3 à frente; Cura em Grupo cura mais.",
+      "Selva e Piratas pagam mais ouro, e os materiais deles valem mais na loja.",
+      "Troca mais segura: confirmar só vale para a oferta que você viu, e o ouro digitado não se perde.",
+      "\"Vender tudo\" não vende mais itens raros ou melhores.",
+    ],
+  },
+  {
     id: "2026-10-22b",
     date: "22 de outubro (à tarde)",
     title: "Olhar e baús com a classe",

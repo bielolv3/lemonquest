@@ -2,7 +2,6 @@
 import type { FeedMsg, LootMsg } from "@lemonquest/shared";
 import { sfx } from "../../game/sfx.ts";
 import { createStore } from "../hud/store.ts";
-import { pushToast } from "../toasts.ts";
 
 export interface LootToast { id: number; msg: LootMsg; big: boolean }
 export const lootToastsStore = createStore<LootToast[]>([]);
@@ -11,7 +10,7 @@ export const LOOT_LIFE_MS = 5000;
 const MAX_TOASTS = 4;
 
 export function handleLoot(msg: LootMsg): void {
-  if (msg.lostFull) pushToast({ text: `Mochila cheia: ${msg.lostFull} ${msg.lostFull > 1 ? "itens perdidos" : "item perdido"}`, kind: "warn" }, 500);
+  // Mochila cheia (itens no chão ou perdidos): o aviso vem do servidor (S2C.Notice); aqui só o cartão do loot.
   if (!msg.items.length && !msg.gold && !msg.lostFull) return;
   const best = msg.items.reduce<number>((m, it) => Math.max(m, ["common", "uncommon", "rare", "epic", "legendary"].indexOf(it.rarity)), 0);
   const big = best >= 3;

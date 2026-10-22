@@ -1,4 +1,5 @@
 // Janela "Novidades": abre sozinha uma vez por versão (para quem já joga) e pelo botão da ajuda (F1).
+import { isTyping } from "../focus.ts";
 import { LATEST_NEWS_ID, NEWS } from "@lemonquest/shared";
 import { useEffect } from "preact/hooks";
 import { session } from "../../session.ts";
@@ -22,9 +23,10 @@ export function NewsWindow() {
   const close = () => { if (name) markNewsSeen(name); newsOpen.set(false); };
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Em captura e parando aí: o Esc fecha só esta janela (não tira o alvo).
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); close(); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);
 
   if (!open) return null;

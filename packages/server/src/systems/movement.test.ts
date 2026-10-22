@@ -219,6 +219,17 @@ describe("MovementSystem — walkTo", () => {
     expect(p).toMatchObject({ x: 5, y: 0 });
   });
 
+  it("stop cancels the path where the character is (does not step back)", () => {
+    const { sys, add, run } = setup();
+    const p = add(player("a", 0, 0));
+    sys.onWalkTo(p, { x: 8, y: 0 });
+    run(TICK_MS);
+    expect(p.x).toBe(1); // o primeiro passo já começou (o servidor avança x no início do passo)
+    sys.onWalkTo(p, { x: 0, y: 0, stop: true }); // o cliente ainda vê o tile de partida
+    run(STEP * 5);
+    expect(p).toMatchObject({ x: 1, y: 0 });
+  });
+
   it("move key cancels the path", () => {
     const { sys, add, run } = setup();
     const p = add(player("a", 0, 0));

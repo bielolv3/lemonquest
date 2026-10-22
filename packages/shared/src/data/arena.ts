@@ -208,8 +208,11 @@ export function arenaWaveXp(spawns: readonly ArenaSpawnSpec[], aliveMembers: num
   return Math.round((sum * ARENA_XP_MULT) / Math.max(1, aliveMembers));
 }
 
-/** Ouro por membro vivo ao vencer a onda: wave × (8 + 2 × wave). */
-export const arenaWaveGold = (wave: number): number => wave * (8 + 2 * wave);
+/**
+ * Ouro por membro vivo (na faixa de level) ao vencer a onda: wave × (8 + wave). Partida completa (60 ondas): 88 mil + o
+ * bônus. Era wave × (8 + 2 × wave) (162 mil): com as 60 ondas o Coliseu virou a maior fonte de ouro do jogo.
+ */
+export const arenaWaveGold = (wave: number): number => wave * (8 + wave);
 
 /** Bônus por completar todas as ondas (ARENA_MAX_WAVE) (cada sobrevivente): ouro fixo + 25% da XP ganha na partida. */
 export const ARENA_COMPLETE_GOLD = 30_000;

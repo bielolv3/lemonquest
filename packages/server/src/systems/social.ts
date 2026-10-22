@@ -1,5 +1,8 @@
-// Social: emotes (/e), sussurro (/w, /r) e lista de amigos (/amigo, /amigos). Tudo chega como comando do chat.
-import { EMOTES, MAX_CHAT_LEN, S2C, emoteByName, type ChatMessage, type EmoteMsg, type NoticeMsg } from "@lemonquest/shared";
+// Social: emotes (/e), sussurro (/w, /r), lista de amigos (/amigo, /amigos) e quem está online (/quem). Tudo chega como
+// comando do chat.
+import {
+  EMOTES, MAX_CHAT_LEN, S2C, emoteByName, partyLevelsOk, type ChatMessage, type EmoteMsg, type NoticeMsg, type Vocation,
+} from "@lemonquest/shared";
 import { nameKey } from "../persistence/db.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import type { PlayerState } from "../state.ts";
@@ -18,8 +21,14 @@ export interface SocialHost {
   /** Ms de silêncio restantes (0 = pode falar). */
   muted(p: PlayerState): number;
   broadcast(type: string, msg: unknown): void;
+  /** Nome da zona do mapa no tile (o mesmo do banner de zona); null = fora de qualquer zona. Ausente = /quem sem zona. */
+  zoneAt?(x: number, y: number): string | null;
+  /** Personagem ainda no mundo, mas sem ninguém no controle (saiu ou caiu e espera a reconexão). Ausente = nunca. */
+  away?(id: string): boolean;
   now?(): number;
 }
+
+const VOCATION_LABEL: Record<Vocation, string> = { knight: "Cavaleiro", paladin: "Paladino", sorcerer: "Feiticeiro", druid: "Druida" };
 
 export class SocialSystem {
   private readonly lastEmote = new Map<string, number>();
@@ -66,6 +75,7 @@ export class SocialSystem {
       case "r": case "responder": this.reply(p, arg); return true;
       case "amigo": case "friend": this.toggleFriend(p, arg); return true;
       case "amigos": case "friends": this.listFriends(p); return true;
+      case "quem": case "who": this.who(p); return true;
       default: return false;
     }
   }
@@ -117,6 +127,25 @@ export class SocialSystem {
     this.o.send(target.id, S2C.Chat, msg);
     this.replyTo.set(p.id, target.id);
     this.replyTo.set(target.id, p.id);
+  }
+
+  // --- quem está online -----------------------------------------------------------------------------------------
+
+  /**
+   * /quem: uma linha por jogador online (maior level primeiro): nome · lv · vocação · zona, e "✓ grupo" para quem
+   * dividiria XP num grupo com quem perguntou (regra dos 2/3, a mesma do grupo); "(ausente)" para quem está no mundo sem
+   * ninguém no controle (saiu em combate ou caiu e espera a reconexão). O cabeçalho é um aviso (toast + chat);
+   * as linhas vão só para o chat (linhas de sistema), para não empilhar 10 toasts.
+   */
+  private who(p: PlayerState) {
+    const all = [...this.o.players()].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
+    this.notice(p.id, `Online (${all.length}): veja a lista no chat. ✓ grupo = divide XP com você.`, "info", true);
+    for (const q of all) {
+      const parts = [q.name, `lv ${q.level}`, VOCATION_LABEL[q.vocation] ?? q.vocation];
+      if (this.o.zoneAt) parts.push(this.o.zoneAt(q.x, q.y) ?? "fora das zonas");
+      const tag = q.id === p.id ? " (você)" : (this.o.away?.(q.id) ? " (ausente)" : "") + (partyLevelsOk([p.level, q.level]) ? " ✓ grupo" : "");
+      this.o.send(p.id, S2C.Chat, { from: "", text: parts.join(" · ") + tag, channel: "system", ts: this.now() } satisfies ChatMessage);
+    }
   }
 
   // --- amigos ---------------------------------------------------------------------------------------------------

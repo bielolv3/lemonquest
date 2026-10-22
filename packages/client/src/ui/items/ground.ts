@@ -8,6 +8,8 @@ export interface GroundBridge {
   tileAt: (clientX: number, clientY: number) => { x: number; y: number } | null;
   /** Tile do jogador local (null = sem personagem). */
   myTile: () => { x: number; y: number } | null;
+  /** Mover item do chão (a cena anda até o item quando ele está longe). Ausente = manda direto. */
+  moveGround?: (groundId: string, x: number, y: number, count?: number) => void;
 }
 
 let bridge: GroundBridge | null = null;
@@ -26,12 +28,18 @@ export function dropAtPointer(from: DropFrom, clientX: number, clientY: number, 
   dropItem(from, t.x, t.y, count);
 }
 
-/** Arrasta um item do chão para o tile sob o mouse. O servidor valida (alcance 3, linha livre, tile que segura item). */
+/** Move um item do chão para (x,y). O servidor valida (alcance 3, linha livre, tile que segura item). */
+export function moveGroundItem(groundId: string, x: number, y: number, count?: number): void {
+  const m: MoveGroundItemMsg = count != null ? { groundId, x, y, count } : { groundId, x, y };
+  send(C2S.MoveGroundItem, m);
+}
+
+/** Arrasta um item do chão para o tile sob o mouse (longe: a cena anda até o item antes). */
 export function moveGroundAtPointer(groundId: string, clientX: number, clientY: number, count?: number): void {
   const t = bridge?.tileAt(clientX, clientY);
   if (!t) return;
-  const m: MoveGroundItemMsg = count != null ? { groundId, x: t.x, y: t.y, count } : { groundId, x: t.x, y: t.y };
-  send(C2S.MoveGroundItem, m);
+  if (bridge?.moveGround) bridge.moveGround(groundId, t.x, t.y, count);
+  else moveGroundItem(groundId, t.x, t.y, count);
 }
 
 export function pickupItem(groundId: string, to?: PickupTo): void {

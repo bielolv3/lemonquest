@@ -42,6 +42,6 @@ export function lookQuestObject(kind: "chest" | "lever", id: string): LookConten
   const l = questLeverDef(id);
   return {
     title: l ? `Alavanca: ${l.name}` : "Alavanca",
-    lines: l ? [`Precisa de ${l.players} aventureiros de level ${l.minLevel}+ nas placas.`] : [],
+    lines: l ? [`Precisa de ${l.minPlayers} a ${l.players} aventureiros de level ${l.minLevel}+ nas placas.`, "Quem puxa fica na placa ao lado da alavanca."] : [],
   };
 }

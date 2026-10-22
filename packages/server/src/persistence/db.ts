@@ -142,6 +142,8 @@ const MIGRATIONS: Migration[] = [
      expires INTEGER NOT NULL          -- epoch ms (inatividade)
    );
    CREATE INDEX account_sessions_account ON account_sessions(account_id);`,
+  // v7: quando o item caiu no chão (teto do prazo: juntar pilhas nunca passa de 2× o tempo normal). NULL = registro antigo.
+  `ALTER TABLE ground_items ADD COLUMN created_at INTEGER;`,
 ];
 
 export interface AccountRow {
@@ -405,13 +407,15 @@ export interface GroundRow {
   expiresAt: number;
   owner: string | null;
   ownerUntil: number | null;
+  /** Quando caiu (epoch ms); null = registro de antes da v7. */
+  createdAt?: number | null;
 }
 
 /** Itens no chão, na ordem de inserção. */
 export function loadGroundRows(): GroundRow[] {
-  const rows = getDb().prepare("SELECT x, y, item, expires_at, owner, owner_until FROM ground_items ORDER BY seq").all() as
-    { x: number; y: number; item: string; expires_at: number; owner: string | null; owner_until: number | null }[];
-  return rows.map((r) => ({ x: r.x, y: r.y, item: r.item, expiresAt: r.expires_at, owner: r.owner, ownerUntil: r.owner_until }));
+  const rows = getDb().prepare("SELECT x, y, item, expires_at, owner, owner_until, created_at FROM ground_items ORDER BY seq").all() as
+    { x: number; y: number; item: string; expires_at: number; owner: string | null; owner_until: number | null; created_at: number | null }[];
+  return rows.map((r) => ({ x: r.x, y: r.y, item: r.item, expiresAt: r.expires_at, owner: r.owner, ownerUntil: r.owner_until, createdAt: r.created_at }));
 }
 
 /**
@@ -437,8 +441,8 @@ let savepointSeq = 0;
 export function replaceGroundRows(rows: readonly GroundRow[]): void {
   transaction(() => {
     getDb().exec("DELETE FROM ground_items");
-    const ins = getDb().prepare("INSERT INTO ground_items (x, y, item, expires_at, owner, owner_until) VALUES (?, ?, ?, ?, ?, ?)");
-    for (const r of rows) ins.run(r.x, r.y, r.item, r.expiresAt, r.owner, r.ownerUntil);
+    const ins = getDb().prepare("INSERT INTO ground_items (x, y, item, expires_at, owner, owner_until, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    for (const r of rows) ins.run(r.x, r.y, r.item, r.expiresAt, r.owner, r.ownerUntil, r.createdAt ?? null);
   });
 }
 

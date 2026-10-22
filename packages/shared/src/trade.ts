@@ -16,7 +16,8 @@ export type TradeMsg =
   | { action: "accept" }
   | { action: "decline" }
   | { action: "offer"; items: TradeOfferItem[]; gold: number }
-  | { action: "confirm"; confirmed: boolean }
+  /** `rev` = a versão das ofertas que o jogador está vendo (TradeStateMsg.rev); confirmar exige a versão atual. */
+  | { action: "confirm"; confirmed: boolean; rev?: number }
   | { action: "cancel" };
 
 export interface TradeSideView { items: ItemInstance[]; gold: number; confirmed: boolean }
@@ -25,4 +26,5 @@ export interface TradeSideView { items: ItemInstance[]; gold: number; confirmed:
 export type TradeStateMsg =
   | { phase: "closed" }
   | { phase: "invite"; fromId: string; from: string }
-  | { phase: "open"; partnerId: string; partner: string; mine: TradeSideView; theirs: TradeSideView };
+  /** `rev` sobe a cada oferta (de qualquer lado): o confirm só vale para a versão que o jogador viu. */
+  | { phase: "open"; partnerId: string; partner: string; rev: number; mine: TradeSideView; theirs: TradeSideView };

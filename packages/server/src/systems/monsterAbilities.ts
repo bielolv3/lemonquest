@@ -17,7 +17,7 @@ import { circleTiles, waveTiles } from "./spells.ts";
 export interface MonsterAbilityOptions {
   grid: CollisionGrid;
   monsters: MonsterManager;
-  combat: Pick<CombatSystem, "damagePlayer" | "damageMonster" | "armorOf">;
+  combat: Pick<CombatSystem, "damagePlayer" | "damageMonster" | "armorOf" | "shieldTry">;
   conditions: Pick<ConditionSystem, "apply">;
   players: () => Iterable<PlayerState>;
   broadcast: (type: string, msg: unknown) => void;
@@ -187,6 +187,7 @@ export class MonsterAbilitySystem {
           if (sm) this.o.combat.damageMonster(sm, m.s.id, mitigate(raw, sm.def.armor), a.damage.kind, now, { creditId: "", ranged: true });
         } else {
           // Armadura inteira, como no ataque básico do monstro (os números das habilidades foram calibrados assim).
+          this.o.combat.shieldTry(c, now, { monsterLevel: m.def.level, raw });
           this.o.combat.damagePlayer(c, m.s.id, mitigate(raw, this.o.combat.armorOf(c)), a.damage.kind, now, { ranged: true, killerName: m.def.name });
         }
       }

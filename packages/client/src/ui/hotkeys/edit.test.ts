@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOTKEY_MAX, keyLabel, type Hotkey } from "@lemonquest/shared";
-import { addRow, assignKey, hotkeyIndex, keyFromEvent, nextFreeKey, removeRow, setRowSpell, swapHotkeySpells } from "./edit.ts";
+import { addRow, assignKey, hotkeyIndex, keyFromEvent, nextFreeKey, placeUnlocked, removeRow, setRowSpell, swapHotkeySpells } from "./edit.ts";
 
 const L: Hotkey[] = [{ key: "Digit1", spellId: "fireball" }, { key: "Digit2", spellId: "energy_wave" }];
 const ev = (code: string, o: Partial<KeyboardEvent> = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, ...o });
@@ -56,5 +56,35 @@ describe("edição dos atalhos", () => {
     for (let i = 0; i < 11; i++) list = addRow(list, "knight").list; // cavaleiro tem 11 magias
     expect(new Set(list.map((h) => h.spellId)).size).toBe(11);
     expect(addRow(list, "knight")).toMatchObject({ error: true, message: "Todas as suas magias já têm atalho." });
+  });
+
+  describe("magia nova ao subir de level", () => {
+    const lbl = (k: string) => keyLabel(k);
+
+    it("família já na barra: só avisa; magia avulsa nova entra na próxima tecla livre", () => {
+      const list: Hotkey[] = [{ key: "Digit1", spellId: "light_heal" }, { key: "Digit2", spellId: "fam:sorcerer:target" }];
+      const r = placeUnlocked(list, "sorcerer", 14, 20, lbl);
+      // lv 15: Escudo de Mana (avulsa) entra; lv 20: Raio de Energia já está na família da tecla 2.
+      expect(r.list).toEqual([...list, { key: "Digit3", spellId: "mana_shield" }]);
+      expect(r.notes).toEqual(["Nova magia: Escudo de Mana na tecla 3.", "Nova magia: Raio de Energia, já na tecla 2 (Ataque no alvo)."]);
+    });
+
+    it("primeira magia de uma família entra como a família; quem monta magia por magia continua assim", () => {
+      const r = placeUnlocked([{ key: "Digit1", spellId: "light_heal" }], "sorcerer", 4, 5, lbl);
+      // lv 5: Pés Ligeiros (avulsa) na 2 e Onda de Energia como a família Onda na 3.
+      expect(r.list.slice(1)).toEqual([{ key: "Digit2", spellId: "swift_feet" }, { key: "Digit3", spellId: "fam:sorcerer:wave" }]);
+      const solo = placeUnlocked([{ key: "Digit1", spellId: "energy_wave" }], "sorcerer", 34, 35, lbl);
+      expect(solo.list.at(-1)).toEqual({ key: "Digit2", spellId: "fire_wave" });
+    });
+
+    it("atalho que já existia (estava escondido) só ganha o aviso; barra cheia avisa para abrir o H", () => {
+      const r = placeUnlocked([{ key: "KeyF", spellId: "inferno" }], "sorcerer", 29, 30, lbl);
+      expect(r.list).toEqual([{ key: "KeyF", spellId: "inferno" }]);
+      expect(r.notes).toEqual(["Nova magia: Inferno na tecla F."]);
+      const full = Array.from({ length: HOTKEY_MAX }, (_, i) => ({ key: nextFreeKey([])!.replace("1", "") + i, spellId: "x" + i }));
+      const f = placeUnlocked(full, "sorcerer", 29, 30, lbl);
+      expect(f.list).toHaveLength(HOTKEY_MAX);
+      expect(f.notes[0]).toContain("A barra está cheia");
+    });
   });
 });

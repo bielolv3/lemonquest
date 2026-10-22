@@ -17,7 +17,7 @@ describe("inventory: equip", () => {
     w.inv.onMoveItem(p, { from: { where: "backpack", index: 0 }, to: { where: "equip", slot: "shield" } });
     expect(w.notices().at(-1)).toBe(MSG.slot);
     w.inv.onMoveItem(p, { from: { where: "backpack", index: 1 }, to: { where: "equip", slot: "armor" } });
-    expect(w.notices().at(-1)).toBe("Level insuficiente.");
+    expect(w.notices().at(-1)).toMatch(/^Você precisa ser level \d+ para usar isso\.$/);
     w.inv.onMoveItem(p, { from: { where: "backpack", index: 2 }, to: { where: "equip", slot: "weapon" } });
     expect(w.notices().at(-1)).toBe("Sua vocação não pode usar isso.");
     w.inv.onMoveItem(p, { from: { where: "backpack", index: 0 }, to: { where: "equip", slot: "weapon" } });

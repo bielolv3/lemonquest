@@ -49,6 +49,8 @@ export interface SpellDef {
   radius?: number;         // para áreas e "party"
   length?: number;         // para "wave"
   width?: number;          // para "wave"
+  /** "wave" retangular: largura cheia (`width`) desde a primeira fileira, em vez de cone. */
+  rect?: boolean;
   damage?: SpellFormula & { kind: DamageKind };
   heal?: SpellFormula;
   /** Condição aplicada: em "self"/"party" vai nos aliados; nos demais, nos alvos atingidos. */
@@ -64,6 +66,12 @@ export interface SpellDef {
 }
 
 export const GLOBAL_SPELL_COOLDOWN_MS = 1000;
+
+/** Alcance (tiles) de magia no alvo sem `range` próprio. */
+export const DEFAULT_SPELL_RANGE = 7;
+
+/** A magia precisa de um alvo (e de alcance até ele). */
+export const needsTarget = (s: Pick<SpellDef, "target">): boolean => s.target === "target" || s.target === "area_target";
 
 /** Custo de mana da magia para um conjurador de `level` (base + manaPerLevel*level, arredondado, limitado a manaMax). */
 export function spellMana(s: Pick<SpellDef, "mana" | "manaPerLevel" | "manaMax">, level: number): number {
@@ -194,8 +202,10 @@ export const SPELLS: Record<string, SpellDef> = {
     description: "Estilhaços de gelo caem na área e deixam os inimigos mais lentos.",
   },
   group_heal: {
-    id: "group_heal", name: "Cura em Grupo", words: "exura mas sio", vocations: ["druid"], level: 15, mana: 50, cooldownMs: 8000,
-    target: "party", radius: 4, heal: { base: 15, perLevel: 1, perMagic: 2, variance: 0.2 }, fx: "heal",
+    // Ciclo 7: era perLevel 1 / perMagic 2 / cd 8 s / 50 de mana (165 a cada 8 s no lv 90 com ML 30 — ~7% da vazão da
+    // Cura): o druida não tinha papel de suporte no fim de jogo.
+    id: "group_heal", name: "Cura em Grupo", words: "exura mas sio", vocations: ["druid"], level: 15, mana: 80, cooldownMs: 5000,
+    target: "party", radius: 4, heal: { base: 15, perLevel: 2, perMagic: 2.5, variance: 0.2 }, fx: "heal",
     description: "Cura você e os aliados num raio de 4 tiles.",
   },
   summon_wolf: {
@@ -215,8 +225,10 @@ export const SPELLS: Record<string, SpellDef> = {
   // level (metas em spells.test.ts). Nenhuma cura nova: cada vocação segue com uma cura própria.
   front_sweep: {
     id: "front_sweep", name: "Golpe Frontal", words: "exori min", vocations: ["knight"], level: 35, mana: 30, cooldownMs: 5000,
-    target: "wave", length: 1, width: 3, damage: { kind: "physical", base: 20, perLevel: 1.9, perMagic: 2, variance: 0.2 }, fx: "physical",
-    description: "Um golpe largo que atinge os três tiles à sua frente.",
+    // Ciclo 7: era length 1 / base 20 (3 tiles, mesmo dano por alvo do Golpe Giratório com 4× a mana). Retângulo 3×3
+    // (não cone): continua pegando as duas diagonais encostadas na frente do cavaleiro.
+    target: "wave", length: 3, width: 3, rect: true, damage: { kind: "physical", base: 30, perLevel: 1.9, perMagic: 2, variance: 0.2 }, fx: "physical",
+    description: "Um golpe largo que atinge uma área de 3×3 tiles à sua frente.",
   },
   berserk: {
     id: "berserk", name: "Fúria", words: "utito tempo", vocations: ["knight"], level: 50, mana: 60, cooldownMs: 30_000,
@@ -327,7 +339,7 @@ export function spellByWords(text: string): SpellDef | undefined {
  *                                 lv20 (mana 50): mago ~73 (30%), pal ~68 (20%), cav ~67 (15%)
  *                                 lv30 (mana 65): mago ~98 (33%), pal ~91 (21%), cav ~90 (15%)
  *                                 (antes: 22 + 2*level + 1.8*ML → mago 36% no lv20 e 41% no lv30)
- * Cura em Grupo        druid     15    50     8    cura 52/alvo (r4)  [mantida; cura aliados]
+ * Cura em Grupo        druid     15    80     5    cura 72,5/alvo (r4); lv 90 (ML 67): ~363 a cada 5 s  [antes 50 mana, cd 8, 52/alvo]
  * Pés Ligeiros (utani hur)  todas  5  20  15    haste +30%, 30 s (correr; fora do cooldown global)
  * Removidas: Cura Intensa (exura gran), Cura Vital (exura vita), Cura Sagrada Leve (exura san) e Tratar Ferimentos (exura ico):
  * cada vocação tem exatamente UMA cura própria.
@@ -353,7 +365,7 @@ export function spellByWords(text: string): SpellDef | undefined {
  * Nevasca              druid     30   150     8    dmg 199 (área r3 + slow)
  *
  * FIM DE JOGO (lv 35-90) — magia               voc       lvl  mana (% da máx.)  cd(s)  esperado
- * Golpe Frontal        knight     35    30 (14%)    5    dmg 97 (onda 1x3)
+ * Golpe Frontal        knight     35    30 (14%)    5    dmg 107 (retângulo 3x3 à frente, 9 tiles)  [antes 97, 1x3]
  * Fúria                knight     50    60 (20%)   30    buff + berserk 25
  * Fúria Giratória      knight     70    80 (20%)    8    dmg 238 (área r2)
  * Golpe Aniquilador    knight     90   100 (20%)   12    dmg 635 (alvo)

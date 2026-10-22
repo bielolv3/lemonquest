@@ -2,6 +2,7 @@
 // (dano/cura/condição/investida/provocação/invocação), CastResult ao conjurador e SpellCast para todos.
 // Os números de dano/cura saem no lote de CombatEvent do CombatSystem.
 import {
+  DEFAULT_SPELL_RANGE,
   DIR_DELTA, Dir, GLOBAL_SPELL_COOLDOWN_MS, S2C, canStepTerrain, dirFromDelta, evalSpellFormula, mitigateSpell,
   spellByWords, spellDef, spellMana,
   type CastFailReason, type CastMsg, type CastResultMsg, type CollisionGrid, type SpellCastMsg, type SpellDef,
@@ -15,7 +16,7 @@ import type { SkillSystem } from "./skills.ts";
 import type { SummonSystem } from "./summons.ts";
 
 /** Alcance padrão de magias de alvo sem `range`. */
-export const DEFAULT_SPELL_RANGE = 7;
+export { DEFAULT_SPELL_RANGE };
 /** Raio padrão de provocação sem `radius`. */
 export const DEFAULT_TAUNT_RADIUS = 3;
 export const DEFAULT_TAUNT_MS = 5000;
@@ -42,25 +43,26 @@ export function waveDir(dir: Dir): Dir {
   return dir;
 }
 
-/** Meia-largura da onda no passo i (1..length): cresce de 0 até (width-1)/2. */
-function waveHalf(i: number, length: number, width: number): number {
+/** Meia-largura da onda no passo i (1..length): cresce de 0 até (width-1)/2; `rect` = sempre a máxima. */
+function waveHalf(i: number, length: number, width: number, rect = false): number {
   const max = Math.max(0, Math.floor((Math.max(1, width) - 1) / 2));
-  return length <= 1 ? max : Math.round((max * (i - 1)) / (length - 1));
+  return length <= 1 || rect ? max : Math.round((max * (i - 1)) / (length - 1));
 }
 
 /**
  * Cone à frente de (x,y): `length` tiles, alargando até `width`. Paredes param cada "raio" (coluna lateral);
- * colunas que se abrem atrás de um raio bloqueado também ficam bloqueadas.
+ * colunas que se abrem atrás de um raio bloqueado também ficam bloqueadas. `rect` = retângulo `width` × `length`
+ * (cada coluna é um raio independente desde a primeira fileira).
  */
 export function waveTiles(x: number, y: number, dir: Dir, length: number, width: number,
-  blocked?: (x: number, y: number) => boolean): Point[] {
+  blocked?: (x: number, y: number) => boolean, rect = false): Point[] {
   const { dx: fx, dy: fy } = DIR_DELTA[waveDir(dir)];
   const lx = -fy, ly = fx;
   const out: Point[] = [];
   const stopped = new Set<number>();
-  let prevHalf = -1;
+  let prevHalf = rect ? waveHalf(1, length, width, true) : -1;
   for (let i = 1; i <= Math.max(1, Math.floor(length)); i++) {
-    const h = waveHalf(i, length, width);
+    const h = waveHalf(i, length, width, rect);
     for (let o = -h; o <= h; o++) {
       if (stopped.has(o)) continue;
       if (Math.abs(o) > prevHalf && o !== 0 && stopped.has(o - Math.sign(o))) { stopped.add(o); continue; }
@@ -267,7 +269,7 @@ export class SpellSystem {
     const center = foe ? { x: foe.x, y: foe.y } : r.ally ? { x: r.ally.x, y: r.ally.y } : { x: p.x, y: p.y };
     if (s.target === "area_self") tiles = circleTiles(p.x, p.y, s.radius ?? 1, this.hidden(p.x, p.y));
     else if (s.target === "area_target") tiles = circleTiles(center.x, center.y, s.radius ?? 1, this.hidden(center.x, center.y));
-    else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.hidden(p.x, p.y));
+    else if (s.target === "wave") tiles = waveTiles(p.x, p.y, p.dir, s.length ?? 3, s.width ?? 1, this.hidden(p.x, p.y), s.rect);
 
     // Quem é atingido.
     let hitMonsters: Monster[] = [];

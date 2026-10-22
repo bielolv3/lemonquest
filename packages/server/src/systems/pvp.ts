@@ -16,6 +16,9 @@ export interface PvpOptions {
   now?: () => number;
 }
 
+/** Segundos (arredondados para cima) de um bloqueio de PZ restante, para os avisos. */
+export const pzLockSeconds = (ms: number): number => Math.max(1, Math.ceil(ms / 1000));
+
 /** Aviso de "não pode entrar na PZ" no máximo a cada isto (ms) por jogador. */
 const PZ_NOTICE_MS = 3000;
 
@@ -140,7 +143,7 @@ export class PvpSystem {
     if (!this.pzLocked(p.id, now) || this.o.inPz(p.x, p.y) || !this.o.inPz(x, y)) return false;
     if (now - (this.pzNoticeAt.get(p.id) ?? -Infinity) >= PZ_NOTICE_MS) {
       this.pzNoticeAt.set(p.id, now);
-      this.notice(p, "Você atacou um jogador há pouco e não pode entrar na zona de proteção ainda.", "warn");
+      this.notice(p, `Você atacou um jogador há pouco e não pode entrar na zona de proteção ainda (mais ${pzLockSeconds(this.pzLockRemaining(p.id, now))} s).`, "warn");
     }
     return true;
   }

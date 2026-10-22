@@ -1,5 +1,5 @@
 // Janela de NPC: fala com digitação, abas Missões / Viagem / Comprar / Vender / Depot.
-import { CASINO_TICKET_PRICE, DEPOT_SIZE, IMBUEMENT_EFFECTS, IMBUEMENTS, itemDef, type NpcOpenMsg } from "@lemonquest/shared";
+import { CASINO_TICKET_PRICE, DEPOT_SIZE, IMBUEMENT_EFFECTS, IMBUEMENTS, itemDef, keptBySellAll, type NpcOpenMsg } from "@lemonquest/shared";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { sectionsStore } from "../hud/Section.tsx";
 import { persistedBool, useStore } from "../hud/store.ts";
@@ -243,11 +243,14 @@ function SellList({ m }: { m: NpcOpenMsg }) {
     return out;
   }, [inv, m]);
   if (rows.length === 0) return <div class="hud-empty">Nada na mochila que {m.name.split(",")[0]} compre.</div>;
-  const totalItems = rows.reduce((n, r) => n + inv!.backpack[r.index]!.count, 0);
-  const totalGold = rows.reduce((n, r) => n + r.price * inv!.backpack[r.index]!.count, 0);
+  // "Vender tudo" pula itens raros ou melhores (o servidor faz o mesmo); esses só saem pelo botão da própria linha.
+  const bulk = rows.filter((r) => !keptBySellAll(inv!.backpack[r.index]!.rarity));
+  const totalItems = bulk.reduce((n, r) => n + inv!.backpack[r.index]!.count, 0);
+  const totalGold = bulk.reduce((n, r) => n + r.price * inv!.backpack[r.index]!.count, 0);
+  const kept = rows.length - bulk.length;
   return (
     <>
-    <SellAllBar npcId={m.npcId} items={totalItems} gold={totalGold} />
+    {totalItems > 0 && <SellAllBar npcId={m.npcId} items={totalItems} gold={totalGold} kept={kept} />}
     <ul class="shop-list">
       {rows.map(({ index, price }) => {
         const it = inv!.backpack[index]!;
@@ -290,7 +293,7 @@ function SellList({ m }: { m: NpcOpenMsg }) {
 }
 
 /** "Vender tudo": o primeiro clique mostra o total e pede confirmação ali mesmo (some sozinha em 5 s). */
-function SellAllBar({ npcId, items, gold }: { npcId: string; items: number; gold: number }) {
+function SellAllBar({ npcId, items, gold, kept }: { npcId: string; items: number; gold: number; kept: number }) {
   const [asking, setAsking] = useState(false);
   useEffect(() => {
     if (!asking) return;
@@ -301,12 +304,15 @@ function SellAllBar({ npcId, items, gold }: { npcId: string; items: number; gold
     <div class="sell-all">
       {asking ? (
         <>
-          <span>Vender {fmtNum(items)} {items === 1 ? "item" : "itens"} por <b>{fmtNum(gold)}</b> de ouro?</span>
+          <span>
+            Vender {fmtNum(items)} {items === 1 ? "item" : "itens"} por <b>{fmtNum(gold)}</b> de ouro?
+            {kept > 0 && <small class="sell-all-kept"> Itens raros ou melhores ficam na mochila.</small>}
+          </span>
           <button class="shop-btn danger" onClick={() => { setAsking(false); sellAll(npcId); }}>Sim, vender</button>
           <button class="shop-btn" onClick={() => setAsking(false)}>Não</button>
         </>
       ) : (
-        <button class="shop-btn" onClick={() => setAsking(true)} data-tip="Vende tudo da mochila que este NPC compra">
+        <button class="shop-btn" onClick={() => setAsking(true)} data-tip="Vende tudo da mochila que este NPC compra" data-tip-sub="Itens raros ou melhores ficam na mochila">
           Vender tudo ({fmtNum(items)})
         </button>
       )}

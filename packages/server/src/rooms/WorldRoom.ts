@@ -6,7 +6,7 @@ import {
   type MoveItemMsg, type MoveMsg, type NoticeMsg, type PartyActionMsg, type NpcInteractMsg, type NpcTradeMsg, type PickupItemMsg, type QuickPotionMsg, type SetOutfitMsg, type SetTitleMsg, type TurnMsg,
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
-  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type LookGroundMsg, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
+  PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type LookGroundMsg, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation, zoneAt,
   OUTFIT_TONE_PRICE, toneDef, type BuyOutfitToneMsg, type OutfitTonesMsg, type MaterialRequestActionMsg, imbuementDef,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
@@ -34,7 +34,7 @@ import { TrainingSystem, parseStatues } from "../systems/training.ts";
 import { SummonSystem } from "../systems/summons.ts";
 import { SpellSystem } from "../systems/spells.ts";
 import { GOLD_ID, InventorySystem, makeItem } from "../systems/inventory.ts";
-import { PvpSystem } from "../systems/pvp.ts";
+import { PvpSystem, pzLockSeconds } from "../systems/pvp.ts";
 import { MonsterAbilitySystem } from "../systems/monsterAbilities.ts";
 import { LootSystem } from "../systems/loot.ts";
 import { GroundSystem } from "../systems/ground.ts";
@@ -158,6 +158,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private steps: ReadonlyArray<readonly [string, () => void]> = [];
   private tickNow = 0;
   private shuttingDown = false;
+  /** Ataque automático desligado enquanto o jogador está fora do teclado (queda/permanência): id → preferência salva. */
+  private readonly autoPaused = new Map<string, boolean>();
   /** Jogadores que largaram/pegaram item do chão neste tick (ver saveTransfers). */
   private readonly transferred = new Set<string>();
   private lastTransferSave = 0;
@@ -249,7 +251,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         this.movement.teleport(p, to.x, to.y);
         send(p.id, S2C.Teleported, to);
       },
-      travelBlocked: (p) => (this.combat.inCombat(p.id, Date.now()) ? "Você está em combate. Espere um pouco para viajar." : null),
+      travelBlocked: (p) => {
+        const now = Date.now();
+        // Bloqueio de PZ (atacou um jogador): viajar seria fugir do revide.
+        const lock = this.pvp.pzLockRemaining(p.id, now);
+        if (lock > 0) return `Você atacou um jogador há pouco e não pode viajar ainda (mais ${pzLockSeconds(lock)} s).`;
+        return this.combat.inCombat(p.id, now) ? "Você está em combate. Espere um pouco para viajar." : null;
+      },
     });
     this.movement.setExtraBlocker((x, y) => this.monsters.isMonsterAt(x, y) || this.npcs.isNpcAt(x, y));
     this.pvp = new PvpSystem({
@@ -264,11 +272,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       store: {
         load: () => loadGroundRows().flatMap((r) => {
           try {
-            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt }];
+            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt, createdAt: r.createdAt }];
           } catch { return []; }
         }),
         save: (rows) => replaceGroundRows(rows.map((r) => ({
-          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, owner: null, ownerUntil: null, // chão sem dono
+          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, createdAt: r.createdAt ?? null, owner: null, ownerUntil: null, // chão sem dono
         }))),
       },
       inventory: this.inventory, collection: this.state.groundItems, send,
@@ -283,7 +291,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y),
       npcOpen: (id) => this.npcs.openFor(id),
       zones: parseZones(this.map.tiled),
-      placeLoot: (p, it) => this.ground.placeLoot(p, it),
+      placeLoot: (p, it) => this.placeReward(p, it),
       onUnlock: (id, unlockId) => this.onUnlock(id, unlockId),
       onComplete: (id, _q, bounty) => { if (!bounty) this.ach?.event(id, "quest"); },
     });
@@ -300,7 +308,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     });
     this.loot = new LootSystem({
       inventory: this.inventory, getPlayer, send, broadcast, ground: this.ground, lootMult: () => this.events?.lootMult() ?? 1,
-      partyIdOf: (p) => this.partyLootId(p),
+      partyIdOf: (p, m) => this.partyLootId(p, m.s.x, m.s.y),
     });
     this.regen = new RegenSystem({
       inCombat: (id, now) => this.combat.inCombat(id, now),
@@ -350,7 +358,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         if (p.vocation === "knight") this.skills.addTries(p, "melee", 1);
         else if (p.vocation === "paladin") this.skills.addTries(p, "distance", 1);
       },
-      onMeleeHit: (p) => { if (p.vocation === "knight" || p.vocation === "paladin") this.skills.addTries(p, "shield", 1); },
+      hasShield: (p) => !!this.inventory.get(p.id)?.equipment.shield,
+      onShieldTry: (p) => this.skills.addTries(p, "shield", 1),
       onPlayerDied: (p, killer) => {
         this.conditions.clear(p.id);
         this.summons.despawnOwner(p.id);
@@ -387,10 +396,19 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       onPlayerHit: (a, b, now) => this.pvp.onHit(a, b, now),
       onDying: (p, killer, now) => {
         if (killer) this.pvp.onKill(killer, p, now);
-        // Caveira vermelha: metade do ouro cai no chão onde morreu.
+        // A morte devolve a vida na hora (renasce no templo): troca aberta e "seguir" não podem sobreviver a ela
+        // (os sistemas não chegam a ver hp ≤ 0). Quem seguia o morto também para.
+        this.trade.cancel(p.id, "Troca cancelada.");
+        this.fight.cancelFollow(p);
+        for (const o of this.state.players.values()) if (o.followId === p.id) this.fight.cancelFollow(o);
+        // Caveira vermelha: metade do ouro cai no chão onde morreu (ou ao lado). Só sai da conta se coube no chão, e
+        // grava personagem + chão juntos (saveTransfers), como largar um item.
+        // Invariante: placeNear ANTES de spendGold. lost = floor(ouro × RED_SKULL_GOLD_DROP) ≤ ouro, e nada roda entre as
+        // duas chamadas, então spendGold não falha: o ouro nunca é criado no chão sem sair da conta. (Descontar antes e
+        // devolver com addGold contaria como ouro ganho nas conquistas.)
         if (p.skull === "red") {
           const lost = Math.floor(this.inventory.gold(p.id) * RED_SKULL_GOLD_DROP);
-          if (lost > 0 && this.inventory.spendGold(p, lost)) this.ground.place(makeItem(GOLD_ID, lost), p.x, p.y);
+          if (lost > 0 && this.ground.placeNear(makeItem(GOLD_ID, lost), p.x, p.y) && this.inventory.spendGold(p, lost)) this.transferred.add(p.id);
         }
         // Morrer tira a caveira branca (a vermelha fica) e tira do grupo.
         this.pvp.onDeath(p, now);
@@ -455,7 +473,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       inArena: (id) => this.arena.inMatch(id),
     });
     this.challenges = new ChallengeSystem({
-      getPlayer, record: (id) => this.records.get(id), send, inventory: this.inventory,
+      getPlayer, record: (id) => this.records.get(id), send, inventory: this.inventory, placeLoot: (p, it) => this.placeReward(p, it),
       gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y), save: (id) => this.save(id),
     });
     this.materialRequest = new MaterialRequestSystem({
@@ -464,14 +482,19 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.events = new EventSystem({ broadcast, send, onStart: (ev) => { if (ev.boss) this.monsters.callBoss(ev.boss); }, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
-      inArena: (id) => this.arena.inMatch(id), save: (id) => this.save(id),
+      // Troca concluída: os dois são gravados JUNTOS (uma transação no saveTransfers do tick), nunca um sem o outro.
+      inArena: (id) => this.arena.inMatch(id), save: (id) => this.transferred.add(id),
     });
+    // Mesma regra do banner de zona do cliente (a menor zona que contém o tile).
+    const socialZones = parseZones(this.map.tiled).map((z) => ({ name: z.name, x: z.x0, y: z.y0, w: z.x1 - z.x0 + 1, h: z.y1 - z.y0 + 1 }));
     this.social = new SocialSystem({
       players: () => this.state.players.values(),
       record: (id) => this.records.get(id),
       send, broadcast,
       exists: (name) => [...this.state.players.values()].find((q) => nameKey(q.name) === nameKey(name))?.name ?? getCharacterByName(name)?.name,
       muted: (pl) => muteRemaining(this.records.get(pl.id)),
+      zoneAt: (x, y) => zoneAt(socialZones, x, y),
+      away: (id) => this.lingering.has(id),
     });
     const command = (p: PlayerState, text: string) => help(p, text) || this.social.command(p, text) || this.party.command(p, text) || handleAdminCommand(p, text, {
       send, broadcast,
@@ -504,7 +527,11 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       partyChat: (pl, text) => this.party.chat(pl, text),
     };
     this.on<MoveMsg>(C2S.Move, (p, m) => { this.fight.pause(p.id); if (m?.dir != null) this.fight.cancelFollow(p); this.movement.onMove(p, m); });
-    this.on<WalkToMsg>(C2S.WalkTo, (p, m) => { this.fight.pause(p.id); this.fight.cancelFollow(p); this.movement.onWalkTo(p, m); });
+    this.on<WalkToMsg>(C2S.WalkTo, (p, m) => {
+      // `stop` (clique que virou "olhar") só larga o caminho: não pausa a luta nem cancela o seguir.
+      if (m?.stop !== true) { this.fight.pause(p.id); this.fight.cancelFollow(p); }
+      this.movement.onWalkTo(p, m);
+    });
     this.on<TurnMsg>(C2S.Turn, (p, m) => this.movement.onTurn(p, m));
     this.on<AttackMsg>(C2S.Attack, (p, m) => { this.combat.onAttack(p, m); if (p.targetId) this.fight.cancelFollow(p); });
     this.on<FollowMsg>(C2S.Follow, (p, m) => this.fight.onFollow(p, m));
@@ -821,10 +848,23 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     try { c.leave(CLOSE_KICKED, reason || KICK_DEFAULT_REASON); } catch (e) { this.errors.report("kick.leave", e); }
   }
 
-  /** Grupo do jogador para o loot no chão (só com 2+ membros); undefined = sozinho. */
-  private partyLootId(p: PlayerState): string | undefined {
+  /**
+   * Grupo de quem matou, para o loot no chão: só com outro membro vivo e no teclado (não em permanência/linger) a até
+   * PARTY_SHARE_RANGE do monstro em (x,y) — a régua da XP compartilhada. Grupo "de nome" com todo mundo longe = sozinho:
+   * o loot vai direto para a mochila.
+   */
+  private partyLootId(p: PlayerState, x: number, y: number): string | undefined {
     const party = this.party?.partyFor(p.id);
-    return party && party.members.length >= 2 ? party.id : undefined;
+    if (!party || party.members.length < 2) return undefined;
+    const near = this.partyMembersNear(p.id, x, y, PARTY_SHARE_RANGE).some((m) => m.id !== p.id && !this.lingering.has(m.id));
+    return near ? party.id : undefined;
+  }
+
+  /** Recompensa (baú de quest, desafio) que não coube na mochila: vai ao chão e grava personagem + chão juntos. */
+  private placeReward(p: PlayerState, item: ItemInstance): boolean {
+    const ok = this.ground.placeLoot(p, item);
+    if (ok) this.transferred.add(p.id);
+    return ok;
   }
 
   /** Multiplicador do dano causado: postura × Fúria (condição "berserk", +value%). */
@@ -871,7 +911,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const sid = client.sessionId;
     if (this.shuttingDown || !this.records.has(sid) || code === CloseCode.WITH_ERROR || code === CLOSE_REPLACED || code === CLOSE_TRAINING || code === CLOSE_KICKED) return; // → onLeave
     const p = this.state.players.get(sid);
-    if (p) this.movement.teleport(p, p.x, p.y); // para de andar
+    if (p) { this.movement.teleport(p, p.x, p.y); this.pauseAuto(p); } // para de andar e de escolher alvos sozinho
     console.log(`[world] ${p?.name ?? sid} caiu (código ${code}); aguardando reconexão por ${RECONNECT_S} s`);
     const r = this.allowReconnection(client, RECONNECT_S);
     this.reconnecting.set(sid, r);
@@ -881,6 +921,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   onReconnect(client: Client) {
     const sid = client.sessionId;
     this.reconnecting.delete(sid);
+    this.resumeAuto(sid);
     // O que foi enviado durante a queda se perdeu: reenvia o estado que não está no schema.
     const explored = this.exploration.message(sid);
     if (explored) client.send(S2C.Explored, explored);
@@ -892,6 +933,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     { const rec = this.records.get(sid), p = this.state.players.get(sid); if (rec && p) client.send(S2C.Hotkeys, { list: this.hotkeysOf(rec, p.vocation) } satisfies HotkeysMsg); }
     this.ach.sendState(sid);
     this.party.resend(sid);
+    this.trade.resend(sid);
     console.log(`[world] ${this.names.get(sid) ?? sid} reconectou`);
   }
 
@@ -907,6 +949,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         // Sem ninguém no teclado não ataca nem segue (senão renovava o bloqueio de PZ e podia matar alguém sozinho).
         p.targetId = "";
         p.followId = "";
+        this.pauseAuto(p);
       }
       console.log(`[world] ${name ?? sid} saiu em combate; fica no mundo por ${Math.ceil(ms / 1000)} s`);
       this.lingering.set(sid, this.clock.setTimeout(() => this.endLinger(sid), ms));
@@ -931,6 +974,21 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     return Math.max(combat, lock);
   }
 
+  /** Sem ninguém no teclado o ataque automático não escolhe alvos (renovaria o combate e o bloqueio de PZ sozinho). */
+  private pauseAuto(p: PlayerState): void {
+    if (!this.autoPaused.has(p.id)) this.autoPaused.set(p.id, p.auto);
+    p.auto = false;
+  }
+
+  /** Voltou (reconexão): o ataque automático volta como estava. */
+  private resumeAuto(sid: string): void {
+    const was = this.autoPaused.get(sid);
+    if (was === undefined) return;
+    this.autoPaused.delete(sid);
+    const p = this.state.players.get(sid);
+    if (p) p.auto = was;
+  }
+
   /** Fim da permanência após sair em combate (ou cancelamento: relogin/kick). */
   private endLinger(sid: string, force = false) {
     if (!this.lingering.delete(sid)) return;
@@ -947,7 +1005,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     try {
       // Coliseu antes de salvar: quem estava numa partida volta para a saída (e é salvo lá), sem penalidade.
       runSafe("saída/arena", () => this.arena.removePlayer(sid), this.errors);
-      this.save(sid);
+      if (this.transferred.size) {
+        // Transferência ainda não gravada (troca/chão neste tick): quem sai grava JUNTO com os outros envolvidos e o
+        // chão, numa transação (senão a troca podia ficar gravada só de um lado se o processo caísse logo depois).
+        const ids = new Set([sid, ...this.transferred]);
+        this.transferred.clear();
+        transaction(() => {
+          for (const id of ids) runSafe("save (saída)", () => this.save(id), this.errors);
+          this.ground.flush();
+        });
+      } else this.save(sid);
     } catch (e) {
       this.errors.report("save (saída)", e);
     } finally {
@@ -980,6 +1047,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       this.throttle.clearPrefix(`${sid}:`);
       this.state.players.delete(sid);
       this.records.delete(sid);
+      this.autoPaused.delete(sid);
       this.names.delete(sid);
       this.kicked.delete(sid);
     }
@@ -1030,7 +1098,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     if (fed) rec.data.fed = fed; else delete rec.data.fed;
     rec.data.stance = p.stance;
     rec.data.chase = p.chase;
-    rec.data.auto = p.auto;
+    rec.data.auto = this.autoPaused.get(p.id) ?? p.auto; // pausa da queda/permanência não apaga a preferência
     rec.data.pvpKills = this.pvp.savedKills(p.id);
     const white = this.pvp.savedWhiteUntil(p.id);
     if (white) rec.data.pvpWhiteUntil = white; else delete rec.data.pvpWhiteUntil;

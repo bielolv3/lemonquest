@@ -41,7 +41,7 @@ export function dirFromDelta(dx: number, dy: number): Dir | null {
 export const isValidDir = (d: unknown): d is Dir => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 7;
 
 import type { FightStance, Vocation } from "./types.ts";
-import type { ItemDef, Rarity } from "./data/items.ts";
+import { RARITIES, type ItemDef, type Rarity } from "./data/items.ts";
 import type { SkillId } from "./skills.ts";
 
 /** XP total necessária para ATINGIR o level (level 1 = 0). Curva rápida no início, como no plano. */
@@ -180,6 +180,15 @@ export function playerAttackDamage(vocation: Vocation, level: number, rng: () =>
   return { amount, crit, miss: false };
 }
 
+/**
+ * Armadura extra da skill Escudo, só com escudo equipado: +1 a cada 4 níveis acima do inicial (10).
+ * Shield 10–13 → 0, 14 → +1, 30 → +5, 50 → +10.
+ */
+export function shieldArmorBonus(shieldSkill: number): number {
+  if (!Number.isFinite(shieldSkill)) return 0;
+  return Math.max(0, Math.floor((shieldSkill - 10) / 4));
+}
+
 /** Dano após a armadura (redução fixa), nunca negativo. */
 export function mitigate(raw: number, armor: number): number {
   return Math.max(0, Math.round(raw - Math.max(0, armor)));
@@ -199,9 +208,12 @@ export function levelForXp(xp: number): number {
  */
 export const XP_STAGES: readonly { fromLevel: number; mult: number }[] = [
   { fromLevel: 1, mult: 1 },
-  { fromLevel: 60, mult: 0.6 },
-  { fromLevel: 80, mult: 0.4 },
-  { fromLevel: 100, mult: 0.3 },
+  // Ciclo 7: era {60: 0,6; 80: 0,4; 100: 0,3} — 10 a 23 abates por level do 40 ao 120 (lv 100: 20 demônios) e o
+  // 1→120 em ~9–27 h de caça. Assim: ~25 abates no lv 40, ~31 no 70 e ~51 no 100; o 40→120 dobra (~15–37 h).
+  { fromLevel: 40, mult: 0.5 },
+  { fromLevel: 60, mult: 0.3 },
+  { fromLevel: 80, mult: 0.2 },
+  { fromLevel: 100, mult: 0.12 },
 ];
 
 /** Estágio de XP do level (o último cujo `fromLevel` ≤ level). */
@@ -321,6 +333,14 @@ export const RARITY_PRICE_MULT: Record<Rarity, number> = { common: 1, uncommon: 
 export function npcBuyPrice(value: number, rarity: Rarity = "common"): number {
   if (!(value > 0)) return 0;
   return Math.max(1, Math.floor(NPC_BUY_RATIO * value * (RARITY_PRICE_MULT[rarity] ?? 1)));
+}
+
+/** "Vender tudo" no NPC deixa na mochila os itens desta raridade ou melhor (vender um épico sem querer não tem volta). */
+export const SELL_ALL_KEEPS_FROM: Rarity = "rare";
+
+/** O "Vender tudo" deixa este item na mochila? (só a venda item a item vende). Regra única de servidor e cliente. */
+export function keptBySellAll(rarity: Rarity): boolean {
+  return RARITIES.indexOf(rarity) >= RARITIES.indexOf(SELL_ALL_KEEPS_FROM);
 }
 
 // ---------------------------------------------------------------------------

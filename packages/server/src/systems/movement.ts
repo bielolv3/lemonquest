@@ -100,6 +100,8 @@ export class MovementSystem {
   onWalkTo(p: PlayerState, msg: WalkToMsg): void {
     const m = this.movers.get(p.id);
     if (!m || !msg || typeof msg !== "object") return;
+    // Cancelar (clique que virou "olhar"): só larga o caminho; o passo em andamento termina normalmente.
+    if (msg.stop === true) { m.path = null; return; }
     const { x, y } = msg;
     if (!Number.isInteger(x) || !Number.isInteger(y)) return;
     if (x < 0 || y < 0 || x >= this.grid.width || y >= this.grid.height) return;

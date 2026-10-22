@@ -131,7 +131,8 @@ export class FightModeSystem {
       if (!p.chase || !t) { const s = this.st.get(p.id); if (s) s.path = null; continue; }
       const s = this.state(p.id);
       if (now < s.pausedUntil) continue;
-      if (this.inReach(p, t, range)) { s.path = null; continue; }
+      // Perseguindo, gruda no alvo (ao lado), qualquer que seja a vocação: quem ataca à distância também chega junto.
+      if (cheb(p.x, p.y, t.x, t.y) <= 1) { s.path = null; continue; }
       this.stepToward(p, s, p.targetId, t, now);
     }
   }

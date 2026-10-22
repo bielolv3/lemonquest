@@ -3,7 +3,7 @@
 // Cocheiro (`travel`): cobra o ouro e leva o jogador ao destino (grátis até TRAVEL_FREE_LEVEL).
 // Ambientação: a cada 20–40 s cada NPC com idleLines fala (S2C.NpcSay) se houver jogador a até 15 tiles.
 import {
-  CASINO_MATERIAL_POOL, CASINO_TICKET_PRICE, NPC_BUY_RATIO, NPC_RANGE, S2C, blessingPrice, findObjects, imbuementDef, npcBuyPrice, npcDef, objectTile, travelPrice, weekId,
+  CASINO_MATERIAL_POOL, CASINO_TICKET_PRICE, NPC_BUY_RATIO, NPC_RANGE, S2C, blessingPrice, findObjects, imbuementDef, keptBySellAll, npcBuyPrice, npcDef, objectTile, travelPrice, weekId,
   type NoticeMsg, type NpcDef, type NpcInteractMsg, type NpcOpenMsg, type NpcSayMsg, type NpcTradeMsg, type TiledMap, type TravelMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -241,23 +241,28 @@ export class NpcSystem {
     this.o.send(p.id, S2C.NpcOpen, this.openMsg(d, p));
   }
 
-  /** Vende todas as pilhas da mochila que o NPC compra; um aviso só com o total. */
+  /**
+   * Vende todas as pilhas da mochila que o NPC compra; um aviso só com o total. Itens raros ou melhores (keptBySellAll)
+   * ficam: vender um épico sem querer num clique não tem volta (um a um, pela venda normal, continua possível).
+   */
   private sellAll(p: PlayerState, buys: readonly string[]): void {
     const inv = this.o.inventory;
     const bp = inv.get(p.id)?.backpack;
     if (!bp) return;
-    let items = 0, gold = 0;
+    let items = 0, gold = 0, kept = 0;
     bp.forEach((it, index) => {
       const item = it ? inv.defs(it.defId) : undefined;
       if (!it || !item || !buys.includes(item.kind)) return;
+      if (keptBySellAll(it.rarity)) { kept++; return; }
       const n = it.count, price = npcBuyPrice(item.value, it.rarity) * n;
       if (!inv.takeFromBackpack(p, index, n)) return;
       items += n;
       gold += price;
     });
-    if (!items) return this.notice(p, "Nada na mochila que eu compre.", "warn");
+    const keptNote = kept ? ` ${kept} ${kept === 1 ? "item raro ou melhor ficou" : "itens raros ou melhores ficaram"} na mochila (venda um a um).` : "";
+    if (!items) return this.notice(p, `Nada na mochila que eu compre.${keptNote}`, "warn");
     inv.addGold(p, gold);
-    this.notice(p, `Você vendeu ${items} ${items === 1 ? "item" : "itens"} por ${gold} de ouro.`, "good");
+    this.notice(p, `Você vendeu ${items} ${items === 1 ? "item" : "itens"} por ${gold} de ouro.${keptNote}`, "good");
   }
 
   /** C2S.Travel */

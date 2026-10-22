@@ -9,5 +9,8 @@ export const DIAGONAL_COST = 1.4;
 export const MAX_NAME_LEN = 20;
 export const MAX_CHAT_LEN = 200;
 
+/** Alcance (tiles, Chebyshev) para largar, jogar ou mover um item do chão (com linha livre). */
+export const DROP_RANGE = 3;
+
 /** Ponto de respawn (templo). Sobrescrito pelo objeto "spawn_player" do mapa, se existir. */
 export const DEFAULT_SPAWN = { x: 20, y: 20 };

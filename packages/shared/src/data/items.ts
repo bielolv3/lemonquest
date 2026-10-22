@@ -221,10 +221,12 @@ mat("behemoth_claw", "Garra de Behemoth", matIcon("wolf_fang", 0x9aa4b4), 2600, 
 mat("demon_horn", "Chifre de Demônio", matIcon("wolf_fang", 0xe03030), 3500, "Ainda cheira a enxofre.");
 mat("demonic_essence", "Essência Demoníaca", matIcon("ember", 0xc040ff), 4000, "Uma chama roxa que sussurra.");
 // Costa Esmeralda (expansão a leste): selva, piratas, ilha gelada, heróis e vulcão.
-mat("ape_fur", "Pelo de Macaco", matIcon("wolf_pelt", 0xb08850), 160, "Pelo grosso e cheiroso dos macacos de Banuta.");
-mat("tarantula_fang", "Presa de Tarântula", matIcon("wolf_fang", 0xc89060), 210, "Ainda pinga um veneno amarelado.");
-mat("pirate_coin", "Dobrão Pirata", img("Treasure/Coin2.png", 0xe8c060), 45, "Moeda de ouro antiga, cunhada em terras distantes.");
-mat("croc_leather", "Couro de Crocodilo", matIcon("snake_skin", 0x6a9a50), 320, "Couro escamado, ótimo para botas.");
+// Ciclo 7: pelo 160→320, presa 210→420, dobrão 45→150, couro 320→600 (Selva/Piratas pagavam metade do ouro por vida
+// das caças antigas da mesma faixa: ~0,33 contra 0,67–0,69 de goblin/homem-lagarto).
+mat("ape_fur", "Pelo de Macaco", matIcon("wolf_pelt", 0xb08850), 320, "Pelo grosso e cheiroso dos macacos de Banuta.");
+mat("tarantula_fang", "Presa de Tarântula", matIcon("wolf_fang", 0xc89060), 420, "Ainda pinga um veneno amarelado.");
+mat("pirate_coin", "Dobrão Pirata", img("Treasure/Coin2.png", 0xe8c060), 150, "Moeda de ouro antiga, cunhada em terras distantes.");
+mat("croc_leather", "Couro de Crocodilo", matIcon("snake_skin", 0x6a9a50), 600, "Couro escamado, ótimo para botas.");
 mat("pirate_hat", "Chapéu de Pirata", img("Object/Bag.png", 0x403040), 900, "Um chapéu de capitão surrado. Colecionadores adoram.");
 mat("carniphila_seed", "Semente de Carniphila", img("Food/SeedBig2.png", 0x90e070), 340, "Pulsa como um coração. Não plante perto de casa.");
 mat("winter_fur", "Pele de Inverno", matIcon("wolf_pelt", 0xe8f0ff), 520, "Pele branca e macia, quente como uma fogueira.");

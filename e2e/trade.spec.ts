@@ -1,12 +1,12 @@
 // Troca entre jogadores: botão direito → "Trocar itens" → aceitar → ofertas → os dois confirmam → itens e ouro trocam.
 import { expect, test, type Page } from "@playwright/test";
-import { clickTile, enterGame, inventory, me, quietPair, teleport, waitSettled } from "./helpers.ts";
+import { clickTile, enterGame, inventory, me, quietPair, say, teleport, waitSettled } from "./helpers.ts";
 
 
 const countOf = async (p: Page, defId: string) =>
   (await inventory(p))!.backpack.reduce((n, b) => n + (b?.defId === defId ? b.count : 0), 0);
 
-test("troca: convite, ofertas dos dois, confirmação e troca atômica", async ({ browser }) => {
+test("troca: convite, ofertas dos dois (itens e ouro), confirmação e troca atômica", async ({ browser }) => {
   test.setTimeout(120_000);
   const ca = await browser.newContext(), cb = await browser.newContext();
   const a = await ca.newPage(), b = await cb.newPage();
@@ -28,6 +28,9 @@ test("troca: convite, ofertas dos dois, confirmação e troca atômica", async (
     const meatA0 = await countOf(a, "meat"), meatB0 = await countOf(b, "meat");
     expect(potA0).toBeGreaterThan(0);
     expect(meatB0).toBeGreaterThan(0);
+    await say(a, "/gold 100");
+    await expect.poll(async () => (await inventory(a))?.gold).toBe(100);
+    const goldB0 = (await inventory(b))!.gold;
 
     // A convida B pelo menu do botão direito; B aceita.
     const posB = (await me(b))!;
@@ -55,8 +58,11 @@ test("troca: convite, ofertas dos dois, confirmação e troca atômica", async (
     await winB.locator('[data-bag-item="meat"]').click(); // e põe de novo
     expect(await countOf(a, "meat")).toBe(meatA0); // nada trocou ainda
 
-    // Os dois confirmam: a troca acontece e as janelas fecham.
+    // A digita o ouro e confirma direto (sem sair do campo: o ouro pendente vai antes do confirm). O "Confirmar" de B
+    // fica travado ~1 s depois que a oferta de A muda (o clique espera destravar).
+    await winA.getByLabel("Ouro (Sua oferta)").fill("30");
     await winA.getByTestId("trade-confirm").click();
+    await expect(winB.getByLabel(`Ouro (Oferta de ${pa.name})`)).toHaveValue("30");
     await winB.getByTestId("trade-confirm").click();
     await expect(winA).toHaveCount(0);
     await expect(winB).toHaveCount(0);
@@ -64,6 +70,8 @@ test("troca: convite, ofertas dos dois, confirmação e troca atômica", async (
     await expect.poll(() => countOf(b, "health_potion")).toBe(potB0 + potA0);
     expect(await countOf(a, "health_potion")).toBe(0);
     expect(await countOf(b, "meat")).toBe(0);
+    await expect.poll(async () => (await inventory(a))?.gold).toBe(70);
+    await expect.poll(async () => (await inventory(b))?.gold).toBe(goldB0 + 30);
   } finally {
     await ca.close(); await cb.close();
   }

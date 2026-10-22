@@ -43,7 +43,7 @@ export function ArenaWindow() {
                 <li key={m.name}>
                   {m.name === mine.leader ? "👑 " : ""}{m.name}
                   {m.level !== undefined && <span class="arena-lv"> · Lv {m.level}</span>}
-                  {m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: ganha só o ouro das ondas`}> sem XP</span>}
+                  {m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: sem XP nem ouro`}> sem XP/ouro</span>}
                 </li>
               ))}
             </ul>

@@ -78,7 +78,7 @@ export function MatchBar() {
           {s.members.map((m) => (
             <span key={m.name} class={m.alive ? "" : "out"} data-tip={m.ready ? "Pronto" : m.alive ? "Ainda não clicou em Pronto" : "Fora da partida (caiu ou desistiu)"}>
               {m.ready ? "✓" : m.alive ? "…" : "✗"} {m.name}
-              {m.alive && m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: ganha só o ouro das ondas`}> sem XP</span>}
+              {m.alive && m.level !== undefined && m.level < minLv && <span class="arena-noxp" data-tip={`Abaixo do level ${minLv}: sem XP nem ouro`}> sem XP/ouro</span>}
             </span>
           ))}
         </div>

@@ -1,6 +1,6 @@
 // Edição dos atalhos no painel (puro, sem DOM: testável). As regras de validade são as do servidor (shared/hotkeys.ts).
 import {
-  HOTKEY_MAX, SHIFT_PREFIX, isHotkeyKey, nextFreeKey, reservedFor, spellsFor,
+  HOTKEY_MAX, SHIFT_PREFIX, familyOf, isHotkeyKey, nextFreeKey, reservedFor, spellsFor,
   type Hotkey, type Vocation,
 } from "@lemonquest/shared";
 
@@ -82,4 +82,30 @@ export function swapHotkeySpells(list: readonly Hotkey[], a: number, b: number):
   if (a === b || !out[a] || !out[b]) return out;
   [out[a].spellId, out[b].spellId] = [out[b].spellId, out[a].spellId];
   return out;
+}
+
+/**
+ * Magias liberadas ao subir do level `from` para `to`: a que já tem atalho (ou cuja família tem) só ganha o aviso; a que
+ * não tem entra na próxima tecla livre — a família dela, se nenhuma magia da família está na barra (quem montou a
+ * barra magia por magia continua assim). `notes` = avisos para o jogador.
+ */
+export function placeUnlocked(
+  list: readonly Hotkey[], vocation: Vocation, from: number, to: number, label: (k: string) => string,
+): { list: Hotkey[]; notes: string[] } {
+  const out = list.map((h) => ({ ...h }));
+  const notes: string[] = [];
+  for (const s of spellsFor(vocation)) {
+    if (s.level <= from || s.level > to) continue;
+    const fam = familyOf(s.id, vocation);
+    const own = out.find((h) => h.spellId === s.id);
+    if (own) { notes.push(`Nova magia: ${s.name} na tecla ${label(own.key)}.`); continue; }
+    const viaFam = fam && out.find((h) => h.spellId === fam.id);
+    if (viaFam) { notes.push(`Nova magia: ${s.name}, já na tecla ${label(viaFam.key)} (${fam.name}).`); continue; }
+    const key = out.length < HOTKEY_MAX ? nextFreeKey(out.map((h) => h.key)) : null;
+    if (!key) { notes.push(`Nova magia: ${s.name}. A barra está cheia: abra os atalhos (H) para pôr numa tecla.`); continue; }
+    const useFam = fam && !fam.spells.some((id) => out.some((h) => h.spellId === id));
+    out.push({ key, spellId: useFam ? fam.id : s.id });
+    notes.push(useFam ? `Nova magia: ${s.name} na tecla ${label(key)} (${fam.name}).` : `Nova magia: ${s.name} na tecla ${label(key)}.`);
+  }
+  return { list: out, notes };
 }

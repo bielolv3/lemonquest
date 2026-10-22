@@ -1,6 +1,6 @@
 // Combate estilo Tibia: alvo + ataque automático a cada PLAYER_ATTACK_MS; dano de monstros; XP, level e morte.
 import {
-  PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
+  PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate, shieldArmorBonus,
   applyXpStage, autoAttackRange, rollAttack, rollInt, splitXp, xpForLevel, xpStage,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
   type DamageKind, type ImbuementDef, type NoticeMsg, type XpGainMsg,
@@ -12,6 +12,8 @@ import { cheb, isMonsterState, killCredit, type CreatureState, type Monster, typ
 export const TARGET_MAX_DIST = 12;
 /** Level a partir do qual o level up é anunciado para todos. */
 export const LEVEL_NOTICE_MIN = 5;
+/** Intervalo mínimo entre duas tentativas da skill Escudo (o ataque automático do jogador também é a cada 2 s). */
+export const SHIELD_TRY_MS = 2000;
 
 /** Armadura do jogador sem equipamento (o M4 soma a dos itens via CombatHooks.armor). */
 export function playerArmor(_p: PlayerState): number {
@@ -66,8 +68,13 @@ export interface CombatHooks {
   manaShield?: (id: string) => boolean;
   /** Cada tentativa de ataque básico do jogador (skill de arma). */
   onAutoAttack?: (p: PlayerState) => void;
-  /** Jogador atingido por ataque corpo a corpo de monstro (skill de escudo). */
-  onMeleeHit?: (p: PlayerState) => void;
+  /** Está com escudo equipado (armadura da skill Escudo e treino dela). Ausente = nunca. */
+  hasShield?: (p: PlayerState) => boolean;
+  /**
+   * Uma tentativa de skill Escudo: o jogador, com escudo equipado, foi alvo de um golpe (corpo a corpo, distância ou
+   * magia de monstro/jogador; venenos e queimaduras não contam).
+   */
+  onShieldTry?: (p: PlayerState) => void;
   /** Jogador morreu (já foi levado ao templo). */
   onPlayerDied?: (p: PlayerState, killerName: string) => void;
   /** Armadura total (equipamento). Ausente = playerArmor(p). */
@@ -127,6 +134,7 @@ export class CombatSystem {
   private after: (() => void)[] = [];
   private readonly nextAttackAt = new Map<string, number>();
   private readonly lastCombatAt = new Map<string, number>();
+  private readonly nextShieldTryAt = new Map<string, number>();
   private readonly rng: () => number;
   hooks: CombatHooks = {};
 
@@ -169,9 +177,24 @@ export class CombatSystem {
     return this.hooks.attack?.(p) ?? attackProfile(p);
   }
 
-  /** Armadura efetiva do jogador. */
+  /** Armadura efetiva do jogador: equipamento + skill Escudo (só com escudo equipado). */
   armorOf(p: PlayerState): number {
-    return this.hooks.armor?.(p) ?? playerArmor(p);
+    const base = this.hooks.armor?.(p) ?? playerArmor(p);
+    return this.hooks.hasShield?.(p) ? base + shieldArmorBonus(p.skillShield ?? 10) : base;
+  }
+
+  /**
+   * Golpe contra o jogador (antes do dano): com escudo equipado, conta uma tentativa da skill Escudo — no máximo uma a
+   * cada SHIELD_TRY_MS. Golpe de monstro só conta se o monstro tiver level ≥ 1/3 do jogador ou o golpe (`raw`, antes
+   * da armadura) passar da armadura: sem isso, 5 ratos com dano zerado davam ~150 tentativas/min parado (~40× a
+   * estátua). PvP (`monsterLevel` ausente): só o limite de tempo.
+   */
+  shieldTry(p: PlayerState, now: number, o: { monsterLevel?: number; raw?: number } = {}): void {
+    if (!this.hooks.hasShield?.(p)) return;
+    if (o.monsterLevel !== undefined && o.monsterLevel * 3 < p.level && !((o.raw ?? 0) > this.armorOf(p))) return;
+    if (now < (this.nextShieldTryAt.get(p.id) ?? 0)) return;
+    this.nextShieldTryAt.set(p.id, now + SHIELD_TRY_MS);
+    this.hooks.onShieldTry?.(p);
   }
 
   /** Agenda algo para depois do lote de combate do tick (mensagens de loot etc.). */
@@ -193,6 +216,7 @@ export class CombatSystem {
   removePlayer(id: string): void {
     this.nextAttackAt.delete(id);
     this.lastCombatAt.delete(id);
+    this.nextShieldTryAt.delete(id);
     this.o.monsters.clearTargetsOf(id);
   }
 
@@ -244,7 +268,7 @@ export class CombatSystem {
   hitPlayer(p: PlayerState, victim: PlayerState, amount: number, kind: DamageKind, now: number, o: { ranged?: boolean } = {}): number {
     this.hooks.onPlayerHit?.(p, victim, now);
     this.lastCombatAt.set(p.id, now);
-    if (!o.ranged && kind === "physical") this.hooks.onMeleeHit?.(victim);
+    this.shieldTry(victim, now);
     return this.damagePlayer(victim, p.id, amount, kind, now, { ranged: o.ranged, killerName: p.name, killerId: p.id });
   }
 
@@ -351,7 +375,7 @@ export class CombatSystem {
     const p = target;
     if (p.hp <= 0 || this.o.monsters.inPz(p.x, p.y)) return;
     const raw = Math.round(rollInt(m.def.damage[0], m.def.damage[1], this.rng) * (m.dmgMult ?? 1));
-    if (!ranged) this.hooks.onMeleeHit?.(p);
+    this.shieldTry(p, now, { monsterLevel: m.def.level, raw });
     const taken = this.damagePlayer(p, m.s.id, mitigate(raw, this.armorOf(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
     const imb = this.hooks.imbuement?.(p);
     if (imb?.effect === "thorns" && taken > 0 && m.s.hp > 0) this.damageMonster(m, p.id, Math.round(taken * imb.value), "physical", now, { creditId: p.id });

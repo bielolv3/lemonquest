@@ -172,6 +172,7 @@ html[data-contrast="high"] ::-webkit-scrollbar-thumb { background-color: rgba(25
 .chat-from::after { content: ":"; }
 .chat-line.mine .chat-from { color: #d9a441; }
 .chat-line.system .chat-text { color: #8fc3a8; }
+.chat-line.system.dim .chat-text { color: #c9b48a; opacity: 0.7; }
 .chat-line.whisper .chat-text { color: #e6a6ff; font-style: italic; }
 .chat-line.whisper .chat-from { color: #e6a6ff; }
 .emote-wrap { position: relative; display: inline-flex; }

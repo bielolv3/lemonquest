@@ -127,4 +127,12 @@ test("itens no chão: arrastar um item do chão para outro tile", async ({ page 
   await expect.poll(async () => (await ground(page)).filter((g) => g.defId === "mana_potion").map((g) => `${g.x},${g.y}`), { timeout: 10_000 })
     .toEqual([`${base.x + 2},${base.y}`]);
   expect(await countOf(page, "mana_potion")).toBe(0);
+
+  // Longe do item (fora do alcance de 3): arrastar faz o personagem andar até ele e mover ao chegar.
+  const far = (await walkableNear(page, base.x - 4, base.y, 3)).find((t) => Math.max(Math.abs(t.x - (base.x + 2)), Math.abs(t.y - base.y)) >= 5)!;
+  await teleport(page, far.x, far.y);
+  await waitSettled(page);
+  await drag(page, await tileToClient(page, base.x + 2, base.y, 0.6), await tileToClient(page, base.x + 1, base.y, 0.6));
+  await expect.poll(async () => (await ground(page)).filter((g) => g.defId === "mana_potion").map((g) => `${g.x},${g.y}`), { timeout: 15_000 })
+    .toEqual([`${base.x + 1},${base.y}`]);
 });

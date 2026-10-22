@@ -1,8 +1,9 @@
 // Barra de ações (um slot por atalho de magia) centralizada na área visível, com overlay radial de cooldown e o botão
-// que abre o painel de atalhos (H).
+// que abre o painel de atalhos (H). Magia (ou família) ainda bloqueada no level não aparece: o atalho continua salvo e
+// o slot surge quando ela libera. Magias de alvo mostram o alcance: avermelhada longe do alvo, apagada sem alvo.
 import { spellDef, spellMana } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { activateSlot, cooldownStore, flashStore, shakeStore, slotCountStore, slotsStore, type Cooldown, type SlotAction } from "./actionbar.ts";
+import { activateSlot, cooldownStore, flashStore, shakeStore, slotCountStore, slotRangeStore, slotsStore, type Cooldown, type SlotAction, type SlotRange } from "./actionbar.ts";
 import { toggleHotkeys } from "../hotkeys/hotkeys.ts";
 import { useStore } from "./store.ts";
 import { meStore } from "./world.ts";
@@ -15,13 +16,17 @@ export function ActionBar() {
   const shakes = useStore(shakeStore);
   const me = useStore(meStore);
   const count = useStore(slotCountStore);
+  const ranges = useStore(slotRangeStore);
   const now = useCooldownClock(cds);
+  const level = me?.level ?? 1;
 
   return (
     <div class="action-bar" role="toolbar" aria-label="Barra de ações">
-      {Array.from({ length: count }, (_, i) => (
-        <ActionSlot key={i} index={i} action={slots[i]} cd={cds[i]} now={now} flash={flashes[i]} shake={shakes[i]} level={me?.level ?? 1} mana={me?.mana ?? 0} />
-      ))}
+      {Array.from({ length: count }, (_, i) => {
+        const a = slots[i];
+        if (a && level < (a.unlockLevel ?? a.level ?? 0)) return null;
+        return <ActionSlot key={i} index={i} action={a} cd={cds[i]} now={now} flash={flashes[i]} shake={shakes[i]} level={level} mana={me?.mana ?? 0} range={ranges[i] ?? null} />;
+      })}
       <button class="action-config" onClick={toggleHotkeys} aria-label="Configurar atalhos" data-tip="Atalhos de magia" data-tip-sub="Escolha a tecla de cada magia · H">⚙</button>
     </div>
   );
@@ -44,11 +49,11 @@ function useCooldownClock(cds: (Cooldown | null)[]): number {
   return now;
 }
 
-interface SlotProps { index: number; action: SlotAction | null; cd: Cooldown | null; now: number; flash: number; shake: number; level: number; mana: number }
+interface SlotProps { index: number; action: SlotAction | null; cd: Cooldown | null; now: number; flash: number; shake: number; level: number; mana: number; range: SlotRange }
 
 const fmtCd = (ms: number) => `${(ms / 1000).toFixed(ms % 1000 ? 1 : 0).replace(".", ",")} s`;
 
-function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotProps) {
+function ActionSlot({ index, action, cd, now, flash, shake, level, mana, range }: SlotProps) {
   const el = useRef<HTMLButtonElement>(null);
   const first = useRef(true);
   const [over, setOver] = useState(false);
@@ -85,11 +90,13 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
   const sub = action?.spellId
     ? [`Mana ${cost}`, `Recarga ${fmtCd(action.cooldownMs ?? 0)}`, `Level ${action.level}`].join(" · ")
     : cost ? `${cost} de mana` : undefined;
+  const rangeTip = range === "out" ? "Alvo fora de alcance" : range === "none" ? "Sem alvo" : "";
+  const ready = !!action && !locked && !active && !noMana && range === "ok";
 
   return (
     <button
       ref={el}
-      class={`slot action-slot${over ? " drop-over" : ""}${action ? " filled" : ""}${active ? " cooling" : ""}${locked ? " locked" : ""}${noMana ? " nomana" : ""}`}
+      class={`slot action-slot${over ? " drop-over" : ""}${action ? " filled" : ""}${active ? " cooling" : ""}${locked ? " locked" : ""}${noMana ? " nomana" : ""}${action?.family ? " family" : ""}${range === "out" ? " out-range" : ""}${range === "none" ? " no-target" : ""}${ready ? " ready" : ""}`}
       style={action?.color ? ({ "--el": action.color } as any) : undefined}
       onClick={() => activateSlot(index)}
       draggable={!!action}
@@ -99,11 +106,12 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana }: SlotP
       onDrop={(e) => { e.preventDefault(); setOver(false); const from = Number(e.dataTransfer?.getData("text/plain")); if (Number.isInteger(from)) swapSlots(from, index); }}
       onAnimationEnd={(e) => (e.currentTarget as HTMLElement).classList.remove("flash", "shake")}
       data-tip={action ? action.label : "Atalho vazio"}
-      data-tip-sub={action ? `${sub} · tecla ${key}` : "Configure no painel de atalhos (H)"}
+      data-tip-sub={action ? `${sub} · tecla ${key}${rangeTip ? ` · ${rangeTip}` : ""}` : "Configure no painel de atalhos (H)"}
       data-tip-words={action?.words}
       data-tip-desc={action?.desc ? (locked ? `${action.desc} (Requer level ${action.level})` : action.desc) : undefined}
     >
       <span class="action-key">{key}</span>
+      {action?.family && <span class="action-family" aria-hidden="true">◆</span>}
       {action?.icon && <img src={action.icon} alt="" draggable={false} />}
       {action && !action.icon && <span class="action-abbr">{action.label.slice(0, 2)}</span>}
       {cost != null && !locked && <span class="action-mana">{cost}</span>}

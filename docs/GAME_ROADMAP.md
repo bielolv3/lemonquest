@@ -134,7 +134,46 @@ Ficou de fora (precisa de mapa/arte novos): **dungeon instanciada própria** (o 
 conteúdo para grupo), **mineração** (só a pesca foi feita) e **casas com decoração** (o depot já guarda itens; casa
 pede áreas no mapa e itens colocáveis no mundo).
 
-## Ciclo 7 (2026-10-22) — correções e lacunas do delta pós-expansão
+## Ciclo 7 (2026-10-22) — auditoria em equipe dos 47 commits desde `7d8bc4b`
+
+Cinco agentes auditaram em paralelo (game design, engenharia, UX/UI, QA, crítica); cada achado aceito foi conferido no
+código pelo orquestrador. Implementação em 5 frentes com arquivos separados e **revisão cruzada** por outro agente;
+ligações no `WorldRoom` feitas na integração. Linha de base: typecheck ok, 672/672 unitários.
+
+| Frente | Item | Implementou / revisou | Status | Validação |
+|---|---|---|---|---|
+| A | **P1** Troca: confirm com `rev` (clique atrasado não vale para oferta trocada); ouro digitado antes do confirm; botão travado 1 s; `resend` na reconexão; Esc respeita o que está por cima; aviso para aba antiga | engenharia / QA | ✅ | `trade.test.ts`, `ui/trade/{trade,escape}.test.ts`, E2E `trade.spec.ts` (ouro sem blur) |
+| B | Morte (real, via combate) cancela troca e seguir; troca gravada em transação (inclusive com logout logo depois) | QA / engenharia | ✅ | `WorldRoom.test.ts` |
+| B | Bloqueio de PZ barra viagem (barco do Porto escapava) e mostra segundos | QA / engenharia | ✅ | `WorldRoom.test.ts`, `pvp.test.ts` |
+| B | Ouro da caveira vermelha via `placeNear`, desconto só depois de caber; recompensas no chão (baú/desafio) gravadas junto; `uid` novo na sobra; desafio confere a recompensa inteira | QA / engenharia | ✅ | `WorldRoom`, `quests`, `challenges` |
+| B | Chão: prazo não renova nem encurta (teto 2× desde `created_at`, migração v7); despejo prefere comuns | QA / engenharia | ✅ | `ground.test.ts`, `db.test.ts` |
+| B | Ataque automático pausado em linger/queda; loot de grupo exige membro perto do monstro; vender tudo sem raros (regra no shared) | QA / engenharia | ✅ | `WorldRoom`, `m4`, `combatFormulas` |
+| B | Testes que faltavam: Coliseu completo na onda 60, caveira vermelha com tile cheio, baú com mochila cheia | QA | ✅ | `arena.test.ts`, `WorldRoom.test.ts` |
+| C | **P1** "Animações reduzidas" escondia avisos/faixas; câmera sem tremor | UX / engenharia | ✅ | revisão do CSS; captura não feita |
+| C | **P1** Olhar com dois botões não executa a ação do primeiro (adiar 120 ms o irreversível; `WalkTo.stop` para a caminhada sem voltar passo) | UX / engenharia | ✅ | `movement.test.ts`; E2E `look.spec.ts` |
+| C | Avisos de erro no chat (sem repetir contador, máx. 15); Esc sem tirar alvo; F1, Bestiário no trilho, textos; `Shift+/` reservado | UX / engenharia | ✅ | `chatLines.test.ts`, `hotkeys.test.ts` |
+| D | Balanço aprovado: estágios de XP a partir do 40; ouro do Coliseu; Escudo com armadura e treino (limitado contra AFK); Golpe Frontal 3×3; Cura em Grupo; Selva/Piratas | game design / crítica | ✅ | `combat`, `combatFormulas`, `arena`, `spells` (formato 3×3), `items` |
+| E | Chefes no almoço; `/quem` com zona/ausente/✓ grupo; Aniquilação 2–4 (quem puxa precisa estar na placa) | crítica / engenharia | ✅ | `events`, `social`, `questWorld` (mapa real) |
+
+Recusado: refatorar o `WorldRoom` (o registro de "o que reenviar/limpar" por sistema fica como dívida, ver abaixo).
+
+### Pendências do ciclo 7
+
+| Item | Status | Nota |
+|---|---|---|
+| Proteção de novato no PvP (level mínimo ou opt-in) | 🧭 | dono decidiu não fazer agora |
+| `/quem` mostra a zona de todos (um PK acha vítimas) | 🧭 | alternativa: zona só de amigos/grupo |
+| Medir tempo jogado (`playedMs`, média por level no `/status`) | ⏳ | pré-requisito para recalibrar progressão com dados reais |
+| Bênção nos sacerdotes (gasto de ouro) | ✅ | PR #4: zera a perda de XP da próxima morte (a penalidade sem bênção não mudou) |
+| Indicador de bloqueio de PZ no HUD | ⏳ | precisa de campo novo no estado |
+| Teto de itens no chão por jogador | ⏳ | hoje só despejo preferindo comuns |
+| Mochila não encolhe ao perder level na morte | ⏳ | inconsistência, sem perda de item |
+| Teste de carga no mapa de 400 colunas com ataque automático | ⏳ | medição anterior é de antes da expansão |
+| Lista de sistemas para `onReconnect`/`cleanupSession` | ⏳ | a troca ficou de fora por ser lista manual |
+| E2E `look.spec.ts` instável (criatura/Shift+clique e item do chão) | ⏳ | já falhava no `main` (2 de 9 em `--repeat-each=3`); o clique que fecha o cartão faz o personagem andar antes do Shift+clique |
+| E2E `quests.spec.ts` "missão de matar" instável no último passo (Esc não fecha o diário) | ⏳ | já falhava no `main` (2 de 3); passa com 500 ms antes do Esc: corrida no registro do listener do diário |
+
+## Ciclo 7b (2026-10-22, PR #4) — correções e lacunas do delta pós-expansão (auditoria paralela)
 
 Auditoria do delta desde o ciclo 1 (185 commits): três frentes independentes sobre Coliseu até a onda 60, chão sem
 dono, mochila escalável, atalhos, habilidades de monstro, estágios de XP, PvP persistido, Costa Esmeralda e quests.
@@ -142,7 +181,7 @@ Detalhe de cada achado em [GAME_AUDIT.md, Ciclo 5](GAME_AUDIT.md#ciclo-5-auditor
 
 | Etapa | Item | Status | Nota |
 |---|---|---|---|
-| A | #47 Pilha no chão não reinicia o prazo de validade ao fazer merge (largar ou mover) | ⏳ | `ground.ts:162-168`, `:246-249` |
+| A | #47 Pilha no chão não reinicia o prazo de validade ao fazer merge (largar ou mover) | ✅ | resolvido no Ciclo 7 (teto 2× desde `created_at`) |
 | A | #48 Limite de taxa próprio para `C2S.MoveGroundItem` em `MESSAGE_LIMITS` | ⏳ | `WorldRoom.ts:75` |
 | A | #49 Migração do minimapa remapeia linha a linha mesmo sem `exploredW` salvo | ⏳ | `shared/explore.ts:51-69` |
 | D | Descarte automático do chão (2000 itens) poupa `rare`+ antes de olhar idade | 🧭 | decisão do dono: vale a complexidade para um risco raro? |

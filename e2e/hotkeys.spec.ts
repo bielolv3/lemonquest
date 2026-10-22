@@ -1,7 +1,7 @@
 // Atalhos de magia (painel H): trocar a tecla de uma magia, tecla do jogo recusada, lançar pela tecla nova, salvo no
 // personagem (volta depois de recarregar a página) e troca de magias arrastando na barra.
 import { expect, test } from "@playwright/test";
-import { enterGame, meState, playFromList, setLevel, snap, teleport, walkableNear } from "./helpers.ts";
+import { enterGame, meState, monsters, playFromList, setLevel, snap, targetNearest, teleport, walkableNear } from "./helpers.ts";
 
 /** Floresta ao norte da vila (fora da PZ: a regen de mana é baixa e o gasto da magia aparece). */
 const FOREST = { x: 70, y: 62 };
@@ -63,4 +63,37 @@ test("atalhos: arrastar um slot sobre outro troca as magias e as teclas ficam", 
   expect(await words(1)).toBe(a);
   await expect(slots.nth(0).locator(".action-key")).toHaveText("1");
   await expect(slots.nth(1).locator(".action-key")).toHaveText("2");
+});
+
+test("família de magias: só o que está liberado aparece, magia nova avisa e a tecla da família solta a mais forte pronta", async ({ page }) => {
+  await enterGame(page, "sorcerer");
+  const slots = page.locator(".action-slot");
+  // lv 1: Cura (1) e a família "Ataque no alvo" (2); o resto da barra recomendada ainda está bloqueado e não aparece.
+  await expect(slots).toHaveCount(2);
+  await expect(slots.nth(1)).toHaveClass(/family/);
+  await expect(slots.nth(1)).toHaveAttribute("data-tip", "Ataque no alvo: Bola de Fogo");
+
+  await setLevel(page, 20);
+  await expect(page.locator(".toast").filter({ hasText: /Novas magias|Nova magia/ }).first()).toBeVisible();
+  await expect(slots).toHaveCount(6);
+
+  // Sem alvo, a família fica apagada; com alvo ao lado, a tecla 2 solta o Raio de Energia (a mais forte no lv 20).
+  await expect(slots.nth(1)).toHaveClass(/no-target/);
+  const spot = (await walkableNear(page, FOREST.x, FOREST.y, 4))[0]!;
+  await teleport(page, spot.x, spot.y);
+  // O alvo (rato) pode morrer ou fugir antes da tecla: até 3 tentativas, mirando de novo no mais perto.
+  const beamCd = () => page.evaluate(() => (window as any).__lq.spellCd("energy_beam") as number);
+  for (let attempt = 0; attempt < 3 && (await beamCd()) === 0; attempt++) {
+    const pos = (await meState(page))!;
+    const mob = (await monsters(page)).sort((a, b) => Math.max(Math.abs(a.x - pos.x), Math.abs(a.y - pos.y)) - Math.max(Math.abs(b.x - pos.x), Math.abs(b.y - pos.y)))[0];
+    const near = mob && (await walkableNear(page, mob.x, mob.y, 2)).find((w) => w.x !== mob.x || w.y !== mob.y);
+    if (near) await teleport(page, near.x, near.y);
+    await targetNearest(page);
+    await expect(slots.nth(1)).toHaveAttribute("data-tip", "Ataque no alvo: Raio de Energia");
+    await page.locator("#game canvas").hover({ position: { x: 300, y: 300 } });
+    await page.keyboard.press("2");
+    await expect.poll(beamCd, { timeout: 3000 }).toBeGreaterThan(0).catch(() => {});
+  }
+  expect(await beamCd()).toBeGreaterThan(0);
+  await snap(page, "spell-family");
 });
