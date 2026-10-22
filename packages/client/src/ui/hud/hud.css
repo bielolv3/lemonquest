@@ -361,6 +361,13 @@
 .action-slot.filled:hover img { filter: drop-shadow(0 0 5px var(--el, #fff)); }
 .action-slot.nomana::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(36, 70, 170, 0.42); }
 .action-slot.nomana img { filter: saturate(0.5) brightness(0.75); }
+/* Alcance (magias de alvo): pronta e com alvo ao alcance = borda acesa na cor do elemento; longe = avermelhada; sem alvo = apagada. */
+.action-slot.ready { border-color: color-mix(in srgb, var(--el, #fff) 75%, transparent); box-shadow: inset 0 0 6px color-mix(in srgb, var(--el, #fff) 30%, transparent); }
+.action-slot.out-range { border-color: #b8413c; box-shadow: inset 0 0 0 60px rgba(184, 65, 60, 0.28); }
+.action-slot.out-range img { filter: saturate(0.6) brightness(0.8); }
+.action-slot.no-target img { filter: saturate(0.55) brightness(0.7); }
+/* Família (tecla inteligente): losango no canto de cima. */
+.action-family { position: absolute; right: 3px; top: 0; font-size: 9px; line-height: 12px; color: var(--hud-gold); text-shadow: 0 1px 0 #000; z-index: 2; }
 .action-slot.locked { cursor: not-allowed; }
 .action-slot.locked img { filter: grayscale(1) brightness(0.55); }
 .action-slot.locked::after { content: ""; position: absolute; inset: 0; z-index: 1; background: rgba(5, 6, 10, 0.35); pointer-events: none; }

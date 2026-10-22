@@ -1,5 +1,23 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · famílias de magia e barra mais esperta
+
+Benchmark (Tibia, WoW, RuneScape, Albion/ARPGs): ver a conversa do ciclo; escolhidos os itens 1–3.
+
+- **Famílias de magia (tecla inteligente, ◆)** (`shared/data/spellFamilies.ts`): magias do mesmo papel num atalho só;
+  apertar conjura a mais forte que estiver liberada, fora de recarga, com mana e no alcance do alvo (o cliente escolhe e
+  manda a magia real: o servidor não muda). O slot mostra o ícone e a recarga da que vai sair. 9 famílias: ataque no
+  alvo e área para as 4 vocações (paladino: chuva no alvo), onda do feiticeiro. As magias continuam com palavras e
+  atalho próprio para quem preferir.
+- **Barra recomendada** ("Recomendado" no painel H; padrão de personagem novo): famílias + magias avulsas em ordem de
+  level. Teclas: cavaleiro 11 → 8, paladino 10 → 5, feiticeiro 12 → 7, druida 12 → 9.
+- **Barra que se monta sozinha**: magia (ou família) ainda bloqueada no level não aparece na barra (o atalho continua
+  salvo); ao subir de level, a magia nova entra na próxima tecla livre (como família, se nenhuma magia da família está
+  na barra) e um aviso diz a tecla.
+- **Barra que informa**: magia de alvo com o alvo ao alcance acende a borda na cor do elemento; com o alvo longe fica
+  avermelhada; sem alvo, apagada (o balão diz "Alvo fora de alcance"/"Sem alvo").
+- `DEFAULT_SPELL_RANGE` e `needsTarget` passaram para o shared. Probe E2E `__lq.spellCd(id)`.
+
 ## [Não lançado] — 2026-10-22 · mover item longe e perseguir grudado
 
 - **Mover item do chão longe**: arrastar um item fora do alcance (3 tiles) faz o personagem andar até ele (pelo lado

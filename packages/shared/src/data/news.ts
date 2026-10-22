@@ -12,6 +12,17 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22d",
+    date: "22 de outubro (noite)",
+    title: "Famílias de magia",
+    items: [
+      "Família de magias (◆): uma tecla para várias magias do mesmo tipo. Sai a mais forte que estiver pronta e no alcance.",
+      "Quer a barra nova? Aperte H e clique em \"Recomendado\": as magias parecidas viram uma tecla só.",
+      "Magias que o seu level ainda não libera não ocupam mais a barra; quando liberar, ela entra sozinha numa tecla livre.",
+      "Na barra, a magia de alvo fica avermelhada quando o alvo está longe e apagada sem alvo.",
+    ],
+  },
+  {
     id: "2026-10-22c",
     date: "22 de outubro (noite)",
     title: "Chefes no almoço, /quem e balanço",

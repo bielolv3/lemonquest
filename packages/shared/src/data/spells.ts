@@ -67,6 +67,12 @@ export interface SpellDef {
 
 export const GLOBAL_SPELL_COOLDOWN_MS = 1000;
 
+/** Alcance (tiles) de magia no alvo sem `range` próprio. */
+export const DEFAULT_SPELL_RANGE = 7;
+
+/** A magia precisa de um alvo (e de alcance até ele). */
+export const needsTarget = (s: Pick<SpellDef, "target">): boolean => s.target === "target" || s.target === "area_target";
+
 /** Custo de mana da magia para um conjurador de `level` (base + manaPerLevel*level, arredondado, limitado a manaMax). */
 export function spellMana(s: Pick<SpellDef, "mana" | "manaPerLevel" | "manaMax">, level: number): number {
   const raw = s.mana + (s.manaPerLevel ?? 0) * Math.max(0, level);

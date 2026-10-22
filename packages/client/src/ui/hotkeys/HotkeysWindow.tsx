@@ -1,6 +1,6 @@
 // Painel de atalhos de magia (tecla H ou ⚙ na barra): cada linha = [tecla] [magia] [remover]. Clicar na tecla espera a
 // próxima tecla apertada (Esc cancela); as teclas do próprio jogo são recusadas com o motivo. Salva no personagem.
-import { HOTKEY_MAX, defaultHotkeys, spellsFor, type Hotkey, type Vocation } from "@lemonquest/shared";
+import { HOTKEY_MAX, defaultHotkeys, familiesFor, familyLevel, spellsFor, type Hotkey, type Vocation } from "@lemonquest/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { persistedJson, useStore } from "../hud/store.ts";
 import { meStore } from "../hud/world.ts";
@@ -72,6 +72,7 @@ export function HotkeysWindow() {
   if (!open || !me || !voc) return null;
   const pos = stored.x < 0 ? clampPos((window.innerWidth - W) / 2 - 110, 90) : clampPos(stored.x, stored.y);
   const spells = spellsFor(voc);
+  const families = familiesFor(voc);
 
   const onDragTitle = (e: PointerEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -94,7 +95,8 @@ export function HotkeysWindow() {
         <button class="win-close" onClick={() => hotkeysOpen.set(false)} data-tip="Fechar" data-tip-sub="H ou Esc">×</button>
       </div>
       <div class="win-body">
-        <p class="hk-hint">Clique na tecla e aperte a nova (pode usar Shift). Arrastar na barra também troca as magias de lugar.</p>
+        <p class="hk-hint">Clique na tecla e aperte a nova (pode usar Shift). Arrastar na barra também troca as magias de lugar.
+          ◆ Família: uma tecla para várias magias do mesmo tipo; sai a mais forte que estiver pronta e no alcance.</p>
         <ul class="hk-list">
           {list.map((h, i) => (
             <li key={`${i}-${h.key}`} class="hk-row">
@@ -113,11 +115,22 @@ export function HotkeysWindow() {
                 value={h.spellId}
                 onChange={(e) => apply(setRowSpell(list, i, (e.currentTarget as HTMLSelectElement).value))}
               >
-                {spells.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} · {s.words}{me.level < s.level ? ` (lv ${s.level})` : ""}
-                  </option>
-                ))}
+                {families.length > 0 && (
+                  <optgroup label="Famílias (tecla inteligente)">
+                    {families.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        ◆ {f.name}{me.level < familyLevel(f) ? ` (lv ${familyLevel(f)})` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="Magias">
+                  {spells.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} · {s.words}{me.level < s.level ? ` (lv ${s.level})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <button class="hk-remove" aria-label={`Remover atalho ${hotkeyLabel(h.key)}`} onClick={() => apply(removeRow(list, i))} data-tip="Remover">✕</button>
             </li>
@@ -134,7 +147,7 @@ export function HotkeysWindow() {
             + Novo atalho
           </button>
           <span class="hk-count">{list.length}/{HOTKEY_MAX}</span>
-          <button class="hk-btn subtle" onClick={() => { apply(defaultHotkeys(voc)); say("Atalhos voltaram ao padrão (1–0)."); }} data-tip="Volta ao padrão" data-tip-sub="Magias da vocação nas teclas 1–0">Padrão</button>
+          <button class="hk-btn subtle" onClick={() => { apply(defaultHotkeys(voc)); say("Barra recomendada: famílias ◆ e magias avulsas nas teclas 1–0."); }} data-tip="Barra recomendada" data-tip-sub="Famílias ◆ no lugar das magias parecidas, nas teclas 1–0">Recomendado</button>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  HOTKEY_MAX, SUGGESTED_KEYS, defaultHotkeys, hotkeysFromOrder, isHotkeyKey, keyLabel, reservedFor, sanitizeHotkeys, spellsFor,
+  HOTKEY_MAX, SPELL_FAMILIES, SUGGESTED_KEYS, defaultHotkeys, familiesFor, familyDef, familyOf, familySpells, hotkeysFromOrder,
+  isHotkeyKey, keyLabel, pickFromFamily, reservedFor, sanitizeHotkeys, spellDef, spellsFor,
 } from "./index.ts";
 
 describe("atalhos de magia", () => {
@@ -42,13 +43,18 @@ describe("atalhos de magia", () => {
     expect(sanitizeHotkeys(many, "sorcerer").length).toBeLessThanOrEqual(HOTKEY_MAX);
   });
 
-  it("padrão: TODAS as magias da vocação em ordem de level, nas teclas 1–0 e depois letras livres", () => {
+  it("padrão (recomendado): cada magia da vocação uma vez — direto ou pela família —, em ordem de level, nas teclas 1–0", () => {
+    const sizes: Record<string, number> = {};
     for (const v of ["knight", "paladin", "sorcerer", "druid"] as const) {
       const d = defaultHotkeys(v);
-      expect(d.map((h) => h.spellId), v).toEqual(spellsFor(v).map((s) => s.id));
+      const covered = d.flatMap((h) => familyDef(h.spellId)?.spells ?? [h.spellId]);
+      expect([...covered].sort(), v).toEqual(spellsFor(v).map((s) => s.id).sort());
       expect(d.map((h) => h.key), v).toEqual(SUGGESTED_KEYS.slice(0, d.length));
       expect(sanitizeHotkeys(d, v), v).toEqual(d);
+      sizes[v] = d.length;
     }
+    // A barra encolhe: menos teclas que magias em todas as vocações, e cabe no 1–0.
+    expect(sizes).toEqual({ knight: 8, paladin: 5, sorcerer: 7, druid: 9 });
     expect(SUGGESTED_KEYS.slice(10, 12)).toEqual(["KeyC", "KeyF"]); // A, B, D, E são do jogo
   });
 
@@ -61,5 +67,41 @@ describe("atalhos de magia", () => {
     expect(h.find((x) => x.key === "Digit2")).toBeDefined(); // tecla vaga recebe magia que faltava
     expect(new Set(h.map((x) => x.spellId)).size).toBe(h.length);
     expect(hotkeysFromOrder(null, "knight")).toEqual(defaultHotkeys("knight"));
+  });
+
+  it("famílias: magias de dano da própria vocação, cada uma em uma família só, da mais forte (level maior) para a mais fraca", () => {
+    const seen = new Set<string>();
+    for (const f of SPELL_FAMILIES) {
+      const spells = familySpells(f);
+      expect(spells.length, f.id).toBe(f.spells.length);
+      expect(spells.length, f.id).toBeGreaterThanOrEqual(2);
+      for (const s of spells) {
+        expect(s.vocations, s.id).toContain(f.vocation);
+        expect(s.damage, s.id).toBeDefined();
+        expect(seen.has(s.id), s.id).toBe(false);
+        seen.add(s.id);
+        expect(familyOf(s.id, f.vocation)).toBe(f);
+      }
+      const levels = spells.map((s) => s.level);
+      expect(levels, f.id).toEqual([...levels].sort((a, b) => b - a));
+    }
+  });
+
+  it("família no atalho: aceita a da vocação, recusa a de outra e não repete", () => {
+    const [mine] = familiesFor("sorcerer"), [other] = familiesFor("druid");
+    const out = sanitizeHotkeys([
+      { key: "Digit1", spellId: mine!.id }, { key: "Digit2", spellId: other!.id }, { key: "Digit3", spellId: mine!.id },
+      { key: "Digit4", spellId: "fam:sorcerer:nada" },
+    ], "sorcerer");
+    expect(out).toEqual([{ key: "Digit1", spellId: mine!.id }]);
+  });
+
+  it("família escolhe a mais forte liberada que estiver pronta", () => {
+    const f = familyDef("fam:sorcerer:target")!;
+    expect(pickFromFamily(f, 1, () => true)?.id).toBe("fireball");
+    expect(pickFromFamily(f, 60, () => true)?.id).toBe("sudden_death");
+    expect(pickFromFamily(f, 60, (s) => s.id !== "sudden_death")?.id).toBe("energy_beam");
+    expect(pickFromFamily(f, 60, () => false)).toBeNull();
+    expect(spellDef("sudden_death")!.level).toBeLessThanOrEqual(60);
   });
 });

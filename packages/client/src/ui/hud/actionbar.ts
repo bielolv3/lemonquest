@@ -23,7 +23,18 @@ export interface SlotAction {
   color?: string;
   /** Rótulo da tecla do atalho ("1", "⇧F"). */
   keyLabel?: string;
+  /** Família de magias (tecla inteligente): nome da família; o resto descreve a magia que vai sair agora. */
+  family?: string;
+  /** Família: level em que libera a primeira magia (o `level` acima é o da magia mostrada). */
+  unlockLevel?: number;
 }
+
+/**
+ * Alcance por slot (magias de alvo): "ok" = alvo ao alcance, "out" = alvo longe demais, "none" = sem alvo; null = a
+ * magia não usa alvo.
+ */
+export type SlotRange = "ok" | "out" | "none" | null;
+export const slotRangeStore = createStore<SlotRange[]>(Array(ACTION_SLOTS).fill(null));
 
 /** Quantos slots a barra mostra (= atalhos configurados). */
 export const slotCountStore = createStore(0);

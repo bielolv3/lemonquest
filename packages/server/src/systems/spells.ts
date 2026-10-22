@@ -2,6 +2,7 @@
 // (dano/cura/condição/investida/provocação/invocação), CastResult ao conjurador e SpellCast para todos.
 // Os números de dano/cura saem no lote de CombatEvent do CombatSystem.
 import {
+  DEFAULT_SPELL_RANGE,
   DIR_DELTA, Dir, GLOBAL_SPELL_COOLDOWN_MS, S2C, canStepTerrain, dirFromDelta, evalSpellFormula, mitigateSpell,
   spellByWords, spellDef, spellMana,
   type CastFailReason, type CastMsg, type CastResultMsg, type CollisionGrid, type SpellCastMsg, type SpellDef,
@@ -15,7 +16,7 @@ import type { SkillSystem } from "./skills.ts";
 import type { SummonSystem } from "./summons.ts";
 
 /** Alcance padrão de magias de alvo sem `range`. */
-export const DEFAULT_SPELL_RANGE = 7;
+export { DEFAULT_SPELL_RANGE };
 /** Raio padrão de provocação sem `radius`. */
 export const DEFAULT_TAUNT_RADIUS = 3;
 export const DEFAULT_TAUNT_MS = 5000;

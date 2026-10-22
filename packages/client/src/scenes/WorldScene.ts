@@ -53,6 +53,7 @@ import { GuideArrow } from "../game/guide.ts";
 import { FishBobbers } from "../game/fishing.ts";
 import { requestTrade } from "../ui/trade/trade.ts";
 import { reducedMotion } from "../ui/a11y/a11y.ts";
+import { spellCooldownLeft } from "../ui/hud/castbar.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -991,6 +992,7 @@ export class WorldScene extends Phaser.Scene {
       /** Falas visíveis sobre a cabeça dos jogadores (balões do chat). */
       speech: () => [...this.actors.values()].flatMap((a) => a.speechLines().map((l) => ({ from: a.name, ...l }))),
       target: () => this.curTarget,
+      spellCd: (id: string) => spellCooldownLeft(id),
       textResolutions: () => sceneTexts(this).reduce<Record<string, number>>((acc, t) => { acc[t.style.resolution] = (acc[t.style.resolution] ?? 0) + 1; return acc; }, {}),
       walkable: (x: number, y: number) => this.world.grid.isWalkable(x, y),
       statues: () => this.statues.list.map((s) => ({ id: s.id, x: s.x, y: s.y })),

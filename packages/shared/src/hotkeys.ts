@@ -1,12 +1,14 @@
 // Atalhos de magia (painel "Atalhos", tecla H): cada linha liga uma tecla a uma magia. Salvos no personagem (servidor).
 // A tecla é o KeyboardEvent.code (independe do layout do teclado), com "Shift+" opcional. Ctrl/Alt ficam de fora: o
 // navegador usa Ctrl+1–8 para trocar de aba e Alt abre menus.
+import { castableBy, familiesFor, familyLevel, familyOf } from "./data/spellFamilies.ts";
 import { spellDef, spellsFor } from "./data/spells.ts";
 import type { Vocation } from "./types.ts";
 
 export interface Hotkey {
   /** KeyboardEvent.code, com prefixo "Shift+" opcional (ex.: "Digit1", "Shift+KeyF", "F2"). */
   key: string;
+  /** Id da magia ou de uma família de magias ("fam:…", ver data/spellFamilies.ts). */
   spellId: string;
 }
 
@@ -82,8 +84,8 @@ export function keyLabel(key: string, layout?: ReadonlyMap<string, string>): str
 }
 
 /**
- * Lista recebida do cliente → lista válida: até HOTKEY_MAX linhas, tecla válida e sem repetir, magia que a vocação
- * pode usar e sem repetir (pode ser de level ainda não alcançado: a barra mostra bloqueada). Linhas inválidas saem.
+ * Lista recebida do cliente → lista válida: até HOTKEY_MAX linhas, tecla válida e sem repetir, magia (ou família) que a
+ * vocação pode usar e sem repetir (pode ser de level ainda não alcançado). Linhas inválidas saem.
  */
 export function sanitizeHotkeys(raw: unknown, vocation: Vocation): Hotkey[] {
   if (!Array.isArray(raw)) return [];
@@ -94,8 +96,7 @@ export function sanitizeHotkeys(raw: unknown, vocation: Vocation): Hotkey[] {
     if (!r || typeof r !== "object") continue;
     const { key, spellId } = r as Record<string, unknown>;
     if (!isHotkeyKey(key) || keys.has(key) || typeof spellId !== "string" || spells.has(spellId)) continue;
-    const def = spellDef(spellId);
-    if (!def || !def.vocations.includes(vocation)) continue;
+    if (!castableBy(spellId, vocation)) continue;
     keys.add(key);
     spells.add(spellId);
     out.push({ key, spellId });
@@ -118,9 +119,17 @@ export function nextFreeKey(taken: Iterable<string>): string | null {
   return SUGGESTED_KEYS.find((k) => !used.has(k)) ?? null;
 }
 
-/** Atalhos padrão da vocação: TODAS as magias em ordem de level (1–0 e, se não couberem, letras livres). */
+/**
+ * Atalhos recomendados (padrão) da vocação: as famílias no lugar das magias que elas juntam, mais as magias avulsas, em
+ * ordem do level em que liberam (1–0 e, se não couberem, letras livres).
+ */
 export function defaultHotkeys(vocation: Vocation): Hotkey[] {
-  return spellsFor(vocation).slice(0, HOTKEY_MAX).map((s, i) => ({ key: SUGGESTED_KEYS[i]!, spellId: s.id }));
+  // Mesmo level: a magia avulsa antes da família (a Cura fica na tecla 1).
+  const entries = [
+    ...spellsFor(vocation).filter((s) => !familyOf(s.id, vocation)).map((s) => ({ id: s.id, level: s.level })),
+    ...familiesFor(vocation).map((f) => ({ id: f.id, level: familyLevel(f) })),
+  ].sort((a, b) => a.level - b.level);
+  return entries.slice(0, HOTKEY_MAX).map((e, i) => ({ key: SUGGESTED_KEYS[i]!, spellId: e.id }));
 }
 
 /**
