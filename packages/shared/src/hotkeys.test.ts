@@ -13,6 +13,9 @@ describe("atalhos de magia", () => {
     expect(reservedFor("Shift+KeyE")).toBe("Poção de mana");
     expect(reservedFor("Numpad3")).toMatch(/Andar/);
     expect(reservedFor("KeyF")).toBeNull();
+    expect(reservedFor("Shift+Slash")).toMatch(/Ajuda/); // "?" abre a ajuda
+    expect(reservedFor("Shift+IntlRo")).toMatch(/Ajuda/);
+    expect(reservedFor("Slash")).toBeNull();
   });
 
   it("rótulos curtos, com o layout real quando o navegador informa", () => {

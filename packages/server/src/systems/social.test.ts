@@ -4,7 +4,7 @@ import { EMOTE_COOLDOWN_MS, MAX_FRIENDS, SocialSystem, WHISPER_COOLDOWN_MS } fro
 
 type Sent = { to: string; type: string; msg: any };
 
-function world(names: string[], extra: { offline?: string[]; muted?: Record<string, number> } = {}) {
+function world(names: string[], extra: { offline?: string[]; muted?: Record<string, number>; zoneAt?: (x: number, y: number) => string | null; away?: string[] } = {}) {
   let t = 1_000_000;
   const players = names.map((n, i) => ({ id: `s${i}`, name: n }) as any);
   const records = new Map(players.map((p: any) => [p.id, { data: {} } as any]));
@@ -17,6 +17,8 @@ function world(names: string[], extra: { offline?: string[]; muted?: Record<stri
     broadcast: (type, msg) => broadcasts.push({ type, msg }),
     exists: (n) => [...names, ...(extra.offline ?? [])].find((x) => x.toLowerCase() === n.toLowerCase()),
     muted: (p) => extra.muted?.[p.name] ?? 0,
+    ...(extra.zoneAt ? { zoneAt: extra.zoneAt } : {}),
+    ...(extra.away ? { away: (id: string) => extra.away!.includes(id) } : {}),
     now: () => t,
   });
   const by = (n: string) => players.find((p: any) => p.name === n);
@@ -127,5 +129,54 @@ describe("social: amigos", () => {
     const w = world(["Ana"]);
     expect(w.social.command(w.by("Ana"), "/convidar Beto")).toBe(false);
     expect(w.social.command(w.by("Ana"), "oi")).toBe(false);
+  });
+});
+
+describe("social: /quem", () => {
+  const zoneAt = (x: number) => (x < 100 ? "Vila de Pedra Clara" : x < 200 ? "Pântano Turvo" : null);
+  const setup = (away?: string[]) => {
+    const w = world(["Ana", "Beto", "Caio", "Duda"], { zoneAt, ...(away ? { away } : {}) });
+    const stats: [string, number, string, number][] = [["Ana", 30, "knight", 50], ["Beto", 45, "druid", 150], ["Caio", 19, "paladin", 60], ["Duda", 100, "sorcerer", 300]];
+    for (const [n, level, vocation, x] of stats) Object.assign(w.by(n), { level, vocation, x, y: 10 });
+    return w;
+  };
+  const rows = (w: ReturnType<typeof world>, to: string) => w.sent.filter((s) => s.to === to && s.type === S2C.Chat).map((s) => s.msg);
+
+  it("lista todos (maior level primeiro) com level, vocação e zona; ✓ grupo pela regra dos 2/3 em relação a quem pergunta", () => {
+    const w = setup();
+    expect(w.social.command(w.by("Ana"), "/quem")).toBe(true);
+    expect(notices(w, "s0")).toEqual(["Online (4): veja a lista no chat. ✓ grupo = divide XP com você."]);
+    const r = rows(w, "s0");
+    expect(r.every((m) => m.channel === "system" && m.from === "")).toBe(true);
+    expect(r.map((m) => m.text)).toEqual([
+      "Duda · lv 100 · Feiticeiro · fora das zonas",
+      "Beto · lv 45 · Druida · Pântano Turvo ✓ grupo", // 30 ≥ 2/3 de 45
+      "Ana · lv 30 · Cavaleiro · Vila de Pedra Clara (você)",
+      "Caio · lv 19 · Paladino · Vila de Pedra Clara", // 19 < 2/3 de 30 (20)
+    ]);
+    expect(w.sent.every((s) => s.to === "s0")).toBe(true); // só quem perguntou recebe
+    expect(w.broadcasts).toHaveLength(0);
+  });
+
+  it("a marca é relativa a quem pergunta; /who é apelido; sem zoneAt no host a zona fica de fora", () => {
+    const w = setup();
+    w.social.command(w.by("Beto"), "/who");
+    expect(rows(w, "s1").map((m) => m.text).filter((t) => t.includes("✓ grupo"))).toEqual(["Ana · lv 30 · Cavaleiro · Vila de Pedra Clara ✓ grupo"]);
+    w.social.command(w.by("Caio"), "/quem"); // 19 não divide com 30 (precisa de 20)
+    expect(rows(w, "s2").some((m) => m.text.includes("✓ grupo"))).toBe(false);
+
+    const bare = world(["Ana"]);
+    Object.assign(bare.by("Ana"), { level: 5, vocation: "druid", x: 1, y: 1 });
+    bare.social.command(bare.by("Ana"), "/quem");
+    expect(rows(bare, "s0").map((m) => m.text)).toEqual(["Ana · lv 5 · Druida (você)"]);
+  });
+
+  it("quem está no mundo sem ninguém no controle aparece como (ausente); a hora da linha vem do relógio do host", () => {
+    const w = setup(["s1"]); // Beto caiu (ou saiu em combate) e o personagem ainda está no mundo
+    w.social.command(w.by("Ana"), "/quem");
+    const r = rows(w, "s0");
+    expect(r.map((m) => m.text)).toContain("Beto · lv 45 · Druida · Pântano Turvo (ausente) ✓ grupo");
+    expect(r.filter((m) => m.text.includes("(ausente)"))).toHaveLength(1);
+    expect(r.every((m) => m.ts === 1_000_000)).toBe(true);
   });
 });

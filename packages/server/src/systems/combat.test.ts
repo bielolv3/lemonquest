@@ -34,7 +34,7 @@ describe("player combat", () => {
     expect(run(0.5)).toBe(40); // nunca reduz
   });
 
-  it("estágio de XP: lv 100 recebe 30% da XP do abate (o bônus de evento multiplica antes)", () => {
+  it("estágio de XP: lv 100 recebe 12% da XP do abate (o bônus de evento multiplica antes)", () => {
     const run = (level: number, mult = 1) => {
       const w = setup({ hp: 20, xp: 1000, armor: 0 });
       w.combat.hooks = { xpMult: () => mult };
@@ -44,19 +44,20 @@ describe("player combat", () => {
       w.run(PLAYER_ATTACK_MS * 6);
       return (w.sent.find((s) => s.type === S2C.XpGain)!.msg as { amount: number }).amount;
     };
-    expect(run(59)).toBe(1000);
-    expect(run(60)).toBe(600);
-    expect(run(100)).toBe(300);
-    expect(run(100, 2)).toBe(600);
+    expect(run(39)).toBe(1000);
+    expect(run(40)).toBe(500);
+    expect(run(60)).toBe(300);
+    expect(run(100)).toBe(120);
+    expect(run(100, 2)).toBe(240);
   });
 
   it("subir para um novo estágio de XP avisa o jogador (só ele)", () => {
-    const w = setup({ hp: 20, xp: xpForLevel(60) - xpForLevel(59) + 1, armor: 0 });
+    const w = setup({ hp: 20, xp: xpForLevel(40) - xpForLevel(39) + 1, armor: 0 });
     const p = w.add(player("k", 11, 10, { name: "Leo", hp: 5000 }));
-    p.level = 59; p.xp = xpForLevel(59);
+    p.level = 39; p.xp = xpForLevel(39);
     w.combat.onAttack(p, { targetId: w.m.s.id });
     w.run(PLAYER_ATTACK_MS * 6);
-    expect(p.level).toBe(60);
+    expect(p.level).toBe(40);
     const notes = w.sent.filter((s) => s.type === S2C.Notice && /estágio de XP/.test((s.msg as { text: string }).text));
     expect(notes).toHaveLength(1);
     expect(notes[0]).toMatchObject({ to: "k" });
@@ -152,6 +153,50 @@ describe("player combat", () => {
     expect(p.targetId).toBe(w.m.s.id);
     w.combat.onAttack(p, { targetId: null });
     expect(p.targetId).toBe("");
+  });
+});
+
+describe("skill Escudo", () => {
+  type Hit = { shield?: boolean; skill?: number; attackRange?: number; monsterLevel?: number; playerLevel?: number; damage?: number; attackMs?: number; ms?: number };
+  const hit = (o: Hit = {}) => {
+    const dmg = o.damage ?? 40;
+    const w = setup({ aggroRange: 5, damage: [dmg, dmg], attackRange: o.attackRange ?? 1, armor: 0, level: o.monsterLevel ?? 1, attackMs: o.attackMs ?? 2000 });
+    let tries = 0;
+    w.combat.hooks = { armor: () => 2, hasShield: () => o.shield ?? true, onShieldTry: () => { tries++; } };
+    const far = (o.attackRange ?? 1) > 1;
+    const p = w.add(player("k", far ? 12 : 11, 10, { level: o.playerLevel ?? 1, hp: 5000, maxHp: 5000, skillShield: o.skill ?? 10, targetId: "" }));
+    w.run(o.ms ?? 2100);
+    const hits = w.sent.filter((x) => x.type === S2C.Combat).flatMap((x) => x.msg.events).filter((e: { targetId: string }) => e.targetId === "k");
+    return { hits: hits.length, perHit: hits.map((e: { amount: number }) => e.amount), tries, armor: w.combat.armorOf(p) };
+  };
+
+  it("com escudo: +floor((shield−10)/4) de armadura; sem escudo, só a do equipamento", () => {
+    const a = hit({ skill: 30 }), b = hit({ shield: false, skill: 30 });
+    expect(a.armor).toBe(7);
+    expect(new Set(a.perHit)).toEqual(new Set([33]));
+    expect(b.armor).toBe(2);
+    expect(new Set(b.perHit)).toEqual(new Set([38]));
+    expect(hit({ skill: 10 }).armor).toBe(2);
+  });
+
+  it("golpe corpo a corpo ou à distância treina o escudo, só com escudo equipado", () => {
+    const melee = hit({ ms: 500 }), ranged = hit({ attackRange: 3, ms: 500 });
+    expect(melee).toMatchObject({ hits: 1, tries: 1 });
+    expect(ranged).toMatchObject({ hits: 1, tries: 1 });
+    expect(hit({ shield: false, ms: 500 })).toMatchObject({ hits: 1, tries: 0 });
+  });
+
+  it("no máximo uma tentativa a cada 2 s, mesmo com golpes mais rápidos", () => {
+    const r = hit({ attackMs: 400, ms: 5900 });
+    expect(r.hits).toBeGreaterThanOrEqual(10);
+    expect(r.tries).toBe(3); // 0, 2 e 4 s
+  });
+
+  it("monstro fraco (level < 1/3 do jogador) com golpe zerado pela armadura não treina; forte ou que fura a armadura treina", () => {
+    expect(hit({ monsterLevel: 1, playerLevel: 30, damage: 2, ms: 500 })).toMatchObject({ hits: 1, tries: 0 }); // rato AFK
+    expect(hit({ monsterLevel: 1, playerLevel: 30, damage: 40, ms: 500 }).tries).toBe(1); // passa da armadura (2)
+    expect(hit({ monsterLevel: 10, playerLevel: 30, damage: 2, ms: 500 }).tries).toBe(1); // level ≥ 1/3
+    expect(hit({ monsterLevel: 9, playerLevel: 30, damage: 2, ms: 500 }).tries).toBe(0);
   });
 });
 

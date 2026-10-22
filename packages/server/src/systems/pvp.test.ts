@@ -158,6 +158,10 @@ describe("PvP", () => {
     mv.tick(s.w.now(), [a]);
     expect(a.x).toBe(5);
     expect(s.notices("a").some((t) => /zona de proteção/.test(t))).toBe(true);
+    // O aviso diz quanto falta do bloqueio.
+    const left = Number(/\(mais (\d+) s\)/.exec(s.notices("a").find((t) => /zona de proteção/.test(t))!)?.[1]);
+    expect(left).toBeGreaterThan(0);
+    expect(left).toBeLessThanOrEqual(PZ_LOCK_MS / 1000);
     s.tick(PZ_LOCK_MS);
     mv.onMove(a, { dir: 6, seq: 2 });
     mv.tick(s.w.now(), [a]);

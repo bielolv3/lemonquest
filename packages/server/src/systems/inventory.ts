@@ -27,7 +27,7 @@ export interface Inventory {
 
 export const MSG = {
   vocation: "Sua vocação não pode usar isso.",
-  level: "Level insuficiente.",
+  level: (lv: number) => `Você precisa ser level ${lv} para usar isso.`,
   full: "Mochila cheia.",
   depotFull: "Depot cheio.",
   slot: "Esse item não vai nesse lugar.",
@@ -558,7 +558,7 @@ export class InventorySystem {
   canEquip(p: PlayerState, d: ItemDef | undefined, slot: EquipSlot): string | undefined {
     if (!d || !d.slot || d.slot !== slot) return MSG.slot;
     if (d.vocations?.length && !d.vocations.includes(p.vocation)) return MSG.vocation;
-    if ((d.level ?? 0) > p.level) return MSG.level;
+    if ((d.level ?? 0) > p.level) return MSG.level(d.level!);
     return undefined;
   }
 

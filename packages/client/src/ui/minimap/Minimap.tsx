@@ -176,17 +176,23 @@ export function Minimap() {
 
 export function WorldMapOverlay() {
   const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  openRef.current = open;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === "Escape") { setOpen(false); return; }
+      // Mapa aberto: o Esc fecha só o mapa (em captura e parando aí; não tira o alvo).
+      if (e.key === "Escape") {
+        if (openRef.current && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); setOpen(false); }
+        return;
+      }
       // Tecla física (code), como os atalhos de magia: em outros layouts o "m" cai noutra tecla, que pode ser um atalho.
       if (e.code === "KeyM" && !isTyping()) { e.preventDefault(); setOpen((o) => !o); }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   useEffect(() => {

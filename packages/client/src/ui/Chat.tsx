@@ -7,7 +7,8 @@ import { FEED_COLOR, onFeed } from "./items/loot.ts";
 import { rarityColor } from "./items/itemInfo.ts";
 import { partyStore } from "./party/party.ts";
 import { subscribeHudInsets } from "./hud/layout.ts";
-import { inTab, pushLine, type Line, type Tab } from "./chatLines.ts";
+import { inTab, pushLine, pushNotice, type Line, type Tab } from "./chatLines.ts";
+import { onToast } from "./toasts.ts";
 
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -65,10 +66,13 @@ export function Chat() {
     });
     // Respostas de comandos de admin (Notice com log): ficam no chat, copiáveis (ex.: código de recuperação).
     room.onMessage(S2C.Notice, (m: NoticeMsg) => {
-      if (!m?.log || typeof m.text !== "string") return;
-      setLines((l) => pushLine(l, { from: "", text: m.text, channel: "system", ts: Date.now() }));
+      if (typeof m?.text !== "string") return;
+      if (m.log) setLines((l) => pushLine(l, { from: "", text: m.text, channel: "system", ts: Date.now() }));
+      // Avisos (mochila cheia, porta fechada, PZ…): o toast some em segundos; fica uma cópia esmaecida, sem "não lido".
+      else if (m.kind === "warn") setLines((l) => pushNotice(l, m.text, Date.now()));
     });
   }), []);
+  useEffect(() => onToast((t) => { if (t.kind === "warn") setLines((l) => pushNotice(l, t.text, Date.now())); }), []);
 
   useEffect(() => onFeed((f) => {
     setLines((l) => pushLine(l, { from: "Servidor", text: f.text, channel: "system", ts: f.ts, feed: f }));
@@ -195,7 +199,7 @@ export function Chat() {
           <div class="chat-empty">{tab === "party" ? "Nenhuma mensagem do grupo ainda." : "Nenhuma mensagem ainda. Diga oi!"}</div>
         )}
         {lines.map((m) => inTab(m, tab) && (
-          <div key={m.key} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}${m.from ? "" : " sys"}`}>
+          <div key={m.key} class={`chat-line ${m.channel}${m.from === session.myName ? " mine" : ""}${m.from ? "" : " sys"}${m.dim ? " dim" : ""}`}>
             <span class="chat-time">{hhmm(m.ts)}</span>
             {m.feed ? (
               <span class="chat-text chat-feed" style={{ color: m.feed.rarity ? rarityColor(m.feed.rarity) : FEED_COLOR[m.feed.kind] }}>

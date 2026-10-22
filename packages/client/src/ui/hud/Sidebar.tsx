@@ -25,11 +25,13 @@ import { questLogOpen, toggleQuestLog } from "../quests/quests.ts";
 import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
 import { a11yOpen, autoOpen, helpOpen, NARROW_PX, sidebarOpen, SIDEBAR_GAP, SIDEBAR_W, skillsOpen, soundOpen, toggle } from "./uiState.ts";
 import { meStore } from "./world.ts";
+import { bestiaryOpen, toggleBestiary } from "../bestiary/Bestiary.tsx";
 
 export function Sidebar() {
   const open = useStore(sidebarOpen);
   const skills = useStore(skillsOpen);
   const help = useStore(helpOpen);
+  const bestiary = useStore(bestiaryOpen);
   const muted = useStore(mutedStore);
   const volume = useStore(volumeStore).volume;
   const sound = useStore(soundOpen);
@@ -106,6 +108,9 @@ export function Sidebar() {
         </button>
         <button class={`rail-btn${achOpen ? " active" : ""}`} onClick={toggleAchievements} data-tip="Conquistas" data-tip-sub="Tecla J">
           <PixelIcon name="trophy" size={14} />
+        </button>
+        <button class={`rail-btn${bestiary ? " active" : ""}`} onClick={toggleBestiary} data-tip="Bestiário" data-tip-sub="Tecla B">
+          <PixelIcon name="swords" size={14} />
         </button>
         <button class={`rail-btn${rankOpen ? " active" : ""}`} onClick={toggleRanking} data-tip="Ranking" data-tip-sub="Tecla R">
           <PixelIcon name="podium" size={14} />

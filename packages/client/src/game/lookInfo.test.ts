@@ -17,7 +17,8 @@ describe("classe dos baús de quest", () => {
     expect(c.lines[0]).toMatch(/O Cume do Vulcão · requer level 80/);
     expect(c.lines.some((l) => /ouro/.test(l))).toBe(true);
     expect(lookQuestObject("chest", "hero_sword").lines.at(-1)).toBe("Classe: Cavaleiro");
-    expect(lookQuestObject("lever", "annihilator").lines[0]).toMatch(/4 aventureiros de level 100/);
+    expect(lookQuestObject("lever", "annihilator").lines[0]).toMatch(/2 a 4 aventureiros de level 100/);
+    expect(lookQuestObject("lever", "annihilator").lines[1]).toMatch(/placa ao lado da alavanca/);
   });
 });
 

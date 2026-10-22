@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BACKPACK_SIZE, S2C } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
-import { DECAY_MS, DROP_RANGE, GROUND_MSG, GROUND_RATE, GroundSystem, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
+import { DECAY_MS, DROP_RANGE, MAX_LIFE_MULT, GROUND_MSG, GROUND_RATE, GroundSystem, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
 import { LootSystem } from "./loot.ts";
 import { def, grid } from "./testkit.ts";
 import { invWorld } from "./m4kit.ts";
@@ -279,6 +279,69 @@ describe("ground: decay and caps", () => {
     expect(t2.get(ids[1]!)).toBeUndefined();
     expect(t2.get(ids[2]!)).toBeDefined();
   });
+
+  it("chão lotado: sai o comum/incomum mais antigo antes de qualquer raro+", () => {
+    const t = groundWorld();
+    const t2 = new GroundSystem({
+      inventory: t.w.inv, collection: new Map(), canHold: () => true, seeThrough: () => true, send: () => {}, now: t.w.now,
+    });
+    const rare = t2.place(makeItem("sword", 1, "rare"), 0, 0)!;
+    const epic = t2.place(makeItem("sword", 1, "epic"), 1, 0)!;
+    const ids: string[] = [];
+    for (let i = 2; i < MAX_GROUND_ITEMS; i++) ids.push(t2.place(makeItem("sword", 1, i % 2 ? "uncommon" : "common"), i, 0)!);
+    t2.place(makeItem("sword"), 0, 1);
+    t2.place(makeItem("sword"), 1, 1);
+    expect(t2.size).toBe(MAX_GROUND_ITEMS);
+    expect(t2.get(rare)).toBeDefined();
+    expect(t2.get(epic)).toBeDefined();
+    expect(t2.get(ids[0]!)).toBeUndefined();
+    expect(t2.get(ids[1]!)).toBeUndefined();
+    expect(t2.get(ids[2]!)).toBeDefined();
+    // Só raros+ no chão: aí sai o mais antigo deles.
+    const t3 = new GroundSystem({
+      inventory: t.w.inv, collection: new Map(), canHold: () => true, seeThrough: () => true, send: () => {}, now: t.w.now,
+    });
+    const r3: string[] = [];
+    for (let i = 0; i < MAX_GROUND_ITEMS + 1; i++) r3.push(t3.place(makeItem("sword", 1, "rare"), i, 0)!);
+    expect(t3.get(r3[0]!)).toBeUndefined();
+    expect(t3.get(r3[1]!)).toBeDefined();
+  });
+
+  it("empilhar não encurta o prazo do que acabou de cair (a pilha fica com o prazo mais tarde)", () => {
+    const t = groundWorld();
+    const id = t.ground.place(makeItem("bone", 50), 3, 3)!;
+    t.w.advance(DECAY_MS.common - 30_000); // pilha velha: faltam 30 s
+    expect(t.ground.place(makeItem("bone", 50), 3, 3)).toBe(id); // 50 novos empilham
+    expect(t.ground.get(id)!.expiresAt).toBe(t.w.now() + DECAY_MS.common);
+    t.w.advance(60_000);
+    t.ground.tick(t.w.now());
+    expect(t.ground.get(id)?.item.count).toBe(100); // os novos não sumiram junto
+  });
+
+  it(`juntar e mover pilhas não deixa item eterno: no máximo ${MAX_LIFE_MULT}× o prazo desde a parte mais antiga`, () => {
+    const t = groundWorld();
+    const p = t.add("p1", 5, 5);
+    let cur = t.ground.place(makeItem("bone", 10), 5, 5)!;
+    const born = t.w.now();
+    // A cada 3 min: uma isca nova num tile, funde a pilha nela e traz de volta (antes isso renovava o prazo sem fim).
+    for (let i = 0; i < 12; i++) {
+      t.w.advance(3 * 60_000);
+      t.ground.tick(t.w.now());
+      if (!t.ground.get(cur)) break;
+      t.ground.place(makeItem("bone", 1), 4, 5);
+      t.ground.onMoveGround(p, { groundId: cur, x: 4, y: 5 });
+      cur = t.ground.at(4, 5).at(-1)!;
+      t.step();
+      t.ground.onMoveGround(p, { groundId: cur, x: 5, y: 5 });
+      cur = t.ground.at(5, 5).at(-1)!;
+      t.step();
+      expect(t.ground.get(cur)!.expiresAt).toBeLessThanOrEqual(born + MAX_LIFE_MULT * DECAY_MS.common);
+    }
+    t.w.advance(MAX_LIFE_MULT * DECAY_MS.common);
+    t.ground.tick(t.w.now());
+    expect(t.ground.at(5, 5)).toEqual([]);
+    expect(t.ground.at(4, 5)).toEqual([]);
+  });
 });
 
 describe("ground: loot overflow", () => {
@@ -296,7 +359,7 @@ describe("ground: loot overflow", () => {
     loot.onKill({ s: { id: "m1", x: 9, y: 9, ownerId: "" }, def: md, damageBy: new Map([["k", 10]]) } as unknown as Monster);
     const items = t.onTile(4, 4);
     expect(items.map((e) => e.item.defId).sort()).toEqual(["bone", "vest"]);
-    expect(t.w.notices()).toContain("Mochila cheia: 2 item(ns) caíram no chão.");
+    expect(t.w.notices()).toContain("Mochila cheia: 2 itens caíram no chão.");
     const lootMsg = t.w.sent.find((s) => s.type === S2C.Loot)!.msg;
     expect(lootMsg.fellToGround).toBe(2);
     expect(lootMsg.lostFull).toBeUndefined();
@@ -340,6 +403,21 @@ describe("ground: persistência", () => {
     expect(ids.map((i) => g2.get(i)!.item.defId)).toEqual(["bone", "sword"]);
     expect(g2.get(ids[1]!)!.item.bonuses).toEqual([{ stat: "attack", value: 3 }]);
     expect(g2.get(g2.at(5, 5)[0]!)!.item.defId).toBe("vest");
+  });
+
+  it("o 'nascimento' da pilha (teto do prazo) sobrevive ao reinício; registro antigo sem ele é estimado pelo prazo", () => {
+    const w = invWorld();
+    const store = memStore();
+    const g1 = make(w, store);
+    const born = w.now();
+    g1.place(makeItem("bone", 5), 4, 4);
+    g1.flush();
+    expect(store.rows[0]!.createdAt).toBe(born);
+    store.rows.push({ x: 6, y: 6, item: makeItem("bone", 1), expiresAt: born + 1000 }); // de antes da v7
+    const g2 = make(w, store);
+    expect(g2.restore()).toBe(2);
+    expect(g2.get(g2.at(4, 4)[0]!)!.createdAt).toBe(born);
+    expect(g2.get(g2.at(6, 6)[0]!)!.createdAt).toBe(born + 1000 - DECAY_MS.common);
   });
 
   it("restore descarta o que expirou durante o 'servidor desligado'", () => {

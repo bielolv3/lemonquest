@@ -16,7 +16,7 @@ import { LootFx } from "../game/lootFx.ts";
 import { LightField } from "../game/lighting.ts";
 import { worldClock } from "../game/daynight.ts";
 import { GroundItems } from "../game/ground.ts";
-import { beginGroundPress } from "../ui/items/dnd.ts";
+import { beginGroundPress, cancelDrag } from "../ui/items/dnd.ts";
 import { pickupItem, setGroundBridge } from "../ui/items/ground.ts";
 import { NpcManager, allNpcSheets } from "../game/npcs.ts";
 import { STATUE_RANGE, StatueIndex } from "../game/statues.ts";
@@ -52,6 +52,7 @@ import { getHudInsets } from "../ui/hud/layout.ts";
 import { GuideArrow } from "../game/guide.ts";
 import { FishBobbers } from "../game/fishing.ts";
 import { requestTrade } from "../ui/trade/trade.ts";
+import { reducedMotion } from "../ui/a11y/a11y.ts";
 import { BATTLE_RANGE, chebyshev, hpPct, setBattleEntries, clearBattleEntries, type BattleEntry } from "../ui/hud/battle.ts";
 import { getTarget, setTarget, subscribeTarget, toggleTarget, type Target } from "../ui/hud/target.ts";
 
@@ -78,6 +79,8 @@ const SFX_FULL_TILES = 3;
 const SFX_MAX_TILES = 10;
 /** Janela do duplo clique num item do chão (ms). */
 const GROUND_DBL_MS = 350;
+/** Janela para o segundo botão do "olhar" (os dois botões juntos raramente chegam a mais de ~60 ms um do outro). */
+const CHORD_MS = 120;
 /** Testes E2E (Playwright): expõe window.__lq (ver installE2EProbe). */
 const E2E_PROBE = typeof location !== "undefined" && new URLSearchParams(location.search).has("e2e");
 const PROJECTILE_MS = 180;
@@ -121,6 +124,8 @@ export class WorldScene extends Phaser.Scene {
   private lastClick: { at: number; undo?: () => void } = { at: 0 };
   /** Clique simples num item do chão: anda só depois da janela do duplo clique (duplo clique = pegar sem sair do lugar). */
   private groundWalkTimer = 0;
+  /** Ação de um botão esperando para ver se o outro chega ("olhar" com os dois botões). */
+  private chordTimer = 0;
   private butterflies!: Butterflies;
   private guide!: GuideArrow;
   private bobbers!: FishBobbers;
@@ -219,7 +224,7 @@ export class WorldScene extends Phaser.Scene {
     this.spells = new SpellEffects(this, this.worldLayer, this.fx, this.pcam, {
       actor: (id) => this.findActor(id),
       myId: () => this.myId,
-      shake: (ms, i) => this.cameras.main.shake(ms, i),
+      shake: (ms, i) => { if (!reducedMotion()) this.cameras.main.shake(ms, i); },
     });
     this.predictor = new Predictor({
       grid: this.world.grid,
@@ -574,7 +579,7 @@ export class WorldScene extends Phaser.Scene {
 
   private onInputDir(d: Dir | null) {
     if (!this.room) return;
-    if (d !== null) { this.pendingNpc = null; this.pendingPickup = null; window.clearTimeout(this.groundWalkTimer); }
+    if (d !== null) { this.pendingNpc = null; this.pendingPickup = null; window.clearTimeout(this.groundWalkTimer); window.clearTimeout(this.chordTimer); }
     // Mesma ordem do servidor: primeiro recupera um passo que já era devido com a intenção antiga.
     this.stepLocal();
     if (d === null) this.predictor.release();
@@ -605,6 +610,8 @@ export class WorldScene extends Phaser.Scene {
         this.look(ptr);
         return;
       }
+      // Um botão só: o que ele fizer pode ser desfeito se o outro chegar logo depois (vira "olhar").
+      this.lastClick = { at: 0 };
       // Clique (esquerdo ou direito) numa criatura = atacar / soltar o alvo.
       const cid = this.creatureAtPointer(ptr);
       if (cid) {
@@ -613,11 +620,11 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
       const nid = this.npcAtPointer(ptr);
-      if (nid) { this.clickNpc(nid); return; }
+      if (nid) { this.afterChord(() => this.clickNpc(nid)); return; }
       const sid = this.statueAtPointer(ptr);
-      if (sid) { this.clickStatue(sid); return; }
+      if (sid) { this.afterChord(() => this.clickStatue(sid)); return; }
       const qid = this.questObjAtPointer(ptr);
-      if (qid) { this.clickQuestObj(qid); return; }
+      if (qid) { this.afterChord(() => this.clickQuestObj(qid)); return; }
       if (!this.room && !FXTEST) return;
       const t = this.pointerTile(ptr);
       if (!t) return;
@@ -650,6 +657,7 @@ export class WorldScene extends Phaser.Scene {
       // Botão direito na água: pescar (precisa da Vara de Pesca; o servidor avisa se faltar algo).
       if (right && this.world.water.isWater(t.x, t.y)) {
         const ev = ptr.event as MouseEvent;
+        // Abre na hora, como os outros menus: o menu não faz nada sozinho e o "olhar" (esquerdo logo depois) o fecha.
         openCtxMenu(ev?.clientX ?? ptr.x, ev?.clientY ?? ptr.y, [{ label: "Pescar", run: () => this.room?.send(C2S.Fish, { x: t.x, y: t.y }) }]);
         return;
       }
@@ -662,22 +670,45 @@ export class WorldScene extends Phaser.Scene {
         const dbl = left && this.lastGroundClick.id === gid && now - this.lastGroundClick.at < GROUND_DBL_MS;
         this.lastGroundClick = { id: left ? gid : "", at: now };
         window.clearTimeout(this.groundWalkTimer);
-        if (right || ev?.ctrlKey || dbl) { this.pickupGround(gid); return; }
+        if (right || ev?.ctrlKey || dbl) { this.afterChord(() => this.pickupGround(gid)); return; }
         const inst = this.ground.instanceOf(gid);
         if (inst && Number.isFinite(ev?.clientX)) {
           beginGroundPress(ev.clientX, ev.clientY, gid, inst, () => {
             this.groundWalkTimer = window.setTimeout(() => this.walkToTile(t.x, t.y), GROUND_DBL_MS);
           });
+          // Olhar com o esquerdo primeiro: nem arrasto nem a caminhada do soltar.
+          this.lastClick = { at: performance.now(), undo: () => { cancelDrag(); window.clearTimeout(this.groundWalkTimer); } };
           return;
         }
       }
       if (!left) return;
       this.walkToTile(t.x, t.y);
+      // Andar sai na hora (sem atraso no clique mais comum); se virar "olhar", para onde estiver.
+      this.lastClick = { at: performance.now(), undo: () => this.stopWalk() };
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.hover.setVisible(false));
   }
 
-  /** O segundo botão chegou logo depois do primeiro: desfaz o que o primeiro fez (alvo, menu de contexto). */
+  /**
+   * Ação de um botão que não dá para desfazer depois (pegar item, abrir NPC/baú/estátua): espera CHORD_MS para ver se o
+   * outro botão chega (aí vira "olhar" e a ação é descartada).
+   */
+  private afterChord(run: () => void) {
+    window.clearTimeout(this.chordTimer);
+    this.chordTimer = window.setTimeout(run, CHORD_MS);
+    this.lastClick = { at: performance.now(), undo: () => window.clearTimeout(this.chordTimer) };
+  }
+
+  /** Cancela um clique para andar: o servidor larga o caminho e termina só o passo em andamento. */
+  private stopWalk() {
+    const me = this.actors.get(this.myId);
+    if (!me || !this.room) return;
+    this.pendingNpc = null;
+    this.pendingPickup = null;
+    this.room.send(C2S.WalkTo, { x: me.tileX, y: me.tileY, stop: true } satisfies WalkToMsg);
+  }
+
+  /** O segundo botão chegou logo depois do primeiro: desfaz o que o primeiro fez (alvo, menu de contexto, ação adiada). */
   private undoFirstButton() {
     if (performance.now() - this.lastClick.at < 600) this.lastClick.undo?.();
     this.lastClick = { at: 0 };
@@ -1127,7 +1158,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.fx.hit(ev.kind, wx, wy, !!ev.ranged, ang);
 
-    if (toMe && (ev.crit || ev.amount > this.myMaxHp * 0.2)) this.cameras.main.shake(140, 0.004);
+    if (toMe && (ev.crit || ev.amount > this.myMaxHp * 0.2) && !reducedMotion()) this.cameras.main.shake(140, 0.004);
     this.sfxAt(ev.crit ? "crit" : toMe ? "hurt" : "hit", r.gain, { volume: ev.crit ? 1 : 0.85 });
   }
 
@@ -1372,6 +1403,7 @@ export class WorldScene extends Phaser.Scene {
 
   private teardown() {
     window.clearTimeout(this.groundWalkTimer);
+    window.clearTimeout(this.chordTimer);
     for (const d of this.disposers) d();
     this.disposers = [];
     this.input_?.destroy();

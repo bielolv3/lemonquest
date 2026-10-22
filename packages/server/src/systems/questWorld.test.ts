@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
-  ITEMS, MONSTERS, QUEST_CHESTS, QUEST_CHEST_GROUPS, QUEST_LEVERS, S2C, TITLES, doorBlockReason, findQuestLevers, findQuestObjects,
-  isValidUnlockId, monsterDef, type QuestLeverSpot, type QuestObjectSpot, type TiledMap,
+  ITEMS, MONSTERS, QUEST_CHESTS, QUEST_OBJECT_RANGE, QUEST_CHEST_GROUPS, QUEST_LEVERS, S2C, TITLES, doorBlockReason, findQuestLevers, findQuestObjects,
+  isValidUnlockId, leverMonsters, monsterDef, type QuestLeverSpot, type QuestObjectSpot, type TiledMap,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { InventorySystem } from "./inventory.ts";
@@ -105,13 +105,14 @@ const LEVER: QuestLeverSpot = {
 describe("alavanca da Aniquilação", () => {
   const four = (t: ReturnType<typeof setup>, level = 100) => LEVER.plates.map((pl, i) => t.mk(`p${i}`, pl.x, pl.y, level));
 
-  it("precisa de um jogador em cada placa, todos com o level, e a sala vazia", () => {
+  it("precisa de 2 a 4 jogadores nas placas, todos com o level, e a sala vazia", () => {
     const t = setup({ objects: [{ kind: "lever", id: "annihilator", x: 5, y: 5 }], levers: [LEVER] });
     const ps = four(t);
-    ps[3]!.x = 11; // fora da placa
+    for (const p of ps.slice(1)) p.x = 11; // só um numa placa
     t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
-    expect(t.notices("p0").at(-1)).toMatch(/placas precisam de um aventureiro/);
-    ps[3]!.x = 10;
+    expect(t.notices("p0").at(-1)).toBe("A alavanca não se mexe: de 2 a 4 aventureiros, um em cada placa.");
+    expect(t.qw.alive("annihilator")).toBe(0);
+    ps.forEach((p, i) => { p.x = LEVER.plates[i]!.x; });
     ps[2]!.level = 90;
     t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
     expect(t.notices("p0").at(-1)).toMatch(/level 100 ou mais \(p2 não é\)/);
@@ -120,6 +121,20 @@ describe("alavanca da Aniquilação", () => {
     t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
     expect(t.notices("p0").at(-1)).toMatch(/Já há um grupo lá dentro/);
     t.w.players.delete(intruder.id);
+    expect(t.qw.alive("annihilator")).toBe(0);
+  });
+
+  it("quem puxa precisa estar numa placa (ninguém vai para a sala sem querer); o level dos das placas segue valendo", () => {
+    const t = setup({ objects: [{ kind: "lever", id: "annihilator", x: 5, y: 5 }], levers: [LEVER] });
+    const ps = [t.mk("p0", LEVER.plates[0]!.x, LEVER.plates[0]!.y, 100), t.mk("p1", LEVER.plates[1]!.x, LEVER.plates[1]!.y, 100)];
+    const outsider = t.mk("x", 5, 4, 120); // ao lado da alavanca, fora das placas
+    t.qw.onUse(outsider, { kind: "lever", id: "annihilator" });
+    expect(t.notices("x").at(-1)).toBe("Suba numa placa para puxar a alavanca.");
+    expect(t.qw.alive("annihilator")).toBe(0);
+    ps.forEach((p, i) => expect([p.x, p.y]).toEqual([LEVER.plates[i]!.x, LEVER.plates[i]!.y]));
+    ps[1]!.level = 99;
+    t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+    expect(t.notices("p0").at(-1)).toMatch(/level 100 ou mais \(p1 não é\)/);
     expect(t.qw.alive("annihilator")).toBe(0);
   });
 
@@ -150,6 +165,26 @@ describe("alavanca da Aniquilação", () => {
   });
 });
 
+describe("Aniquilação com grupo menor", () => {
+  it("demônios na mesma proporção por jogador do grupo cheio (6 ÷ 4 = 1,5, para cima): 4 → 6, 3 → 5, 2 → 3", () => {
+    const def = QUEST_LEVERS.annihilator!;
+    expect(def.minPlayers).toBe(2);
+    expect([1, 2, 3, 4, 5].map((n) => leverMonsters(def, n).length)).toEqual([2, 3, 5, 6, 6]); // fora da faixa: limitado
+    expect(leverMonsters(def, 3).every((m) => m === "demon")).toBe(true);
+  });
+
+  for (const [plates, demons] of [[[0, 2], 3], [[1, 2, 3], 5]] as const) {
+    it(`${plates.length} jogadores nas placas ${plates.join(", ")}: cada um vai para o destino da sua placa e nascem ${demons} demônios`, () => {
+      const t = setup({ objects: [{ kind: "lever", id: "annihilator", x: 5, y: 5 }], levers: [LEVER] });
+      const ps = plates.map((i) => t.mk(`p${i}`, LEVER.plates[i]!.x, LEVER.plates[i]!.y, 100));
+      t.qw.onUse(ps[0]!, { kind: "lever", id: "annihilator" });
+      ps.forEach((p, k) => expect([p.x, p.y]).toEqual([LEVER.dests[plates[k]!]!.x, LEVER.dests[plates[k]!]!.y]));
+      expect(t.qw.alive("annihilator")).toBe(demons);
+      expect([...t.w.mm.all()].filter((m) => m.def.id === "demon")).toHaveLength(demons);
+    });
+  }
+});
+
 describe("quests de mundo: dados e mapa", () => {
   const map = JSON.parse(readFileSync(root + "assets/maps/world.json", "utf8")) as TiledMap;
 
@@ -178,6 +213,8 @@ describe("quests de mundo: dados e mapa", () => {
       for (const m of d.monsters) expect(MONSTERS[m], m).toBeDefined();
       const inside = (p: { x: number; y: number }) => p.x >= l.room.x0 && p.x <= l.room.x1 && p.y >= l.room.y0 && p.y <= l.room.y1;
       for (const p of l.dests.concat(l.spawns)) expect(inside(p), `${p.x},${p.y}`).toBe(true);
+      // Quem puxa precisa estar numa placa: ao menos uma ao alcance da alavanca.
+      expect(l.plates.some((p) => Math.max(Math.abs(p.x - l.x), Math.abs(p.y - l.y)) <= QUEST_OBJECT_RANGE), l.id).toBe(true);
       for (const p of l.plates) expect(inside(p)).toBe(false);
     }
   });

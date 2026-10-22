@@ -72,6 +72,33 @@ describe("desafios da semana", () => {
     expect(f.rec.data.challenges.claimed).toEqual([]);
   });
 
+  it("a recompensa precisa caber INTEIRA (itens diferentes não dividem o mesmo espaço vazio); o que sobrar vai ao chão", () => {
+    const s = setup();
+    const bp = s.w.inv.get("p")!.backpack;
+    for (let i = 0; i < bp.length - 1; i++) s.w.inv.addItem(s.p, makeItem("vest")); // um espaço livre
+    const two = { gold: 0, items: [{ itemId: "health_potion", count: 1 }, { itemId: "mana_potion", count: 1 }] };
+    const sys = s.sys as any;
+    expect(sys.fits(s.p, { gold: 0, items: [{ itemId: "health_potion", count: 1 }] })).toBe(true);
+    expect(sys.fits(s.p, two)).toBe(false);
+    expect(s.w.inv.roomFor("p", "health_potion")).toBe(100); // conferir item por item dizia "cabe"
+    // A mana passa a ter pilha (empilha sem espaço novo), mas essa pilha ocupou o único espaço vazio: a vida não cabe.
+    s.w.inv.addItem(s.p, makeItem("mana_potion", 1));
+    expect(sys.fits(s.p, two)).toBe(false);
+    s.w.inv.removeItems(s.p, "vest", 1);
+    expect(sys.fits(s.p, two)).toBe(true);
+
+    // Se algo sobrar mesmo assim (não deveria), vai ao chão com aviso em vez de sumir.
+    const fell: any[] = [];
+    const g = new ChallengeSystem({
+      getPlayer: () => s.p, record: () => s.rec, send: (_to, type, msg) => s.out.push({ type, msg }),
+      inventory: s.w.inv, gainXp: () => {}, save: () => {}, placeLoot: (_p, it) => { fell.push(it); return true; },
+    }) as any;
+    for (let i = 0; i < bp.length; i++) s.w.inv.addItem(s.p, makeItem("vest"));
+    g.give(s.p, { gold: 0, items: [{ itemId: "health_potion", count: 3 }] });
+    expect(fell.map((it) => it.count)).toEqual([3]);
+    expect(s.notices().at(-1)).toBe("Mochila cheia: 1 item da recompensa caiu no chão.");
+  });
+
   it("o bônus só sai com os três resgatados, uma vez", () => {
     const s = setup();
     s.sys.onMessage(s.p, { action: "claimBonus" });

@@ -17,17 +17,22 @@ export interface GameEventDef {
   boss?: string;
 }
 
+/** Chefes do almoço: dias úteis, 12h15 às 13h (o público joga no intervalo do escritório). */
+const LUNCH = { hour: 12, minute: 15, durationMin: 45 } as const;
+
 export const WEEKLY_EVENTS: readonly GameEventDef[] = [
   { id: "mare_de_tesouros", name: "Maré de Tesouros", desc: "Chance de loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 12, durationMin: 60 },
   { id: "noite_de_cacada", name: "Noite de Caçada", desc: "XP em dobro", xpMult: 2, lootMult: 1, day: 5, hour: 19, durationMin: 60 },
-  { id: "despertar_do_lich", name: "Despertar do Lich", desc: "O Lich do Pântano acordou! Loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 20, durationMin: 60, boss: "swamp_lich" },
-  { id: "cacada_ao_rei", name: "Caçada ao Rei Goblin", desc: "O Rei Goblin voltou às Ruínas! Loot +50%", xpMult: 1, lootMult: 1.5, day: 0, hour: 20, durationMin: 90, boss: "goblin_king" },
   { id: "tarde_de_sabado", name: "Tarde de Sábado", desc: "XP ×1,5 e loot +25%", xpMult: 1.5, lootMult: 1.25, day: 6, hour: 14, durationMin: 120 },
+  // Chefes no almoço (seg, ter, qui, sex; a quarta é da Maré de Tesouros), do mais fácil ao mais difícil na semana.
+  { id: "despertar_do_lich", name: "Despertar do Lich", desc: "O Lich do Pântano acordou! Loot +50%", xpMult: 1, lootMult: 1.5, day: 1, ...LUNCH, boss: "swamp_lich" },
+  { id: "cacada_ao_rei", name: "Caçada ao Rei Goblin", desc: "O Rei Goblin voltou às Ruínas! Loot +50%", xpMult: 1, lootMult: 1.5, day: 2, ...LUNCH, boss: "goblin_king" },
   // Raids das Terras Selvagens, como no Tibia: o chefe aparece no covil dele na hora marcada.
-  { id: "furia_de_demodras", name: "Fúria de Demodras", desc: "Demodras acordou no Vale dos Dragões! Loot +50%", xpMult: 1, lootMult: 1.5, day: 2, hour: 20, durationMin: 90, boss: "demodras" },
+  { id: "rugido_do_yeti", name: "Rugido do Yeti", desc: "O Yeti saiu da caverna na Ilha Gelada! Loot +50%", xpMult: 1, lootMult: 1.5, day: 4, ...LUNCH, boss: "yeti" },
+  { id: "furia_de_demodras", name: "Fúria de Demodras", desc: "Demodras acordou no Vale dos Dragões! Loot +50%", xpMult: 1, lootMult: 1.5, day: 5, ...LUNCH, boss: "demodras" },
+  // Fim de semana: Ferumbras à tarde e o único chefe noturno (Orshabaal), para quem joga de casa.
+  { id: "retorno_de_ferumbras", name: "Retorno de Ferumbras", desc: "Ferumbras voltou à Cidadela! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 0, hour: 15, durationMin: 90, boss: "ferumbras" },
   { id: "invasao_de_orshabaal", name: "Invasão de Orshabaal", desc: "Orshabaal subiu do Abismo! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 6, hour: 21, durationMin: 90, boss: "orshabaal" },
-  { id: "rugido_do_yeti", name: "Rugido do Yeti", desc: "O Yeti saiu da caverna na Ilha Gelada! Loot +50%", xpMult: 1, lootMult: 1.5, day: 4, hour: 20, durationMin: 90, boss: "yeti" },
-  { id: "retorno_de_ferumbras", name: "Retorno de Ferumbras", desc: "Ferumbras voltou à Cidadela! XP ×1,5 e loot +50%", xpMult: 1.5, lootMult: 1.5, day: 1, hour: 21, durationMin: 90, boss: "ferumbras" },
 ];
 
 /** Evento em andamento (agendado ou disparado por admin). */

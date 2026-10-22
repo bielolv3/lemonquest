@@ -21,7 +21,11 @@ function setup(over: { inArena?: (id: string) => boolean } = {}) {
   const last = (to: string) => states(to).at(-1);
   const notices = (to: string) => out.filter((o) => o.to === to && o.type === S2C.Notice).map((o) => o.msg.text as string);
   const open = () => { trade.onMessage(a, { action: "request", targetId: "b" }); trade.onMessage(b, { action: "accept" }); };
-  return { w, a, b, trade, out, states, last, notices, saved, open, players, advance: (ms: number) => { t += ms; } };
+  /** Versão das ofertas que `p` está vendo (último estado aberto que recebeu). */
+  const rev = (p: { id: string }) => { const st = states(p.id).filter((m) => m.phase === "open").at(-1); return st?.phase === "open" ? st.rev : -1; };
+  /** Confirma como o cliente: com a versão que está vendo. */
+  const confirm = (p: typeof a) => trade.onMessage(p, { action: "confirm", confirmed: true, rev: rev(p) });
+  return { w, a, b, trade, out, states, last, notices, saved, open, players, rev, confirm, advance: (ms: number) => { t += ms; } };
 }
 
 describe("trade: convite", () => {
@@ -84,10 +88,10 @@ describe("trade: oferta e troca", () => {
     s.trade.onMessage(s.b, { action: "offer", items: [{ uid: pots.uid, count: 4 }], gold: 0 });
     // A oferta de cada um aparece para o outro.
     expect(s.last("b")).toMatchObject({ phase: "open", theirs: { gold: 40, items: [expect.objectContaining({ defId: "sword" })] } });
-    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
+    s.confirm(s.a);
     expect(s.last("b")).toMatchObject({ theirs: { confirmed: true }, mine: { confirmed: false } });
     expect(bpOf("a").some((i) => i?.defId === "hp_pot")).toBe(false); // ainda não trocou
-    s.trade.onMessage(s.b, { action: "confirm", confirmed: true });
+    s.confirm(s.b);
     expect(s.last("a")).toEqual({ phase: "closed" });
     expect(bpOf("a").find((i) => i?.defId === "hp_pot")!.count).toBe(4);
     expect(bpOf("a").some((i) => i?.defId === "sword")).toBe(false);
@@ -102,10 +106,10 @@ describe("trade: oferta e troca", () => {
   it("qualquer mudança na oferta zera as confirmações", () => {
     const sword = bpOf("a")[0]!;
     s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
-    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
+    s.confirm(s.a);
     s.trade.onMessage(s.b, { action: "offer", items: [], gold: 0 });
     expect(s.last("a")).toMatchObject({ mine: { confirmed: false }, theirs: { confirmed: false } });
-    s.trade.onMessage(s.b, { action: "confirm", confirmed: true });
+    s.confirm(s.b);
     expect(s.last("a")).toMatchObject({ phase: "open" }); // só um confirmou: nada acontece
   });
 
@@ -114,8 +118,8 @@ describe("trade: oferta e troca", () => {
     const sword = bpOf("a")[0]!;
     s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
     const before = JSON.stringify(bpOf("b"));
-    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
-    s.trade.onMessage(s.b, { action: "confirm", confirmed: true });
+    s.confirm(s.a);
+    s.confirm(s.b);
     expect(s.last("a")).toMatchObject({ phase: "open", mine: { confirmed: false } });
     expect(s.notices("b").at(-1)).toContain("mochila");
     expect(JSON.stringify(bpOf("b"))).toBe(before);
@@ -130,8 +134,8 @@ describe("trade: oferta e troca", () => {
     const sword = bpOf("a")[0]!;
     s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
     s.trade.onMessage(s.b, { action: "offer", items: [{ uid: vest.uid, count: 1 }], gold: 0 });
-    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
-    s.trade.onMessage(s.b, { action: "confirm", confirmed: true });
+    s.confirm(s.a);
+    s.confirm(s.b);
     expect(s.last("a")).toEqual({ phase: "closed" });
     expect(bpOf("b").some((i) => i?.defId === "sword")).toBe(true);
   });
@@ -156,10 +160,131 @@ describe("trade: oferta e troca", () => {
     const sword = bpOf("a")[0]!;
     s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
     s.w.inv.takeFromBackpack(s.a, 0, 1); // largou/vendeu depois de ofertar
-    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
-    s.trade.onMessage(s.b, { action: "confirm", confirmed: true });
+    s.confirm(s.a);
+    s.confirm(s.b);
     expect(s.notices("a").at(-1)).toContain("mudou");
     expect(s.last("a")).toMatchObject({ phase: "open", mine: { items: [] } });
+  });
+});
+
+describe("trade: versão das ofertas (confirm só vale para o que o jogador viu)", () => {
+  let s: ReturnType<typeof setup>;
+  const bpOf = (id: string) => s.w.inv.get(id)!.backpack;
+  beforeEach(() => {
+    s = setup();
+    s.w.inv.addItem(s.a, makeItem("sword"));
+    s.w.inv.addItem(s.a, makeItem("vest"));
+    s.w.inv.addItem(s.b, makeItem("hp_pot", 10));
+    s.w.inv.addGold(s.a, 100);
+    s.open();
+  });
+
+  it("cada oferta sobe a versão, para os dois", () => {
+    expect(s.rev(s.a)).toBe(0);
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 10 });
+    expect([s.rev(s.a), s.rev(s.b)]).toEqual([1, 1]);
+    s.trade.onMessage(s.b, { action: "offer", items: [], gold: 0 });
+    expect([s.rev(s.a), s.rev(s.b)]).toEqual([2, 2]);
+  });
+
+  it("corrida: A troca a espada por lixo e o clique de B (que viu a espada) chega depois → não troca", () => {
+    const sword = bpOf("a").find((i) => i?.defId === "sword")!, vest = bpOf("a").find((i) => i?.defId === "vest")!;
+    const pots = bpOf("b")[0]!;
+    s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
+    s.trade.onMessage(s.b, { action: "offer", items: [{ uid: pots.uid, count: 10 }], gold: 0 });
+    const seenByB = s.rev(s.b); // B está vendo a espada
+    s.confirm(s.a);
+    s.trade.onMessage(s.a, { action: "offer", items: [{ uid: vest.uid, count: 1 }], gold: 0 });
+    s.confirm(s.a);
+    s.trade.onMessage(s.b, { action: "confirm", confirmed: true, rev: seenByB });
+    expect(s.last("b")).toMatchObject({ phase: "open", mine: { confirmed: false }, theirs: { confirmed: true, items: [expect.objectContaining({ defId: "vest" })] } });
+    expect(s.notices("b").at(-1)).toContain("mudou");
+    expect(bpOf("b").some((i) => i?.defId === "vest")).toBe(false);
+    expect(bpOf("b")[0]).toMatchObject({ defId: "hp_pot", count: 10 });
+    expect(s.saved).toEqual([]);
+    // Vendo a oferta nova, B confirma de novo e aí troca.
+    s.confirm(s.b);
+    expect(s.last("b")).toEqual({ phase: "closed" });
+    expect(bpOf("b").some((i) => i?.defId === "vest")).toBe(true);
+  });
+
+  it("confirm sem versão (ou de outro tipo) não vale; desfazer a confirmação não precisa de versão", () => {
+    for (const rev of [undefined, "0", null, 99]) {
+      s.trade.onMessage(s.a, { action: "confirm", confirmed: true, rev } as any);
+      expect(s.last("a")).toMatchObject({ mine: { confirmed: false } });
+      expect(s.last("b")).toMatchObject({ theirs: { confirmed: false } });
+    }
+    s.confirm(s.a);
+    expect(s.last("b")).toMatchObject({ theirs: { confirmed: true } });
+    s.trade.onMessage(s.a, { action: "confirm", confirmed: false });
+    expect(s.last("b")).toMatchObject({ theirs: { confirmed: false } });
+  });
+
+  it("confirm sem versão (aba aberta antes da atualização) pede para recarregar, sem o aviso de oferta mudada", () => {
+    const before = s.states("a").length;
+    s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
+    expect(s.notices("a").at(-1)).toBe("Atualize a página (F5) para concluir a troca.");
+    expect(s.states("a").length).toBe(before); // nada a reenviar: não entra em ciclo
+    s.trade.onMessage(s.a, { action: "confirm", confirmed: true, rev: 99 });
+    expect(s.notices("a").at(-1)).toContain("mudou");
+  });
+
+  it("oferta recusada também sobe a versão e devolve o valor real (o campo de ouro volta ao que vale)", () => {
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 30 });
+    s.confirm(s.b);
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 500 }); // não tem
+    expect(s.notices("a").at(-1)).toContain("ouro");
+    expect(s.last("a")).toMatchObject({ rev: 2, mine: { gold: 30 } });
+    expect(s.last("b")).toMatchObject({ rev: 2, mine: { confirmed: false }, theirs: { gold: 30 } });
+  });
+
+  it("ouro enviado logo antes de confirmar (versão + 1) vale; se o outro mudou no meio, não", () => {
+    // O cliente manda a oferta pendente de ouro e o confirm com a versão seguinte, sem esperar o estado voltar.
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 25 });
+    s.trade.onMessage(s.a, { action: "confirm", confirmed: true, rev: 1 });
+    expect(s.last("b")).toMatchObject({ theirs: { gold: 25, confirmed: true } });
+    s.confirm(s.b);
+    expect(s.last("a")).toEqual({ phase: "closed" });
+    expect(s.w.inv.gold("a")).toBe(75);
+    expect(s.w.inv.gold("b")).toBe(25);
+  });
+
+  it("ouro + confirm (versão + 1) com uma oferta do outro no meio: o confirm não vale", () => {
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 25 }); // rev 1
+    s.trade.onMessage(s.b, { action: "offer", items: [], gold: 0 }); // rev 2, chegou antes do confirm de A
+    s.trade.onMessage(s.a, { action: "confirm", confirmed: true, rev: 1 });
+    expect(s.last("b")).toMatchObject({ theirs: { gold: 25, confirmed: false } });
+  });
+
+  it("falha na execução (item sumiu) sobe a versão: confirmar a versão velha não vale", () => {
+    const sword = bpOf("a").find((i) => i?.defId === "sword")!;
+    s.trade.onMessage(s.a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
+    const old = s.rev(s.b);
+    s.w.inv.takeFromBackpack(s.a, bpOf("a").indexOf(sword), 1);
+    s.confirm(s.a);
+    s.confirm(s.b); // falha: "gone"
+    expect(s.rev(s.b)).toBe(old + 1);
+    s.trade.onMessage(s.b, { action: "confirm", confirmed: true, rev: old });
+    expect(s.last("b")).toMatchObject({ mine: { confirmed: false } });
+  });
+});
+
+describe("trade: resend (reconexão)", () => {
+  it("reenvia a troca aberta com a versão atual, o convite pendente ou closed", () => {
+    const s = setup();
+    s.trade.resend("a");
+    expect(s.last("a")).toEqual({ phase: "closed" });
+    s.trade.onMessage(s.a, { action: "request", targetId: "b" });
+    s.trade.resend("b");
+    expect(s.last("b")).toEqual({ phase: "invite", fromId: "a", from: "Ana" });
+    s.trade.resend("a"); // quem convidou não tem janela: closed
+    expect(s.last("a")).toEqual({ phase: "closed" });
+    s.trade.onMessage(s.b, { action: "accept" });
+    s.trade.onMessage(s.a, { action: "offer", items: [], gold: 0 });
+    const before = s.out.length;
+    s.trade.resend("b");
+    expect(s.out.length).toBe(before + 1); // só para quem reconectou
+    expect(s.last("b")).toMatchObject({ phase: "open", partner: "Ana", rev: 1, mine: { confirmed: false } });
   });
 });
 

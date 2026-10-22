@@ -22,8 +22,18 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
       { keys: ["F8"], label: "Seguir o alvo" },
       { keys: ["F9"], label: "Ataque automático" },
-      { keys: ["Clique dir."], label: "Jogador: atacar (PvP) · seguir" },
-      { keys: ["Esc"], label: "Fechar chat · limpar alvo" },
+      { keys: ["Clique dir."], label: "Jogador: atacar (PvP) · seguir · trocar itens" },
+      { keys: ["Esc"], label: "Fechar janela · parar de seguir · limpar alvo" },
+    ],
+  },
+  {
+    title: "Mundo e itens",
+    rows: [
+      { keys: ["Esq.", "+", "Dir."], label: "Olhar (ou Shift + clique)" },
+      { keys: ["Clique dir."], label: "Pegar item do chão (ou duplo clique / Ctrl + clique)" },
+      { keys: ["Arrastar"], label: "Mover item no chão ou para a mochila (Shift no meio do arrasto: quantidade)" },
+      { keys: ["Clique dir."], label: "Na água: pescar (com a Vara de Pesca)" },
+      { keys: ["Clique"], label: "NPC, baú ou alavanca: o personagem vai até lá" },
     ],
   },
   {
@@ -69,7 +79,7 @@ export function HelpPopover() {
             {g.rows.map((r) => (
               <li key={r.label}>
                 <span class="help-keys">
-                  {r.keys.map((k, i) => (k === "–" ? <span key={i} class="help-dash">–</span> : <kbd key={i}>{k}</kbd>))}
+                  {r.keys.map((k, i) => (k === "–" || k === "+" ? <span key={i} class="help-dash">{k}</span> : <kbd key={i}>{k}</kbd>))}
                 </span>
                 <span class="help-label">{r.label}</span>
               </li>

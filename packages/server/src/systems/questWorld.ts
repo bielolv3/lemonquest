@@ -1,9 +1,10 @@
 // Quests de mundo no estilo Tibia (dados em shared/data/questWorld.ts):
 // - Baús de quest: clicar ao lado → confere alcance e level → QuestSystem.claimChest (uma vez por grupo e personagem).
-// - Alavanca de grupo (Aniquilação): com um jogador em cada placa (todos com o level mínimo) e a sala vazia, puxar a
-//   alavanca solta os monstros na sala e leva os jogadores aos destinos. Monstros da sala somem se ela ficar vazia.
+// - Alavanca de grupo (Aniquilação): com jogadores em pelo menos `minPlayers` placas (todos com o level mínimo, e quem puxa
+//   também numa placa) e a sala vazia, puxar a alavanca solta os monstros na sala (quantidade pelo tamanho do grupo, `leverMonsters`) e leva os
+//   jogadores aos destinos das suas placas. Monstros da sala somem se ela ficar vazia.
 import {
-  QUEST_OBJECT_RANGE, S2C, monsterDef, questChestDef, questChestGroup, questLeverDef,
+  QUEST_OBJECT_RANGE, S2C, leverMonsters, monsterDef, questChestDef, questChestGroup, questLeverDef,
   type FeedMsg, type NoticeMsg, type QuestChestDef, type QuestLeverSpot, type QuestObjectSpot, type UseQuestObjectMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -69,25 +70,30 @@ export class QuestWorldSystem {
     if (!def || !spot) return;
     const players = [...this.o.players()].filter((q) => q.hp > 0);
     if (players.some((q) => this.inRoom(spot.room, q.x, q.y))) return this.notice(p, "Já há um grupo lá dentro. Espere eles saírem.", "warn");
-    const onPlates = spot.plates.map((t) => players.find((q) => q.x === t.x && q.y === t.y));
-    if (onPlates.some((q) => !q) || onPlates.length < def.players) {
-      return this.notice(p, `A alavanca não se mexe: as ${spot.plates.length} placas precisam de um aventureiro cada.`, "warn");
+    // Cada um vai para o destino da SUA placa (placas vazias ficam sem ninguém).
+    const onPlates = spot.plates.map((t, i) => ({ q: players.find((q) => q.x === t.x && q.y === t.y), dest: spot.dests[i]! }))
+      .filter((e): e is { q: PlayerState; dest: { x: number; y: number } } => !!e.q);
+    const max = Math.min(def.players, spot.plates.length);
+    if (onPlates.length < def.minPlayers || onPlates.length > max) {
+      return this.notice(p, `A alavanca não se mexe: de ${def.minPlayers} a ${max} aventureiros, um em cada placa.`, "warn");
     }
-    const group = onPlates as PlayerState[];
+    const group = onPlates.map((e) => e.q);
+    // Quem puxa está no grupo (na placa ao lado da alavanca): ninguém é levado para a sala sem querer.
+    if (!group.includes(p)) return this.notice(p, "Suba numa placa para puxar a alavanca.", "warn");
     const weak = group.find((q) => q.level < def.minLevel);
     if (weak) return this.notice(p, `A alavanca não se mexe: todos precisam ser level ${def.minLevel} ou mais (${weak.name} não é).`, "warn");
     // Sobras de uma tentativa anterior somem; monstros novos nascem nas posições do mapa.
     this.clear(id);
     const now = this.now();
     const ids: string[] = [];
-    def.monsters.forEach((mid, i) => {
+    leverMonsters(def, group.length).forEach((mid, i) => {
       const md = monsterDef(mid), at = spot.spawns[i % Math.max(1, spot.spawns.length)];
       if (!md || !at) return;
       const m = this.o.monsters.spawnQuest(md, at.x, at.y, { leverId: id, bounds: spot.room }, now);
       if (m) ids.push(m.s.id);
     });
     this.runs.set(id, { monsterIds: ids, emptySince: 0 });
-    group.forEach((q, i) => { const d = spot.dests[i]!; this.o.teleport(q, d.x, d.y); });
+    for (const e of onPlates) this.o.teleport(e.q, e.dest.x, e.dest.y);
     for (const q of group) this.notice(q, `${def.name} começou! Derrote os demônios e alcance o tesouro.`, "warn");
     this.o.broadcast?.(S2C.Feed, { text: `⚔️ ${group.map((q) => q.name).join(", ")} puxaram a alavanca de "${def.name}"!`, kind: "info" } satisfies FeedMsg);
   }

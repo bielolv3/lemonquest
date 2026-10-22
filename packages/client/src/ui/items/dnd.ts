@@ -60,7 +60,7 @@ function computeValid(from: DragFrom, inst: ItemInstance): Pick<DragState, "vali
     if (from.where === "depot") { reasons.set(key, "Pegue o item da mochila primeiro"); continue; }
     const c = canEquip(def, slot, meReq, inv?.equipment ?? {}, (id) => defOf({ defId: id } as ItemInstance));
     if (c.ok) valid.add(key);
-    else reasons.set(key, REASON_TEXT[c.reason]);
+    else reasons.set(key, c.reason === "level" && def?.level ? `Precisa de level ${def.level}` : REASON_TEXT[c.reason]);
   }
   const npc = npcStore.get();
   if (npc?.msg.depot) {

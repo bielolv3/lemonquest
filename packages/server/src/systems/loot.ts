@@ -110,8 +110,11 @@ export interface LootOptions {
     /** Loot de grupo: no tile do monstro (ou o livre mais perto). Retorna o id (undefined = não coube). */
     placeNear?: (item: ItemInstance, x: number, y: number) => string | undefined;
   };
-  /** Grupo (party id) do jogador quando tem 2+ membros: o loot cai no chão para o grupo. Ausente/undefined = sozinho. */
-  partyIdOf?: (p: PlayerState) => string | undefined;
+  /**
+   * Grupo (party id) de quem matou `m` quando há outro membro por perto do monstro: o loot cai no chão para o grupo.
+   * Ausente/undefined = sozinho (direto na mochila).
+   */
+  partyIdOf?: (p: PlayerState, m: Monster) => string | undefined;
 }
 
 
@@ -157,7 +160,7 @@ export class LootSystem {
     const def = m.def;
     if (def.boss) this.feed(`☠️ ${p.name} derrotou ${def.name}!`, "boss");
     const roll = rollLoot(def, this.rng, this.o.inventory.defs, this.o.lootMult?.() ?? 1);
-    const party = this.o.partyIdOf?.(p);
+    const party = this.o.partyIdOf?.(p, m);
     if (party && this.o.ground?.placeNear) return this.dropForParty(p, m, roll.items, roll.gold);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
     const got: ItemInstance[] = [];
@@ -175,8 +178,8 @@ export class LootSystem {
         this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
       }
     }
-    if (fell > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${fell} item(ns) caíram no chão.`, kind: "warn" } satisfies NoticeMsg);
-    if (lost > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${lost} item(ns) perdido(s)`, kind: "warn" } satisfies NoticeMsg);
+    if (fell > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${fell === 1 ? "1 item caiu" : `${fell} itens caíram`} no chão.`, kind: "warn" } satisfies NoticeMsg);
+    if (lost > 0) this.o.send(p.id, S2C.Notice, { text: `Mochila cheia: ${lost === 1 ? "1 item perdido" : `${lost} itens perdidos`}.`, kind: "warn" } satisfies NoticeMsg);
     if (got.length || roll.gold > 0 || lost > 0 || fell > 0) {
       const msg: LootMsg = { x, y, monsterName: def.name, items: got, gold: roll.gold };
       if (lost > 0) msg.lostFull = lost;

@@ -38,12 +38,12 @@ export function activateItem(loc: ItemLocation, inst: ItemInstance): void {
     if (npc?.tab === "depot") {
       const to = firstEmptyDepot();
       if (to >= 0) moveItem(loc, { where: "depot", index: to });
-      else pushToast({ text: "Depot cheio", kind: "warn" }, 800);
+      else pushToast({ text: "Depot cheio.", kind: "warn" }, 800);
     }
     return;
   }
   // Equipamento ou depot → mochila.
-  if (firstEmptyBackpack() < 0) { pushToast({ text: "Mochila cheia", kind: "warn" }, 800); return; }
+  if (firstEmptyBackpack() < 0) { pushToast({ text: "Mochila cheia.", kind: "warn" }, 800); return; }
   if (loc.where === "equip") unequipToBackpack(loc.slot);
   else moveItem(loc, { where: "backpack", index: firstEmptyBackpack() });
 }

@@ -86,9 +86,9 @@ export function swapSlots(a: number, b: number): void {
   setHotkeys(swapHotkeySpells(effectiveHotkeys(voc), a, b));
 }
 
-function fail(slot: number, reason: CastFailReason) {
+function fail(slot: number, reason: CastFailReason, text?: string) {
   shakeSlot(slot);
-  pushToast({ text: FAIL_TEXT[reason] ?? FAIL_TEXT.unknown, kind: "warn" }, 700);
+  pushToast({ text: text ?? FAIL_TEXT[reason] ?? FAIL_TEXT.unknown, kind: "warn" }, 700);
   if (reason === "mana") manaFlashStore.set((n) => n + 1);
   sfx.play("fail", { volume: 0.5 });
 }
@@ -98,7 +98,7 @@ function activate(slot: number) {
   if (!spell) return;
   const me = meStore.get();
   const now = performance.now();
-  if (me && me.level < spell.level) return fail(slot, "level");
+  if (me && me.level < spell.level) return fail(slot, "level", `${spell.name}: precisa ser level ${spell.level}`);
   const cd = cooldownStore.get()[slot];
   if (cd && cd.end > now + 30) return fail(slot, "cooldown");
   if (me && me.mana < spellMana(spell, me.level)) return fail(slot, "mana");

@@ -38,13 +38,21 @@ export const RESERVED_KEYS: Readonly<Record<string, string>> = {
   KeyL: "Diário de missões", KeyJ: "Conquistas", KeyR: "Ranking", KeyB: "Bestiário", KeyM: "Mapa", KeyH: "Atalhos",
 };
 
+/**
+ * Combinações com Shift que o jogo usa (a tecla sozinha continua livre): "?" abre a ajuda (Shift + "/" no teclado
+ * americano; no ABNT2 o "/?" fica em IntlRo).
+ */
+export const RESERVED_SHIFT_KEYS: Readonly<Record<string, string>> = {
+  [`${SHIFT_PREFIX}Slash`]: "Ajuda (?)", [`${SHIFT_PREFIX}IntlRo`]: "Ajuda (?)",
+};
+
 const baseCode = (key: string) => (key.startsWith(SHIFT_PREFIX) ? key.slice(SHIFT_PREFIX.length) : key);
 
 /** Para que o jogo usa esta tecla (null = livre). O numpad inteiro é movimento. */
 export function reservedFor(key: string): string | null {
   const base = baseCode(key);
   if (base.startsWith("Numpad")) return "Andar (teclado numérico)";
-  return RESERVED_KEYS[base] ?? null;
+  return RESERVED_KEYS[base] ?? RESERVED_SHIFT_KEYS[key] ?? null;
 }
 
 /** Tecla aceitável como atalho (formato, lista de teclas e não reservada). */

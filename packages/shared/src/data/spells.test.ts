@@ -179,8 +179,15 @@ describe("SPELLS", () => {
       for (const id of HEALS) expect(SPELLS[id]!.cooldownMs).toBeGreaterThanOrEqual(1000);
     });
 
-    it("cura em grupo cura menos por alvo que a cura leve do mesmo level", () => {
-      expect(value(SPELLS.group_heal)).toBeLessThan(value(SPELLS.light_heal, SPELLS.group_heal.level, "druid"));
+    it("cura em grupo: por segundo e por alvo, bem menos que a cura leve do mesmo level (do 15 ao 120)", () => {
+      // Ciclo 7: a cura por alvo de um cast passou da Cura no lv 15 (72 contra 60), mas o cooldown de 5 s mantém a
+      // vazão por alvo em ~1/4 da Cura (cd 1 s): ela complementa, não substitui a cura própria de cada um.
+      const g = SPELLS.group_heal!, h = SPELLS.light_heal!;
+      for (const lvl of [15, 30, 60, 90, 120]) {
+        const perSec = value(g, lvl, "druid") / (g.cooldownMs / 1000);
+        const healPerSec = value(h, lvl, "druid") / (h.cooldownMs / 1000);
+        expect(perSec, `lv ${lvl}`).toBeLessThan(healPerSec * 0.35);
+      }
     });
 
     it("AoE de mago nos levels 15-20 mata um bando (~175 HP) em 3-4 casts", () => {

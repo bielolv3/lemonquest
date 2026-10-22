@@ -68,7 +68,13 @@ try {
     if (performance.now() - openedAt < 120) return;
     clearLook();
   }, true);
-  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && (lookStore.get() || itemTipStore.get()?.pinned)) clearLook(); }, true);
+  // O Esc que fecha o olhar para aí (senão a cadeia do HUD também tiraria o alvo).
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !(lookStore.get() || itemTipStore.get()?.pinned)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    clearLook();
+  }, true);
 } catch { /* sem window */ }
 
 lookStore.subscribe((c) => { if (c) openedAt = performance.now(); });

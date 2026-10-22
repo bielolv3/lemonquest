@@ -1,4 +1,5 @@
 // "Treinamento offline": escolha da skill ao clicar numa estátua, e o resumo ao voltar do treino.
+import { isTyping } from "../focus.ts";
 import { useEffect } from "preact/hooks";
 import type { SkillId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
@@ -25,9 +26,10 @@ export function TrainingWindow() {
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeTraining(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Em captura e parando aí: o Esc fecha só esta janela (não tira o alvo).
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); closeTraining(); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);
 
   return (

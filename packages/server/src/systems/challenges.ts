@@ -1,19 +1,21 @@
 // Desafios da semana: progresso = ganho desde a linha de base da semana (systems/weekly.ts); resgate manual, uma vez por
-// desafio por semana. Tudo ou nada: sem espaço na mochila para os itens, nada é entregue.
+// desafio por semana. Tudo ou nada: sem espaço na mochila para TODOS os itens juntos, nada é entregue.
 import {
   CHALLENGES, CHALLENGE_BONUS, S2C, challengeDef, challengeTarget, weekEndsAt, weekGain, weekId,
-  type ChallengeActionMsg, type ChallengeReward, type ChallengesMsg, type NoticeMsg,
+  type ChallengeActionMsg, type ChallengeReward, type ChallengesMsg, type ItemInstance, type NoticeMsg,
 } from "@lemonquest/shared";
 import type { CharacterRecord } from "../persistence/types.ts";
 import type { PlayerState } from "../state.ts";
-import { makeItem, type InventorySystem } from "./inventory.ts";
+import { GOLD_ID, makeItem, maxStackOf, newUid, type InventorySystem } from "./inventory.ts";
 import { weeklyCounters } from "./weekly.ts";
 
 export interface ChallengeHost {
   getPlayer(id: string): PlayerState | undefined;
   record(id: string): CharacterRecord | undefined;
   send(id: string, type: string, msg: unknown): void;
-  inventory: Pick<InventorySystem, "roomFor" | "addItem" | "addGold">;
+  inventory: Pick<InventorySystem, "get" | "defs" | "addItem" | "addGold">;
+  /** Sobra que não coube na mochila (não deveria acontecer: `fits` confere antes) vai ao chão; false = perdida. */
+  placeLoot?(p: PlayerState, item: ItemInstance): boolean;
   gainXp(p: PlayerState, amount: number): void;
   save(id: string): void;
   now?(): number;
@@ -66,15 +68,47 @@ export class ChallengeSystem {
     if (m.action === "claimBonus") this.claimBonus(p);
   }
 
+  /** Todos os itens cabem JUNTOS? Simula numa cópia da mochila (dois itens diferentes não contam o mesmo espaço vazio). */
   private fits(p: PlayerState, r: ChallengeReward): boolean {
-    // Cada item pode cair numa pilha ou num espaço vazio; confere um por um (o bônus tem poucos itens diferentes).
-    return (r.items ?? []).every((i) => this.o.inventory.roomFor(p.id, i.itemId) >= i.count);
+    const inv = this.o.inventory.get(p.id);
+    if (!inv) return false;
+    const slots = inv.backpack.map((it) => (it ? { defId: it.defId, count: it.count } : null));
+    for (const i of r.items ?? []) {
+      const d = this.o.inventory.defs(i.itemId);
+      if (!d || d.id === GOLD_ID) continue;
+      const max = maxStackOf(d);
+      let left = i.count;
+      if (d.stackable) {
+        for (const s of slots) {
+          if (!s || s.defId !== d.id || s.count >= max) continue;
+          const mv = Math.min(left, max - s.count);
+          s.count += mv;
+          left -= mv;
+        }
+      }
+      for (let k = 0; k < slots.length && left > 0; k++) {
+        if (slots[k]) continue;
+        const n = Math.min(left, max);
+        slots[k] = { defId: d.id, count: n };
+        left -= n;
+      }
+      if (left > 0) return false;
+    }
+    return true;
   }
 
   private give(p: PlayerState, r: ChallengeReward) {
     if (r.gold) this.o.inventory.addGold(p, r.gold);
     if (r.xp) this.o.gainXp(p, r.xp);
-    for (const i of r.items ?? []) this.o.inventory.addItem(p, makeItem(i.itemId, i.count));
+    let fell = 0, lost = 0;
+    for (const i of r.items ?? []) {
+      const it = makeItem(i.itemId, i.count);
+      const left = this.o.inventory.addItem(p, it);
+      if (left <= 0) continue;
+      if (this.o.placeLoot?.(p, { ...it, uid: newUid(), count: left })) fell++; else lost++;
+    }
+    if (fell) this.notice(p.id, `Mochila cheia: ${fell === 1 ? "1 item da recompensa caiu" : `${fell} itens da recompensa caíram`} no chão.`, "warn");
+    if (lost) this.notice(p.id, `Mochila cheia: ${lost === 1 ? "1 item da recompensa perdido" : `${lost} itens da recompensa perdidos`}.`, "warn");
   }
 
   private claim(p: PlayerState, id: string) {

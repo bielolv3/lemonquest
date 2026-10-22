@@ -417,3 +417,28 @@ describe("marcadores de NPC (! / ?)", () => {
     expect(npcMarker("bounty_board", st, 1, none)).toBe("ready");
   });
 });
+
+describe("quests: recompensa que não coube", () => {
+  it("a sobra que cai no chão ganha uid novo (nunca o mesmo uid na mochila e no chão)", () => {
+    const sent: unknown[] = [];
+    const inv = new InventorySystem({ send: () => {} });
+    const p = player("p1", 70, 80);
+    inv.load(p, {});
+    const fell: any[] = [];
+    const qs = new QuestSystem({
+      inventory: inv, getPlayer: () => p, send: (_to, _t, m) => sent.push(m), gainXp: () => {}, npcOpen: () => "",
+      zones: ZONES, rng: seeded(1), placeLoot: (_p, it) => { fell.push(it); return true; },
+    }) as any;
+    const bp = inv.get("p1")!.backpack;
+    for (let i = 0; i < bp.length - 1; i++) inv.addItem(p, makeItem("fire_sword"));
+    // Um espaço livre e uma pilha maior que maxStack (100): 100 entram, 50 caem.
+    const big = makeItem("health_potion", 150);
+    qs.give(p, [big]);
+    const inBag = bp.find((it) => it?.defId === "health_potion")!;
+    expect(inBag.count).toBe(100);
+    expect(fell).toHaveLength(1);
+    expect(fell[0].count).toBe(50);
+    expect(fell[0].uid).not.toBe(inBag.uid);
+    expect(sent).toContainEqual({ text: "Mochila cheia: 1 item caiu no chão.", kind: "warn" });
+  });
+});

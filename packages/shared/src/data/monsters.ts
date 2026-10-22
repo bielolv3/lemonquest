@@ -616,10 +616,11 @@ export const MONSTERS: Record<string, MonsterDef> = {
 
   // ===== Costa Esmeralda (expansão a leste das Terras Selvagens: tools/mapgen/expansion2.mjs)
   // Selva de Banuta (lv 25-45): macacos, tarântulas, crocodilos e plantas carnívoras.
+  // Ciclo 7: ouro ×1,6 na Selva e nos Piratas (com os materiais em dobro, ~0,6 de ouro por vida, como goblin e homem-lagarto).
   sibang: {
     id: "sibang", name: "Sibang", level: 26, hp: 300, xp: 240, damage: [18, 42], damageKind: "physical", armor: 5,
     attackMs: 2000, attackRange: 3, stepMs: 280, aggroRange: 6, fleeAtHpPct: 0.2, respawnMs: 60_000,
-    gold: [40, 90],
+    gold: [64, 144],
     loot: [
       { itemId: "ape_fur", chance: 0.4 },
       { itemId: "banana", chance: 0.35, min: 1, max: 3 },
@@ -631,7 +632,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   kongra: {
     id: "kongra", name: "Kongra", level: 28, hp: 340, xp: 290, damage: [22, 46], damageKind: "physical", armor: 7,
     attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
-    gold: [45, 95],
+    gold: [72, 152],
     loot: [
       { itemId: "ape_fur", chance: 0.5 },
       { itemId: "banana", chance: 0.3, min: 1, max: 2 },
@@ -647,7 +648,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
       ability.bolt({ name: "Picada Venenosa", range: 1, min: 20, max: 40, kind: "earth", fx: "earth", cooldownMs: 10_000, condition: { id: "poison", durationMs: 10_000, value: 8 } }),
     ],
     attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
-    gold: [50, 100],
+    gold: [80, 160],
     loot: [
       { itemId: "tarantula_fang", chance: 0.4 },
       { itemId: "spider_silk", chance: 0.3, min: 1, max: 2 },
@@ -659,7 +660,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   merlkin: {
     id: "merlkin", name: "Merlkin", level: 32, hp: 360, xp: 350, damage: [25, 50], damageKind: "energy", armor: 5,
     attackMs: 2200, attackRange: 4, stepMs: 340, aggroRange: 7, fleeAtHpPct: 0.15, respawnMs: 60_000,
-    gold: [60, 115],
+    gold: [96, 184],
     loot: [
       { itemId: "ape_fur", chance: 0.3 },
       { itemId: "banana", chance: 0.3, min: 1, max: 2 },
@@ -673,7 +674,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   crocodile: {
     id: "crocodile", name: "Crocodilo", level: 36, hp: 520, xp: 560, damage: [30, 62], damageKind: "physical", armor: 11,
     attackMs: 1900, attackRange: 1, stepMs: 380, aggroRange: 5, fleeAtHpPct: 0, respawnMs: 70_000,
-    gold: [75, 150],
+    gold: [120, 240],
     loot: [
       { itemId: "croc_leather", chance: 0.45 },
       { itemId: "meat", chance: 0.3, min: 1, max: 2 },
@@ -689,7 +690,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
       ability.stomp({ name: "Esporos", radius: 1, min: 30, max: 60, kind: "earth", fx: "earth", windupMs: 700, condition: { id: "poison", durationMs: 8000, value: 10 } }),
     ],
     attackMs: 2000, attackRange: 2, stepMs: 700, aggroRange: 4, fleeAtHpPct: 0, respawnMs: 70_000,
-    gold: [95, 190],
+    gold: [152, 304],
     loot: [
       { itemId: "carniphila_seed", chance: 0.4 },
       { itemId: "herb", chance: 0.4, min: 1, max: 3 },
@@ -703,7 +704,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   pirate_marauder: {
     id: "pirate_marauder", name: "Pirata Saqueador", level: 30, hp: 360, xp: 320, damage: [24, 48], damageKind: "physical", armor: 8,
     attackMs: 1900, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
-    gold: [50, 105],
+    gold: [80, 168],
     loot: [
       { itemId: "pirate_coin", chance: 0.45, min: 1, max: 3 },
       { itemId: "fish", chance: 0.3, min: 1, max: 2 },
@@ -715,7 +716,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   pirate_corsair: {
     id: "pirate_corsair", name: "Pirata Corsário", level: 35, hp: 420, xp: 440, damage: [28, 56], damageKind: "physical", armor: 8,
     attackMs: 2100, attackRange: 4, stepMs: 330, aggroRange: 7, fleeAtHpPct: 0, respawnMs: 60_000,
-    gold: [70, 145],
+    gold: [112, 232],
     loot: [
       { itemId: "pirate_coin", chance: 0.5, min: 1, max: 4 },
       { itemId: "calamari", chance: 0.2 },
@@ -728,7 +729,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
   pirate_buccaneer: {
     id: "pirate_buccaneer", name: "Pirata Bucaneiro", level: 38, hp: 560, xp: 660, damage: [34, 68], damageKind: "physical", armor: 12,
     attackMs: 1800, attackRange: 1, stepMs: 320, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 70_000,
-    gold: [90, 185],
+    gold: [144, 296],
     loot: [
       { itemId: "pirate_coin", chance: 0.55, min: 2, max: 5 },
       { itemId: "health_potion_large", chance: 0.05 },
@@ -1055,7 +1056,7 @@ export function monsterAbilitySpell(spellId: string): SpellDef | undefined {
  * juggernaut    110  6500 14300   220
  * captain_redb.* 42  7000  7000   100          grupo de 3+, respawn 2 h
  * kongra_king*   45  9000  9000   115          grupo de 3+, respawn 2 h
- * yeti*          70 18000 20000   185          grupo de 4+, respawn 3 h (raid quinta 20h)
- * ferumbras*    140 90000 120000  350 (dist 5) grupo de 6+, respawn 6 h (raid segunda 21h)
+ * yeti*          70 18000 20000   185          grupo de 4+, respawn 3 h (raid quinta 12h15)
+ * ferumbras*    140 90000 120000  350 (dist 5) grupo de 6+, respawn 6 h (raid domingo 15h)
  * (*boss). Magos causam ~30% menos por acerto: 4+1.1*lvl.
  */

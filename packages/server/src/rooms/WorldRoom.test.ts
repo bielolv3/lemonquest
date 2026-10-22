@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLOSE_REPLACED, OUT_OF_COMBAT_MS, PZ_LOCK_MS, findObjects, objectTile } from "@lemonquest/shared";
+import { CLOSE_REPLACED, OUT_OF_COMBAT_MS, PARTY_SHARE_RANGE, PZ_LOCK_MS, RED_SKULL_KILLS, S2C, backpackCapacity, findObjects, objectTile, questChestDef } from "@lemonquest/shared";
 import { RECONNECT_S, REPLACED_REASON, TRANSFER_SAVE_MS, WorldRoom, currentWorld } from "./WorldRoom.ts";
 import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, loadGroundRows, saveCharacter } from "../persistence/db.ts";
-import { makeItem } from "../systems/inventory.ts";
+import { GOLD_ID, makeItem } from "../systems/inventory.ts";
+import { MAX_PER_TILE } from "../systems/ground.ts";
 import { handleCreateCharacter, handleLogin, handlePlay, onlineOwner, resetAuthState, type AuthData } from "../persistence/auth.ts";
 
 // Sala real (mapa real), fora do matchmaker: __init + onCreate; clientes falsos.
@@ -20,7 +21,7 @@ function dispose(r: any) {
   r.onDispose();
 }
 function fakeClient(r: any, sessionId: string) {
-  const c = { sessionId, send: vi.fn(), leave: vi.fn() } as any;
+  const c = { sessionId, send: vi.fn(), leave: vi.fn(), enqueueRaw: vi.fn() } as any;
   r.clients.push(c);
   return c;
 }
@@ -443,5 +444,179 @@ describe("WorldRoom: crédito de missão só para quem está perto", () => {
     m.damageBy.set("b1", 90);
     m.damageBy.set("a1", 10);
     expect(r.questCredit(m)).toEqual(["a1"]);
+  });
+});
+
+describe("WorldRoom: robustez (morte, caveira vermelha, recompensas, permanência)", () => {
+  const join = (r: any, name: string, sid: string) => {
+    createAccount(name, "h", "s", "knight");
+    const c = fakeClient(r, sid);
+    r.onJoin(c, {}, auth(name));
+    return r.state.players.get(sid);
+  };
+  /** Tile de um monstro selvagem qualquer: fora da zona de proteção. */
+  const wildTile = (r: any) => {
+    const m = [...r.monsters.all()].find((x: any) => !x.def.invulnerable && !x.arenaId);
+    return { x: m.s.x, y: m.s.y };
+  };
+  /** Morte de verdade (CombatSystem): a vida volta cheia na hora, no templo. */
+  const kill = (r: any, p: any) => r.combat.damagePlayer(p, "x", 1e9, "physical", Date.now(), { killerName: "Rato" });
+
+  it("morrer de verdade fecha a troca aberta e para de seguir (o morto e quem o seguia)", () => {
+    const r = makeRoom();
+    const a = join(r, "Ana", "a1"), b = join(r, "Beto", "b1"), c = join(r, "Caio", "c1");
+    r.trade.onMessage(a, { action: "request", targetId: "b1" });
+    r.trade.onMessage(b, { action: "accept" });
+    expect(r.trade.sessionOf("a1")).toBeTruthy();
+    a.followId = "c1";
+    c.followId = "a1";
+    kill(r, a);
+    expect(a.hp).toBe(a.maxHp); // já renasceu: os sistemas nunca veem hp ≤ 0
+    expect(r.trade.sessionOf("a1")).toBeUndefined();
+    expect(r.trade.sessionOf("b1")).toBeUndefined();
+    expect(a.followId).toBe("");
+    expect(c.followId).toBe("");
+  });
+
+  it("caveira vermelha: metade do ouro vai ao chão ao lado se o tile está cheio; sem lugar no chão, não perde o ouro", () => {
+    const r = makeRoom();
+    const p = join(r, "Rato", "r1");
+    const t = wildTile(r);
+    const red = () => { r.pvp.kills.set("r1", Array(RED_SKULL_KILLS).fill(Date.now())); p.skull = "red"; p.x = t.x; p.y = t.y; };
+    r.inventory.addGold(p, 1000);
+    for (let i = 0; i < MAX_PER_TILE; i++) r.ground.place(makeItem("fire_sword"), t.x, t.y);
+    red();
+    kill(r, p);
+    expect(r.inventory.gold("r1")).toBe(500);
+    const gold = [...r.ground.all()].filter((e: any) => e.item.defId === GOLD_ID);
+    expect(gold.map((e: any) => e.item.count)).toEqual([500]);
+    expect(Math.max(Math.abs(gold[0].state.x - t.x), Math.abs(gold[0].state.y - t.y))).toBe(1); // vizinho
+    expect(r.transferred.has("r1")).toBe(true); // grava personagem + chão juntos
+
+    // Nenhum tile aceita: o ouro não sai da conta (antes sumia).
+    r.transferred.clear();
+    vi.spyOn(r.ground, "placeNear").mockReturnValue(undefined);
+    red();
+    kill(r, p);
+    expect(r.inventory.gold("r1")).toBe(500);
+    expect(r.transferred.has("r1")).toBe(false);
+  });
+
+  it("baú de quest com a mochila cheia: o item cai no chão e grava personagem + chão juntos", () => {
+    const r = makeRoom();
+    const p = join(r, "Lia", "l1");
+    for (let i = 0; i < backpackCapacity(p.level); i++) r.inventory.addItem(p, makeItem("fire_sword"));
+    expect(r.inventory.roomFor("l1", "demon_armor")).toBe(0);
+    r.quests.claimChest(p, questChestDef("anni_armor")!);
+    const fell = [...r.ground.all()].filter((e: any) => e.item.defId === "demon_armor");
+    expect(fell).toHaveLength(1);
+    expect(r.transferred.has("l1")).toBe(true);
+  });
+
+  it("com bloqueio de PZ não viaja de barco/carroça, e o aviso diz quantos segundos faltam", () => {
+    const r = makeRoom();
+    const a = join(r, "Rex", "x1"), b = join(r, "Val", "v1");
+    const t = wildTile(r);
+    a.x = t.x; a.y = t.y;
+    r.pvp.onHit(a, b, Date.now());
+    const t0 = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(t0 + OUT_OF_COMBAT_MS + 1); // fora de combate, ainda bloqueado
+    const why = r.npcs.o.travelBlocked(a) as string;
+    expect(why).toMatch(/não pode viajar/);
+    const left = Number(/mais (\d+) s/.exec(why)?.[1]);
+    expect(left).toBe(Math.ceil((PZ_LOCK_MS - OUT_OF_COMBAT_MS - 1) / 1000));
+    expect(r.npcs.o.travelBlocked(b)).toBeNull();
+  });
+
+  it("queda ou permanência: o ataque automático para sem apagar a preferência salva; volta na reconexão", () => {
+    const r = makeRoom();
+    const p = join(r, "Gus", "g1");
+    const c = r.clients.find((x: any) => x.sessionId === "g1");
+    p.auto = true;
+    vi.spyOn(r, "allowReconnection").mockImplementation(() => Object.assign(new Promise(() => {}), { reject: vi.fn() }) as any);
+    r.onDrop(c, 1006);
+    expect(p.auto).toBe(false);
+    r.saveAll();
+    expect(getCharacterByName("Gus")!.data.auto).toBe(true);
+    c.send.mockClear();
+    r.onReconnect(c);
+    expect(p.auto).toBe(true);
+    // A reconexão reenvia o estado da troca (aqui, sem troca: "closed").
+    expect(c.send).toHaveBeenCalledWith(S2C.Trade, { phase: "closed" });
+
+    // Sair em combate (fica no mundo): idem, e a preferência chega ao disco no fim.
+    r.combat.markCombat("g1", Date.now());
+    r.onLeave(c, 4000);
+    expect(r.state.players.has("g1")).toBe(true);
+    expect(p.auto).toBe(false);
+    r.lingering.get("g1").tick(60_000);
+    expect(r.state.players.has("g1")).toBe(false);
+    expect(getCharacterByName("Gus")!.data.auto).toBe(true);
+    expect(r.autoPaused.size).toBe(0);
+  });
+
+  it("troca concluída grava os dois jogadores juntos (uma transação no fim do tick)", () => {
+    const r = makeRoom();
+    const a = join(r, "Ana", "a1"), b = join(r, "Bia", "b1");
+    r.inventory.addItem(a, makeItem("fire_sword"));
+    const saved = () => ["Ana", "Bia"].map((n) => (getCharacterByName(n)!.data.backpack ?? []).some((it: any) => it?.defId === "fire_sword"));
+    r.saveAll();
+    expect(saved()).toEqual([true, false]);
+    const persist = vi.spyOn(r, "persist");
+    const rev = (id: string) => [...r.clients.find((c: any) => c.sessionId === id).send.mock.calls].reverse().find(([t, m]: any[]) => t === "trade" && m.phase === "open")?.[1].rev;
+    r.trade.onMessage(a, { action: "request", targetId: "b1" });
+    r.trade.onMessage(b, { action: "accept" });
+    const sword = r.inventory.get("a1").backpack.find((it: any) => it?.defId === "fire_sword");
+    r.trade.onMessage(a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
+    r.trade.onMessage(a, { action: "confirm", confirmed: true, rev: rev("a1") });
+    r.trade.onMessage(b, { action: "confirm", confirmed: true, rev: rev("b1") });
+    expect(r.trade.sessionOf("a1")).toBeUndefined(); // trocou
+    expect(persist).not.toHaveBeenCalled();           // ainda não gravou nenhum dos dois isoladamente
+    r.tick();
+    expect(persist).toHaveBeenCalledTimes(2);
+    expect(saved()).toEqual([false, true]);
+  });
+
+  it("troca + logout imediato: quem sai grava junto com o outro lado e o chão (uma transação)", () => {
+    const r = makeRoom();
+    const a = join(r, "Ana", "a1"), b = join(r, "Bia", "b1");
+    r.inventory.addItem(a, makeItem("fire_sword"));
+    r.saveAll();
+    const has = (n: string) => (getCharacterByName(n)!.data.backpack ?? []).some((it: any) => it?.defId === "fire_sword");
+    const rev = (id: string) => [...r.clients.find((c: any) => c.sessionId === id).send.mock.calls].reverse().find(([t, m]: any[]) => t === "trade" && m.phase === "open")?.[1].rev;
+    r.trade.onMessage(a, { action: "request", targetId: "b1" });
+    r.trade.onMessage(b, { action: "accept" });
+    const sword = r.inventory.get("a1").backpack.find((it: any) => it?.defId === "fire_sword");
+    r.trade.onMessage(a, { action: "offer", items: [{ uid: sword.uid, count: 1 }], gold: 0 });
+    r.trade.onMessage(a, { action: "confirm", confirmed: true, rev: rev("a1") });
+    r.trade.onMessage(b, { action: "confirm", confirmed: true, rev: rev("b1") });
+    expect(r.transferred.size).toBe(2);
+    r.onLeave(r.clients.find((c: any) => c.sessionId === "a1"), 4000); // sai antes do tick
+    expect(r.state.players.has("a1")).toBe(false);
+    expect([has("Ana"), has("Bia")]).toEqual([false, true]); // os dois lados gravados, não só quem saiu
+    expect(r.transferred.size).toBe(0);
+  });
+
+  it("loot de grupo só vai ao chão com outro membro (no teclado) perto do monstro", () => {
+    const r = makeRoom();
+    const a = join(r, "Ana", "a1"), b = join(r, "Bia", "b1");
+    const m = { x: a.x + 3, y: a.y }; // monstro morto à distância (paladino/mago): a régua é o tile dele
+    expect(r.partyLootId(a, m.x, m.y)).toBeUndefined(); // sem grupo
+    r.party.invite(a, "b1");
+    r.party.accept(b, "a1");
+    b.x = m.x + PARTY_SHARE_RANGE + 1; b.y = m.y;
+    expect(r.partyLootId(a, m.x, m.y)).toBeUndefined(); // grupo, mas o outro está longe do monstro
+    b.x = m.x + PARTY_SHARE_RANGE;
+    expect(r.partyLootId(a, m.x, m.y)).toBe(r.party.partyFor("a1").id);
+    // Perto de quem matou mas longe do monstro: não conta.
+    b.x = a.x - PARTY_SHARE_RANGE; b.y = a.y;
+    expect(Math.abs(b.x - m.x)).toBeGreaterThan(PARTY_SHARE_RANGE);
+    expect(r.partyLootId(a, m.x, m.y)).toBeUndefined();
+    // Perto, mas fora do teclado (saiu em combate e ficou no mundo): não conta.
+    b.x = m.x; b.y = m.y + 1;
+    r.combat.markCombat("b1", Date.now());
+    r.onLeave(r.clients.find((c: any) => c.sessionId === "b1"), 4000);
+    expect(r.lingering.has("b1")).toBe(true);
+    expect(r.partyLootId(a, m.x, m.y)).toBeUndefined();
   });
 });

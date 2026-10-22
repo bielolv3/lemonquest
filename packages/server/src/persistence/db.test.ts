@@ -25,8 +25,10 @@ describe("db: estado do mundo", () => {
     replaceGroundRows([row(1), row(2, "kiko"), row(3)]);
     expect(loadGroundRows().map((r) => r.x)).toEqual([1, 2, 3]);
     expect(loadGroundRows()[1]).toMatchObject({ owner: "kiko", ownerUntil: 5, expiresAt: 1002 });
-    replaceGroundRows([row(9)]);
+    expect(loadGroundRows()[0]!.createdAt).toBeNull(); // sem "nascimento" (registro antigo)
+    replaceGroundRows([{ ...row(9), createdAt: 777 }]);
     expect(loadGroundRows().map((r) => r.x)).toEqual([9]);
+    expect(loadGroundRows()[0]!.createdAt).toBe(777);
     replaceGroundRows([]);
     expect(loadGroundRows()).toEqual([]);
   });

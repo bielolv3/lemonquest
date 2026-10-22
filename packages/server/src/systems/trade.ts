@@ -1,5 +1,8 @@
 // Troca entre jogadores: convite → janela com a oferta dos dois → os dois confirmam → troca atômica (inventory.swap).
-// Qualquer mudança numa oferta zera as confirmações. Cancela por distância, morte, Coliseu, saída ou pedido.
+// Qualquer mudança numa oferta zera as confirmações e sobe a versão (`rev`): o confirm traz a versão que o jogador viu
+// e só vale se ainda for a atual (o clique que já estava a caminho quando o outro trocou a oferta não conta).
+// Cancela por distância, Coliseu, saída ou pedido (tick/removePlayer/cancel aqui); na morte quem cancela é o onDying do
+// WorldRoom, porque o morto renasce com a vida cheia na hora e o tick nunca vê hp ≤ 0.
 import {
   S2C, TRADE_INVITE_MS, TRADE_KEEP_RANGE, TRADE_MAX_ITEMS, TRADE_START_RANGE,
   type ItemInstance, type NoticeMsg, type TradeMsg, type TradeOfferItem, type TradeSideView, type TradeStateMsg,
@@ -8,7 +11,7 @@ import type { PlayerState } from "../state.ts";
 import type { InventorySystem } from "./inventory.ts";
 
 interface Offer { items: TradeOfferItem[]; gold: number }
-interface Session { a: string; b: string; offer: Record<string, Offer>; confirmed: Record<string, boolean> }
+interface Session { a: string; b: string; rev: number; offer: Record<string, Offer>; confirmed: Record<string, boolean> }
 
 export interface TradeHost {
   getPlayer(id: string): PlayerState | undefined;
@@ -53,7 +56,7 @@ export class TradeSystem {
       case "accept": return this.accept(p);
       case "decline": return this.decline(p);
       case "offer": return this.offer(p, m.items, m.gold);
-      case "confirm": return this.confirm(p, m.confirmed === true);
+      case "confirm": return this.confirm(p, m.confirmed === true, m.rev);
       case "cancel": return this.cancel(p.id, `${p.name} cancelou a troca.`);
     }
   }
@@ -86,7 +89,7 @@ export class TradeSystem {
       if (from) this.notice(from.id, "A troca não é mais possível.", "warn");
       return;
     }
-    const s: Session = { a: from.id, b: p.id, offer: { [from.id]: { items: [], gold: 0 }, [p.id]: { items: [], gold: 0 } }, confirmed: { [from.id]: false, [p.id]: false } };
+    const s: Session = { a: from.id, b: p.id, rev: 0, offer: { [from.id]: { items: [], gold: 0 }, [p.id]: { items: [], gold: 0 } }, confirmed: { [from.id]: false, [p.id]: false } };
     this.sessions.set(from.id, s);
     this.sessions.set(p.id, s);
     this.pushBoth(s);
@@ -102,27 +105,55 @@ export class TradeSystem {
 
   // --- oferta e confirmação ---------------------------------------------------------------------------------------
 
+  /**
+   * Toda mensagem de oferta (aceita ou recusada) sobe a versão, zera as confirmações e manda o estado aos dois: assim o
+   * cliente sabe que a versão seguinte à que via é a da própria oferta, e uma oferta recusada (ouro que não tem) volta
+   * com o valor real para o campo.
+   */
   private offer(p: PlayerState, rawItems: unknown, rawGold: unknown) {
     const s = this.sessions.get(p.id);
     if (!s) return;
+    const why = this.parseOffer(p, rawItems, rawGold);
+    if (typeof why === "string") this.notice(p.id, why, "warn");
+    else s.offer[p.id] = why;
+    this.changed(s);
+  }
+
+  private parseOffer(p: PlayerState, rawItems: unknown, rawGold: unknown): Offer | string {
+    if (!Array.isArray(rawItems) || rawItems.length > TRADE_MAX_ITEMS || !isInt(rawGold) || rawGold < 0) return "Oferta inválida.";
     const items: TradeOfferItem[] = [];
-    if (!Array.isArray(rawItems) || rawItems.length > TRADE_MAX_ITEMS || !isInt(rawGold) || rawGold < 0) { this.notice(p.id, "Oferta inválida.", "warn"); return; }
     const seen = new Set<string>();
     for (const r of rawItems as TradeOfferItem[]) {
       const it = r && typeof r.uid === "string" ? this.o.inventory.findByUid(p.id, r.uid) : undefined;
-      if (!it || !isInt(r.count) || r.count < 1 || r.count > it.count || seen.has(r.uid)) { this.notice(p.id, "Oferta inválida.", "warn"); return; }
+      if (!it || !isInt(r.count) || r.count < 1 || r.count > it.count || seen.has(r.uid)) return "Oferta inválida.";
       seen.add(r.uid);
       items.push({ uid: r.uid, count: r.count });
     }
-    if (rawGold > this.o.inventory.gold(p.id)) { this.notice(p.id, "Você não tem todo esse ouro.", "warn"); return; }
-    s.offer[p.id] = { items, gold: rawGold };
-    s.confirmed[s.a] = false; s.confirmed[s.b] = false; // mudou: os dois confirmam de novo
+    if (rawGold > this.o.inventory.gold(p.id)) return "Você não tem todo esse ouro.";
+    return { items, gold: rawGold };
+  }
+
+  /** As ofertas mudaram (ou podem ter mudado): nova versão, os dois confirmam de novo. */
+  private changed(s: Session) {
+    s.rev++;
+    s.confirmed[s.a] = false; s.confirmed[s.b] = false;
     this.pushBoth(s);
   }
 
-  private confirm(p: PlayerState, confirmed: boolean) {
+  private confirm(p: PlayerState, confirmed: boolean, rev: unknown) {
     const s = this.sessions.get(p.id);
     if (!s) return;
+    // Cliente sem versão no confirm (página aberta antes de uma atualização): não tem como confirmar; pede para recarregar.
+    if (confirmed && typeof rev !== "number") {
+      this.notice(p.id, "Atualize a página (F5) para concluir a troca.", "warn");
+      return;
+    }
+    // Confirmar uma versão que não é a atual (o outro mudou a oferta enquanto o clique vinha): ignora e reenvia o estado.
+    if (confirmed && rev !== s.rev) {
+      this.notice(p.id, "A oferta mudou: confira e confirme de novo.", "warn");
+      this.push(p.id, this.view(p.id, s));
+      return;
+    }
     s.confirmed[p.id] = confirmed;
     if (!(s.confirmed[s.a] && s.confirmed[s.b])) { this.pushBoth(s); return; }
     this.execute(s);
@@ -142,7 +173,6 @@ export class TradeSystem {
       return;
     }
     // Nada mudou: a janela continua aberta para ajustar.
-    s.confirmed[s.a] = false; s.confirmed[s.b] = false;
     const msg = r === "full" ? "Troca não feita: não cabe na mochila de um dos dois. Libere espaço ou reduza a oferta." : "Troca não feita: uma das ofertas mudou (item ou ouro). Confira e confirme de novo.";
     this.notice(a.id, msg, "warn"); this.notice(b.id, msg, "warn");
     // Ofertas que viraram inválidas saem da lista.
@@ -151,7 +181,7 @@ export class TradeSystem {
       o.items = o.items.filter((x) => { const it = this.o.inventory.findByUid(pl.id, x.uid); return !!it && x.count <= it.count; });
       if (o.gold > this.o.inventory.gold(pl.id)) o.gold = this.o.inventory.gold(pl.id);
     }
-    this.pushBoth(s);
+    this.changed(s);
   }
 
   // --- encerramento -----------------------------------------------------------------------------------------------
@@ -177,6 +207,18 @@ export class TradeSystem {
       this.push(to, { phase: "closed" });
       if (to === id) this.notice(v.from, why, "warn");
     }
+  }
+
+  /**
+   * Reenvia o estado atual a `id` (reconexão: o que foi enviado durante a queda se perdeu): a troca aberta, o convite
+   * recebido ou "closed".
+   */
+  resend(id: string): void {
+    const s = this.sessions.get(id);
+    if (s) { this.push(id, this.view(id, s)); return; }
+    const inv = this.invites.get(id);
+    const from = inv && this.o.getPlayer(inv.from);
+    this.push(id, from ? { phase: "invite", fromId: from.id, from: from.name } : { phase: "closed" });
   }
 
   /** Saiu do mundo. */
@@ -219,10 +261,13 @@ export class TradeSystem {
     return { items, gold: o.gold, confirmed: !!s.confirmed[id] };
   }
 
+  private view(me: string, s: Session): TradeStateMsg {
+    const other = s.a === me ? s.b : s.a;
+    return { phase: "open", partnerId: other, partner: this.o.getPlayer(other)?.name ?? "?", rev: s.rev, mine: this.side(me, s), theirs: this.side(other, s) };
+  }
+
   private pushBoth(s: Session) {
-    for (const [me, other] of [[s.a, s.b], [s.b, s.a]] as const) {
-      const partner = this.o.getPlayer(other);
-      this.push(me, { phase: "open", partnerId: other, partner: partner?.name ?? "?", mine: this.side(me, s), theirs: this.side(other, s) });
-    }
+    this.push(s.a, this.view(s.a, s));
+    this.push(s.b, this.view(s.b, s));
   }
 }

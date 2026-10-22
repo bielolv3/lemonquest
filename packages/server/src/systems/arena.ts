@@ -103,6 +103,8 @@ interface Member {
   xp: number;
   gold: number;
   cleared: number;
+  /** Estava na faixa de level (≥ 2/3 do maior vivo) na última onda vencida: só assim leva o bônus de ouro do fim. */
+  inRange?: boolean;
 }
 
 interface PendingSpawn { at: number; spec: ArenaSpawnSpec; point: Point }
@@ -465,21 +467,25 @@ export class ArenaSystem {
     const alive = party.members.filter((m) => m.alive);
     const waveXp = arenaWaveXp(party.spawns, alive.length);
     const gold = arenaWaveGold(wave);
-    // Mesma faixa da XP compartilhada do grupo: quem está abaixo de 2/3 do maior level vivo ganha só o ouro (sem isso um
-    // level alto "carregava" personagens level 1 por ondas fáceis — as ondas escalam pela média).
+    // Mesma faixa da XP compartilhada do grupo: quem está abaixo de 2/3 do maior level vivo não ganha XP nem ouro (sem
+    // isso um level alto "carregava" personagens level 1 por ondas fáceis — as ondas escalam pela média — e o ouro de
+    // cada alt carregado ia para o principal pela troca).
     const players = alive.map((m) => this.o.getPlayer(m.id)).filter((p): p is PlayerState => !!p);
     const minLevel = partyMinLevel(Math.max(0, ...players.map((p) => p.level)));
     const xpFor = new Map<string, number>();
     for (const m of alive) {
       const p = this.o.getPlayer(m.id);
       if (!p) continue;
-      const xp = p.level >= minLevel ? applyXpStage(waveXp, p.level) : 0;
+      const inRange = p.level >= minLevel;
+      const xp = inRange ? applyXpStage(waveXp, p.level) : 0;
+      const g = inRange ? gold : 0;
       xpFor.set(m.id, xp);
+      m.inRange = inRange;
       m.cleared = wave;
       m.xp += xp;
-      m.gold += gold;
+      m.gold += g;
       if (xp > 0) this.o.combat.gainXp(p, xp, p.x, p.y);
-      if (gold > 0) this.o.addGold(p, gold);
+      if (g > 0) this.o.addGold(p, g);
       this.o.onWaveCleared?.(p, wave);
       this.o.combat.healPlayer(p, p.id, Math.round(p.maxHp * ARENA_PAUSE_HEAL));
       this.o.combat.restoreMana(p, Math.round(p.maxMana * ARENA_PAUSE_HEAL));
@@ -493,8 +499,8 @@ export class ArenaSystem {
     for (const m of party.members) m.ready = false;
     for (const m of alive) {
       const xp = xpFor.get(m.id) ?? 0;
-      if (xp > 0 || waveXp <= 0) this.notice(m.id, `Onda ${wave} vencida! +${xp} XP, +${gold} de ouro.`, "good");
-      else this.notice(m.id, `Onda ${wave} vencida! +${gold} de ouro. Sem XP: level abaixo de ${minLevel} (2/3 do maior do grupo).`, "info");
+      if (m.inRange) this.notice(m.id, `Onda ${wave} vencida! +${xp} XP, +${gold} de ouro.`, "good");
+      else this.notice(m.id, `Onda ${wave} vencida! Sem XP nem ouro: level abaixo de ${minLevel} (2/3 do maior do grupo).`, "info");
     }
     this.pushState(party);
   }
@@ -504,7 +510,7 @@ export class ArenaSystem {
     m.alive = false;
     m.ready = false;
     const p = this.o.getPlayer(m.id);
-    if (reason === "completed" && p) {
+    if (reason === "completed" && p && m.inRange) {
       const bonusXp = Math.round(m.xp * ARENA_COMPLETE_XP_PCT);
       m.xp += bonusXp;
       m.gold += ARENA_COMPLETE_GOLD;

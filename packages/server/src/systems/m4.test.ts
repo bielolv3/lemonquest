@@ -68,7 +68,7 @@ describe("loot", () => {
     expect(l.msg).toMatchObject({ x: 4, y: 4, monsterName: "Rei", gold: 3, lostFull: 2 });
     expect(l.msg.items).toHaveLength(1);
     expect(l.msg.items[0].rarity).toBe("uncommon");
-    expect(out.find((o) => o.type === S2C.Notice)!.msg.text).toBe("Mochila cheia: 2 item(ns) perdido(s)");
+    expect(out.find((o) => o.type === S2C.Notice)!.msg.text).toBe("Mochila cheia: 2 itens perdidos.");
     expect(out.some((o) => o.type === S2C.Feed && o.msg.kind === "boss")).toBe(true);
     expect(w.inv.gold("p2")).toBe(3);
     // Épico → feed de drop.
@@ -128,19 +128,27 @@ describe("npcs", () => {
     expect(t.w.inv.gold("p1")).toBe(105);
   });
 
-  it("vender tudo: só o que o NPC compra, pilhas inteiras, um aviso com o total", () => {
+  it("vender tudo: só o que o NPC compra, pilhas inteiras, um aviso com o total; raro ou melhor fica", () => {
     const t = npcWorld();
     const p = t.add("p1", 12, 10);
     t.npcs.onInteract(p, { npcId: "shop" });
     t.npcs.onTrade(p, { npcId: "shop", action: "sellAll" });
     expect(t.out.at(-1)!.msg.text).toBe("Nada na mochila que eu compre.");
-    t.w.inv.addItem(p, makeItem("hp_pot", 2));          // não compra
-    t.w.inv.addItem(p, makeItem("sword", 1, "rare"));   // 75
-    t.w.inv.addItem(p, makeItem("sword"));              // 30
+    t.w.inv.addItem(p, makeItem("hp_pot", 2));             // não compra
+    t.w.inv.addItem(p, makeItem("sword", 1, "rare"));      // fica (raro)
+    t.w.inv.addItem(p, makeItem("sword", 1, "legendary")); // fica (lendário)
+    t.w.inv.addItem(p, makeItem("sword", 1, "uncommon"));  // vende
+    t.w.inv.addItem(p, makeItem("sword"));                 // 30
+    const uncommon = npcBuyPrice(100, "uncommon");
     t.npcs.onTrade(p, { npcId: "shop", action: "sellAll" });
-    expect(t.w.inv.gold("p1")).toBe(105);
-    expect(t.out.at(-1)!.msg.text).toBe("Você vendeu 2 itens por 105 de ouro.");
-    expect(t.w.inv.get("p1")!.backpack.filter(Boolean).map((x) => x!.defId)).toEqual(["hp_pot"]);
+    expect(t.w.inv.gold("p1")).toBe(30 + uncommon);
+    expect(t.out.at(-1)!.msg.text).toBe(`Você vendeu 2 itens por ${30 + uncommon} de ouro. 2 itens raros ou melhores ficaram na mochila (venda um a um).`);
+    expect(t.w.inv.get("p1")!.backpack.filter(Boolean).map((x) => `${x!.defId}:${x!.rarity}`)).toEqual(["hp_pot:common", "sword:rare", "sword:legendary"]);
+    // Só sobraram raros: nada vendido, e o aviso explica por quê. Um a um continua valendo.
+    t.npcs.onTrade(p, { npcId: "shop", action: "sellAll" });
+    expect(t.out.at(-1)!.msg.text).toBe("Nada na mochila que eu compre. 2 itens raros ou melhores ficaram na mochila (venda um a um).");
+    t.npcs.onTrade(p, { npcId: "shop", action: "sell", index: 1, count: 1 });
+    expect(t.w.inv.get("p1")!.backpack[1]).toBeNull();
   });
 
   it("depot needs range; walking away closes it", () => {

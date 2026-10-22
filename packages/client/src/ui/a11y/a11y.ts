@@ -18,3 +18,9 @@ a11yStore.subscribe((s) => {
   apply(s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* indisponível */ }
 });
+
+/** Animações reduzidas (opção do jogador ou do sistema): efeitos do mundo como o tremor da câmera ficam de fora. */
+export function reducedMotion(): boolean {
+  if (a11yStore.get().motion) return true;
+  try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
