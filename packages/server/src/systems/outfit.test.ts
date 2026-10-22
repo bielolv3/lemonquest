@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C2S, DEFAULT_OUTFIT } from "@lemonquest/shared";
 import { WorldRoom } from "../rooms/WorldRoom.ts";
-import { createAccountWithCharacter as createAccount, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
+import { addAccountTone, createAccountWithCharacter as createAccount, getAccountTones, getCharacterByName, initDb, saveCharacter } from "../persistence/db.ts";
 import { handleCreateCharacter, handleLogin, resetAuthState, type AuthData } from "../persistence/auth.ts";
 import { isOutfitUnlocked, loadOutfit, validateSetOutfit } from "./outfit.ts";
 
@@ -41,8 +41,8 @@ describe("outfit: validação", () => {
   it("aceita ids do catálogo e bits 0..3; recusa o resto", () => {
     const rec = createAccount("Validador", "h", "s", "sorcerer");
     rec.data.unlocks = ["addon:mago:1", "addon:mago:2"];
-    expect(validateSetOutfit({ outfit: "mago", addons: 3 }, rec)).toEqual({ outfit: "mago", addons: 3 });
-    expect(validateSetOutfit({ outfit: "cidadao", addons: 0 }, rec)).toEqual({ outfit: "cidadao", addons: 0 });
+    expect(validateSetOutfit({ outfit: "mago", addons: 3 }, rec)).toEqual({ outfit: "mago", addons: 3, tone: "" });
+    expect(validateSetOutfit({ outfit: "cidadao", addons: 0 }, rec)).toEqual({ outfit: "cidadao", addons: 0, tone: "" });
     for (const bad of [
       null, 1, "mago", {}, { outfit: "mago" }, { outfit: "xx", addons: 0 }, { outfit: "mago", addons: 4 },
       { outfit: "mago", addons: -1 }, { outfit: "mago", addons: 1.5 }, { outfit: "mago", addons: "3" },
@@ -65,9 +65,28 @@ describe("outfit: validação", () => {
     expect(isOutfitUnlocked(rec, "mago", 1)).toBe(false);
     expect(isOutfitUnlocked(rec, "inexistente", 0)).toBe(false);
     expect(isOutfitUnlocked(undefined, "mago", 0)).toBe(false);
-    expect(validateSetOutfit({ outfit: "pirata", addons: 0 }, rec)).toEqual({ outfit: "pirata", addons: 0 });
+    expect(validateSetOutfit({ outfit: "pirata", addons: 0 }, rec)).toEqual({ outfit: "pirata", addons: 0, tone: "" });
     expect(validateSetOutfit({ outfit: "pirata", addons: 1 }, rec)).toBeNull(); // addon bloqueado
     expect(validateSetOutfit({ outfit: "nobre", addons: 0 }, rec)).toBeNull(); // roupa bloqueada
+  });
+
+  it("tom de tingimento: só aceita id do catálogo liberado NA CONTA; vazio sempre vale (cor natural)", () => {
+    const rec = createAccount("Tingidor", "h", "s", "knight");
+    expect(validateSetOutfit({ outfit: "cavaleiro", addons: 0, tone: "crimson" }, rec, [])).toBeNull(); // não liberado
+    expect(validateSetOutfit({ outfit: "cavaleiro", addons: 0, tone: "inexistente" }, rec, ["inexistente"])).toBeNull(); // nem no catálogo
+    expect(validateSetOutfit({ outfit: "cavaleiro", addons: 0, tone: "" }, rec, [])).toEqual({ outfit: "cavaleiro", addons: 0, tone: "" });
+    expect(validateSetOutfit({ outfit: "cavaleiro", addons: 0, tone: "crimson" }, rec, ["crimson"])).toEqual({ outfit: "cavaleiro", addons: 0, tone: "crimson" });
+  });
+
+  it("tons por conta: addAccountTone é idempotente e getAccountTones reflete a conta certa", () => {
+    const a = createAccount("ContaA", "h", "s", "knight");
+    const b = createAccount("ContaB", "h", "s", "knight");
+    expect(getAccountTones(a.accountId)).toEqual([]);
+    expect(addAccountTone(a.accountId, "gold")).toEqual(["gold"]);
+    expect(addAccountTone(a.accountId, "gold")).toEqual(["gold"]); // não duplica
+    expect(addAccountTone(a.accountId, "rose")).toEqual(["gold", "rose"]);
+    expect(getAccountTones(a.accountId)).toEqual(["gold", "rose"]);
+    expect(getAccountTones(b.accountId)).toEqual([]); // conta separada
   });
 
   it("personagem legado (sem campo) usa a roupa padrão da vocação; id inválido também", () => {

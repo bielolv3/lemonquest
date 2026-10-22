@@ -224,6 +224,12 @@ export function deathPenalty(level: number, xp: number): number {
   return Math.max(0, Math.min(Math.round(span * DEATH_PENALTY_PCT), xp - start));
 }
 
+/** Bênção no templo: preço em ouro escalado pelo level. Consumida na próxima morte, zera o deathPenalty. */
+export const BLESSING_GOLD_PER_LEVEL = 200;
+export function blessingPrice(level: number): number {
+  return Math.max(1, level) * BLESSING_GOLD_PER_LEVEL;
+}
+
 /** Divide `total` de XP proporcionalmente ao dano causado (arredondado, mínimo 1 por participante). */
 export function splitXp(total: number, damage: Iterable<[string, number]>): Map<string, number> {
   const entries = [...damage].filter(([, d]) => d > 0);

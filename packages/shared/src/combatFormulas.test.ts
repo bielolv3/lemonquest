@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  VOCATIONS, baseStats, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
+  VOCATIONS, baseStats, blessingPrice, deathPenalty, levelForXp, mitigate, playerAttackDamage, playerDamageRange, regenAmount, rollInt, splitXp,
   xpForLevel, XP_STAGES, applyXpStage, xpStage,
 } from "./index.ts";
 
@@ -70,6 +70,12 @@ describe("combat formulas", () => {
         expect(levelForXp(xp - deathPenalty(lvl, xp))).toBe(lvl);
       }
     }
+  });
+
+  it("blessing price scales linearly with level", () => {
+    expect(blessingPrice(1)).toBe(200);
+    expect(blessingPrice(80)).toBe(16000);
+    expect(blessingPrice(0)).toBe(200); // nunca menos que o level 1
   });
 
   it("levelForXp inverts xpForLevel (multi-level jumps)", () => {

@@ -37,6 +37,12 @@ export class PlayerState extends Schema implements PlayerView {
   /** Título ativo (texto). Conquistas. */
   @type("string") title = "";
   @type("string") partyId = "";
+  /** Bênção ativa (templo): zera a penalidade de XP na próxima morte, depois se consome. */
+  @type("boolean") blessed = false;
+  /** Tom de tingimento ativo (id em OUTFIT_TONES; "" = cor natural). */
+  @type("string") tone = "";
+  /** Encantamento ativo (id em IMBUEMENTS; "" = nenhum). Só vale no PvE. */
+  @type("string") imbuement = "";
 }
 
 /** Deve espelhar MonsterView (packages/shared/src/types.ts). */

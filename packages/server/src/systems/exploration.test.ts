@@ -4,7 +4,7 @@ import { ExplorationSystem } from "./exploration.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 
 const rec = (explored?: string): CharacterRecord => ({
-  id: 1, name: "a", vocation: "knight", level: 1, xp: 0, x: null, y: null, dir: 4, data: { explored },
+  id: 1, accountId: 1, name: "a", vocation: "knight", level: 1, xp: 0, x: null, y: null, dir: 4, data: { explored },
 });
 
 describe("ExplorationSystem", () => {

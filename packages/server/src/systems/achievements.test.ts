@@ -63,7 +63,7 @@ describe("conquistas: catálogo", () => {
 // --- sistema (unidade) -----------------------------------------------------------------------------------------------
 
 function mkRec(over: Partial<CharacterRecord> = {}): CharacterRecord {
-  return { id: 1, name: "Leo", vocation: "knight", level: 1, xp: 0, x: 1, y: 1, dir: 4, data: {}, ...over };
+  return { id: 1, accountId: 1, name: "Leo", vocation: "knight", level: 1, xp: 0, x: 1, y: 1, dir: 4, data: {}, ...over };
 }
 function mkPlayer(over: Record<string, unknown> = {}): any {
   return { id: "s1", name: "Leo", level: 1, x: 10, y: 10, skillMelee: 10, skillDistance: 10, skillShield: 10, magicLevel: 0, title: "", ...over };

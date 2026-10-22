@@ -1,6 +1,6 @@
 // Configuração ÚNICA de sprites de personagem. Trocar o pack de arte = mexer só aqui.
 import {
-  ADDON_FRAME, ADDON_OFFSET_Y, OUTFIT_LIST, activeAddons, resolveOutfit,
+  ADDON_FRAME, ADDON_OFFSET_Y, OUTFIT_LIST, activeAddons, resolveOutfit, toneColor,
   type Facing, type OutfitDef,
 } from "@lemonquest/shared";
 
@@ -75,8 +75,8 @@ export const ALL_SHEETS: CharacterSheet[] = Object.values(OUTFIT_SHEETS);
 /** Overlays de addon (só carregados; o frame segue a base). */
 export const ADDON_SHEET_LIST: CharacterSheet[] = Object.values(ADDON_SHEETS).flatMap((s) => (s.back ? [s.front, s.back] : [s.front]));
 
-/** Visual de um jogador: roupa + addons ativos (roupa desconhecida/ausente → padrão da vocação). */
-export function outfitLook(outfit: string | undefined, addons: number, vocation: string): CharacterLook {
+/** Visual de um jogador: roupa + addons ativos + tom de tingimento (roupa desconhecida/ausente → padrão da vocação). */
+export function outfitLook(outfit: string | undefined, addons: number, vocation: string, tone?: string): CharacterLook {
   const o = resolveOutfit(outfit, vocation);
   const on = activeAddons(o, addons ?? 0);
   const layers: AddonLayer[] = [];
@@ -85,7 +85,7 @@ export function outfitLook(outfit: string | undefined, addons: number, vocation:
     if (s.back) layers.push({ sheet: s.back, back: true });
     layers.push({ sheet: s.front, back: false });
   }
-  return { sheet: OUTFIT_SHEETS[o.id], tint: 0xffffff, addons: layers, extraTop: Math.max(0, ...on.map((a) => a.extraTop)) };
+  return { sheet: OUTFIT_SHEETS[o.id], tint: toneColor(tone), addons: layers, extraTop: Math.max(0, ...on.map((a) => a.extraTop)) };
 }
 
 /** Compatibilidade: visual padrão da vocação, sem addons. */

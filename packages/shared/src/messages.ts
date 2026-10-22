@@ -53,10 +53,14 @@ export const C2S = {
   TrainOffline: "trainOffline",
   /** Coliseu: ações de lobby (no NPC do coliseu) e de partida. */
   Arena: "arena",
-  /** Trocar roupa/addons (janela de roupas). */
+  /** Trocar roupa/addons/tom (janela de roupas). */
   SetOutfit: "setOutfit",
+  /** Comprar um tom de tingimento (vale pra conta inteira). */
+  BuyOutfitTone: "buyOutfitTone",
   /** Missões e recompensas diárias: aceitar/entregar/abandonar/rastrear (QuestActionMsg). */
   Quest: "quest",
+  /** Encomenda semanal de material (Quadro de Recompensas): listar/entregar. */
+  MaterialRequest: "materialRequest",
   /** Escolher o título ativo (conquistas). */
   SetTitle: "setTitle",
   /** Pedir o estado das conquistas (ao abrir a janela). */
@@ -94,7 +98,11 @@ export type PartyActionMsg =
   | { action: "lead"; targetId: string }
   | { action: "disband" };
 
-export interface SetOutfitMsg { outfit: string; addons: number }
+/** `tone` ausente ou "" = cor natural; senão precisa estar liberado na conta (ver OutfitTonesMsg). */
+export interface SetOutfitMsg { outfit: string; addons: number; tone?: string }
+export interface BuyOutfitToneMsg { toneId: string }
+/** S2C.OutfitTones: tons liberados NA CONTA (valem pra qualquer personagem). */
+export interface OutfitTonesMsg { unlocked: string[] }
 
 export interface TrainOpenMsg { statueId: string }
 export interface TrainOfflineMsg { skill: SkillId }
@@ -127,7 +135,13 @@ export type NpcTradeMsg =
   | { npcId: string; action: "buy"; itemId: string; count: number }
   | { npcId: string; action: "sell"; index: number; count: number }
   /** Vende de uma vez tudo da mochila que o NPC compra (pilhas inteiras). */
-  | { npcId: string; action: "sellAll" };
+  | { npcId: string; action: "sellAll" }
+  /** Compra uma bênção (NpcDef.blessing): preço escala com o level, consumida na próxima morte. */
+  | { npcId: string; action: "blessing" }
+  /** Compra uma ficha de cassino (NpcDef.casino): prêmio aleatório, nunca poder de combate. */
+  | { npcId: string; action: "casino" }
+  /** Compra/troca o encantamento ativo (NpcDef.imbuement): substitui o anterior, sem reembolso. */
+  | { npcId: string; action: "imbuement"; effect: string };
 
 export interface CastMsg { spellId: string; targetId?: string | null }
 
@@ -204,6 +218,10 @@ export const S2C = {
   AchievementUnlocked: "achievementUnlocked",
   /** Estado completo das conquistas (ao entrar e a cada mudança). */
   Achievements: "achievements",
+  /** Tons de tingimento liberados NA CONTA (ao entrar e após comprar um novo). */
+  OutfitTones: "outfitTones",
+  /** Estado da encomenda semanal de material (ao entrar e após entregar). */
+  MaterialRequestState: "materialRequestState",
   /** Estado do SEU grupo (party), enviado ao mudar (null = sem grupo). */
   Party: "party",
   /** Estado da troca (convite recebido, janela aberta ou fechada). */
@@ -299,10 +317,16 @@ export interface NpcOpenMsg {
   npcId: string;
   name: string;
   greeting: string;
-  shop?: { sells: { itemId: string; price: number }[]; buys?: string[]; sellRatio: number };
+  shop?: { sells: { itemId: string; price: number; limited?: boolean }[]; buys?: string[]; sellRatio: number };
   depot?: boolean;
   /** Cocheiro: destinos e preço para este jogador (0 = grátis). */
   travel?: { id: string; label: string; price: number }[];
+  /** Bênção (NpcDef.blessing): preço para o level deste jogador e se já está ativa. */
+  blessing?: { price: number; active: boolean };
+  /** Vende ficha de cassino (NpcDef.casino): preço fixo em CASINO_TICKET_PRICE. */
+  casino?: boolean;
+  /** Vende encantamento (NpcDef.imbuement): efeito ativo do personagem, se houver. */
+  imbuement?: { active: string };
 }
 export interface TravelMsg { npcId: string; dest: string }
 export interface LookGroundMsg { groundId: string }

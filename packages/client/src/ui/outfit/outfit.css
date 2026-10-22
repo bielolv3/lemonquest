@@ -46,6 +46,16 @@
 .outfit-addon-name { display: flex; flex-direction: column; line-height: 1.15; }
 .outfit-addon-name small { font-size: 10px; color: var(--hud-faint); text-transform: uppercase; letter-spacing: 1px; }
 
+.outfit-tones { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.outfit-tone {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--hud-line-soft); cursor: pointer;
+  padding: 0; display: flex; align-items: center; justify-content: center;
+}
+.outfit-tone:hover { border-color: var(--hud-line-hi); }
+.outfit-tone.sel { border-color: var(--hud-gold); box-shadow: 0 0 0 1px var(--hud-gold); }
+.outfit-tone.locked { opacity: 0.55; }
+.outfit-tone .outfit-lock { position: static; filter: drop-shadow(0 0 1px #000); }
+
 .outfit-grid {
   flex: 1; list-style: none; margin: 0; padding: 0; align-content: start;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px;

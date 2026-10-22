@@ -3,7 +3,7 @@
 // Cocheiro (`travel`): cobra o ouro e leva o jogador ao destino (grátis até TRAVEL_FREE_LEVEL).
 // Ambientação: a cada 20–40 s cada NPC com idleLines fala (S2C.NpcSay) se houver jogador a até 15 tiles.
 import {
-  NPC_BUY_RATIO, NPC_RANGE, S2C, findObjects, npcBuyPrice, npcDef, objectTile, travelPrice,
+  CASINO_MATERIAL_POOL, CASINO_TICKET_PRICE, NPC_BUY_RATIO, NPC_RANGE, S2C, blessingPrice, findObjects, imbuementDef, npcBuyPrice, npcDef, objectTile, travelPrice, weekId,
   type NoticeMsg, type NpcDef, type NpcInteractMsg, type NpcOpenMsg, type NpcSayMsg, type NpcTradeMsg, type TiledMap, type TravelMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -50,6 +50,8 @@ export class NpcSystem {
   private readonly tiles = new Set<number>();
   private readonly open = new Map<string, string>(); // sessionId → npcId
   private readonly nextSayAt = new Map<string, number>();
+  /** Semana ISO da última compra de item `limited` (tier 6-7), por jogador; persistida em rec.data.limitedBuyWeek. */
+  private readonly limitedBuyWeek = new Map<string, string>();
   private readonly defs: (id: string) => NpcDef | undefined;
   private readonly now: () => number;
   private readonly rng: () => number;
@@ -83,7 +85,15 @@ export class NpcSystem {
     return !!npcId && !!p && !!this.defs(npcId)?.depot && this.inRange(p, npcId);
   }
 
-  removePlayer(id: string): void { this.open.delete(id); }
+  removePlayer(id: string): void { this.open.delete(id); this.limitedBuyWeek.delete(id); }
+
+  /** Carrega a semana da última compra de item `limited` (relogar não reseta o limite). */
+  loadLimitedBuy(id: string, week?: unknown): void {
+    if (typeof week === "string") this.limitedBuyWeek.set(id, week);
+  }
+
+  /** Para salvar no personagem. */
+  savedLimitedBuy(id: string): string | undefined { return this.limitedBuyWeek.get(id); }
 
   /** Fecha o diálogo aberto do jogador (se houver). `only` = só se for este NPC (ou prefixo terminado em "_"). */
   close(id: string, only?: string): void {
@@ -108,6 +118,9 @@ export class NpcSystem {
     }
     if (d.depot) msg.depot = true;
     if (d.travel?.length) msg.travel = d.travel.map((t) => ({ id: t.id, label: t.label, price: travelPrice(t, p?.level ?? Infinity) }));
+    if (d.blessing) msg.blessing = { price: blessingPrice(p?.level ?? 1), active: !!p?.blessed };
+    if (d.casino) msg.casino = true;
+    if (d.imbuement) msg.imbuement = { active: p?.imbuement ?? "" };
     return msg;
   }
 
@@ -130,7 +143,11 @@ export class NpcSystem {
     if (this.open.get(p.id) !== msg.npcId || !this.inRange(p, msg.npcId)) return;
     if (this.o.blocked?.(p, msg.npcId)) return;
     const d = this.defs(msg.npcId);
-    if (!d?.shop) return;
+    if (!d) return;
+    if (msg.action === "blessing") return this.buyBlessing(p, d);
+    if (msg.action === "casino") return this.buyCasino(p, d);
+    if (msg.action === "imbuement") return this.buyImbuement(p, d, msg.effect);
+    if (!d.shop) return;
     if (msg.action === "sellAll") return this.sellAll(p, d.shop.buys ?? []);
     const count = msg.count;
     if (!Number.isInteger(count) || count < 1 || count > MAX_TRADE_COUNT) return;
@@ -140,10 +157,16 @@ export class NpcSystem {
       const entry = d.shop.sells.find((e) => e.itemId === msg.itemId);
       const item = entry ? inv.defs(entry.itemId) : undefined;
       if (!entry || !item) return;
+      if (entry.limited) {
+        if (count > 1) return;
+        const week = weekId(new Date(this.now()));
+        if (this.limitedBuyWeek.get(p.id) === week) return this.notice(p, "Você já usou a encomenda especial desta semana.", "warn");
+      }
       const total = (entry.price ?? item.value) * count;
       if (inv.gold(p.id) < total) return this.notice(p, "Ouro insuficiente.", "warn");
       if (inv.roomFor(p.id, item.id) < count) return this.notice(p, "Mochila cheia.", "warn");
       inv.spendGold(p, total);
+      if (entry.limited) this.limitedBuyWeek.set(p.id, weekId(new Date(this.now())));
       if (item.stackable) {
         for (let left = count; left > 0;) { const n = Math.min(left, maxStackOf(item)); inv.addItem(p, makeItem(item.id, n)); left -= n; }
       } else {
@@ -162,6 +185,60 @@ export class NpcSystem {
       inv.addGold(p, price);
       this.notice(p, `Você vendeu ${count}x ${item.name} por ${price} de ouro.`, "good");
     }
+  }
+
+  /** Compra uma bênção (templo): zera a penalidade de XP na próxima morte do jogador. */
+  private buyBlessing(p: PlayerState, d: NpcDef): void {
+    if (!d.blessing) return;
+    if (p.blessed) return this.notice(p, "Você já está com uma bênção ativa.", "warn");
+    const price = blessingPrice(p.level);
+    if (!this.o.inventory.spendGold(p, price)) return this.notice(p, "Ouro insuficiente.", "warn");
+    p.blessed = true;
+    this.notice(p, `Você comprou uma bênção por ${price} de ouro. Sua próxima morte não vai custar XP.`, "good");
+    this.o.send(p.id, S2C.NpcOpen, this.openMsg(d, p));
+  }
+
+  /**
+   * Ficha de cassino: 45% nada, 35% ouro de volta (40% do preço), 15% material aleatório (flavor), 5% prêmio
+   * grande (3× o preço). Em expectativa paga menos que o preço da ficha: sink de diversão, nunca poder de combate.
+   */
+  private buyCasino(p: PlayerState, d: NpcDef): void {
+    if (!d.casino) return;
+    if (!this.o.inventory.spendGold(p, CASINO_TICKET_PRICE)) return this.notice(p, "Ouro insuficiente.", "warn");
+    const r = this.rng();
+    if (r < 0.45) {
+      this.notice(p, "Ficha: nada esta vez. Mais sorte na próxima!", "info");
+    } else if (r < 0.80) {
+      const gold = Math.round(CASINO_TICKET_PRICE * 0.4);
+      this.o.inventory.addGold(p, gold);
+      this.notice(p, `Ficha: +${gold} de ouro de volta.`, "good");
+    } else if (r < 0.95) {
+      const matId = CASINO_MATERIAL_POOL[Math.floor(this.rng() * CASINO_MATERIAL_POOL.length)]!;
+      const item = this.o.inventory.defs(matId);
+      if (item) { this.o.inventory.addItem(p, makeItem(matId, 1)); this.notice(p, `Ficha: você ganhou 1x ${item.name}!`, "good"); }
+      else this.notice(p, "Ficha: nada esta vez.", "info");
+    } else {
+      const gold = CASINO_TICKET_PRICE * 3;
+      this.o.inventory.addGold(p, gold);
+      this.notice(p, `Ficha: PRÊMIO GRANDE! +${gold} de ouro!`, "good");
+    }
+  }
+
+  /** Compra/troca o encantamento ativo: gasta ouro + material, substitui o anterior sem reembolso. */
+  private buyImbuement(p: PlayerState, d: NpcDef, effectId: unknown): void {
+    if (!d.imbuement || typeof effectId !== "string") return;
+    const def = imbuementDef(effectId);
+    if (!def) return;
+    if (p.imbuement === def.effect) return this.notice(p, `Você já tem ${def.name} ativo.`, "warn");
+    const inv = this.o.inventory;
+    if (inv.countItem(p.id, def.materialId) < def.materialCount) {
+      return this.notice(p, `Faltam materiais: ${def.materialCount}x ${inv.defs(def.materialId)?.name ?? def.materialId}.`, "warn");
+    }
+    if (!inv.spendGold(p, def.goldPrice)) return this.notice(p, "Ouro insuficiente.", "warn");
+    inv.removeItems(p, def.materialId, def.materialCount);
+    p.imbuement = def.effect;
+    this.notice(p, `Encantamento ativo: ${def.name}. ${def.desc}`, "good");
+    this.o.send(p.id, S2C.NpcOpen, this.openMsg(d, p));
   }
 
   /** Vende todas as pilhas da mochila que o NPC compra; um aviso só com o total. */

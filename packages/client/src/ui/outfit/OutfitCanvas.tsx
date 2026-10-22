@@ -8,6 +8,27 @@ const CROP = { x: 3, y: 2, w: 26, h: 28 };
 
 const cache = new Map<string, HTMLImageElement>();
 const waiters = new Map<string, Set<() => void>>();
+const tintCache = new Map<string, HTMLCanvasElement>();
+
+/** Imagem tingida (multiply + recorte pelo alpha original), cacheada por (src, cor). Natural (0xffffff) = sem cópia. */
+function tinted(img: HTMLImageElement, tint: number): HTMLImageElement | HTMLCanvasElement {
+  if (tint === 0xffffff) return img;
+  const key = `${img.src}|${tint}`;
+  let c = tintCache.get(key);
+  if (c) return c;
+  c = document.createElement("canvas");
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const cx = c.getContext("2d")!;
+  cx.drawImage(img, 0, 0);
+  cx.globalCompositeOperation = "multiply";
+  cx.fillStyle = `#${tint.toString(16).padStart(6, "0")}`;
+  cx.fillRect(0, 0, c.width, c.height);
+  cx.globalCompositeOperation = "destination-in";
+  cx.drawImage(img, 0, 0);
+  tintCache.set(key, c);
+  return c;
+}
 
 function image(url: string, onLoad: () => void): HTMLImageElement | null {
   const full = `${import.meta.env.BASE_URL}${url}`;
@@ -34,10 +55,12 @@ export interface OutfitCanvasProps {
   scale?: number;
   /** Recorte mais justo (só o personagem), para retratos pequenos. */
   tight?: boolean;
+  /** Tom de tingimento (0xRRGGBB; ausente/0xffffff = cor natural). */
+  tint?: number;
   class?: string;
 }
 
-export function OutfitCanvas({ outfit, addons, facing = "down", row = 0, scale = 4, tight, class: cls }: OutfitCanvasProps) {
+export function OutfitCanvas({ outfit, addons, facing = "down", row = 0, scale = 4, tight, tint = 0xffffff, class: cls }: OutfitCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [, bump] = useState(0);
   const crop = tight ? { x: 6, y: 4, w: 20, h: 26 } : CROP;
@@ -55,12 +78,12 @@ export function OutfitCanvas({ outfit, addons, facing = "down", row = 0, scale =
     const fronts = on.map((a) => image(a.sheet, redraw));
     if (!base || backs.includes(null) || fronts.includes(null)) return;
     const col = COL[facing], r = Math.max(0, Math.min(6, row));
-    const overlay = (img: HTMLImageElement) => ctx.drawImage(
+    const overlay = (img: HTMLImageElement | HTMLCanvasElement) => ctx.drawImage(
       img, col * ADDON_FRAME + crop.x, r * ADDON_FRAME + crop.y, crop.w, crop.h, 0, 0, crop.w * scale, crop.h * scale,
     );
-    for (const b of backs) overlay(b!);
-    ctx.drawImage(base, col * 16, r * 16, 16, 16, (ADDON_OFFSET_X - crop.x) * scale, (ADDON_OFFSET_Y - crop.y) * scale, 16 * scale, 16 * scale);
-    for (const f of fronts) overlay(f!);
+    for (const b of backs) overlay(tinted(b!, tint));
+    ctx.drawImage(tinted(base, tint), col * 16, r * 16, 16, 16, (ADDON_OFFSET_X - crop.x) * scale, (ADDON_OFFSET_Y - crop.y) * scale, 16 * scale, 16 * scale);
+    for (const f of fronts) overlay(tinted(f!, tint));
   });
   return <canvas ref={ref} class={cls} width={crop.w * scale} height={crop.h * scale} style={{ imageRendering: "pixelated" }} />;
 }

@@ -17,6 +17,17 @@ export const ITEMS_FX: Record<string, ItemDef> = {
   meat: { id: "meat", name: "Carne Assada", kind: "food", stackable: true, value: 12, use: { food: { hpPerTick: 3, manaPerTick: 0, durationMs: 240_000 }, cooldownMs: 1000 }, icon },
   steak: { id: "steak", name: "Bife", kind: "food", stackable: true, value: 50, use: { food: { hpPerTick: 6, manaPerTick: 0, durationMs: 720_000 }, cooldownMs: 1000 }, icon },
   bone: { id: "bone", name: "Osso", kind: "material", stackable: true, value: 10, icon },
+  cheese: { id: "cheese", name: "Queijo", kind: "material", stackable: true, value: 10, icon },
+  slime_goo: { id: "slime_goo", name: "Gosma", kind: "material", stackable: true, value: 12, icon },
+  herb: { id: "herb", name: "Erva Medicinal", kind: "material", stackable: true, value: 15, icon },
+  bee_sting: { id: "bee_sting", name: "Ferrão de Abelha", kind: "material", stackable: true, value: 15, icon },
+  iron_bar: { id: "iron_bar", name: "Barra de Ferro", kind: "material", stackable: true, value: 200, icon },
+  goblin_tooth: { id: "goblin_tooth", name: "Dente de Goblin", kind: "material", stackable: true, value: 110, icon },
+  ectoplasm: { id: "ectoplasm", name: "Ectoplasma", kind: "material", stackable: true, value: 180, icon },
+  lizard_scale: { id: "lizard_scale", name: "Escama de Lagarto", kind: "material", stackable: true, value: 250, icon },
+  wolf_fang: { id: "wolf_fang", name: "Presa de Lobo", kind: "material", stackable: true, value: 30, icon },
+  spider_eye: { id: "spider_eye", name: "Olho de Aranha", kind: "material", stackable: true, value: 90, icon },
+  wolf_pelt: { id: "wolf_pelt", name: "Couro de Lobo", kind: "material", stackable: true, value: 40, icon },
   sword: { id: "sword", name: "Espada", kind: "weapon", slot: "weapon", weaponType: "sword", stats: { attack: 20 }, value: 100, vocations: ["knight"], icon },
   axe2h: { id: "axe2h", name: "Machado Grande", kind: "weapon", slot: "weapon", weaponType: "axe", twoHanded: true, stats: { attack: 30 }, value: 200, icon, level: 1 },
   bow: { id: "bow", name: "Arco", kind: "weapon", slot: "weapon", weaponType: "bow", range: 6, damageKind: "physical", stats: { attack: 12 }, value: 100, vocations: ["paladin"], icon },
@@ -39,6 +50,10 @@ export const NPCS_FX: Record<string, NpcDef> = {
     idleLines: ["Promoção!"],
   },
   depot: { id: "depot", name: "Guarda", sprite: "", greeting: "Seu depot.", depot: true },
+  priest: { id: "priest", name: "Sacerdotisa", sprite: "", greeting: "Oi.", blessing: true },
+  casino: { id: "casino", name: "Mascate", sprite: "", greeting: "Oi.", casino: true },
+  enchanter: { id: "enchanter", name: "Ervanária", sprite: "", greeting: "Oi.", imbuement: true },
+  armory: { id: "armory", name: "Armeiro", sprite: "", greeting: "Oi.", shop: { sells: [{ itemId: "vest", price: 50, limited: true }] } },
 };
 export const npcsFx = (id: string) => NPCS_FX[id];
 

@@ -16,8 +16,8 @@ function player(id: string, name: string, x = 10, y = 10, level = 5): any {
 /** Contexto falso: 3 jogadores online (Leo é admin), registros em memória. */
 function fakeCtx(env: Record<string, string | undefined> = PROD) {
   const ps = [player("a", "Leo"), player("b", "Bia", 20, 20, 12), player("c", "Ana Maria", 30, 30, 40), player("d", "Ana", 5, 5, 2)];
-  const recs = new Map<string, CharacterRecord>(ps.map((p) => [p.id, { id: 1, name: p.name, vocation: "knight", level: p.level, xp: 0, x: p.x, y: p.y, dir: 4, data: {} }]));
-  const offline: CharacterRecord = { id: 9, name: "Caio", vocation: "druid", level: 3, xp: 0, x: 1, y: 1, dir: 4, data: {} };
+  const recs = new Map<string, CharacterRecord>(ps.map((p) => [p.id, { id: 1, accountId: 1, name: p.name, vocation: "knight", level: p.level, xp: 0, x: p.x, y: p.y, dir: 4, data: {} }]));
+  const offline: CharacterRecord = { id: 9, accountId: 9, name: "Caio", vocation: "druid", level: 3, xp: 0, x: 1, y: 1, dir: 4, data: {} };
   const sent: Array<[string, string, any]> = [];
   const lines: string[] = [];
   const ctx: AdminContext & { [k: string]: any } = {

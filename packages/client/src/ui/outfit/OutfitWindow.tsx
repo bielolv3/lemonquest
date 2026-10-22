@@ -1,13 +1,14 @@
 // Janela de roupas estilo Tibia: prévia animada grande, grade de roupas, 2 addons, OK/Cancelar.
 import { useEffect, useState } from "preact/hooks";
-import { OUTFIT_LIST, resolveOutfit, unlockRequirement, type Facing } from "@lemonquest/shared";
+import { OUTFIT_LIST, OUTFIT_TONES, OUTFIT_TONE_PRICE, resolveOutfit, toneColor, unlockRequirement, type Facing } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
 import { meStore } from "../hud/world.ts";
 import { OutfitCanvas } from "./OutfitCanvas.tsx";
 import { PixelIcon } from "../hud/icons.tsx";
 import { achievementsStore, outfitUnlockedFor } from "../achievements/achievements.ts";
 import "../achievements/achievements.css";
-import { closeOutfit, outfitOpen, sendOutfit } from "./outfit.ts";
+import { buyOutfitTone, closeOutfit, outfitOpen, outfitTonesStore, sendOutfit } from "./outfit.ts";
+import { inventoryStore } from "../items/inventory.ts";
 import "./outfit.css";
 
 const FACINGS: Facing[] = ["down", "left", "up", "right"];
@@ -28,12 +29,15 @@ function OutfitDialog() {
   const current = resolveOutfit(me?.outfit, me?.vocation ?? "knight");
   const [sel, setSel] = useState(current.id);
   const [addons, setAddons] = useState(me?.outfit === current.id ? me?.addons ?? 0 : 0);
+  const [tone, setTone] = useState(me?.tone ?? "");
   const [face, setFace] = useState(0);
   const [auto, setAuto] = useState(true);
   const [row, setRow] = useState(0);
   const [walk, setWalk] = useState(true);
   const outfit = resolveOutfit(sel, me?.vocation ?? "knight");
   const ach = useStore(achievementsStore);
+  const unlockedTones = useStore(outfitTonesStore);
+  const gold = useStore(inventoryStore)?.gold ?? 0;
   // Liberado = conquista/roupa padrão/o que já veste. Sem o estado do servidor ainda, só o que veste.
   const voc = me?.vocation ?? "knight";
   const open = (id: string, bit: 0 | 1 | 2) => outfitUnlockedFor(ach, voc, current.id, me?.addons ?? 0, id, bit);
@@ -54,7 +58,7 @@ function OutfitDialog() {
   }, [auto]);
 
   const rotate = (d: number) => { setAuto(false); setFace((f) => (f + d + 4) % 4); };
-  const ok = () => { if (!outfitOk) return; sendOutfit(outfit.id, effAddons); closeOutfit(); };
+  const ok = () => { if (!outfitOk) return; sendOutfit(outfit.id, effAddons, tone); closeOutfit(); };
 
   // Esc fecha; Enter confirma; setas giram (sem roubar teclas do jogo quando fechada).
   useEffect(() => {
@@ -82,7 +86,7 @@ function OutfitDialog() {
         <div class="outfit-body">
           <div class="outfit-stage">
             <div class="outfit-preview" onClick={() => setWalk((w) => !w)} data-tip={walk ? "Parar" : "Andar"}>
-              <OutfitCanvas outfit={outfit} addons={effAddons} facing={facing} row={walk ? row : 0} scale={6} />
+              <OutfitCanvas outfit={outfit} addons={effAddons} facing={facing} row={walk ? row : 0} scale={6} tint={toneColor(tone)} />
             </div>
             <div class="outfit-rotate">
               <button class="outfit-arrow" onClick={() => rotate(-1)} aria-label="Girar para a esquerda" data-tip="Girar" data-tip-sub="Seta ←"><span class="outfit-tri left" aria-hidden="true" /></button>
@@ -109,6 +113,34 @@ function OutfitDialog() {
                 );
               })}
             </div>
+            <div class="outfit-tones" role="listbox" aria-label="Tons de tingimento">
+              <button
+                class={`outfit-tone${tone === "" ? " sel" : ""}`}
+                style={{ background: "#fff" }}
+                onClick={() => setTone("")}
+                data-tip="Natural"
+                aria-label="Natural"
+                aria-selected={tone === ""}
+              />
+              {OUTFIT_TONES.map((t) => {
+                const unlocked = unlockedTones.includes(t.id);
+                const afford = gold >= OUTFIT_TONE_PRICE;
+                return (
+                  <button
+                    key={t.id}
+                    class={`outfit-tone${tone === t.id ? " sel" : ""}${unlocked ? "" : " locked"}`}
+                    style={{ background: `#${t.color.toString(16).padStart(6, "0")}` }}
+                    onClick={() => (unlocked ? setTone(t.id) : afford && buyOutfitTone(t.id))}
+                    data-tip={unlocked ? t.name : `${t.name} · ${OUTFIT_TONE_PRICE} de ouro`}
+                    data-tip-sub={unlocked ? undefined : afford ? "Clique para comprar (vale pra conta toda)" : "Ouro insuficiente"}
+                    aria-label={t.name}
+                    aria-selected={tone === t.id}
+                  >
+                    {!unlocked && <span class="outfit-lock"><PixelIcon name="lock" size={12} /></span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <ul class="outfit-grid" role="listbox" aria-label="Roupas disponíveis">
             {OUTFIT_LIST.map((o) => {
@@ -120,7 +152,7 @@ function OutfitDialog() {
                   role="option"
                   aria-selected={o.id === outfit.id}
                   onClick={() => { if (o.id !== sel) { setSel(o.id); setAddons(o.id === current.id ? me?.addons ?? 0 : addons); } }}
-                  onDblClick={() => { if (!locked) { sendOutfit(o.id, o.id === outfit.id ? effAddons : 0); closeOutfit(); } }}
+                  onDblClick={() => { if (!locked) { sendOutfit(o.id, o.id === outfit.id ? effAddons : 0, tone); closeOutfit(); } }}
                   data-tip={o.name}
                   data-tip-sub={locked ? unlockRequirement(o.id, 0) : o.id === current.id ? "Roupa atual" : "Clique para ver · duplo clique veste"}
                   data-locked={locked ? "true" : undefined}

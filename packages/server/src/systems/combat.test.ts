@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_ATTACK_MS, REGEN_INTERVAL_MS, S2C, baseStats, deathPenalty, xpForLevel } from "@lemonquest/shared";
+import { IMBUEMENTS, PLAYER_ATTACK_MS, REGEN_INTERVAL_MS, S2C, baseStats, deathPenalty, xpForLevel } from "@lemonquest/shared";
 import { RegenSystem } from "./regen.ts";
 import { LootSystem } from "./loot.ts";
 import { KILL_CREDIT_RANGE } from "./monsters.ts";
@@ -155,6 +155,67 @@ describe("player combat", () => {
   });
 });
 
+describe("imbuement (encantamento)", () => {
+  // Boneco invulnerável: não revida (ver damageMonster), isola o efeito do próprio ataque sem interferência do monstro.
+  it("dreno de vida: cura % do dano causado contra monstro selvagem", () => {
+    const w = setup({ hp: 30, armor: 0, aggroRange: 0, invulnerable: true });
+    w.combat.hooks = { imbuement: () => IMBUEMENTS.lifesteal };
+    const p = w.add(player("k", 11, 10, { name: "Leo", hp: 50, maxHp: 500 }));
+    w.combat.onAttack(p, { targetId: w.m.s.id });
+    w.run(PLAYER_ATTACK_MS + 10);
+    const dealt = w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).find((e: any) => e.targetId === w.m.s.id)!.amount;
+    expect(dealt).toBeGreaterThan(0);
+    expect(p.hp).toBe(50 + Math.round(dealt * IMBUEMENTS.lifesteal.value));
+  });
+
+  it("dreno de mana: recupera % do dano causado", () => {
+    const w = setup({ hp: 30, armor: 0, aggroRange: 0, invulnerable: true });
+    w.combat.hooks = { imbuement: () => IMBUEMENTS.manasteal };
+    const p = w.add(player("k", 11, 10, { name: "Leo", mana: 10, maxMana: 500 }));
+    w.combat.onAttack(p, { targetId: w.m.s.id });
+    w.run(PLAYER_ATTACK_MS + 10);
+    const dealt = w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).find((e: any) => e.targetId === w.m.s.id)!.amount;
+    expect(p.mana).toBe(10 + Math.round(dealt * IMBUEMENTS.manasteal.value));
+  });
+
+  // Jogador nunca ataca (targetId sempre ""): só o monstro (aggroRange 5) bate, isolando o reflexo dos espinhos.
+  it("espinhos: devolve % do dano recebido pro monstro que bateu", () => {
+    const w = setup({ hp: 100_000, armor: 0, aggroRange: 5, damage: [40, 40], name: "Lobo" });
+    w.combat.hooks = { imbuement: () => IMBUEMENTS.thorns };
+    w.add(player("v", 11, 10, { name: "Ana", hp: 5000, maxHp: 5000, targetId: "" }));
+    w.run(PLAYER_ATTACK_MS + 10);
+    const ev = w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events);
+    const taken = ev.find((e: any) => e.targetId === "v" && e.sourceId === w.m.s.id)!.amount;
+    const reflected = ev.find((e: any) => e.sourceId === "v" && e.targetId === w.m.s.id);
+    expect(reflected).toBeTruthy();
+    expect(reflected.amount).toBe(Math.round(taken * IMBUEMENTS.thorns.value));
+  });
+
+  it("perfurante: mesma rolagem, mais dano contra monstro com armadura (armadura efetiva menor)", () => {
+    const dealtWith = (imbuement: boolean) => {
+      const w = setup({ hp: 30, armor: 6, aggroRange: 0, invulnerable: true });
+      if (imbuement) w.combat.hooks = { imbuement: () => IMBUEMENTS.pierce };
+      const p = w.add(player("k", 11, 10, { name: "Leo", hp: 500, maxHp: 500 }));
+      w.combat.onAttack(p, { targetId: w.m.s.id });
+      w.run(PLAYER_ATTACK_MS + 10);
+      return w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).find((e: any) => e.targetId === w.m.s.id)!.amount;
+    };
+    expect(dealtWith(true)).toBeGreaterThan(dealtWith(false));
+  });
+
+  it("veloz: ataca mais vezes no mesmo tempo (intervalo reduzido)", () => {
+    const run = (imbuement: boolean) => {
+      const w = setup({ hp: 100_000, armor: 0, aggroRange: 0 });
+      if (imbuement) w.combat.hooks = { imbuement: () => IMBUEMENTS.haste };
+      const p = w.add(player("k", 11, 10, { name: "Leo", hp: 500, maxHp: 500 }));
+      w.combat.onAttack(p, { targetId: w.m.s.id });
+      w.run(PLAYER_ATTACK_MS * 5);
+      return w.sent.filter((s) => s.type === S2C.Combat).flatMap((s: any) => s.msg.events).filter((e: any) => e.targetId === w.m.s.id).length;
+    };
+    expect(run(true)).toBeGreaterThan(run(false));
+  });
+});
+
 describe("player death", () => {
   it("monster kills player: penalty (no level loss), teleport to spawn, full hp, Died + notice, targets cleared", () => {
     const w = setup({ aggroRange: 5, damage: [40, 40], name: "Lobo" });
@@ -172,6 +233,18 @@ describe("player death", () => {
     expect(w.sent.find((s) => s.type === S2C.Died)).toMatchObject({ to: "v", msg: { lostXp: lost, killerName: "Lobo" } });
     expect(w.sent.find((s) => s.type === S2C.Notice && s.to === "*")!.msg.text).toBe("Ana foi derrotado por Lobo");
     expect(w.m.s.targetId).toBe("");
+  });
+
+  it("blessed player loses no XP on death, consuming the blessing", () => {
+    const w = setup({ aggroRange: 5, damage: [40, 40], name: "Lobo" });
+    const level = 5, xp = xpForLevel(5) + 100;
+    const p = w.add(player("v", 11, 10, { name: "Ana", level, xp, hp: 70, maxHp: 210, targetId: "", blessed: true }));
+    w.combat.onAttack(p, { targetId: w.m.s.id });
+    w.run(1200);
+    expect(p.xp).toBe(xp);
+    expect(p.blessed).toBe(false);
+    expect(w.sent.find((s) => s.type === S2C.Died)).toMatchObject({ to: "v", msg: { lostXp: 0, killerName: "Lobo" } });
+    expect(w.sent.find((s) => s.to === "v" && s.type === S2C.Notice && s.msg.text.includes("bênção"))).toBeTruthy();
   });
 
   it("removePlayer clears monster targets", () => {

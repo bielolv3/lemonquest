@@ -2,12 +2,13 @@
 import {
   BOUNTY_CHEST_ID, QUEST_LIST, bountyTitle, itemDef, questsForNpc, unlockText, type QuestDef, type QuestStatus,
 } from "@lemonquest/shared";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { meStore } from "../hud/world.ts";
 import { inventoryStore } from "../items/inventory.ts";
 import { useTicker } from "../arena/useTicker.ts";
 import { inventoryCounter, questAction, questStore, rewardText, stepLines } from "./quests.ts";
+import { materialRequestAction, materialRequestStore } from "./materialRequest.ts";
 import "./quests.css";
 
 const STATUS_LABEL: Partial<Record<QuestStatus, string>> = { available: "Nova", active: "Em andamento", ready: "Pronta" };
@@ -123,6 +124,39 @@ export function BountyBoard() {
         })}
       </ul>
       <div class="bounty-reset">Novas recompensas em {fmtUntil(st.bounties.resetsAt - Date.now())} (todo dia às 6h).</div>
+    </div>
+  );
+}
+
+/** Encomenda semanal de material: pede N de um material específico, paga ouro, uma vez por semana. */
+export function MaterialRequestBoard() {
+  const req = useStore(materialRequestStore);
+  useStore(inventoryStore); // "have" muda com a mochila
+  useTicker(30_000);
+  useEffect(() => { materialRequestAction({ action: "list" }); }, []);
+  if (!req) return <div class="hud-empty">Carregando encomenda…</div>;
+  const def = itemDef(req.materialId);
+  const ready = !req.claimed && req.have >= req.count;
+  return (
+    <div class="bounty-board">
+      <ul class="quest-offers">
+        <li class={`quest-card bounty st-${req.claimed ? "done" : ready ? "active" : "open"}${ready ? " ready" : ""}`}>
+          <div class="quest-card-head">
+            <span class="quest-mark" aria-hidden="true">{req.claimed ? "✓" : ready ? "?" : "!"}</span>
+            <span class="quest-card-name">Encomenda: {def?.name ?? req.materialId}</span>
+            <span class="quest-chip">{req.claimed ? "Paga" : ready ? "Cumprida" : "Em andamento"}</span>
+          </div>
+          <div class="bounty-bar" role="progressbar" aria-valuenow={Math.min(req.have, req.count)} aria-valuemax={req.count}>
+            <span style={{ width: `${Math.round((Math.min(req.have, req.count) / req.count) * 100)}%` }} />
+            <em>{Math.min(req.have, req.count)}/{req.count}</em>
+          </div>
+          <div class="quest-reward"><b>Recompensa:</b> {rewardText({ xp: 0, gold: req.gold, items: [] })}</div>
+          <div class="quest-actions">
+            {ready && <button class="quest-btn primary" onClick={() => materialRequestAction({ action: "turnIn" })}>Entregar</button>}
+          </div>
+        </li>
+      </ul>
+      <div class="bounty-reset">Nova encomenda em {fmtUntil(req.resetsAt - Date.now())} (toda segunda).</div>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 // Estado da janela de NPC (diálogo/loja/depot). O mundo (Phaser) chama openNpc(npcId) ao clicar num NPC.
-import { BOUNTY_NPC, C2S, QUEST_LIST, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg, type TravelMsg } from "@lemonquest/shared";
+import { BOUNTY_NPC, C2S, QUEST_LIST, REQUEST_NPC, type NpcInteractMsg, type NpcOpenMsg, type NpcTradeMsg, type TravelMsg } from "@lemonquest/shared";
 import { createStore } from "../hud/store.ts";
 import { send } from "../items/net.ts";
 import { closeArenaWindow, openArenaWindow } from "../arena/arena.ts";
 
-export type NpcTab = "quests" | "bounties" | "travel" | "buy" | "sell" | "depot";
+export type NpcTab = "quests" | "bounties" | "request" | "travel" | "buy" | "sell" | "depot";
 export interface NpcState { msg: NpcOpenMsg; tab: NpcTab; /** muda a cada nova abertura (reinicia a digitação). */ nonce: number }
 
 export const npcStore = createStore<NpcState | null>(null);
@@ -21,6 +21,7 @@ export function closeNpc(): void { npcStore.set(null); }
 export const npcTabs = (m: NpcOpenMsg): NpcTab[] => {
   const t: NpcTab[] = [];
   if (m.npcId === BOUNTY_NPC) t.push("bounties");
+  if (m.npcId === REQUEST_NPC) t.push("request");
   if (QUEST_LIST.some((q) => q.giver === m.npcId)) t.push("quests");
   if (m.travel?.length) t.push("travel");
   if (m.shop?.sells.length) t.push("buy");
@@ -65,4 +66,19 @@ export function sellAll(npcId: string): void {
 export function travelTo(npcId: string, dest: string): void {
   const m: TravelMsg = { npcId, dest };
   send(C2S.Travel, m);
+}
+
+export function buyBlessing(npcId: string): void {
+  const m: NpcTradeMsg = { npcId, action: "blessing" };
+  send(C2S.NpcTrade, m);
+}
+
+export function buyCasinoTicket(npcId: string): void {
+  const m: NpcTradeMsg = { npcId, action: "casino" };
+  send(C2S.NpcTrade, m);
+}
+
+export function buyImbuement(npcId: string, effect: string): void {
+  const m: NpcTradeMsg = { npcId, action: "imbuement", effect };
+  send(C2S.NpcTrade, m);
 }

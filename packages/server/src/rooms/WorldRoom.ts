@@ -7,6 +7,7 @@ import {
   type TrainingResultMsg, type TrainOfflineMsg, type TrainOpenMsg, type UseItemMsg, type WalkToMsg,
   type QuestActionMsg, type UseQuestObjectMsg, doorBlockReason, findObjects, findQuestLevers, findQuestObjects, questDef,
   PARTY_SHARE_RANGE, RED_SKULL_DEATH_XP_MULT, RED_SKULL_GOLD_DROP, type TravelMsg, sanitizeHotkeys, backpackCapacity, type Hotkey, type LookGroundMsg, type MoveGroundItemMsg, type HotkeysMsg, type SetHotkeysMsg, type Vocation,
+  OUTFIT_TONE_PRICE, toneDef, type BuyOutfitToneMsg, type OutfitTonesMsg, type MaterialRequestActionMsg, imbuementDef,
 } from "@lemonquest/shared";
 import { PlayerState, WorldState } from "../state.ts";
 import { loadMap, type LoadedMap } from "../world/map.ts";
@@ -24,6 +25,7 @@ import { EventSystem } from "../systems/events.ts";
 import { rollWeek } from "../systems/weekly.ts";
 import { grantLoginBonus } from "../systems/loginBonus.ts";
 import { ChallengeSystem } from "../systems/challenges.ts";
+import { MaterialRequestSystem } from "../systems/materialRequest.ts";
 import { FishingSystem } from "../systems/fishing.ts";
 import { FoodSystem } from "../systems/food.ts";
 import { ConditionSystem } from "../systems/conditions.ts";
@@ -50,7 +52,9 @@ import { AchievementSystem, setActiveAchievements } from "../systems/achievement
 import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
-import { getCharacterByName, getKv, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction } from "../persistence/db.ts";
+import {
+  addAccountTone, getAccountTones, getCharacterByName, getKv, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction,
+} from "../persistence/db.ts";
 import { PerSecond } from "../persistence/ratelimit.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 import { isValidStart, nearestFreeTile, reachableFrom } from "../world/tiles.ts";
@@ -72,7 +76,7 @@ export const KICK_DEFAULT_REASON = "Expulso por um administrador";
 export const MAX_MESSAGES_PER_SECOND = 60;
 /** Limites por tipo de mensagem (excesso descartado em silêncio). */
 export const MESSAGE_LIMITS: Partial<Record<string, number>> = {
-  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4, [C2S.SetHotkeys]: 5, [C2S.LookGround]: 5,
+  [C2S.WalkTo]: 5, [C2S.NpcInteract]: 5, [C2S.Arena]: 5, [C2S.Cast]: 10, [C2S.MoveItem]: 20, [C2S.TrainOpen]: 5, [C2S.TrainOffline]: 2, [C2S.SetOutfit]: 2, [C2S.BuyOutfitTone]: 2, [C2S.SetTitle]: 2, [C2S.AchievementsRequest]: 2, [C2S.Party]: 5, [C2S.Quest]: 10, [C2S.Trade]: 10, [C2S.Fish]: 3, [C2S.Challenge]: 5, [C2S.MaterialRequest]: 5, [C2S.Follow]: 5, [C2S.Travel]: 2, [C2S.UseQuestObject]: 4, [C2S.SetHotkeys]: 5, [C2S.LookGround]: 5,
   // Chat inclui comandos (/convidar...) e palavras mágicas, que não passam pelo limite de fala do chat.ts.
   [C2S.Chat]: 6,
 };
@@ -126,6 +130,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   private fishing!: FishingSystem;
   private weeklyAt = 0;
   private challenges!: ChallengeSystem;
+  private materialRequest!: MaterialRequestSystem;
   private perf = { n: 0, sum: 0, max: 0, since: Date.now() };
   /** Últimos ~30 s de ticks (para o /status) e contadores desde o boot. */
   private readonly tickRing = new Float32Array(600);
@@ -355,6 +360,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       armor: (p) => playerArmor(p) + this.inventory.stat(p.id, "armor"),
       attack: (p) => attackProfile(p, this.inventory.weaponDef(p.id), (s) => this.inventory.stat(p.id, s)),
       dealtMult: (p) => this.dealtMult(p),
+      imbuement: (p) => imbuementDef(p.imbuement),
       takenMult: stanceTaken,
       onLevelUp: (p) => {
         this.inventory.applyStats(p, true);
@@ -452,6 +458,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       getPlayer, record: (id) => this.records.get(id), send, inventory: this.inventory,
       gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y), save: (id) => this.save(id),
     });
+    this.materialRequest = new MaterialRequestSystem({
+      record: (id) => this.records.get(id), send, inventory: this.inventory, save: (id) => this.save(id),
+    });
     this.events = new EventSystem({ broadcast, send, onStart: (ev) => { if (ev.boss) this.monsters.callBoss(ev.boss); }, store: { get: () => getKv("event.manual"), set: (v) => setKv("event.manual", v) } });
     this.trade = new TradeSystem({
       getPlayer: (id) => this.state.players.get(id), send, inventory: this.inventory,
@@ -528,7 +537,22 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.on<TradeMsg>(C2S.Trade, (p, m) => this.trade.onMessage(p, m));
     this.on<FishMsg>(C2S.Fish, (p, m) => this.fishing.onMessage(p, m));
     this.on<ChallengeActionMsg>(C2S.Challenge, (p, m) => this.challenges.onMessage(p, m));
-    this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => { applySetOutfit(p, this.records.get(p.id), m); });
+    this.on<MaterialRequestActionMsg>(C2S.MaterialRequest, (p, m) => this.materialRequest.onMessage(p, m));
+    this.on<SetOutfitMsg>(C2S.SetOutfit, (p, m) => {
+      const rec = this.records.get(p.id);
+      applySetOutfit(p, rec, m, rec ? getAccountTones(rec.accountId) : []);
+    });
+    this.on<BuyOutfitToneMsg>(C2S.BuyOutfitTone, (p, m, c) => {
+      const rec = this.records.get(p.id);
+      const tone = rec && m && typeof m.toneId === "string" ? toneDef(m.toneId) : undefined;
+      if (!rec || !tone) return;
+      const unlocked = getAccountTones(rec.accountId);
+      if (unlocked.includes(tone.id)) return c.send(S2C.Notice, { text: "Você já tem esse tom.", kind: "warn" } satisfies NoticeMsg);
+      if (!this.inventory.spendGold(p, OUTFIT_TONE_PRICE)) return c.send(S2C.Notice, { text: "Ouro insuficiente.", kind: "warn" } satisfies NoticeMsg);
+      const list = addAccountTone(rec.accountId, tone.id);
+      c.send(S2C.OutfitTones, { unlocked: list } satisfies OutfitTonesMsg);
+      c.send(S2C.Notice, { text: `Você comprou o tom ${tone.name} por ${OUTFIT_TONE_PRICE} de ouro.`, kind: "good" } satisfies NoticeMsg);
+    });
     this.on<SetTitleMsg>(C2S.SetTitle, (p, m) => { this.ach.onSetTitle(p, m); });
     this.on<unknown>(C2S.AchievementsRequest, (p) => { this.ach.sendState(p.id); });
 
@@ -656,11 +680,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     const look = loadOutfit(rec);
     p.outfit = look.outfit;
     p.addons = look.addons;
+    const unlockedTones = getAccountTones(rec.accountId);
+    p.tone = rec.data.tone && unlockedTones.includes(rec.data.tone) ? rec.data.tone : "";
     this.skills.load(p, rec.data.skills);
     // Treino offline pendente: aplica o progresso, cura tudo e coloca o jogador ao lado da estátua.
     const trained = rec.data.offlineTraining ? this.returnFromTraining(p, rec) : null;
     this.fight.load(p, rec.data.stance, rec.data.chase, rec.data.auto);
     this.pvp.load(p, rec.data.pvpKills, rec.data.pvpWhiteUntil, rec.data.pvpPzLockUntil);
+    p.blessed = !!rec.data.blessed;
+    p.imbuement = rec.data.imbuement ?? "";
+    this.npcs.loadLimitedBuy(p.id, rec.data.limitedBuyWeek);
     this.food.load(p.id, rec.data, Date.now());
     this.quests.load(p, rec.data.quests);
     rollWeek(rec, new Date());
@@ -669,6 +698,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.conditions.refreshPlayer(p.id); // velocidade do equipamento
     this.ach.load(p, rec);
     { const st = this.ach.state(sid); if (st) client.send(S2C.Achievements, st); }
+    client.send(S2C.OutfitTones, { unlocked: unlockedTones } satisfies OutfitTonesMsg);
     if (trained) this.ach.event(p.id, "offline", { minutes: trained.minutes });
     this.movement.addPlayer(p);
     client.send(S2C.Explored, this.exploration.addPlayer(sid, rec, p.x, p.y));
@@ -1006,8 +1036,13 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     if (white) rec.data.pvpWhiteUntil = white; else delete rec.data.pvpWhiteUntil;
     const lock = this.pvp.savedPzLockUntil(p.id);
     if (lock) rec.data.pvpPzLockUntil = lock; else delete rec.data.pvpPzLockUntil;
+    rec.data.blessed = p.blessed;
+    rec.data.imbuement = p.imbuement;
+    const limitedBuyWeek = this.npcs.savedLimitedBuy(p.id);
+    if (limitedBuyWeek) rec.data.limitedBuyWeek = limitedBuyWeek; else delete rec.data.limitedBuyWeek;
     rec.data.outfit = p.outfit;
     rec.data.addons = p.addons;
+    rec.data.tone = p.tone;
     const quests = this.quests.serialize(sessionId);
     if (quests) rec.data.quests = quests;
     this.persist(rec);

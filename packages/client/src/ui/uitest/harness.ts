@@ -165,7 +165,7 @@ export function startUiTest(): void {
             gold += Math.floor(d.value * 0.3) * it.count;
             backpack[i] = null;
           });
-        } else {
+        } else if (t.action === "sell") {
           const it = backpack[t.index];
           if (!it) return;
           const d = itemDef(it.defId)!;
@@ -173,6 +173,7 @@ export function startUiTest(): void {
           it.count -= t.count;
           if (it.count <= 0) backpack[t.index] = null;
         }
+        // "blessing": sem simulação no harness de UI (não há estado de bênção mockado).
         break;
       }
       case C2S.SetOutfit: {

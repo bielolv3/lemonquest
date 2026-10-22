@@ -3,7 +3,7 @@ import {
   PLAYER_ATTACK_MS, OUT_OF_COMBAT_MS, S2C, VOCATION_ATTACK, baseStats, critChance, deathPenalty, levelForXp, mitigate,
   applyXpStage, autoAttackRange, rollAttack, rollInt, splitXp, xpForLevel, xpStage,
   type AttackMsg, type ItemDef, type SkillId, type CombatEvent, type CombatMsg, type CreatureDiedMsg, type DiedMsg, type LevelUpMsg,
-  type DamageKind, type NoticeMsg, type XpGainMsg,
+  type DamageKind, type ImbuementDef, type NoticeMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { cheb, isMonsterState, killCredit, type CreatureState, type Monster, type MonsterManager } from "./monsters.ts";
@@ -76,6 +76,8 @@ export interface CombatHooks {
   attack?: (p: PlayerState) => AttackProfile;
   /** Multiplicador do dano causado (postura). */
   dealtMult?: (p: PlayerState) => number;
+  /** Encantamento ativo do jogador (Dona Marta). Só aplicado no ataque automático contra monstro selvagem (PvE). */
+  imbuement?: (p: PlayerState) => ImbuementDef | undefined;
   /** Multiplicador do dano recebido (postura). */
   takenMult?: (p: PlayerState) => number;
   /** Subiu de level (maxHp/maxMana/hp/mana já na base; o hook pode somar o equipamento). */
@@ -208,13 +210,17 @@ export class CombatSystem {
       if (d < 1 || d > va.range || now < (this.nextAttackAt.get(p.id) ?? 0)) continue;
       // Ataque à distância (arco, varinha...) exige linha de visão; sem ela não ataca (a perseguição reposiciona).
       if (va.ranged && !this.o.monsters.los(p.x, p.y, m.s.x, m.s.y)) continue;
-      this.nextAttackAt.set(p.id, now + PLAYER_ATTACK_MS);
+      const imb = this.hooks.imbuement?.(p);
+      this.nextAttackAt.set(p.id, now + Math.round(PLAYER_ATTACK_MS * (imb?.effect === "haste" ? 1 - imb.value : 1)));
       this.lastCombatAt.set(p.id, now);
       this.hooks.onAutoAttack?.(p);
       const roll = rollAttack(va.damage, va.critPct, this.rng);
       const raw = Math.round(roll.amount * (this.hooks.dealtMult?.(p) ?? 1));
-      const amount = roll.miss ? 0 : mitigate(raw, m.def.armor);
-      this.damageMonster(m, p.id, amount, va.kind, now, { crit: roll.crit, ranged: va.ranged });
+      const armor = Math.round(m.def.armor * (imb?.effect === "pierce" ? 1 - imb.value : 1));
+      const amount = roll.miss ? 0 : mitigate(raw, armor);
+      const dealt = this.damageMonster(m, p.id, amount, va.kind, now, { crit: roll.crit, ranged: va.ranged });
+      if (dealt > 0 && imb?.effect === "lifesteal") p.hp = Math.min(p.maxHp, p.hp + Math.round(dealt * imb.value));
+      if (dealt > 0 && imb?.effect === "manasteal") p.mana = Math.min(p.maxMana, p.mana + Math.round(dealt * imb.value));
     }
   }
 
@@ -346,7 +352,9 @@ export class CombatSystem {
     if (p.hp <= 0 || this.o.monsters.inPz(p.x, p.y)) return;
     const raw = Math.round(rollInt(m.def.damage[0], m.def.damage[1], this.rng) * (m.dmgMult ?? 1));
     if (!ranged) this.hooks.onMeleeHit?.(p);
-    this.damagePlayer(p, m.s.id, mitigate(raw, this.armorOf(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
+    const taken = this.damagePlayer(p, m.s.id, mitigate(raw, this.armorOf(p)), m.def.damageKind, now, { ranged, killerName: m.def.name });
+    const imb = this.hooks.imbuement?.(p);
+    if (imb?.effect === "thorns" && taken > 0 && m.s.hp > 0) this.damageMonster(m, p.id, Math.round(taken * imb.value), "physical", now, { creditId: p.id });
   }
 
   /** Envia o lote de eventos do tick (se houver) e depois as mensagens pendentes. */
@@ -427,8 +435,10 @@ export class CombatSystem {
     this.nextAttackAt.delete(p.id);
     if (this.hooks.interceptDeath?.(p, killerName)) return;
     this.hooks.onDying?.(p, killer, now);
+    const blessed = p.blessed;
+    if (blessed) p.blessed = false;
     const mult = Math.max(1, this.hooks.deathXpMult?.(p) ?? 1);
-    const lostXp = Math.max(0, Math.min(p.xp - xpForLevel(p.level), Math.round(deathPenalty(p.level, p.xp) * mult)));
+    const lostXp = blessed ? 0 : Math.max(0, Math.min(p.xp - xpForLevel(p.level), Math.round(deathPenalty(p.level, p.xp) * mult)));
     p.xp -= lostXp;
     this.o.teleport(p, this.o.spawn.x, this.o.spawn.y);
     p.hp = p.maxHp;
@@ -437,6 +447,7 @@ export class CombatSystem {
     const id = p.id, name = p.name;
     this.after.push(() => {
       this.o.send(id, S2C.Died, { lostXp, killerName } satisfies DiedMsg);
+      if (blessed) this.o.send(id, S2C.Notice, { text: "Sua bênção te protegeu: nenhuma XP perdida.", kind: "good" } satisfies NoticeMsg);
       this.o.broadcast(S2C.Notice, { text: `${name} foi derrotado por ${killerName}`, kind: "warn" } satisfies NoticeMsg);
     });
   }

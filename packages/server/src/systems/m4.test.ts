@@ -80,7 +80,7 @@ describe("loot", () => {
   });
 });
 
-function npcWorld() {
+function npcWorld(rng: () => number = () => 0.5) {
   // eslint-disable-next-line prefer-const
   let npcs: NpcSystem;
   const w = invWorld({ depotOpen: (id) => npcs.depotOpen(id) });
@@ -88,10 +88,13 @@ function npcWorld() {
   const out: { to: string; type: string; msg: any }[] = [];
   let clock = 0;
   npcs = new NpcSystem({
-    npcs: [{ id: "shop", x: 10, y: 10 }, { id: "depot", x: 30, y: 10 }],
+    npcs: [
+      { id: "shop", x: 10, y: 10 }, { id: "depot", x: 30, y: 10 }, { id: "priest", x: 50, y: 10 }, { id: "armory", x: 60, y: 10 },
+      { id: "casino", x: 70, y: 10 }, { id: "enchanter", x: 80, y: 10 },
+    ],
     inventory: w.inv, defs: npcsFx, players: () => players.values(), getPlayer: (id) => players.get(id),
     send: (to, type, msg) => out.push({ to, type, msg }), broadcast: (type, msg) => out.push({ to: "*", type, msg }),
-    now: () => clock, rng: () => 0.5,
+    now: () => clock, rng,
   });
   const add = (id: string, x: number, y: number) => { const p = w.mk(id); p.x = x; p.y = y; players.set(id, p); return p; };
   return { w, npcs, out, add, players, tick: (ms: number) => { clock += ms; npcs.tick(clock); } };
@@ -141,6 +144,78 @@ describe("npcs", () => {
     expect(t.w.inv.gold("p1")).toBe(105);
     expect(t.out.at(-1)!.msg.text).toBe("Você vendeu 2 itens por 105 de ouro.");
     expect(t.w.inv.get("p1")!.backpack.filter(Boolean).map((x) => x!.defId)).toEqual(["hp_pot"]);
+  });
+
+  it("bênção: preço escala com o level, consome ouro, fica ativa até comprar de novo (não deixa comprar 2x)", () => {
+    const t = npcWorld();
+    const p = t.add("p1", 50, 10);
+    p.level = 10;
+    t.npcs.onInteract(p, { npcId: "priest" });
+    const open = t.out.find((o) => o.type === S2C.NpcOpen)!.msg;
+    expect(open.blessing).toEqual({ price: 2000, active: false });
+    t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
+    expect(t.out.at(-1)!.msg.text).toBe("Ouro insuficiente.");
+    t.w.inv.addGold(p, 2000);
+    t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
+    expect(t.w.inv.gold("p1")).toBe(0);
+    expect(p.blessed).toBe(true);
+    t.w.inv.addGold(p, 2000);
+    t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
+    expect(t.out.at(-1)!.msg.text).toBe("Você já está com uma bênção ativa.");
+    expect(t.w.inv.gold("p1")).toBe(2000); // não cobrou de novo
+  });
+
+  it("cassino: cobra a ficha e dá cada faixa de prêmio conforme o sorteio (nada/ouro/material/grande)", () => {
+    const seq = [0.1, 0.6, 0.9, 0.1, 0.99]; // nada, ouro de volta, material (+ índice do pool), prêmio grande
+    let i = 0;
+    const t = npcWorld(() => seq[i++]!);
+    const p = t.add("p1", 70, 10);
+    t.w.inv.addGold(p, 10_000);
+    t.npcs.onInteract(p, { npcId: "casino" });
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // nada
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: nada esta vez. Mais sorte na próxima!");
+    expect(t.w.inv.gold("p1")).toBe(9000);
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // ouro de volta
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: +400 de ouro de volta.");
+    expect(t.w.inv.gold("p1")).toBe(8400);
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // material
+    expect(t.out.at(-1)!.msg.text).toContain("Ficha: você ganhou 1x");
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // prêmio grande
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: PRÊMIO GRANDE! +3000 de ouro!");
+    expect(t.w.inv.gold("p1")).toBe(8400 - 1000 - 1000 + 3000);
+  });
+
+  it("encantamento: precisa de ouro + material, troca sem reembolso, não deixa comprar o mesmo de novo", () => {
+    const t = npcWorld();
+    const p = t.add("p1", 80, 10);
+    t.npcs.onInteract(p, { npcId: "enchanter" });
+    t.npcs.onTrade(p, { npcId: "enchanter", action: "imbuement", effect: "lifesteal" });
+    expect(t.out.at(-1)!.msg.text).toContain("Faltam materiais");
+    t.w.inv.addGold(p, 5000);
+    t.w.inv.addItem(p, makeItem("wolf_fang", 5));
+    t.npcs.onTrade(p, { npcId: "enchanter", action: "imbuement", effect: "lifesteal" });
+    expect(p.imbuement).toBe("lifesteal");
+    expect(t.w.inv.gold("p1")).toBe(0);
+    expect(t.w.inv.get("p1")!.backpack.filter(Boolean)).toHaveLength(0);
+    t.npcs.onTrade(p, { npcId: "enchanter", action: "imbuement", effect: "lifesteal" });
+    expect(t.out.at(-1)!.msg.text).toContain("já tem");
+    t.w.inv.addGold(p, 5000);
+    t.w.inv.addItem(p, makeItem("spider_eye", 5));
+    t.npcs.onTrade(p, { npcId: "enchanter", action: "imbuement", effect: "manasteal" });
+    expect(p.imbuement).toBe("manasteal"); // trocou, sem reembolso do anterior
+  });
+
+  it("tier 6-7 (encomenda especial): só 1 por personagem por semana", () => {
+    const t = npcWorld();
+    const p = t.add("p1", 60, 10);
+    t.w.inv.addGold(p, 1000);
+    t.npcs.onInteract(p, { npcId: "armory" });
+    t.npcs.onTrade(p, { npcId: "armory", action: "buy", itemId: "vest", count: 1 });
+    expect(t.w.inv.gold("p1")).toBe(950);
+    t.w.inv.addGold(p, 1000);
+    t.npcs.onTrade(p, { npcId: "armory", action: "buy", itemId: "vest", count: 1 });
+    expect(t.out.at(-1)!.msg.text).toBe("Você já usou a encomenda especial desta semana.");
+    expect(t.w.inv.gold("p1")).toBe(1950); // não cobrou de novo
   });
 
   it("depot needs range; walking away closes it", () => {

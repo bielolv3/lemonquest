@@ -3,6 +3,8 @@ export interface NpcShopEntry {
   itemId: string;
   /** Preço de venda ao jogador (ausente = ItemDef.value). */
   price?: number;
+  /** Tier 6-7: só 1 destes por personagem por semana ISO (ver systems/npcs.ts). */
+  limited?: boolean;
 }
 
 export interface NpcDef {
@@ -18,7 +20,18 @@ export interface NpcDef {
   idleLines?: string[];
   /** Cocheiro: destinos (tile de chegada) e preço em ouro. */
   travel?: TravelDest[];
+  /** Vende bênção (reduz a zero a penalidade de XP na próxima morte; preço escala com o level do jogador). */
+  blessing?: boolean;
+  /** Vende ficha de cassino (CASINO_TICKET_PRICE): prêmio sempre cosmético/material/ouro parcial, nunca poder. */
+  casino?: boolean;
+  /** Vende encantamento (shared/data/imbuement.ts): 1 efeito ativo por personagem. */
+  imbuement?: boolean;
 }
+
+/** Preço fixo da ficha de cassino, igual pra qualquer level. */
+export const CASINO_TICKET_PRICE = 1000;
+/** Materiais do prêmio "sorte" (flavor, sem efeito de jogo). */
+export const CASINO_MATERIAL_POOL = ["iron_bar", "goblin_tooth", "ectoplasm", "lizard_scale"] as const;
 
 export interface TravelDest { id: string; label: string; x: number; y: number; price: number }
 
@@ -34,28 +47,43 @@ const C = "ninja/Actor/Character/";
 /** Chegada em Porto Esperança (Costa Esmeralda), de carroça. Tile andável conferido em npcs.test.ts. */
 const PORT_ARRIVAL: TravelDest = { id: "port", label: "Porto Esperança", x: 372, y: 64, price: 250 };
 const sells = (...ids: string[]): NpcShopEntry[] => ids.map((itemId) => ({ itemId }));
+/** Tier 6-7: preço = valor de loot × 1,5 (sink pra ouro acumulado), 1 por semana por personagem. */
+const limited = (...entries: [string, number][]): NpcShopEntry[] =>
+  entries.map(([itemId, lootValue]) => ({ itemId, price: Math.round(lootValue * 1.5), limited: true }));
 
 export const NPCS: Record<string, NpcDef> = {
   shop: {
     id: "shop", name: "Bento, o Mercador", sprite: C + "Noble/SpriteSheet.png",
     greeting: "Bem-vindo! Dê uma olhada nas minhas mercadorias. Compro armas, armaduras e o que você tirar dos monstros.",
     shop: {
-      sells: sells(
-        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "nuts", "meat", "fish", "onigiri", "beaf", "sushi",
-        // tier 1 (lv 1): todas as vocações
-        "short_sword", "wooden_club", "short_bow", "apprentice_wand", "twig_rod",
-        "leather_helmet", "leather_armor", "leather_legs", "leather_boots", "leather_shield",
-        // tier 2 (lv 8)
-        "longsword", "hand_axe", "hunting_bow", "oak_wand", "thorn_rod",
-        "bronze_helmet", "bronze_armor", "bronze_legs", "bronze_boots", "bronze_shield",
-        // tier 3 (lv 15): só armas — depois que o punho deixou de acompanhar o level, a arma do tier importa e a de
-        // tier 3 não caía de nenhum monstro para cavaleiro e feiticeiro.
-        "iron_sword", "war_hammer", "long_bow", "storm_wand", "frost_rod",
-        // tier 4 (lv 25): destino para o ouro que sobra a partir do lv 20 (11–13 mil: ~1–2 h de jogo). O tier 5 continua
-        // só no loot, nos chefes e nos baús.
-        "steel_blade", "battle_axe", "composite_bow", "ember_wand", "moss_rod",
-        "steel_helmet", "steel_armor", "steel_legs", "steel_boots", "steel_shield",
-      ),
+      sells: [
+        ...sells(
+          "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "nuts", "meat", "fish", "onigiri", "beaf", "sushi",
+          // tier 1 (lv 1): todas as vocações
+          "short_sword", "wooden_club", "short_bow", "apprentice_wand", "twig_rod",
+          "leather_helmet", "leather_armor", "leather_legs", "leather_boots", "leather_shield",
+          // tier 2 (lv 8)
+          "longsword", "hand_axe", "hunting_bow", "oak_wand", "thorn_rod",
+          "bronze_helmet", "bronze_armor", "bronze_legs", "bronze_boots", "bronze_shield",
+          // tier 3 (lv 15): só armas — depois que o punho deixou de acompanhar o level, a arma do tier importa e a de
+          // tier 3 não caía de nenhum monstro para cavaleiro e feiticeiro.
+          "iron_sword", "war_hammer", "long_bow", "storm_wand", "frost_rod",
+          // tier 4 (lv 25): destino para o ouro que sobra a partir do lv 20 (11–13 mil: ~1–2 h de jogo).
+          "steel_blade", "battle_axe", "composite_bow", "ember_wand", "moss_rod",
+          "steel_helmet", "steel_armor", "steel_legs", "steel_boots", "steel_shield",
+          // tier 5 (lv 35): fim de jogo, preço de tabela (antes só caía de loot/chefe/baú).
+          "mithril_katana", "dragon_axe", "elven_bow", "inferno_wand", "glacier_rod",
+          "mithril_helmet", "mithril_armor", "mithril_legs", "mithril_boots", "mithril_shield",
+        ),
+        // tier 6-7: encomenda especial, 1,5× o valor de loot, 1 peça por personagem por semana (continuam caindo de
+        // loot/chefe normalmente, isso é só uma saída extra pra ouro acumulado).
+        ...limited(
+          ["fire_sword", 90000], ["giant_sword", 100000], ["royal_crossbow", 90000], ["starstorm_wand", 90000], ["northwind_rod", 90000],
+          ["crown_helmet", 24000], ["crown_armor", 56000], ["crown_legs", 32000], ["crown_shield", 32000],
+          ["magic_longsword", 190000], ["demon_axe", 210000], ["celestial_bow", 190000], ["destruction_wand", 190000], ["ancient_root_rod", 190000],
+          ["demon_helmet", 60000], ["demon_armor", 140000], ["demon_legs", 80000], ["demon_shield", 80000],
+        ),
+      ],
       buys: ["weapon", "shield", "helmet", "armor", "legs", "boots", "ring", "amulet", "material"],
     },
     idleLines: [
@@ -67,6 +95,7 @@ export const NPCS: Record<string, NpcDef> = {
   priest: {
     id: "priest", name: "Sacerdotisa Liora", sprite: C + "Monk2/SpriteSheet.png",
     greeting: "A luz te guarde, viajante. Aqui você está a salvo; lá fora, caminhe com cuidado.",
+    blessing: true,
     idleLines: [
       "Que a luz guie seus passos.",
       "Quem cai, levanta. Quem desiste, não.",
@@ -96,9 +125,16 @@ export const NPCS: Record<string, NpcDef> = {
     id: "old_hunter", name: "Velho Caçador Tomé", sprite: C + "Hunter/SpriteSheet.png",
     greeting: "Ah, um novato. Quer aprender a mirar de verdade? Tenho arcos e equipamento de patrulheiro. Compro peles e ossos também.",
     shop: {
-      sells: sells("short_bow", "hunting_bow", "long_bow", "composite_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
-        "hunter_helmet", "hunter_armor", "hunter_legs", "hunter_boots", "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots",
-        "health_potion", "meat", "fish", "beaf", "yakitori", "fishing_rod"),
+      sells: [
+        ...sells("short_bow", "hunting_bow", "long_bow", "composite_bow", "ranger_helmet", "ranger_armor", "ranger_legs", "ranger_boots",
+          "hunter_helmet", "hunter_armor", "hunter_legs", "hunter_boots", "sniper_helmet", "sniper_armor", "sniper_legs", "sniper_boots",
+          // tier 5 (lv 35): fim de jogo, preço de tabela.
+          "elven_bow", "master_archer_helmet", "master_archer_armor", "master_archer_legs", "master_archer_boots",
+          "health_potion", "meat", "fish", "beaf", "yakitori", "fishing_rod"),
+        // tier 6-7: encomenda especial (ver Bento), 1 peça por personagem por semana.
+        ...limited(["royal_crossbow", 90000], ["royal_helmet", 22000], ["royal_armor", 52000], ["royal_legs", 30000],
+          ["celestial_bow", 190000], ["dragon_scale_helmet", 55000], ["dragon_scale_armor", 130000], ["dragon_scale_legs", 75000]),
+      ],
       buys: ["material", "food"],
     },
     idleLines: [
@@ -109,15 +145,25 @@ export const NPCS: Record<string, NpcDef> = {
   },
   herbalist: {
     id: "herbalist", name: "Dona Marta, Ervanária", sprite: C + "Princess/SpriteSheet.png",
-    greeting: "Ervas, poções e mantos para quem estuda a magia. O que procura, meu bem?",
+    greeting: "Ervas, poções e mantos para quem estuda a magia. Também sei um encantamento ou outro, se trouxer os ingredientes.",
+    imbuement: true,
     shop: {
-      sells: sells(
-        "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "honey", "noodle", "calamari",
-        "apprentice_wand", "oak_wand", "storm_wand", "twig_rod", "thorn_rod", "frost_rod",
-        "apprentice_helmet", "apprentice_armor", "apprentice_legs", "apprentice_boots",
-        "adept_helmet", "adept_armor", "adept_legs", "adept_boots",
-        "ember_wand", "moss_rod", "arcane_helmet", "arcane_armor", "arcane_legs", "arcane_boots",
-      ),
+      sells: [
+        ...sells(
+          "health_potion", "health_potion_medium", "mana_potion", "mana_potion_medium", "honey", "noodle", "calamari",
+          "apprentice_wand", "oak_wand", "storm_wand", "twig_rod", "thorn_rod", "frost_rod",
+          "apprentice_helmet", "apprentice_armor", "apprentice_legs", "apprentice_boots",
+          "adept_helmet", "adept_armor", "adept_legs", "adept_boots",
+          "ember_wand", "moss_rod", "arcane_helmet", "arcane_armor", "arcane_legs", "arcane_boots",
+          // tier 5 (lv 35): fim de jogo, preço de tabela.
+          "inferno_wand", "glacier_rod", "archmage_helmet", "archmage_armor", "archmage_legs", "archmage_boots",
+        ),
+        // tier 6-7: encomenda especial (ver Bento), 1 peça por personagem por semana.
+        ...limited(
+          ["starstorm_wand", 90000], ["northwind_rod", 90000], ["mystic_helmet", 20000], ["mystic_armor", 50000], ["mystic_legs", 28000],
+          ["destruction_wand", 190000], ["ancient_root_rod", 190000], ["ferumbras_helmet", 50000], ["ferumbras_armor", 120000], ["ferumbras_legs", 70000],
+        ),
+      ],
       buys: ["material", "potion", "food"],
     },
     idleLines: [
@@ -180,6 +226,7 @@ export const NPCS: Record<string, NpcDef> = {
   frontier_priest: {
     id: "frontier_priest", name: "Irmão Tadeu", sprite: C + "Monk/SpriteSheet.png",
     greeting: "Você chegou às Terras Selvagens. Daqui para frente, só os fortes voltam. Descanse enquanto pode.",
+    blessing: true,
     idleLines: [
       "Ao norte, os orcs. Ao sul, os dragões. E lá embaixo... nem quero pensar.",
       "Dizem que Orshabaal acorda quando o Abismo fica em silêncio.",
@@ -188,7 +235,8 @@ export const NPCS: Record<string, NpcDef> = {
   },
   frontier_trader: {
     id: "frontier_trader", name: "Hanna, a Mascate", sprite: C + "Woman/SpriteSheet.png",
-    greeting: "Poções fortes e comida quente! E compro tudo o que você arrancar dos monstros daqui.",
+    greeting: "Poções fortes e comida quente! E compro tudo o que você arrancar dos monstros daqui. Também corro uma rodinha de fichas, se quiser arriscar.",
+    casino: true,
     shop: {
       sells: sells(
         "health_potion_medium", "health_potion_large", "mana_potion_medium", "mana_potion_large",
@@ -291,6 +339,7 @@ export const NPCS: Record<string, NpcDef> = {
   port_priest: {
     id: "port_priest", name: "Irmã Celeste", sprite: C + "Villager6/SpriteSheet.png",
     greeting: "A luz te guarde, viajante. Ao sul da selva há uma caverna onde heróis caídos ainda lutam. Eles precisam descansar.",
+    blessing: true,
     idleLines: [
       "Os heróis da caverna eram bons homens, um dia.",
       "Rezo pelos que entram no vulcão.",

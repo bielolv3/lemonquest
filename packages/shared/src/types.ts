@@ -82,6 +82,12 @@ export interface PlayerView {
   title: string;
   /** Grupo (party) atual ("" = nenhum). Mesmo valor = mesmo grupo (nomes verdes, pontos no minimapa). */
   partyId?: string;
+  /** Bênção ativa (templo): zera a penalidade de XP na próxima morte, depois se consome. */
+  blessed?: boolean;
+  /** Tom de tingimento ativo (id em OUTFIT_TONES; "" = cor natural). Comprado uma vez por conta. */
+  tone?: string;
+  /** Encantamento ativo (id em IMBUEMENTS; "" = nenhum). Só vale no PvE. */
+  imbuement?: string;
 }
 
 /** Espelho de MonsterState (packages/server/src/state.ts). */

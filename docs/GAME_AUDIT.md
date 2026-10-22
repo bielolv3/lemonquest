@@ -3,16 +3,20 @@
 Data: 2026-10-14 · Base: `e7a6e45` (main). Diagnóstico de engenharia, gameplay e operação. O andamento das correções
 está em [GAME_ROADMAP.md](GAME_ROADMAP.md); testes em [TEST_PLAN.md](TEST_PLAN.md).
 
+Atualizado em 2026-10-22 (base `35c8efb`) com o delta de 185 commits desde o ciclo 1, ver [Ciclo 5](#ciclo-5-auditoria-do-delta-pós-expansão-2026-10-22).
+
 ## 1. O que é o jogo
 
 MMORPG 2D no navegador inspirado em Tibia, para ~10 colegas na rede do escritório. Monorepo TypeScript:
 `shared` (regras, fórmulas, dados), `server` (Node 24 + Colyseus 0.18 + SQLite, tick de 50 ms, servidor autoritativo),
-`client` (Vite + Phaser 3 para o mundo, Preact para o HUD). ~28 mil linhas, 470 testes unitários + 12 specs E2E.
+`client` (Vite + Phaser 3 para o mundo, Preact para o HUD). ~44 mil linhas, 672 testes unitários + 21 specs E2E.
 
 **Loop principal:** escolher alvo → ataque automático + magias da vocação → loot com raridade e bônus → vender/comprar
-no NPC → missões, recompensas diárias, Coliseu em grupo → subir level/skills → novas áreas (floresta, pântano,
-ruínas, cavernas). 4 vocações (cavaleiro, paladino, feiticeiro, druida), 25 magias, 13 monstros + 2 chefes,
-grupos com XP compartilhada, conquistas que liberam roupas/addons/títulos, ranking público, treino offline.
+no NPC → missões, recompensas diárias, Coliseu em grupo (agora até a onda 60) → subir level/skills → novas áreas
+(floresta, pântano, ruínas, cavernas, Terras Selvagens, Costa Esmeralda). 4 vocações (cavaleiro, paladino, feiticeiro,
+druida), 41 magias (16 de fim de jogo), monstros com habilidades próprias (golpe, área, onda, cura, invocação),
+grupos com XP compartilhada, PvP estilo Tibia (caveiras, bloqueio de PZ), quests com baús e portas de quest, conquistas
+que liberam roupas/addons/títulos, ranking semanal, bestiário, pesca, trocas entre jogadores, treino offline.
 
 **Identidade a preservar:** sensação de "Tibia de escritório" — cliques e atalhos clássicos, mundo compartilhado
 pequeno, progressão lenta e social, pixel art própria (tema limão).
@@ -131,6 +135,52 @@ Robô (5 min, os quatro juntos disputando os mesmos ratos): todos chegam ao leve
 feiticeiro faz ~63 XP/min no level 1–2. No level 7 só contra lobos (bando de 3, sem recuar e com "seguir" ligado,
 inclusive os magos): 1–4 mortes em 4 min — mede o robô, que não foge, mais do que o jogo; não justifica mexer de novo.
 
+### Ciclo 5 — auditoria do delta pós-expansão (2026-10-22)
+
+Três frentes independentes (servidor/gameplay/balanço, cliente/UI/performance, mapa/segurança/operação), cada uma
+lendo o código real dos sistemas novos ou mudados desde o ciclo 1: Coliseu até a onda 60, chão sem dono com loot de
+grupo, mochila escalável, atalhos de magia, habilidades de monstro com aviso (telegraph), estágios de XP, PvP
+persistido no relog, Costa Esmeralda e as quests estilo Tibia, olhar com dois botões. Baseline conferida antes da
+leitura: `npm ci`, `typecheck` e os 672 testes unitários limpos, `npm audit --omit=dev` em 0 vulnerabilidades.
+
+| # | Problema | Evidência | Impacto |
+|---|---|---|---|
+| 47 | **P2** Empilhar um item sobre uma pilha já existente no chão reinicia o prazo de validade para o tempo cheio da raridade, tanto ao largar quanto ao mover | C — `ground.ts:162-168` (`place()`), `ground.ts:246-249` (`onMoveGround` só preserva o prazo quando não há merge) | Item raro, épico ou legendário no chão fica praticamente eterno se alguém empilhar +1 igual a cada menos de 20 min, contra o que o próprio código documenta ("o tempo até sumir não reinicia") |
+| 48 | **P2** `C2S.MoveGroundItem` sem limite de taxa próprio em `MESSAGE_LIMITS` (diferente de `MoveItem`, 20/s, e `LookGround`, 5/s) | C — `WorldRoom.ts:75` (ausente da lista); só vale o teto global de 60 msg/s | Com o chão sem dono, a falta de um limite específico amplia a superfície de spam de movimentação de item de qualquer um |
+| 49 | **P3** Migração do minimapa (fog of war) não remapeia linha a linha quando `exploredW` é `undefined` mas a máscara salva é mais estreita que o mapa atual | C — `shared/explore.ts:51-69` | Cosmético, só o minimapa, autocurável ao explorar de novo; afeta só personagem com save de antes do campo `exploredW` existir |
+
+Confirmado como correto (não é achado): geração da Costa Esmeralda (3 passagens novas, Cidadela sem sobrepor o
+subterrâneo antigo), gate de comando dev centralizado (nenhum comando novo escapa de `isDevAdmin`), escala de
+dificuldade do Coliseu até a onda 60, garantias das invocações de monstro (sem XP/loot/respawn), estágios de XP
+isolados de missão, checagens da alavanca da Aniquilação, validação server-side do "vender tudo".
+
+#### Lacunas de teste e documentação
+
+- `docs/TEST_PLAN.md` parou no ciclo 5 do roadmap (2026-10-15): nada registrado de Terras Selvagens, PvP, Costa
+  Esmeralda, habilidades de monstro, atalhos, mochila escalável, Coliseu até a onda 60 ou olhar.
+- `e2e/arena.spec.ts` só cobre as ondas 1 a 6: sem E2E para as ondas-chefe 35 a 60, a recompensa da onda 60 (30 mil
+  de ouro, título "Imperador") ou o botão "Vender tudo".
+- Nenhum E2E cobre a garantia central do chão sem dono: um segundo jogador pegando ou movendo o loot de outro.
+- A Aniquilação (4 placas, alavanca, sala) não tem E2E, só a checagem de alcançabilidade no gerador do mapa.
+
+#### Oportunidades (não são bugs)
+
+- Descarte automático ao bater em 2000 itens no chão remove sempre o mais antigo, sem olhar raridade: alguém
+  largando e pegando lixo em sequência pode empurrar para fora um item raro de outro jogador.
+- Mochila sem destaque visual no momento em que o grid cresce (o aviso é só texto no chat).
+- Painel de atalhos e barra de ações sem atalho de teclado além de `H`. Soltar um item fora de qualquer slot não dá
+  feedback de "cancelado".
+- `.top-stack` empilha até 4 elementos (evento, Coliseu, avisos, notícias). Em tela baixa com vários ativos ao mesmo
+  tempo vale conferir visualmente se não fica alto demais (não verificado em captura).
+- `WorldScene.ts` foi de ~1.100 para 1.390 linhas, crescimento difuso, sem bloco óbvio para extrair. Ainda não
+  parece ter cruzado o ponto que o roadmap usa como critério para dividir.
+
+#### Ponto de decisão (produto)
+
+- Loot de grupo sem dono caindo no chão é decisão de design já tomada, mas numa rede de ~10 colegas pode gerar
+  atrito social real (alguém leva o loot do colega) que teste automatizado não capta. Sem ação preventiva sugerida
+  agora: revisitar só se aparecer reclamação real.
+
 ### Não confirmado
 
 - **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.
@@ -158,3 +208,7 @@ Nota inicial → nota depois dos 4 ciclos (2026-10-15).
 | Desempenho | ? → 8/10 | carga com 10 bots: tick médio 0,2 ms (orçamento 50 ms); A* 30× mais rápido; heap do cliente plano; deploy baixa só o código do jogo. FPS com GPU ainda não medido |
 | Game feel / UI | 8 → 9/10 | efeitos remotos filtrados (2), tour visual de todas as telas (#34–#45), novato sem travas na primeira missão (#39, #46), volume |
 | Acessibilidade | 5 → 7/10 | dificuldade em texto e "!" (não só cor), foco visível no teclado, atalhos completos no F1 e /ajuda; sem toque (fora do escopo) |
+
+Recheck em 2026-10-22 (185 commits depois, ciclo 5): notas mantidas. Arquitetura sem mudança de nota (`WorldScene.ts`
+foi a 1.390 linhas, ainda não no ponto de dividir); Estabilidade e Segurança ganharam dois achados P2 novos (#47, #48)
+sem rebaixar a nota (escopo pequeno, correção simples); Desempenho e Game feel / UI sem achado novo.

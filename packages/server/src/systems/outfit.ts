@@ -1,5 +1,5 @@
-// Roupas (outfits) e addons: validação, carga/gravação no registro e troca (C2S.SetOutfit).
-import { ADDON_BITS, OUTFITS, isUnlockedIn, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
+// Roupas (outfits), addons e tom de tingimento: validação, carga/gravação no registro e troca (C2S.SetOutfit).
+import { ADDON_BITS, OUTFITS, OUTFIT_TONES, isUnlockedIn, resolveOutfit, type SetOutfitMsg } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import type { CharacterRecord } from "../persistence/types.ts";
 
@@ -25,23 +25,27 @@ export function loadOutfit(rec: CharacterRecord): { outfit: string; addons: numb
   return { outfit: o.id, addons };
 }
 
-/** Valida um pedido de troca. null = inválido (id desconhecido, bits fora do intervalo, bloqueado). */
-export function validateSetOutfit(m: unknown, rec?: CharacterRecord): { outfit: string; addons: number } | null {
+/** Valida um pedido de troca. null = inválido (id desconhecido, bits fora do intervalo, bloqueado, tom não liberado). */
+export function validateSetOutfit(
+  m: unknown, rec?: CharacterRecord, unlockedTones: readonly string[] = [],
+): { outfit: string; addons: number; tone: string } | null {
   if (!m || typeof m !== "object") return null;
-  const { outfit, addons } = m as Partial<SetOutfitMsg>;
+  const { outfit, addons, tone } = m as Partial<SetOutfitMsg>;
   if (typeof outfit !== "string" || outfit.length > 32 || !Object.hasOwn(OUTFITS, outfit)) return null;
   if (typeof addons !== "number" || !Number.isInteger(addons) || addons < 0 || addons > ADDON_BITS) return null;
   if (!isOutfitUnlocked(rec, outfit, 0)) return null;
   for (const bit of [1, 2] as const) if ((addons & bit) && !isOutfitUnlocked(rec, outfit, bit)) return null;
-  return { outfit, addons };
+  if (tone !== undefined && tone !== "" && (!OUTFIT_TONES.some((t) => t.id === tone) || !unlockedTones.includes(tone))) return null;
+  return { outfit, addons, tone: tone ?? "" };
 }
 
 /** Aplica a troca no estado (todos veem) e no registro (persistido no próximo save). */
-export function applySetOutfit(p: PlayerState, rec: CharacterRecord | undefined, m: unknown): boolean {
-  const v = validateSetOutfit(m, rec);
+export function applySetOutfit(p: PlayerState, rec: CharacterRecord | undefined, m: unknown, unlockedTones: readonly string[] = []): boolean {
+  const v = validateSetOutfit(m, rec, unlockedTones);
   if (!v) return false;
   p.outfit = v.outfit;
   p.addons = v.addons;
-  if (rec) { rec.data.outfit = v.outfit; rec.data.addons = v.addons; }
+  p.tone = v.tone;
+  if (rec) { rec.data.outfit = v.outfit; rec.data.addons = v.addons; rec.data.tone = v.tone; }
   return true;
 }

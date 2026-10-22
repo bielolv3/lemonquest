@@ -134,6 +134,25 @@ Ficou de fora (precisa de mapa/arte novos): **dungeon instanciada própria** (o 
 conteúdo para grupo), **mineração** (só a pesca foi feita) e **casas com decoração** (o depot já guarda itens; casa
 pede áreas no mapa e itens colocáveis no mundo).
 
+## Ciclo 7 (2026-10-22) — correções e lacunas do delta pós-expansão
+
+Auditoria do delta desde o ciclo 1 (185 commits): três frentes independentes sobre Coliseu até a onda 60, chão sem
+dono, mochila escalável, atalhos, habilidades de monstro, estágios de XP, PvP persistido, Costa Esmeralda e quests.
+Detalhe de cada achado em [GAME_AUDIT.md, Ciclo 5](GAME_AUDIT.md#ciclo-5-auditoria-do-delta-pós-expansão-2026-10-22).
+
+| Etapa | Item | Status | Nota |
+|---|---|---|---|
+| A | #47 Pilha no chão não reinicia o prazo de validade ao fazer merge (largar ou mover) | ⏳ | `ground.ts:162-168`, `:246-249` |
+| A | #48 Limite de taxa próprio para `C2S.MoveGroundItem` em `MESSAGE_LIMITS` | ⏳ | `WorldRoom.ts:75` |
+| A | #49 Migração do minimapa remapeia linha a linha mesmo sem `exploredW` salvo | ⏳ | `shared/explore.ts:51-69` |
+| D | Descarte automático do chão (2000 itens) poupa `rare`+ antes de olhar idade | 🧭 | decisão do dono: vale a complexidade para um risco raro? |
+| C | Destaque visual quando a mochila cresce de level (hoje só texto no chat) | ⏳ | |
+| C | Atalho de teclado para abrir/fechar o painel de atalhos além de `H`; feedback ao soltar fora de slot | ⏳ | |
+| F | `docs/TEST_PLAN.md` atualizado com os ciclos 2 a 6 (Terras Selvagens até olhar) | ⏳ | hoje parado no ciclo 5 (2026-10-15) |
+| F | E2E das ondas-chefe 35-60 do Coliseu, da recompensa da onda 60 e do botão "Vender tudo" | ⏳ | |
+| F | E2E de um segundo jogador pegando/movendo o loot de outro no chão | ⏳ | garantia central do "chão sem dono" |
+| F | E2E da Aniquilação (4 placas + alavanca) | ⏳ | hoje só a checagem de alcançabilidade no gerador do mapa |
+
 ## Próximos (ordem sugerida)
 
 | Etapa | Item | Status | Nota |
@@ -160,12 +179,99 @@ servidor (a mesma sessão voltou a valer) e em `auth.test.ts` (3 casos novos).
 Alternativas que ficaram de fora: para #31, manter tier 4–5 como recompensa e criar outro gasto; para #32, um monstro
 novo lv 45–48 (precisa de sprite e de um lugar no mapa — um spawn novo na lista do gerador muda ~3 mil tiles).
 
+| Item | O que mudou | Status |
+|---|---|---|
+| Atrito social do loot de grupo sem dono | Funciona como desenhado (qualquer um pega/move o que está no chão), mas numa rede de ~10 colegas pode gerar reclamação que nenhum teste automatizado capta | 🧭 revisitar só se houver reclamação real |
+
 Configuração de produção:
 
 | Item | O que fazer |
 |---|---|
 | #12 Backup fora do disco | Ligar `LEMONQUEST_BACKUP_COPY_DIR` em produção (pasta de rede/outro disco) |
 | Admin em produção | Definir `LEMONQUEST_ADMIN_ACCOUNTS` com a(s) conta(s) dos admins, para poder recriar um personagem admin |
+
+## Propostas — sink de ouro e conteúdo novo (2026-10-22) 🧭
+
+Motivo: personagem de lv 80 com 500 mil de ouro sem o que comprar (lojas vendem só até tier 4, tier 5-7 só caem de
+loot). Nenhum item desta seção está decidido ainda, cada linha espera aprovação antes de virar código. Benchmark:
+bênção e imbuement vêm do Tibia (identidade que o jogo já persegue), cassino vem de Diablo (sink "de diversão" sem
+custo de poder).
+
+| Item | O que é | Esforço | Status |
+|---|---|---|---|
+| Bênção no templo | Reduz a zero a penalidade de XP na próxima morte; preço = level × 200 de ouro. Vendida por Liora (Vila), Irmão Tadeu (Posto) e Irmã Celeste (Porto) | pequeno | ✅ |
+| Venda de tier 5-7 | Tier 5 no preço de tabela (Bento/Tomé/Dona Marta); tier 6-7 em "encomenda especial" a 1,5× o valor de loot, 1 peça por personagem por semana | pequeno | ✅ |
+| Tarefas de caça | **Já existia** (Quadro de Recompensas, `bounties.ts`): 3/dia por faixa de level, até lv 88+. Moeda nova (Marca de Caça) descartada nesta rodada, ver nota | quase zero | ✅ |
+| Missões recorrentes | NPC pede N de um material específico, rotação semanal. Reaproveita o próprio Quadro de Recompensas (aba "Encomenda") | pequeno | ✅ |
+| Encantamento (imbuement) | 1 efeito ativo por personagem (dreno de vida, dreno de mana, espinhos, perfurante, veloz), ouro + material, Dona Marta | médio | ✅ |
+| Montaria | Cosmética, sprite reaproveitado e tingido (sem bônus de velocidade) | médio (arte) | 🧭 bloqueado |
+| Tingimento de outfit (por conta) | 8 tons pré-definidos na sprite da roupa (reusa `tint`, já usado em monstro, e `kv` existente pro unlock por conta); 8.000 de ouro cada, vale pra qualquer personagem da conta | médio | ✅ |
+| Cassino | Ficha de 1.000 de ouro (Hanna, a Mascate): 45% nada, 35% +400 de ouro, 15% material, 5% +3.000 de ouro | pequeno | ✅ |
+
+Bênção e venda de tier 5-7 implementadas (2026-10-22): `blessingPrice` em `shared/formulas.ts`, ação `C2S.NpcTrade`
+`"blessing"`, flag `blessed` persistida no personagem, consumida em `combat.ts` na morte (zera `lostXp`, notice
+própria). Tier 6-7 usa `NpcShopEntry.limited` + semana ISO (`weekId`) guardada em `rec.data.limitedBuyWeek`, checada
+no servidor (não só esconder no cliente). Testes: `combatFormulas.test.ts`, `combat.test.ts` (morte com bênção),
+`m4.test.ts` (compra de bênção e limite semanal).
+
+Tingimento de outfit implementado (2026-10-22): catálogo em `shared/data/outfitTones.ts` (8 tons, `OUTFIT_TONE_PRICE`
+= 8.000). `CharacterRecord` ganhou `accountId` (já vinha na linha do banco, só não estava exposto). Unlock por conta
+guardado na tabela `kv` já existente (`account.tones.<id>`), sem migração de schema nova. Tingimento em si reaproveita
+o campo `tint` que `CharacterLook`/`Actor` já aplicavam só em monstro (`outfitLook` ganhou um 4º parâmetro). No preview
+da janela (canvas 2D puro, sem Phaser) foi preciso um tingimento manual (multiply + recorte pelo alpha original,
+cacheado por imagem+cor). Testes: `outfit.test.ts` (validação do tom e `addAccountTone`/`getAccountTones`).
+
+**Marca de Caça** (moeda nova, opcional, liga tarefas aos sinks sem imprimir mais ouro): descartada nesta rodada de
+construção. Tarefas de caça e missões recorrentes pagam ouro direto, mais simples de construir e manter. Fica
+anotada como ideia de reserva se algum dia o ouro direto dessas duas fontes virar demais.
+
+Tarefas de caça e missões recorrentes implementadas (2026-10-22): a primeira já existia (Quadro de Recompensas), só
+confirmado que cobre até o fim de jogo (banda lv 88+). A segunda é nova (`shared/data/materialRequest.ts`,
+`server/systems/materialRequest.ts`): pede N de um material específico por semana (10 faixas de level, mesmos
+materiais que já existem como loot vendável), paga ouro na entrega. Reaproveita o Quadro de Recompensas como NPC
+(aba "Encomenda" nova ao lado de "Recompensas") e o padrão leve de `challenges.ts` (estado em `rec.data.request`,
+sem passo de "aceitar"). Testes: `materialRequest.test.ts`.
+
+Cassino implementado (2026-10-22): ficha fixa em `CASINO_TICKET_PRICE` (1.000), vendida por Hanna (Posto da
+Fronteira, já era mercadora, só ganhou o flag `casino`). Prêmio puramente aleatório no servidor (`NpcSystem.rng`),
+em expectativa paga menos que a ficha (sink de verdade, não fonte): 45% nada, 35% +400, 15% um material de flavor
+(ferro/dente de goblin/ectoplasma/escama), 5% +3.000. Sem prêmio de poder nem de tom de tingimento (achei generoso
+demais dar um tom de 8.000 numa ficha de 1.000, ficou só pra compra direta na janela de roupas). Testes:
+caso novo em `m4.test.ts` (sorteio determinístico via `rng` injetado, uma faixa por vez).
+
+**Encantamento implementado (2026-10-22), simplificado em relação ao desenho original**: o plano original era 1
+slot na arma (o item), 3 tiers por efeito, decaimento por hora de combate, tier 3 preso a uma "Essência" nova só de
+chefe. Construído de verdade: 1 efeito ativo **por personagem** (não pela arma), sem tiers, sem decaimento, troca
+por outro a qualquer hora sem reembolso. Mais simples de manter e já entrega a parte que importava (a passiva em
+si). Preço único de 5.000 de ouro + 5 do material por efeito, vendido pela Dona Marta:
+
+| Efeito | Material | Onde aplica |
+|---|---|---|
+| Dreno de vida (5%) | Presa de Lobo | `combat.ts`, ataque automático contra monstro selvagem |
+| Dreno de mana (4%) | Olho de Aranha | idem |
+| Espinhos (8%) | Couro de Lobo | dano recebido de monstro, reflete de volta |
+| Perfurante (ignora 15% da armadura) | Barra de Ferro | mitigação do ataque automático |
+| Veloz (8% mais rápido) | Ferrão de Abelha | intervalo entre ataques automáticos |
+
+Atordoante (crítico) ficou de fora: precisava de um sistema novo de status no monstro (stun), risco maior sem poder
+testar visualmente. Só vale no PvE (ataque automático contra monstro selvagem), não em PvP nem em magia/invocação,
+pra limitar o escopo do que foi tocado em `combat.ts`. Testes: 5 casos novos em `combat.test.ts` (um por efeito,
+com monstro invulnerável pra isolar sem revide onde fazia sentido), 1 caso em `m4.test.ts` (compra/troca na loja).
+
+**Tier 5-7 à venda, números reais do `items.ts`**: kit tier 5 completo ≈ 50 mil, tier 6 ≈ 144 mil, tier 7 ≈ 360 mil
+(cavaleiro, paladino e mago na mesma escala, menores). Tier 6-7 a 1,5× o valor de loot (ex.: armadura da Coroa por
+84 mil em vez de 56 mil), 1 peça por conta por semana.
+
+**Cassino, estrutura de prêmio**: ficha ≈ 1.000 ouro. 40% nada, 30% ouro de volta (≈ 50% do preço), 15% material raro,
+10% tom de tingimento, 5% cosmético único (título, moldura de ranking). Valor esperado de volta ≈ 600-700, número a
+calibrar com playtest, não é final.
+
+**Montaria: bloqueada, não por decisão, por risco de asset.** Dos 8 itens desta rodada, é o único que não dá pra
+construir só com código testável: precisa de uma sprite de montaria no formato de addon (32×32, grade 4×7,
+`tools/addons/generate.mjs`), e sem conseguir ver o resultado renderizado (sem navegador nesta sessão), o risco de
+entregar algo visualmente quebrado é alto. Técnica já mapeada (reaproveitar o mesmo `backSheet` que já existe pra
+addons de capa/mochila, desenhado atrás do personagem, sincronizado com o próprio ciclo de caminhada), só falta a
+arte em si e alguém conferir o resultado numa tela de verdade antes de ir pra produção.
 
 ## Não fazer agora ⛔
 

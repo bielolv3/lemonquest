@@ -19,6 +19,10 @@ export interface CharacterData {
   pvpWhiteUntil?: number;
   /** PvP: fim do bloqueio de zona de proteção (ms epoch); relogar não o apaga. */
   pvpPzLockUntil?: number;
+  /** Bênção comprada no templo: zera a penalidade de XP na próxima morte, depois se consome. */
+  blessed?: boolean;
+  /** Semana ISO (weekId) da última compra de item de tier 6-7 (encomenda especial, 1 por semana). */
+  limitedBuyWeek?: string;
   /** Atalhos de magia (painel H): tecla → magia. Ausente = nunca configurou (o cliente migra/usa o padrão). */
   hotkeys?: { key: string; spellId: string }[];
   /** Inventário (M4). */
@@ -36,6 +40,10 @@ export interface CharacterData {
   /** Roupa (OUTFITS) e addons (bits 1|2). Ausente = padrão da vocação. */
   outfit?: string;
   addons?: number;
+  /** Tom de tingimento ativo (id em OUTFIT_TONES; precisa estar liberado na conta). Ausente = cor natural. */
+  tone?: string;
+  /** Encantamento ativo (id em IMBUEMENTS). Ausente = nenhum. */
+  imbuement?: string;
   /** Conquistas (systems/achievements.ts): concluídas, contadores e título ativo. */
   ach?: {
     /** id da conquista → ms epoch em que foi concluída. */
@@ -53,6 +61,8 @@ export interface CharacterData {
   week?: { id: string; xp: number; kills: number; fish: number; bosses: number };
   /** Desafios da semana: semana ISO, level no começo dela (meta de XP), desafios resgatados e bônus. */
   challenges?: { week: string; level: number; claimed: string[]; bonus: boolean };
+  /** Encomenda semanal de material (Quadro de Recompensas): semana ISO e se já foi entregue. */
+  request?: { week: string; claimed: boolean };
   /** Bônus de login: último dia de jogo (troca às 6h de Brasília) e quantos dias seguidos. */
   login?: { day: string; streak: number };
   /** Lista de amigos (nomes de personagem; /amigo): avisos de entrada e saída. */
@@ -77,6 +87,7 @@ export interface QuestSaveData {
 /** Registro persistido de um personagem (uma conta tem até MAX_CHARACTERS_PER_ACCOUNT personagens). */
 export interface CharacterRecord {
   id: number;
+  accountId: number;
   name: string;
   vocation: Vocation;
   level: number;

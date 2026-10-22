@@ -221,12 +221,12 @@ export function backupTo(file: string): void {
 }
 
 interface CharRow {
-  id: number; name: string; vocation: string; level: number; xp: number;
+  id: number; account_id: number; name: string; vocation: string; level: number; xp: number;
   x: number | null; y: number | null; dir: number; data: string | null;
 }
 
 const toRecord = (r: CharRow): CharacterRecord => ({
-  id: r.id, name: r.name, vocation: r.vocation as Vocation, level: r.level, xp: r.xp,
+  id: r.id, accountId: r.account_id, name: r.name, vocation: r.vocation as Vocation, level: r.level, xp: r.xp,
   x: r.x, y: r.y, dir: r.dir, data: parseData(r.data),
 });
 
@@ -254,7 +254,7 @@ export function createCharacter(accountId: number, name: string, vocation: Vocat
   const r = getDb().prepare(
     "INSERT INTO characters (account_id, name, name_key, vocation, level, xp, x, y, dir, data, updated_at) VALUES (?, ?, ?, ?, 1, 0, NULL, NULL, 4, ?, ?)",
   ).run(accountId, name, nameKey(name), vocation, JSON.stringify(data), Date.now());
-  return { id: Number(r.lastInsertRowid), name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data };
+  return { id: Number(r.lastInsertRowid), accountId, name, vocation, level: 1, xp: 0, x: null, y: null, dir: 4, data };
 }
 
 /** Personagens da conta, na ordem de criação. */
@@ -350,6 +350,19 @@ export function getKv(key: string): string | undefined {
 
 export function setKv(key: string, value: string): void {
   getDb().prepare("INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+/** Tons de tingimento liberados por uma CONTA (vale pra qualquer personagem dela). Guardado no `kv` existente. */
+export function getAccountTones(accountId: number): string[] {
+  try { return JSON.parse(getKv(`account.tones.${accountId}`) ?? "[]") as string[]; } catch { return []; }
+}
+
+/** Adiciona um tom à conta (idempotente) e retorna a lista atualizada. */
+export function addAccountTone(accountId: number, toneId: string): string[] {
+  const list = getAccountTones(accountId);
+  if (!list.includes(toneId)) list.push(toneId);
+  setKv(`account.tones.${accountId}`, JSON.stringify(list));
+  return list;
 }
 
 export interface SessionRow { token_hash: string; account_id: number; account: string; weak_password: number; created: number; expires: number }
