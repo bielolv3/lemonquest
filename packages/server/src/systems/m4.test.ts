@@ -80,7 +80,10 @@ describe("loot", () => {
   });
 });
 
-function npcWorld(rng: () => number = () => 0.5) {
+function npcWorld(
+  rng: () => number = () => 0.5, awardTone?: (p: PlayerState) => string | null,
+  mountOwned?: (p: PlayerState) => boolean, unlockMountFx?: (p: PlayerState) => void,
+) {
   // eslint-disable-next-line prefer-const
   let npcs: NpcSystem;
   const w = invWorld({ depotOpen: (id) => npcs.depotOpen(id) });
@@ -90,11 +93,11 @@ function npcWorld(rng: () => number = () => 0.5) {
   npcs = new NpcSystem({
     npcs: [
       { id: "shop", x: 10, y: 10 }, { id: "depot", x: 30, y: 10 }, { id: "priest", x: 50, y: 10 }, { id: "armory", x: 60, y: 10 },
-      { id: "casino", x: 70, y: 10 }, { id: "enchanter", x: 80, y: 10 },
+      { id: "casino", x: 70, y: 10 }, { id: "enchanter", x: 80, y: 10 }, { id: "coach", x: 90, y: 10 },
     ],
     inventory: w.inv, defs: npcsFx, players: () => players.values(), getPlayer: (id) => players.get(id),
     send: (to, type, msg) => out.push({ to, type, msg }), broadcast: (type, msg) => out.push({ to: "*", type, msg }),
-    now: () => clock, rng,
+    now: () => clock, rng, awardTone, mountOwned, unlockMount: unlockMountFx,
   });
   const add = (id: string, x: number, y: number) => { const p = w.mk(id); p.x = x; p.y = y; players.set(id, p); return p; };
   return { w, npcs, out, add, players, tick: (ms: number) => { clock += ms; npcs.tick(clock); } };
@@ -165,8 +168,8 @@ describe("npcs", () => {
     expect(t.w.inv.gold("p1")).toBe(2000); // não cobrou de novo
   });
 
-  it("cassino: cobra a ficha e dá cada faixa de prêmio conforme o sorteio (nada/ouro/material/grande)", () => {
-    const seq = [0.1, 0.6, 0.9, 0.1, 0.99]; // nada, ouro de volta, material (+ índice do pool), prêmio grande
+  it("cassino: cobra a ficha e dá cada faixa de prêmio conforme o sorteio (nada/ouro/material/tom/grande)", () => {
+    const seq = [0.1, 0.6, 0.75, 0.1, 0.9, 0.99]; // nada, ouro de volta, material (+ índice do pool), tom (sem awardTone → ouro), grande
     let i = 0;
     const t = npcWorld(() => seq[i++]!);
     const p = t.add("p1", 70, 10);
@@ -180,9 +183,45 @@ describe("npcs", () => {
     expect(t.w.inv.gold("p1")).toBe(8400);
     t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // material
     expect(t.out.at(-1)!.msg.text).toContain("Ficha: você ganhou 1x");
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // tom, sem awardTone configurado → cai pro ouro de volta
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: +400 de ouro de volta.");
     t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // prêmio grande
     expect(t.out.at(-1)!.msg.text).toBe("Ficha: PRÊMIO GRANDE! +3000 de ouro!");
-    expect(t.w.inv.gold("p1")).toBe(8400 - 1000 - 1000 + 3000);
+    expect(t.w.inv.gold("p1")).toBe(8400 - 1000 - 1000 + 400 - 1000 + 3000);
+  });
+
+  it("cassino: prêmio de tom chama awardTone e avisa o nome; sem tons restantes cai pro ouro", () => {
+    let toneLeft = true;
+    const t = npcWorld(() => 0.9, (p) => {
+      expect(p.id).toBe("p1");
+      if (!toneLeft) return null;
+      toneLeft = false;
+      return "Esmeralda";
+    });
+    const p = t.add("p1", 70, 10);
+    t.w.inv.addGold(p, 5000);
+    t.npcs.onInteract(p, { npcId: "casino" });
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" });
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: você ganhou o tom de tingimento Esmeralda!");
+    t.npcs.onTrade(p, { npcId: "casino", action: "casino" }); // conta já ficou sem tons no mock → ouro de volta
+    expect(t.out.at(-1)!.msg.text).toBe("Ficha: +400 de ouro de volta.");
+  });
+
+  it("montaria: desbloqueio único por conta (MOUNT_PRICE), chama unlockMount, recusa comprar de novo", () => {
+    let owned = false;
+    const t = npcWorld(undefined, undefined, () => owned, () => { owned = true; });
+    const p = t.add("p1", 90, 10);
+    t.npcs.onInteract(p, { npcId: "coach" });
+    expect(t.out.find((o) => o.type === S2C.NpcOpen)!.msg.mount).toEqual({ price: 15_000, owned: false });
+    t.npcs.onTrade(p, { npcId: "coach", action: "mount" });
+    expect(t.out.at(-1)!.msg.text).toBe("Ouro insuficiente.");
+    t.w.inv.addGold(p, 20_000);
+    t.npcs.onTrade(p, { npcId: "coach", action: "mount" });
+    expect(owned).toBe(true);
+    expect(t.w.inv.gold("p1")).toBe(5_000);
+    t.npcs.onTrade(p, { npcId: "coach", action: "mount" });
+    expect(t.out.at(-1)!.msg.text).toBe("Você já tem uma montaria.");
+    expect(t.w.inv.gold("p1")).toBe(5_000); // não cobrou de novo
   });
 
   it("encantamento: precisa de ouro + material, troca sem reembolso, não deixa comprar o mesmo de novo", () => {
