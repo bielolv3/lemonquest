@@ -155,9 +155,11 @@ const potion = (id: string, name: string, icon: ItemIcon, value: number, level: 
 potion("health_potion", "Poção de Vida", img("Potion/LifePot.png"), 40, 1, { heal: 60 }, "Recupera 60 de vida.");
 potion("health_potion_medium", "Poção de Vida Média", img("Potion/Medipack.png"), 120, 15, { heal: 180 }, "Recupera 180 de vida.");
 potion("health_potion_large", "Poção de Vida Grande", img("Potion/Heart.png"), 300, 30, { heal: 450 }, "Recupera 450 de vida.");
-potion("mana_potion", "Poção de Mana", img("Potion/WaterPot.png"), 45, 1, { mana: 50 }, "Recupera 50 de mana.");
-potion("mana_potion_medium", "Poção de Mana Média", img("Potion/WaterPot.png", 0x9a9aff), 130, 15, { mana: 150 }, "Recupera 150 de mana.");
-potion("mana_potion_large", "Poção de Mana Grande", img("Potion/MilkPot.png", 0xb070ff), 320, 30, { mana: 400 }, "Recupera 400 de mana.");
+// Mana 2–3× maior pelo mesmo preço (ciclo 9, #53): com 50/150/400 sustentar a rotação de magias de um mago custava 3–4× a
+// renda de ouro da caça e as quatro vocações acabavam jogando de ataque básico. Continua sendo o maior sink de ouro dos magos.
+potion("mana_potion", "Poção de Mana", img("Potion/WaterPot.png"), 45, 1, { mana: 120 }, "Recupera 120 de mana.");
+potion("mana_potion_medium", "Poção de Mana Média", img("Potion/WaterPot.png", 0x9a9aff), 130, 15, { mana: 350 }, "Recupera 350 de mana.");
+potion("mana_potion_large", "Poção de Mana Grande", img("Potion/MilkPot.png", 0xb070ff), 320, 30, { mana: 900 }, "Recupera 900 de mana.");
 
 /** Comida: estado "alimentado" (regen a cada FOOD_TICK_MS). Sem cura instantânea; recarga própria de 1 s. */
 export const FOOD_TICK_MS = 2000;

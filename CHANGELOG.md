@@ -63,7 +63,11 @@ dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisõ
 - **Skills**: armas e escudo sobem com a taxa pura (melee 60 ≈ 19 h de golpes, 80 ≈ 130 h; antes 8 000 h); magic level
   com ×1,1 por nível (ML 40 ≈ 30 h de magias; antes 150 h). O treino offline de 12 h rende 17–23 níveis em skill baixa.
 - **Bênção** custa 50 × level (era 200): no lv 50, 2 500 de ouro para não perder XP na próxima morte.
-- Pendente de permissão (ver ROADMAP F2-1): poções de mana com 2–3× mais mana.
+- **Poções de mana** recuperam 120 / 350 / 900 (eram 50 / 150 / 400) pelo mesmo preço: feiticeiro e druida passam a
+  sustentar a rotação de magias gastando ouro em vez de desistir dela.
+- **Caçada de Terça**: XP em dobro na terça das 13h às 14h (logo depois do Rei Goblin), para quem joga no escritório; a
+  Noite de Caçada de sexta continua.
+- Tarântula e demônio: a habilidade (Picada Venenosa, Paralisia) deixa de bater menos que o golpe básico.
 
 ## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
 

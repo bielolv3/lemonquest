@@ -15,9 +15,9 @@
       "Bash(git blame:*)"
     ],
     "deny": [
-      "Read(./data/**)",
-      "Read(./docker-data/**)",
-      "Read(./docker-data-dev/**)",
+      "Read(//C:/Users/leocs/Desktop/lemonquest/data/**)",
+      "Read(//C:/Users/leocs/Desktop/lemonquest/docker-data/**)",
+      "Read(//C:/Users/leocs/Desktop/lemonquest/docker-data-dev/**)",
       "Bash(rm -rf data:*)",
       "Bash(rm -rf docker-data:*)",
       "Bash(docker compose down:*)",

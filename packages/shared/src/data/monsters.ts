@@ -538,7 +538,8 @@ export const MONSTERS: Record<string, MonsterDef> = {
     id: "demon", name: "Demônio", level: 100, hp: 5000, xp: 10500, damage: [130, 250], damageKind: "fire", armor: 35,
     abilities: [
       ability.blast({ name: "Chuva de Fogo", radius: 2, range: 4, min: 140, max: 255, kind: "fire", fx: "fire" }),
-      ability.bolt({ name: "Paralisia", range: 4, min: 60, max: 120, kind: "energy", fx: "energy", cooldownMs: 14_000, condition: { id: "slow", durationMs: 4000, value: 50 } }),
+      // 60–120 ficava abaixo do golpe básico (130–250): o demônio "amaciava" ao paralisar (GD-16, ciclo 9).
+      ability.bolt({ name: "Paralisia", range: 4, min: 106, max: 188, kind: "energy", fx: "energy", cooldownMs: 14_000, condition: { id: "slow", durationMs: 4000, value: 50 } }),
     ],
     attackMs: 2000, attackRange: 4, stepMs: 320, aggroRange: 8, fleeAtHpPct: 0, respawnMs: 150_000,
     gold: [400, 800],
@@ -660,7 +661,8 @@ export const MONSTERS: Record<string, MonsterDef> = {
   tarantula: {
     id: "tarantula", name: "Tarântula", level: 30, hp: 380, xp: 340, damage: [22, 48], damageKind: "earth", armor: 7,
     abilities: [
-      ability.bolt({ name: "Picada Venenosa", range: 1, min: 20, max: 40, kind: "earth", fx: "earth", cooldownMs: 10_000, condition: { id: "poison", durationMs: 10_000, value: 8 } }),
+      // 20–40 ficava abaixo do golpe básico (22–48): usar a habilidade reduzia o dano da tarântula (GD-16, ciclo 9).
+      ability.bolt({ name: "Picada Venenosa", range: 1, min: 29, max: 54, kind: "earth", fx: "earth", cooldownMs: 10_000, condition: { id: "poison", durationMs: 10_000, value: 8 } }),
     ],
     attackMs: 1800, attackRange: 1, stepMs: 300, aggroRange: 6, fleeAtHpPct: 0, respawnMs: 60_000,
     gold: [80, 160],
