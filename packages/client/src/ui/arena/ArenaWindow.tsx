@@ -2,6 +2,8 @@
 import { ARENA_COUNT, partyMinLevel } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { arenaAction, arenaLobbiesStore, arenaStateStore, arenaWindowOpen, closeArenaWindow, phaseRemaining } from "./arena.ts";
 import { useTicker } from "./useTicker.ts";
 import { ArenaQuests } from "../quests/NpcQuests.tsx";
@@ -14,6 +16,8 @@ export function ArenaWindow() {
   const st = useStore(arenaStateStore);
   const party = useStore(partyStore);
   useTicker(open && st?.s.phase === "countdown" ? 250 : 0);
+  const drag = useWindowDrag("arena");
+  useDialogFocus(drag.ref, open);
   if (!open) return null;
   const mine = st && !st.s.arenaId ? st.s : null;
   const myName = session.myName;
@@ -21,9 +25,9 @@ export function ArenaWindow() {
   const minLv = partyMinLevel(Math.max(0, ...(mine?.members ?? []).map((m) => m.level ?? 0)));
   const leader = mine?.leader === myName;
   return (
-    <div class="hud-card hud-window arena-window" role="dialog" aria-label="Coliseu">
-      <div class="win-title">
-        <span class="win-grip" />
+    <div ref={drag.ref} class={`hud-card hud-window arena-window${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Coliseu">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
+        <span class="win-grip" aria-hidden="true" />
         <span>Coliseu</span>
         <button class="win-close" onClick={closeArenaWindow} data-tip="Fechar" data-tip-sub="Esc" aria-label="Fechar">×</button>
       </div>

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   HOTKEY_MAX,
   BASE_STEP_MS, Dir, evalSpellFormula, mitigateSpell, playerDamageRange, GLOBAL_SPELL_COOLDOWN_MS, S2C, SKILL_START, TICK_MS, skillTriesFor, stepDuration,
-  SPELLS, spellMana, spellsFor, type MonsterDef, type SpellDef, type Vocation,
+  MONSTERS, SPELLS, spellMana, spellsFor, type MonsterDef, type SpellDef, type Vocation,
 } from "@lemonquest/shared";
 import { ConditionSystem } from "./conditions.ts";
 import { SkillSystem } from "./skills.ts";
@@ -339,6 +339,21 @@ describe("dash", () => {
 });
 
 describe("summons", () => {
+  it("a invocação escala com o level do invocador: lv 20 = catálogo, lv 46 = vida 570 e dano ×1,75 (GD-05)", () => {
+    const w = setup();
+    w.defs.wolf = { ...MONSTERS.summoned_wolf! };
+    const spec = { monsterId: "wolf", count: 1, durationMs: 10_000 };
+    const a = w.addP("a", 10, 10, { level: 20 });
+    w.summons.summon(a, spec, w.now());
+    const wolf20 = w.mm.get(w.summons.ownedBy("a")[0]!)!;
+    expect([wolf20.s.hp, wolf20.s.maxHp, wolf20.def.damage]).toEqual([180, 180, [14, 26]]);
+    const b = w.addP("b", 14, 14, { level: 46 });
+    w.summons.summon(b, spec, w.now());
+    const wolf46 = w.mm.get(w.summons.ownedBy("b")[0]!)!;
+    expect([wolf46.s.hp, wolf46.s.maxHp, wolf46.def.damage]).toEqual([570, 570, [25, 46]]);
+    expect(w.defs.wolf).toMatchObject({ hp: 180, damage: [14, 26] }); // o catálogo não muda
+  });
+
   it("follows the owner, attacks the owner's target (owner gets credit), replaces on recast, despawns", () => {
     const w = setup({ monsters: [{ x: 22, y: 10, def: { hp: 1000, aggroRange: 0, damage: [0, 0] } }] });
     const p = w.addP("p", 10, 10);

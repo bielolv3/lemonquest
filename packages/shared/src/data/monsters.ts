@@ -1053,6 +1053,22 @@ export const ELITE_MIN_LEVEL = 10;
 export const ELITE = { hp: 2.5, dmg: 1.3, xp: 3, gold: 2, loot: 2 } as const;
 /** Cor do nome da elite (dourado). */
 export const ELITE_COLOR = "#f0c040";
+
+/**
+ * Invocações escalam com o level de quem invoca (ciclo 9, GD-05): o catálogo descreve a criatura no seu `level` base
+ * (o Lobo Espiritual, no 20), e o lobo fixo ficava inútil no 50+. Cada level acima do base soma SUMMON_HP_PER_LEVEL de
+ * vida e o dano cresce linearmente até ×(1 + SUMMON_DMG_BONUS) SUMMON_DMG_LEVELS levels acima (lobo lv 46: vida 570,
+ * dano ×1,75). Abaixo do level base nada muda; o catálogo não é alterado.
+ */
+export const SUMMON_HP_PER_LEVEL = 15;
+export const SUMMON_DMG_BONUS = 0.75;
+export const SUMMON_DMG_LEVELS = 26;
+export function summonScaled(def: MonsterDef, casterLevel: number): MonsterDef {
+  const over = Math.max(0, Math.floor(casterLevel) - def.level);
+  if (over <= 0) return def;
+  const mult = 1 + (SUMMON_DMG_BONUS * over) / SUMMON_DMG_LEVELS;
+  return { ...def, hp: def.hp + SUMMON_HP_PER_LEVEL * over, damage: [Math.round(def.damage[0] * mult), Math.round(def.damage[1] * mult)] };
+}
 export const eliteName = (name: string): string => `Elite ${name}`;
 
 /** Este tipo pode nascer elite? (o servidor ainda exclui invocações, ondas do Coliseu e salas de quest). */

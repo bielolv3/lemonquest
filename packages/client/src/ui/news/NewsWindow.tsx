@@ -1,8 +1,9 @@
 // Janela "Novidades": abre sozinha uma vez por versão (para quem já joga) e pelo botão da ajuda (F1).
 import { LATEST_NEWS_ID, NEWS } from "@lemonquest/shared";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { session } from "../../session.ts";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { meStore } from "../hud/world.ts";
 import { bindOverlay } from "../overlays.ts";
 import { markNewsSeen, newsOpen, seenNews } from "./news.ts";
@@ -30,10 +31,12 @@ export function NewsWindow() {
   }, [!!me, name]);
 
   const close = closeNews;
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef, open);
 
   if (!open) return null;
   return (
-    <div class="news-window panel" role="dialog" aria-label="Novidades">
+    <div ref={winRef} class="news-window panel" role="dialog" aria-label="Novidades">
       <div class="news-head"><b>Novidades</b><button class="news-x" onClick={close} aria-label="Fechar">×</button></div>
       <div class="news-body">
         {NEWS.map((n, idx) => (

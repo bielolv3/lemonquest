@@ -5,7 +5,7 @@ import { useLoginReady } from "./loading.ts";
 import { Chat } from "./Chat.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { PartyInvites } from "./party/PartyInvites.tsx";
-import { TradeWindow } from "./trade/TradeWindow.tsx";
+import { TradeInvite, TradeWindow } from "./trade/TradeWindow.tsx";
 import { EventBadge } from "./events/EventBadge.tsx";
 import { MatchBar } from "./arena/ArenaHud.tsx";
 import { FeedTicker } from "./items/LootToasts.tsx";
@@ -35,15 +35,16 @@ export function App() {
   return (
     <>
       <Hud />
-      {/* Centro do topo numa pilha só (nada se sobrepõe): evento, barra do Coliseu, avisos e notícias. */}
+      {/* Centro do topo numa pilha só (nada se sobrepõe): evento, barra do Coliseu, avisos, notícias e convites. */}
       <div class="top-stack">
         <EventBadge />
         <MatchBar />
         <Toasts />
         <FeedTicker />
+        <PartyInvites />
+        <TradeInvite />
       </div>
       <LookCardView />
-      <PartyInvites />
       <TradeWindow />
       <NewsWindow />
       <ChallengesWindow />

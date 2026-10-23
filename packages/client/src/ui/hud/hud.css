@@ -102,7 +102,7 @@
 .hud-section .fight-modes { gap: 1px; }
 .pin-btn {
   position: absolute; right: 4px; top: 5px; width: 16px; height: 16px; padding: 0; display: grid; place-items: center; cursor: pointer;
-  background: transparent; border: 0; border-radius: 3px; color: var(--hud-faint) !important; opacity: 0;
+  background: transparent; border: 0; border-radius: 3px; color: var(--hud-faint) !important; opacity: 0.35;
   transition: opacity 120ms, background-color 120ms, color 120ms;
 }
 .hud-section-headrow:hover .pin-btn, .minimap-card:hover .pin-btn, .pin-btn.on, .pin-btn:focus-visible { opacity: 1; }
@@ -183,7 +183,9 @@
   transition: transform 150ms var(--hud-ease); opacity: 0.8;
 }
 .hud-section.open .hud-caret { transform: rotate(90deg); }
-.hud-section-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-section-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+/* Título que não cabe (Section.tsx mede): some em vez de virar "BATA…"; o nome fica no tooltip e no aria-label. */
+.hud-section-head.title-cut .hud-section-title-text { visibility: hidden; }
 .hud-section-aside { flex: none; text-transform: none; letter-spacing: 0; }
 .hud-section-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 150ms var(--hud-ease); }
 .hud-section.open .hud-section-body { grid-template-rows: 1fr; }
@@ -273,6 +275,9 @@
 .battle-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d9d7cc; }
 .battle-row.selected .battle-name { color: #fff; }
 .battle-danger { color: #ff6b5e; font-weight: 700; }
+/* Elite (★ dourada) e "chama o bando" (⚑): glifos além da cor — a cor do nome fica com a dificuldade (UX-12, GD-15). */
+.battle-elite { color: #f0c040; }
+.battle-pack { color: var(--hud-muted); font-size: 11px; }
 .battle-hp { height: 3px; border-radius: 2px; background: #07080c; overflow: hidden; }
 .battle-hp > span { display: block; height: 100%; transition: width 200ms var(--hud-ease), background-color 200ms; }
 .battle-dist { flex: none; font-size: 10px; color: var(--hud-faint); font-variant-numeric: tabular-nums; }
@@ -367,6 +372,10 @@
 .action-slot.out-range { border-color: #b8413c; box-shadow: inset 0 0 0 60px rgba(184, 65, 60, 0.28); }
 .action-slot.out-range img { filter: saturate(0.6) brightness(0.8); }
 .action-slot.no-target img { filter: saturate(0.55) brightness(0.7); }
+/* Glifo do estado no canto de baixo à esquerda ("»" longe do alvo, "∅" sem alvo): a cor sozinha não basta (UX-13). */
+.action-state { position: absolute; left: 3px; bottom: 0; font-size: 11px; line-height: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 0 #000, 0 0 3px #000; z-index: 2; }
+.action-slot.out-range .action-state { color: #ff9a92; }
+.action-slot.no-target .action-state { color: var(--hud-muted); }
 /* Família (tecla inteligente): losango no canto de cima. */
 .action-family { position: absolute; right: 3px; top: 0; font-size: 10px; line-height: 12px; color: var(--hud-gold); text-shadow: 0 1px 0 #000; z-index: 2; }
 .action-slot.locked { cursor: not-allowed; }

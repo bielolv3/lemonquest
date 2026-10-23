@@ -52,6 +52,7 @@ import { AchievementSystem, setActiveAchievements } from "../systems/achievement
 import { PartySystem } from "../systems/party.ts";
 import { ErrorLog, runSafe, runSteps } from "../systems/safe.ts";
 import { PlayTelemetry, summarizePlay } from "../systems/telemetry.ts";
+import { crownWeek } from "../systems/weeklyChampion.ts";
 import { claimOnline, consumeToken, createResetCode, releaseOnline, type AuthData } from "../persistence/auth.ts";
 import {
   addAccountTone, getAccountTones, getCharacterByName, getKv, listRankingRows, nameKey, loadGroundRows, replaceGroundRows, saveCharacter, setKv, transaction,
@@ -282,20 +283,24 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       store: {
         load: () => loadGroundRows().flatMap((r) => {
           try {
-            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt, createdAt: r.createdAt }];
+            // owner/ownerUntil: reserva de 15 s do loot de grupo (GroundSystem decide se ainda vale; grupos vivem em memória).
+            return [{ x: r.x, y: r.y, item: JSON.parse(r.item) as ItemInstance, expiresAt: r.expiresAt, createdAt: r.createdAt, owner: r.owner ?? undefined, ownerUntil: r.ownerUntil ?? undefined }];
           } catch { return []; }
         }),
         save: (rows) => replaceGroundRows(rows.map((r) => ({
-          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, createdAt: r.createdAt ?? null, owner: null, ownerUntil: null, // chão sem dono
+          x: r.x, y: r.y, item: JSON.stringify(r.item), expiresAt: r.expiresAt, createdAt: r.createdAt ?? null, owner: r.owner ?? null, ownerUntil: r.ownerUntil ?? null,
         }))),
       },
       inventory: this.inventory, collection: this.state.groundItems, send,
+      partyMembers: (p) => this.party.membersOf(p.id), // linha no chat do grupo quando um membro pega raro+ do loot de grupo
       onDropped: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "drop"); },
       onPickedUp: (p) => { this.transferred.add(p.id); this.ach?.event(p.id, "pickup"); },
       canHold: (x, y) => this.map.grid.isWalkable(x, y) && !this.npcs.isNpcAt(x, y) && !this.portals.isPortalTile(x, y),
       seeThrough: (x, y) => this.map.grid.isWalkable(x, y),
     });
     console.log(`[world] itens no chão restaurados: ${this.ground.restore()}`);
+    // A virada da semana pode ter acontecido com o servidor desligado: coroa (ou revoga) no boot.
+    runSafe("weeklyChampion.boot", () => this.crownWeek(new Date()), this.errors);
     this.quests = new QuestSystem({
       inventory: this.inventory, getPlayer, send, broadcast,
       gainXp: (p, n) => this.combat.gainXp(p, n, p.x, p.y),
@@ -625,6 +630,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
         if (this.tickNow - this.weeklyAt < 60_000) return;
         this.weeklyAt = this.tickNow;
         const now = new Date(this.tickNow);
+        this.crownWeek(now); // antes de renovar as bases: a coroação lê o ganho da semana que acabou
         for (const rec of this.records.values()) rollWeek(rec, now);
       }],
       ["conditions.sync", () => this.conditions.sync(this.tickNow)],
@@ -670,6 +676,31 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     }
     this.perf = { n: 0, sum: 0, max: 0, since: now };
     this.savePerf = { n: 0, sum: 0, max: 0 };
+  }
+
+  /** Campeão da semana: título rotativo para os líderes das categorias semanais (systems/weeklyChampion.ts). */
+  private crownWeek(now: Date): void {
+    const online = (name: string) => {
+      for (const [sid, rec] of this.records) if (nameKey(rec.name) === nameKey(name)) return { sid, rec, p: this.state.players.get(sid) };
+      return null;
+    };
+    crownWeek({
+      getKv, setKv,
+      rows: () => listRankingRows(),
+      record: (name) => online(name)?.rec ?? getCharacterByName(name),
+      grant: (rec, id) => {
+        const o = online(rec.name);
+        if (o?.p) this.ach.grantTo(o.p, rec, id, true);
+        else { grantUnlock(rec, id); saveCharacter(rec); }
+      },
+      revoke: (rec) => {
+        const o = online(rec.name);
+        if (o?.p) { o.p.title = rec.data.ach?.title ? o.p.title : ""; this.ach.sendState(o.sid); }
+        else saveCharacter(rec);
+      },
+      save: (rec) => saveCharacter(rec),
+      announce: (text) => this.loot.feed(text, "info"),
+    }, now);
   }
 
   /** Linhas do /status (admin). */

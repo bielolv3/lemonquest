@@ -1,6 +1,7 @@
 // "Treinamento offline": escolha da skill ao clicar numa estátua, e o resumo ao voltar do treino.
 import type { SkillId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { meStore, type PlayerSnap } from "../hud/world.ts";
 import { bindOverlay } from "../overlays.ts";
@@ -27,6 +28,7 @@ export function TrainingWindow() {
   const result = useStore(trainingResultStore);
   const me = useStore(meStore);
   const drag = useWindowDrag("training");
+  useDialogFocus(drag.ref, !!open);
 
   return (
     <>

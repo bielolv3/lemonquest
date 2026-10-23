@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ELITE_COLOR, QUEST_CHESTS } from "@lemonquest/shared";
+import { ELITE_COLOR, MONSTERS, QUEST_CHESTS } from "@lemonquest/shared";
 import { chestClass, chestLookLines } from "./chestInfo.ts";
-import { lookCreature, lookNpc, lookPlayer, lookQuestObject } from "./lookInfo.ts";
+import { levelColor } from "./creatures.ts";
+import { lookCreature, lookNpc, lookPlayer, lookQuestObject, packFamilyLabel } from "./lookInfo.ts";
 
 describe("classe dos baús de quest", () => {
   it("baús de arma da escolha mostram a vocação; anel/amuleto/ouro mostram Todas", () => {
@@ -34,15 +35,31 @@ describe("olhar criaturas, jogadores e NPCs", () => {
     expect(c.lines).toContain("Ataque: à distância (3 sqm), fogo, 112–224");
   });
 
-  it("elite: título dourado com \"Elite\", marca ELITE, dano ×1,3 e XP ×3", () => {
+  it("elite: ★ antes do nome, cor da dificuldade (não o dourado), marca ELITE, dano ×1,3 e XP ×3", () => {
     const c = lookCreature({ defId: "dragon", name: "Elite Dragão", level: 70, boss: false, hp: 5000, maxHp: 5000, elite: true }, 60);
-    expect(c.title).toBe("Elite Dragão");
-    expect(c.color).toBe(ELITE_COLOR);
+    expect(c.title).toBe("★ Elite Dragão");
+    expect(c.color).toBe(levelColor(70, 60, false));
+    expect(c.color).not.toBe(ELITE_COLOR);
     expect(c.lines).toEqual(expect.arrayContaining(["Level 70 · perigosa · ELITE", "Ataque: à distância (3 sqm), fogo, 146–291", "XP: 10.500"]));
+    // Chefe elite: os dois glifos, caveira primeiro.
+    expect(lookCreature({ defId: "demodras", name: "Elite Demodras", level: 80, boss: true, hp: 1, maxHp: 1, elite: true }, 80).title).toBe("☠ ★ Elite Demodras");
   });
 
-  it("monstro de bando avisa que chama o bando", () => {
-    expect(lookCreature({ defId: "orc_warrior", name: "Orc", level: 42, boss: false, hp: 1, maxHp: 1 }, 42).lines).toContain("Chama o bando quando atacado");
+  it("monstro de bando avisa que chama o bando, com a família em português; quem foge avisa o limite", () => {
+    const orc = lookCreature({ defId: "orc_warrior", name: "Orc", level: 42, boss: false, hp: 1, maxHp: 1 }, 42).lines;
+    expect(orc).toContain("Chama o bando quando atacado (família: orcs)");
+    expect(orc.some((l) => /^Foge/.test(l))).toBe(false);
+    const goblin = lookCreature({ defId: "goblin", name: "Goblin", level: 10, boss: false, hp: 1, maxHp: 1 }, 10).lines;
+    expect(goblin).toContain("Chama o bando quando atacado (família: goblins)");
+    expect(goblin).toContain("Foge com pouca vida (abaixo de 20%)");
+    // Rato foge mas não tem bando; dragão nem um nem outro.
+    const rat = lookCreature({ defId: "rat", name: "Rato", level: 1, boss: false, hp: 1, maxHp: 1 }, 1).lines;
+    expect(rat).toContain("Foge com pouca vida (abaixo de 15%)");
+    expect(rat.some((l) => /bando/.test(l))).toBe(false);
+    const dragon = lookCreature({ defId: "dragon", name: "Dragão", level: 70, boss: false, hp: 1, maxHp: 1 }, 70).lines;
+    expect(dragon.some((l) => /bando|Foge/.test(l))).toBe(false);
+    // Toda família do catálogo tem rótulo em português (família nova sem rótulo mostraria o id em inglês).
+    for (const def of Object.values(MONSTERS)) if (def.pack) expect(packFamilyLabel(def.pack.family), def.pack.family).not.toBe(def.pack.family);
   });
 
   it("jogador: level e vocação, título, caveira, grupo; você", () => {

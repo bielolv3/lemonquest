@@ -3,9 +3,11 @@
 import { Callbacks, type Room } from "@colyseus/sdk";
 import { ExploredMask, S2C, type ExploredMsg, type TiledMap, type TiledObject } from "@lemonquest/shared";
 import { session } from "../../session.ts";
+import { MAP_URL, worldMapJson } from "../../game/worldMap.ts";
 
 const FOG_RGB = [7, 8, 12] as const; // #07080c
-const MAP_URL = `${import.meta.env.BASE_URL}maps/world.json`;
+/** Se o Phaser não entregar o JSON do mapa em 10 s (cena não subiu?), o minimapa baixa por conta própria. */
+const MAP_SHARE_TIMEOUT_MS = 10_000;
 const GID_MASK = 0x1fffffff;
 /** Fração mínima de pixels opacos para o tile contar como "visível" numa camada. */
 const MIN_OPAQUE = 0.4;
@@ -185,7 +187,14 @@ class MinimapStore {
   private async loadMap() {
     try {
       const mapUrl = new URL(MAP_URL, location.href);
-      const tiled = (await (await fetch(mapUrl)).json()) as TiledMap;
+      // Reaproveita o world.json que o Phaser já baixou (um pedido só), com fallback para o fetch de antes.
+      const tiled = await new Promise<TiledMap>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          console.warn("[minimap] JSON do mapa não veio do Phaser; baixando à parte");
+          fetch(mapUrl).then((r) => r.json()).then(resolve, reject);
+        }, MAP_SHARE_TIMEOUT_MS);
+        void worldMapJson.then((data) => { clearTimeout(timer); resolve(data); });
+      });
       const images = await Promise.all(
         tiled.tilesets.map((ts) => (ts.image ? loadImage(new URL(ts.image, mapUrl).href) : Promise.resolve(null))),
       );

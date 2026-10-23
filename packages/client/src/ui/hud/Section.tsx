@@ -1,7 +1,7 @@
 // Seção dobrável da barra lateral (estado lembrado em localStorage). O cabeçalho é a alça de arrastar (ver Sidebar/reorder.ts)
 // e leva o botão de fixar (pin) — fixados continuam visíveis com a barra recolhida.
 import type { ComponentChildren } from "preact";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { itemTipStore } from "../items/tipStore.ts";
 import { PixelIcon } from "./icons.tsx";
 import { defaultSections, panelSizesStore, resetPanelRows, rowsFromDrag, rowsToPx, setPanelRows, type SectionId, type SizableId } from "./panelSize.ts";
@@ -47,13 +47,14 @@ export function Section({ id, title, aside, controls, size, class: cls, children
   const open = useStore(sectionsStore)[id];
   const pinned = useStore(panelPinsStore)[id];
   const toggle = () => sectionsStore.set((s) => ({ ...s, [id]: !s[id] }));
+  const { titleRef, textRef, cut } = useTitleFits();
   return (
     <section class={`hud-card hud-section${open ? " open" : ""}${pinned ? " is-pinned" : ""}${cls ? ` ${cls}` : ""}`} data-panel-id={id}>
       <div class="hud-section-headrow" data-drag-handle>
         <span class="drag-grip" aria-hidden="true" />
-        <button class="hud-section-head" onClick={toggle} aria-expanded={open}>
+        <button class={`hud-section-head${cut ? " title-cut" : ""}`} onClick={toggle} aria-expanded={open} aria-label={cut ? title : undefined} data-tip={cut ? title : undefined}>
           <span class="hud-caret" aria-hidden="true" />
-          <span class="hud-section-title">{title}</span>
+          <span class="hud-section-title" ref={titleRef}><span class="hud-section-title-text" ref={textRef}>{title}</span></span>
           {aside != null && <span class="hud-section-aside">{aside}</span>}
         </button>
         {controls != null && <div class="hud-section-controls">{controls}</div>}
@@ -69,6 +70,29 @@ export function Section({ id, title, aside, controls, size, class: cls, children
       {size && open && <SizeGrip id={size} />}
     </section>
   );
+}
+
+/**
+ * "BATALHA"/"MOCHILA" viravam "BATA…" quando o ouro, o contador e os modos de luta não deixavam espaço (UX-23).
+ * Mede o texto do título (span interno, largura natural) contra o espaço que sobra (span externo, flex: 1): quando não
+ * cabe, o texto é escondido e o cabeçalho ganha o tooltip com o nome. O externo não depende do interno (flex-basis 0),
+ * então esconder o texto não muda a medida — sem oscilação.
+ */
+function useTitleFits() {
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = useState(false);
+  useEffect(() => {
+    const outer = titleRef.current, inner = textRef.current;
+    if (!outer || !inner || typeof ResizeObserver === "undefined") return;
+    const check = () => setCut(inner.offsetWidth > outer.clientWidth + 1);
+    const ro = new ResizeObserver(check);
+    ro.observe(outer);
+    ro.observe(inner);
+    check();
+    return () => ro.disconnect();
+  }, []);
+  return { titleRef, textRef, cut };
 }
 
 /** Corpo com altura fixa (rows * linha) e rolagem interna (a roda do mouse rola a lista). */

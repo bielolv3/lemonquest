@@ -129,7 +129,7 @@ const MIGRATIONS: Migration[] = [
      y INTEGER NOT NULL,
      item TEXT NOT NULL,               -- ItemInstance em JSON
      expires_at INTEGER NOT NULL,      -- epoch ms
-     owner TEXT,                       -- sem uso (o chão não tem dono); fica por compatibilidade. Era: nome (minúsculo) com prioridade...
+     owner TEXT,                       -- loot de grupo (ciclo 9): id do grupo com prioridade de 15 s para pegar/mover; null = sem dono...
      owner_until INTEGER               -- ...até este epoch ms
    );`,
   // v6: sessões de conta sobrevivem a reinícios. Só o hash SHA-256 do token vai para o disco (o token fica com o cliente).

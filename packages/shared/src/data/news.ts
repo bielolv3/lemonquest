@@ -12,6 +12,20 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-23a",
+    date: "23 de outubro",
+    title: "Grupo compensa, magos com mana e teclas novas",
+    items: [
+      "Grupo: +35% de XP por membro extra (era +20%) e mais +20% com três ou mais vocações diferentes.",
+      "Poções de mana recuperam 120 / 350 / 900 (eram 50 / 150 / 400) pelo mesmo preço.",
+      "Skills sobem mais rápido no fim: melee 60 é questão de dias, não de anos. O treino offline rende mais.",
+      "Posturas de combate agora em F2 / F3 / F4 (F5 volta a atualizar a página). Esc fecha sempre a janela de cima.",
+      "PvP: só dá para atacar quem está na sua faixa de level (regra dos 2/3), a não ser que ele tenha caveira ou ataque você. O /quem só mostra onde estão amigos, grupo e quem está em zona de proteção.",
+      "Bênção mais barata (50 × level). Caçada de Terça: XP em dobro das 13h às 14h. Campeão da Semana: título para quem liderar o ranking semanal.",
+      "Vender é só pelo botão da loja; largar item raro no chão pede confirmação; o chat não puxa para o fim enquanto você lê.",
+    ],
+  },
+  {
     id: "2026-10-22f",
     date: "22 de outubro (noite)",
     title: "Para onde vai o ouro",

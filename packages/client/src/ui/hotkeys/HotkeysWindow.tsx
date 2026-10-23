@@ -3,6 +3,7 @@
 import { HOTKEY_MAX, defaultHotkeys, familiesFor, familyLevel, spellsFor, type Hotkey, type Vocation } from "@lemonquest/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { clampWindowPos, useWindowDrag } from "../hud/useWindowDrag.ts";
 import { meStore } from "../hud/world.ts";
 import { bindOverlay, pushOverlay } from "../overlays.ts";
@@ -23,6 +24,7 @@ export function HotkeysWindow() {
   useStore(hotkeysStore);
   useStore(layoutStore);
   const drag = useWindowDrag("hotkeys", defaultPos);
+  useDialogFocus(drag.ref, open);
   const [capturing, setCapturing] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const msgTimer = useRef(0);
@@ -82,7 +84,7 @@ export function HotkeysWindow() {
       <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Atalhos de magia</span>
-        <button class="win-close" onClick={() => hotkeysOpen.set(false)} data-tip="Fechar" data-tip-sub="H ou Esc">×</button>
+        <button class="win-close" onClick={() => hotkeysOpen.set(false)} data-tip="Fechar" data-tip-sub="H ou Esc" aria-label="Fechar">×</button>
       </div>
       <div class="win-body">
         <p class="hk-hint">Clique na tecla e aperte a nova (pode usar Shift). Arrastar na barra também troca as magias de lugar.

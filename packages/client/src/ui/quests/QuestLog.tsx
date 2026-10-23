@@ -2,6 +2,7 @@
 import { MAX_TRACKED_QUESTS, QUEST_LIST, npcDef, questDef, questReady, unlockText } from "@lemonquest/shared";
 import { useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { inventoryStore } from "../items/inventory.ts";
 import { toggleChallenges } from "../challenges/challenges.ts";
@@ -28,6 +29,7 @@ function QuestLogDialog() {
   const [sel, setSel] = useState<string>(active[0]?.def.id ?? done[0]?.id ?? "");
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const drag = useWindowDrag("questLog");
+  useDialogFocus(drag.ref);
 
   const def = questDef(sel);
   const act = st?.active.find((a) => a.id === sel);

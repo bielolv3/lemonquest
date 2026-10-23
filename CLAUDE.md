@@ -47,7 +47,8 @@ Servidor isolado para teste manual ou smoke (não toca em `data/`):
   log do servidor a linha `[tick] … máx` (CPU saturada = ticks de centenas de ms = falha falsa).
 - Falha E2E nova? O helper `teleport()` só devolve com o ator no tile e a câmera centrada nele (`settled()`); specs
   que clicam uma vez só devem usar `expect.poll` com reclique. Histórico em `docs/TEST_PLAN.md` (ciclo 9).
-- O chão não tem dono e dura 10 min: testes que largam itens devem escolher um tile sem item (`ground()`).
+- O chão não tem dono (exceto 15 s de prioridade do grupo no loot de abate em grupo) e dura 10 min: testes que largam
+  itens devem escolher um tile sem item (`ground()`).
 - `WorldScene.ts` (~1.460 linhas) e `WorldRoom.ts` (~1.200) são grandes de propósito; não refatore sem pedido.
 - Greps por nome acham cópias em `packages/*/dist/` e `packages/client/.public/` (gerados): ignore.
 

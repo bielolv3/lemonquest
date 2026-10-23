@@ -2,6 +2,7 @@
 import { useState } from "preact/hooks";
 import { ACHIEVEMENTS, TITLES, TOTAL_ACHIEVEMENT_POINTS, unlockText, type AchievementDef } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { bindOverlay } from "../overlays.ts";
 import { achievementsOpen, achievementsStore, fmtNum, fmtProgress, sendTitle, titleText } from "./achievements.ts";
@@ -32,13 +33,14 @@ function AchievementsDialog() {
   const titles = (st?.unlocks ?? []).filter((u) => u.startsWith("title:")).map((u) => u.slice(6)).filter((t) => t in TITLES);
   const list = ACHIEVEMENTS.filter((a) => (filter === "all" ? true : filter === "done" ? !!done[a.id] : !done[a.id]));
   const drag = useWindowDrag("achievements");
+  useDialogFocus(drag.ref);
 
   return (
     <div ref={drag.ref} class={`hud-card hud-window ach-win${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Conquistas">
       <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Conquistas</span>
-        <button class="win-close" onClick={() => achievementsOpen.set(false)} data-tip="Fechar" data-tip-sub="J ou Esc">×</button>
+        <button class="win-close" onClick={() => achievementsOpen.set(false)} data-tip="Fechar" data-tip-sub="J ou Esc" aria-label="Fechar">×</button>
       </div>
       <div class="ach-head">
         <div class="ach-points" data-tip="Pontos de conquista">

@@ -92,33 +92,34 @@ export function Sidebar() {
           class="rail-btn"
           onClick={() => toggle(sidebarOpen)}
           data-tip={open ? "Recolher painel" : "Abrir painel"}
+          aria-label={open ? "Recolher painel" : "Abrir painel"}
           aria-expanded={open}
         >
           <span class={`rail-chevron${open ? "" : " flip"}`} aria-hidden="true" />
         </button>
         <span class="rail-sep" />
-        <button class={`rail-btn${skills ? " active" : ""}`} onClick={() => toggle(skillsOpen)} data-tip="Habilidades" data-tip-sub="Tecla K">
+        <button class={`rail-btn${skills ? " active" : ""}`} onClick={() => toggle(skillsOpen)} data-tip="Habilidades" data-tip-sub="Tecla K" aria-label="Habilidades" aria-pressed={skills}>
           <PixelIcon name="chart" size={14} />
         </button>
-        <button class={`rail-btn${outfit ? " active" : ""}`} onClick={toggleOutfit} data-tip="Roupas" data-tip-sub="Tecla O">
+        <button class={`rail-btn${outfit ? " active" : ""}`} onClick={toggleOutfit} data-tip="Roupas" data-tip-sub="Tecla O" aria-label="Roupas" aria-pressed={outfit}>
           <PixelIcon name="shirt" size={14} />
         </button>
-        <button class={`rail-btn${questLog ? " active" : ""}`} onClick={toggleQuestLog} data-tip="Diário de missões" data-tip-sub="Tecla L">
+        <button class={`rail-btn${questLog ? " active" : ""}`} onClick={toggleQuestLog} data-tip="Diário de missões" data-tip-sub="Tecla L" aria-label="Diário de missões" aria-pressed={questLog}>
           <PixelIcon name="scroll" size={14} />
         </button>
-        <button class={`rail-btn${achOpen ? " active" : ""}`} onClick={toggleAchievements} data-tip="Conquistas" data-tip-sub="Tecla J">
+        <button class={`rail-btn${achOpen ? " active" : ""}`} onClick={toggleAchievements} data-tip="Conquistas" data-tip-sub="Tecla J" aria-label="Conquistas" aria-pressed={achOpen}>
           <PixelIcon name="trophy" size={14} />
         </button>
-        <button class={`rail-btn${bestiary ? " active" : ""}`} onClick={toggleBestiary} data-tip="Bestiário" data-tip-sub="Tecla B">
+        <button class={`rail-btn${bestiary ? " active" : ""}`} onClick={toggleBestiary} data-tip="Bestiário" data-tip-sub="Tecla B" aria-label="Bestiário" aria-pressed={bestiary}>
           <PixelIcon name="swords" size={14} />
         </button>
-        <button class={`rail-btn${rankOpen ? " active" : ""}`} onClick={toggleRanking} data-tip="Ranking" data-tip-sub="Tecla R">
+        <button class={`rail-btn${rankOpen ? " active" : ""}`} onClick={toggleRanking} data-tip="Ranking" data-tip-sub="Tecla R" aria-label="Ranking" aria-pressed={rankOpen}>
           <PixelIcon name="podium" size={14} />
         </button>
-        <button class="rail-btn" onClick={openWorldMap} data-tip="Mapa do mundo" data-tip-sub="Tecla M">
+        <button class="rail-btn" onClick={openWorldMap} data-tip="Mapa do mundo" data-tip-sub="Tecla M" aria-label="Mapa do mundo">
           <PixelIcon name="map" size={14} />
         </button>
-        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => { soundOpen.set(false); autoOpen.set(false); a11yOpen.set(false); toggle(helpOpen); }} data-tip="Atalhos" data-tip-sub="Tecla ?">
+        <button class={`rail-btn${help ? " active" : ""}`} onClick={() => { soundOpen.set(false); autoOpen.set(false); a11yOpen.set(false); toggle(helpOpen); }} data-tip="Atalhos" data-tip-sub="Tecla ?" aria-label="Atalhos e ajuda" aria-expanded={help}>
           <span class="rail-q">?</span>
         </button>
         <button
@@ -209,7 +210,7 @@ function CompactVitals() {
   const me = useStore(meStore);
   if (!me) return null;
   return (
-    <div class="hud-card compact-vitals" onClick={() => sidebarOpen.set(true)} data-tip="Abrir painel">
+    <div class="hud-card compact-vitals" onClick={() => sidebarOpen.set(true)} data-tip="Abrir painel" role="button" tabIndex={0} aria-label="Abrir painel" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sidebarOpen.set(true); } }}>
       <Portrait me={me} size={40} />
       <div class="compact-bars">
         <StatBar kind="hp" value={me.hp} max={me.maxHp} text={`${me.hp}`} />

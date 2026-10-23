@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { BACKPACK_SIZE, S2C } from "@lemonquest/shared";
 import { makeItem } from "./inventory.ts";
-import { DECAY_MS, DROP_RANGE, MAX_LIFE_MULT, GROUND_MSG, GROUND_RATE, GroundSystem, MAX_GROUND_ITEMS, MAX_PER_TILE, SAVE_DEBOUNCE_MS, lineClear } from "./ground.ts";
+import {
+  DECAY_MS, DROP_RANGE, MAX_LIFE_MULT, GROUND_MSG, GROUND_RATE, GroundSystem, MAX_GROUND_ITEMS, MAX_PER_TILE, PARTY_LOOT_PRIORITY_MS, SAVE_DEBOUNCE_MS,
+  lineClear, partyLootMsg, type GroundRecord,
+} from "./ground.ts";
 import { LootSystem } from "./loot.ts";
 import { def, grid } from "./testkit.ts";
 import { invWorld } from "./m4kit.ts";
@@ -25,15 +28,19 @@ function groundWorld() {
   const w = invWorld();
   const collection = new Map<string, GroundItemState>();
   const logs: string[] = [];
+  const roster = new Map<string, PlayerState>();
   const ground = new GroundSystem({
     inventory: w.inv, collection, now: w.now, log: (m) => logs.push(m),
     canHold: (x, y) => MAP.isWalkable(x, y) && !(x === 2 && y === 2),
     seeThrough: (x, y) => MAP.isWalkable(x, y),
     send: (to, type, msg) => w.sent.push({ to, type, msg }),
+    // Grupo "de mentira": quem tem o mesmo partyId é do mesmo grupo (no jogo o PartySystem mantém p.partyId).
+    partyMembers: (p) => [...roster.values()].filter((q) => q.partyId && q.partyId === p.partyId).map((q) => q.id),
   });
   const add = (id: string, x: number, y: number, over: Partial<PlayerState> = {}) => {
     const p = w.mk(id, { name: id.toUpperCase(), ...over });
     p.x = x; p.y = y;
+    roster.set(id, p);
     return p;
   };
   const onTile = (x: number, y: number) => ground.at(x, y).map((id) => ground.get(id)!);
@@ -505,43 +512,151 @@ describe("ground: mover no chão (arrastar de um tile para outro)", () => {
   });
 });
 
-describe("loot de grupo: cai no chão e qualquer um pega", () => {
+describe("loot de grupo: cai no chão reservado ao grupo por 15 s, depois qualquer um pega (GD-21)", () => {
   const md = def({ name: "Rato", gold: [7, 7], loot: [{ itemId: "vest", chance: 1 }] });
-  const kill = (t: ReturnType<typeof groundWorld>, killer: PlayerState, players: Map<string, PlayerState>, party?: string) => {
+  // rng 0 → colete comum; 0,95 → raro (acumulado das raridades: comum 0,7, incomum 0,9, raro 0,975).
+  const kill = (t: ReturnType<typeof groundWorld>, killer: PlayerState, players: Map<string, PlayerState>, party?: string, rng = () => 0) => {
     const loot = new LootSystem({
-      inventory: t.w.inv, getPlayer: (id) => players.get(id), ground: t.ground, rng: () => 0,
+      inventory: t.w.inv, getPlayer: (id) => players.get(id), ground: t.ground, rng, now: t.w.now,
       send: (to, type, msg) => t.w.sent.push({ to, type, msg }), broadcast: () => {},
       partyIdOf: () => party,
     });
     loot.onKill({ s: { id: "m1", x: 9, y: 8, ownerId: "" }, def: md, damageBy: new Map([[killer.id, 10]]) } as unknown as Monster);
   };
+  const partyChat = (t: ReturnType<typeof groundWorld>) => t.w.sent.filter((x) => x.type === S2C.Chat && x.msg.channel === "party").map((x) => `${x.to}:${x.msg.text}`);
 
-  it("itens e ouro no tile do monstro; o grupo e quem é de fora pegam na hora", () => {
+  it("itens e ouro no tile do monstro com dono = grupo; membro pega na hora, quem é de fora só depois de 15 s", () => {
     const t = groundWorld();
-    const killer = t.add("k", 9, 7), ally = t.add("a", 8, 8), stranger = t.add("s", 10, 8);
-    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "pt1");
+    const killer = t.add("k", 9, 7, { partyId: "P1" }), ally = t.add("a", 8, 8, { partyId: "P1" }), stranger = t.add("s", 10, 8);
+    const t0 = t.w.now();
+    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "P1");
     const items = t.onTile(9, 8);
     expect(items.map((e) => e.item.defId).sort()).toEqual(["gold_coin", "vest"]);
+    for (const e of items) expect([e.owner, e.ownerUntil]).toEqual(["P1", t0 + PARTY_LOOT_PRIORITY_MS]);
     expect(t.bp("k").filter(Boolean)).toHaveLength(0);
     expect(t.w.inv.gold("k")).toBe(0);
     const msg = t.w.sent.find((x) => x.type === S2C.Loot)!.msg;
     expect(msg).toMatchObject({ onGround: true, gold: 7 });
+    // De fora, dentro do prazo: recusado com aviso dizendo quanto falta; nada sai do chão.
+    const gold = items.find((e) => e.item.defId === "gold_coin")!.state.id;
+    t.ground.onPickup(stranger, { groundId: gold });
+    expect(t.w.notices()).toEqual([partyLootMsg(15)]);
+    expect(t.w.inv.gold("s")).toBe(0);
+    t.w.advance(5_500);
+    t.ground.onPickup(stranger, { groundId: gold });
+    expect(t.w.notices().at(-1)).toBe(partyLootMsg(10));
+    expect(t.ground.get(gold)).toBeDefined();
+    // Membro pega na hora.
     const vest = items.find((e) => e.item.defId === "vest")!.state.id;
     t.ground.onPickup(ally, { groundId: vest });
     expect(t.ground.get(vest)).toBeUndefined();
     expect(t.bp("a").some((x) => x?.defId === "vest")).toBe(true);
-    const gold = items.find((e) => e.item.defId === "gold_coin")!.state.id;
-    t.step();
+    // Passado o prazo, o chão volta a ser de qualquer um.
+    t.w.advance(PARTY_LOOT_PRIORITY_MS);
     t.ground.onPickup(stranger, { groundId: gold });
     expect(t.w.inv.gold("s")).toBe(7);
+    expect(partyChat(t)).toEqual([]); // colete comum: sem linha no chat
   });
 
-  it("sozinho continua igual: direto na mochila de quem matou", () => {
+  it("de fora também não move o item reservado; membro move e a reserva viaja com ele", () => {
+    const t = groundWorld();
+    const killer = t.add("k", 9, 7, { partyId: "P1" }), ally = t.add("a", 8, 8, { partyId: "P1" }), stranger = t.add("s", 10, 8);
+    const t0 = t.w.now();
+    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "P1");
+    const vest = t.onTile(9, 8).find((e) => e.item.defId === "vest")!.state.id;
+    t.ground.onMoveGround(stranger, { groundId: vest, x: 10, y: 8 });
+    expect(t.w.notices()).toEqual([partyLootMsg(15)]);
+    expect(t.ground.get(vest)!.state).toMatchObject({ x: 9, y: 8 });
+    t.step();
+    t.ground.onMoveGround(ally, { groundId: vest, x: 8, y: 7 });
+    const moved = t.onTile(8, 7)[0]!;
+    expect(moved.item.defId).toBe("vest");
+    expect([moved.owner, moved.ownerUntil]).toEqual(["P1", t0 + PARTY_LOOT_PRIORITY_MS]);
+    t.step();
+    t.ground.onPickup(stranger, { groundId: moved.state.id });
+    expect(t.w.notices().at(-1)).toMatch(/^Esse item é do grupo por mais \d+ s\.$/);
+  });
+
+  it("raro+ pego por um membro vira linha no chat do grupo (também depois do prazo); quem é de fora não gera linha", () => {
+    const t = groundWorld();
+    const killer = t.add("k", 9, 7, { name: "Kiko", partyId: "P1" }), ally = t.add("a", 8, 8, { name: "Ana", partyId: "P1" }), stranger = t.add("s", 10, 8);
+    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "P1", () => 0.95);
+    const vest = t.onTile(9, 8).find((e) => e.item.defId === "vest")!;
+    expect(vest.item.rarity).toBe("rare");
+    t.w.advance(PARTY_LOOT_PRIORITY_MS + 1); // já sem reserva: a procedência continua
+    t.ground.onPickup(ally, { groundId: vest.state.id });
+    expect(partyChat(t)).toEqual(["k:Ana pegou Colete (Raro)", "a:Ana pegou Colete (Raro)"]);
+    // Outro abate, mesma situação, mas quem leva é de fora: silêncio no chat.
+    t.step();
+    kill(t, killer, new Map([["k", killer], ["a", ally], ["s", stranger]]), "P1", () => 0.95);
+    const vest2 = t.onTile(9, 8).find((e) => e.item.defId === "vest")!;
+    t.w.advance(PARTY_LOOT_PRIORITY_MS + 1);
+    t.ground.onPickup(stranger, { groundId: vest2.state.id });
+    expect(t.bp("s").some((x) => x?.defId === "vest")).toBe(true);
+    expect(partyChat(t)).toHaveLength(2);
+  });
+
+  it("ouro do grupo não entra numa pilha livre (nem o contrário); pilhas do mesmo grupo somam e estendem a reserva", () => {
+    const t = groundWorld();
+    const reserve = () => ({ owner: "P1", ownerUntil: t.w.now() + PARTY_LOOT_PRIORITY_MS });
+    const piles = () => t.onTile(9, 8).map((e) => [e.item.count, e.owner]);
+    t.ground.place(makeItem("gold_coin", 3), 9, 8);                 // ouro livre já no tile
+    t.ground.placeNear(makeItem("gold_coin", 7), 9, 8, reserve());  // abate do grupo: pilha própria
+    expect(piles()).toEqual([[3, undefined], [7, "P1"]]);
+    t.w.advance(4000);
+    t.ground.placeNear(makeItem("gold_coin", 7), 9, 8, reserve());  // 2º abate do grupo: soma e a reserva conta do novo
+    expect(piles()).toEqual([[3, undefined], [14, "P1"]]);
+    expect(t.onTile(9, 8)[1]!.ownerUntil).toBe(t.w.now() + PARTY_LOOT_PRIORITY_MS);
+    t.ground.place(makeItem("gold_coin", 2), 9, 8);                 // ouro livre não entra na pilha do grupo
+    expect(piles()).toEqual([[3, undefined], [14, "P1"], [2, undefined]]);
+    t.w.advance(PARTY_LOOT_PRIORITY_MS);                            // reserva vencida: volta a empilhar com o livre
+    t.ground.placeNear(makeItem("gold_coin", 1), 9, 8);
+    expect(piles()).toEqual([[3, undefined], [14, "P1"], [3, undefined]]);
+  });
+
+  it("sozinho continua igual: direto na mochila de quem matou, e o que não coube cai sem dono", () => {
     const t = groundWorld();
     const killer = t.add("k", 9, 7);
     kill(t, killer, new Map([["k", killer]]));
     expect(t.onTile(9, 8)).toHaveLength(0);
     expect(t.bp("k").some((x) => x?.defId === "vest")).toBe(true);
     expect(t.w.inv.gold("k")).toBe(7);
+    for (let i = 0; i < BACKPACK_SIZE; i++) t.w.inv.addItem(killer, makeItem("sword"));
+    t.step();
+    kill(t, killer, new Map([["k", killer]]));
+    const fell = t.onTile(9, 7)[0]!;
+    expect(fell.item.defId).toBe("vest");
+    expect([fell.owner, fell.ownerUntil]).toEqual([undefined, undefined]);
+  });
+});
+
+describe("ground: persistência da reserva do grupo", () => {
+  it("flush grava owner/ownerUntil; restore só devolve a reserva que ainda vale", () => {
+    const rows: GroundRecord[] = [];
+    const store = { load: () => rows, save: (r: GroundRecord[]) => { rows.length = 0; rows.push(...r); } };
+    const mkWorld = () => {
+      const w = invWorld();
+      const collection = new Map<string, GroundItemState>();
+      const g = new GroundSystem({
+        store, inventory: w.inv, collection, now: w.now, log: () => {},
+        canHold: (x, y) => MAP.isWalkable(x, y), seeThrough: (x, y) => MAP.isWalkable(x, y), send: () => {},
+      });
+      return { w, g };
+    };
+    const a = mkWorld();
+    const t0 = a.w.now();
+    a.g.placeNear(makeItem("vest"), 1, 1, { owner: "P1", ownerUntil: t0 + PARTY_LOOT_PRIORITY_MS });
+    a.g.placeNear(makeItem("bone", 2), 3, 3, { owner: "P2", ownerUntil: t0 + 2000 });
+    a.g.place(makeItem("bone", 1), 5, 5);
+    a.g.flush();
+    expect(rows.map((r) => [r.x, r.owner, r.ownerUntil])).toEqual([[1, "P1", t0 + PARTY_LOOT_PRIORITY_MS], [3, "P2", t0 + 2000], [5, null, null]]);
+    // Reinício 5 s depois: a reserva de P1 ainda vale, a de P2 já venceu (e some de vez, não fica como procedência).
+    const b = mkWorld();
+    b.w.advance(5000);
+    expect(b.g.restore()).toBe(3);
+    const at = (x: number) => b.g.get(b.g.at(x, x)[0]!)!;
+    expect([at(1).owner, at(1).ownerUntil]).toEqual(["P1", t0 + PARTY_LOOT_PRIORITY_MS]);
+    expect([at(3).owner, at(3).ownerUntil]).toEqual([undefined, undefined]);
+    expect([at(5).owner, at(5).ownerUntil]).toEqual([undefined, undefined]);
   });
 });

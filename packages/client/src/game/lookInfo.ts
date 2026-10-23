@@ -2,7 +2,7 @@
 import { ELITE, SKULL_LABEL, TITLES, monsterDef, npcDef, questLeverDef } from "@lemonquest/shared";
 import { DAMAGE_LABEL, VOCATION_LABEL } from "../ui/items/itemInfo.ts";
 import { chestLookLines } from "./chestInfo.ts";
-import { creatureColor, levelDifficulty } from "./creatures.ts";
+import { creatureColor, ELITE_GLYPH, levelDifficulty } from "./creatures.ts";
 
 export interface LookContent { title: string; color?: string; lines: string[] }
 
@@ -20,11 +20,20 @@ export function lookCreature(c: { defId: string; name: string; level: number; bo
     const dmg = `${Math.round(def.damage[0] * k)}–${Math.round(def.damage[1] * k)}`;
     lines.push(`Ataque: ${def.attackRange > 1 ? `à distância (${def.attackRange} sqm)` : "corpo a corpo"}, ${DAMAGE_LABEL[def.damageKind]}, ${dmg}`);
     if (def.abilities?.length) lines.push(`Habilidades: ${def.abilities.map((a) => a.name).join(", ")}`);
-    if (def.pack) lines.push("Chama o bando quando atacado");
+    // Bando e fuga (GD-15): quem vai puxar precisa saber antes que o monstro grita por reforço ou some com pouca vida.
+    if (def.pack) lines.push(`Chama o bando quando atacado (família: ${packFamilyLabel(def.pack.family)})`);
+    if (def.fleeAtHpPct > 0) lines.push(`Foge com pouca vida (abaixo de ${Math.round(def.fleeAtHpPct * 100)}%)`);
     lines.push(`XP: ${(def.xp * (c.elite ? ELITE.xp : 1)).toLocaleString("pt-BR")}`);
   }
-  return { title: `${c.boss ? "☠ " : ""}${c.name}`, color: creatureColor(c.level, myLevel, c.boss, c.elite), lines };
+  // Elite: ★ antes do nome; a cor continua a da dificuldade (o dourado sozinho se confundia com o amarelo "difícil").
+  return { title: `${c.boss ? "☠ " : ""}${c.elite ? `${ELITE_GLYPH} ` : ""}${c.name}`, color: creatureColor(c.level, myLevel, c.boss, c.elite), lines };
 }
+
+/** Nome em português da família de bando (MonsterDef.pack.family); família nova sem rótulo mostra o id mesmo. */
+const PACK_FAMILY_LABEL: Record<string, string> = {
+  wolf: "lobos", goblin: "goblins", orc: "orcs", minotaur: "minotauros", ape: "macacos", pirate: "piratas", barbarian: "bárbaros",
+};
+export const packFamilyLabel = (family: string): string => PACK_FAMILY_LABEL[family] ?? family;
 
 export function lookPlayer(p: { name: string; level: number; vocation: string; title?: string; skull?: string }, o: { me: boolean; party: boolean }): LookContent {
   const lines = [`Level ${p.level} · ${VOCATION_LABEL[p.vocation as keyof typeof VOCATION_LABEL] ?? p.vocation}`];

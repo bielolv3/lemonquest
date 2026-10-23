@@ -1,6 +1,6 @@
 // Visual das criaturas: converte MonsterDef.sprite (shared) em CharacterSheet/CharacterLook do cliente.
 import type Phaser from "phaser";
-import { ELITE_COLOR, MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@lemonquest/shared";
+import { MONSTERS, type CreatureSprite, type Facing, type MonsterDef } from "@lemonquest/shared";
 import { gridSheet, type CharacterLook, type CharacterSheet } from "./sprites.ts";
 
 const sheets = new Map<string, CharacterSheet>();
@@ -81,10 +81,17 @@ export function levelColor(monsterLevel: number, myLevel: number, boss: boolean)
   return DIFFICULTY_COLOR[levelDifficulty(monsterLevel, myLevel, boss)];
 }
 
-/** Cor do nome da criatura: elite em dourado (o nome já diz "Elite"); senão a cor da dificuldade. */
-export function creatureColor(monsterLevel: number, myLevel: number, boss: boolean, elite?: boolean): string {
-  return elite ? ELITE_COLOR : levelColor(monsterLevel, myLevel, boss);
+/**
+ * Cor do nome da criatura: sempre a da dificuldade. A elite já tinha nome dourado, mas o dourado se confundia com o
+ * amarelo "difícil" e apagava a dificuldade real (UX-12): agora ela é marcada com "★" antes do nome (mundo, olhar e
+ * lista de batalha) e a cor segue dizendo se é fraca, normal, difícil ou perigosa para o seu level.
+ */
+export function creatureColor(monsterLevel: number, myLevel: number, boss: boolean, _elite?: boolean): string {
+  return levelColor(monsterLevel, myLevel, boss);
 }
+
+/** Glifo da elite (antes do nome). A cor fica para a estrela, não para o nome. */
+export const ELITE_GLYPH = "★";
 
 export interface SheetTrim { top: number; bottom: number }
 const trims = new Map<string, SheetTrim>();

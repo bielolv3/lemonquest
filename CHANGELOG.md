@@ -68,6 +68,29 @@ dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisõ
 - **Caçada de Terça**: XP em dobro na terça das 13h às 14h (logo depois do Rei Goblin), para quem joga no escritório; a
   Noite de Caçada de sexta continua.
 - Tarântula e demônio: a habilidade (Picada Venenosa, Paralisia) deixa de bater menos que o golpe básico.
+- **Campeão da Semana**: na virada da semana, quem liderou cada categoria semanal do ranking (XP, abates, peixes,
+  chefes) ganha o título rotativo "Campeão da Semana" até a próxima segunda (o feed anuncia os campeões).
+- **Loot de grupo com prioridade**: o que cai de um abate em grupo fica reservado ao grupo por 15 segundos (depois
+  qualquer um pega, como antes); quando um membro pega um item raro ou melhor, o chat do grupo avisa.
+- **Lobo Espiritual** do druida cresce com o level (vida e dano); **arcos e bestas** do tier 2 em diante batem 15 % mais.
+
+**Bandos, elite e acessibilidade**
+- O olhar (Shift+clique) diz quando o monstro chama o bando e quando foge com pouca vida; a lista de batalha marca ⚑
+  quem chama o bando. Elite ganha ★ antes do nome, e o nome volta a ter a cor da dificuldade.
+- Botões do trilho e × das janelas com nome para leitor de tela; o foco vai para a janela ao abrir e volta ao jogo ao
+  fechar; slots da barra mostram » (fora de alcance) e ∅ (sem alvo) além da cor; convites de grupo e de troca entram na
+  pilha do topo (não ficam atrás da barra do Coliseu); login com "mostrar senha" e aviso de Caps Lock; a tela de morte
+  lembra da bênção; títulos de painel não cortam mais; a ajuda F1 ganhou a seção "Painéis"; Coliseu e NPC arrastam.
+
+**Testes**
+- E2E novos: morte com perda de XP e bênção, viagem de carroça, comandos de admin (`/status`, `/mute`, `/kick`) e os
+  sinks (encantamento, tingimento, cassino); teste de migração do banco a partir de uma base v3; comando
+  `/fechar-ciclo` para o Claude Code com o procedimento de fechamento de ciclo.
+
+**Fase 3 — build e carregamento**
+- Deploy menor (25 → 17 MB): só os sons usados vão para o build; previews do mapa deixam de ser versionados.
+- Primeiro acesso mais leve: `world.json` é baixado uma vez (o minimapa reaproveita o do jogo) e o servidor entrega
+  HTML, JS, CSS e o mapa em gzip (mapa de 1,5 MB → 72 KB) sem dependência nova.
 
 ## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
 

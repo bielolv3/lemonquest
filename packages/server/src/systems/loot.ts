@@ -5,6 +5,7 @@ import {
   type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
+import { PARTY_LOOT_PRIORITY_MS, type GroundReserve } from "./ground.ts";
 import { GOLD_ID, makeItem, newUid, type InventorySystem, type ItemDefs } from "./inventory.ts";
 import { KILL_CREDIT_RANGE, cheb, type Monster } from "./monsters.ts";
 
@@ -102,13 +103,18 @@ export interface LootOptions {
   send: (sessionId: string, type: string, msg: unknown) => void;
   broadcast: (type: string, msg: unknown) => void;
   rng?: () => number;
+  /** Relógio (o mesmo do chão): a reserva do loot de grupo é contada nele. Ausente = Date.now. */
+  now?: () => number;
   /** Multiplicador da chance de cada item do loot (evento com bônus). Ausente = 1. */
   lootMult?: () => number;
-  /** Itens no chão (systems/ground.ts): o que não coube cai no tile de quem matou (protegido por 60 s). */
+  /** Itens no chão (systems/ground.ts): o que não coube cai no tile de quem matou (sem dono). */
   ground?: {
     placeLoot: (p: PlayerState, item: ItemInstance) => boolean;
-    /** Loot de grupo: no tile do monstro (ou o livre mais perto). Retorna o id (undefined = não coube). */
-    placeNear?: (item: ItemInstance, x: number, y: number) => string | undefined;
+    /**
+     * Loot de grupo: no tile do monstro (ou o livre mais perto), reservado ao grupo por PARTY_LOOT_PRIORITY_MS.
+     * Retorna o id (undefined = não coube).
+     */
+    placeNear?: (item: ItemInstance, x: number, y: number, reserve?: GroundReserve) => string | undefined;
   };
   /**
    * Grupo (party id) de quem matou `m` quando há outro membro por perto do monstro: o loot cai no chão para o grupo.
@@ -163,7 +169,7 @@ export class LootSystem {
     const roll = rollLoot(def, this.rng, this.o.inventory.defs, (this.o.lootMult?.() ?? 1) * (m.elite ? ELITE.loot : 1), m.elite ? ELITE.gold : 1);
     const monsterName = m.elite ? eliteName(def.name) : def.name;
     const party = this.o.partyIdOf?.(p, m);
-    if (party && this.o.ground?.placeNear) return this.dropForParty(p, m, roll.items, roll.gold);
+    if (party && this.o.ground?.placeNear) return this.dropForParty(p, m, roll.items, roll.gold, party);
     if (roll.gold > 0) this.o.inventory.addGold(p, roll.gold);
     const got: ItemInstance[] = [];
     let lost = 0, fell = 0;
@@ -191,16 +197,18 @@ export class LootSystem {
   }
 
   /**
-   * Em grupo, o loot (itens e ouro) cai no chão onde o monstro morreu, para qualquer um pegar (o chão não tem dono).
+   * Em grupo, o loot (itens e ouro) cai no chão onde o monstro morreu, reservado ao grupo por PARTY_LOOT_PRIORITY_MS
+   * (GD-21: quem passa correndo não leva o raro do grupo); depois fica sem dono como o resto do chão.
    * O que não couber no chão vai para a mochila de quem matou.
    */
-  private dropForParty(p: PlayerState, m: Monster, items: ItemInstance[], gold: number): void {
+  private dropForParty(p: PlayerState, m: Monster, items: ItemInstance[], gold: number, partyId: string): void {
     const { x, y } = m.s;
     const all = gold > 0 ? [...items, makeItem(GOLD_ID, gold)] : items;
     const onGround: ItemInstance[] = [];
     let groundGold = 0;
+    const reserve: GroundReserve = { owner: partyId, ownerUntil: (this.o.now ?? Date.now)() + PARTY_LOOT_PRIORITY_MS };
     for (const it of all) {
-      if (this.o.ground!.placeNear!(it, x, y)) {
+      if (this.o.ground!.placeNear!(it, x, y, reserve)) {
         if (it.defId === GOLD_ID) groundGold += it.count; else onGround.push(it);
         continue;
       }

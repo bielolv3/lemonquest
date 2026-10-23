@@ -5,6 +5,7 @@ import { StatBar } from "./StatBar.tsx";
 import { fmt, xpProgress } from "./StatusPanel.tsx";
 import { useStore } from "./store.ts";
 import { skillsOpen } from "./uiState.ts";
+import { useDialogFocus } from "./useDialogFocus.ts";
 import { clampWindowPos, useWindowDrag } from "./useWindowDrag.ts";
 import { meStore, type PlayerSnap } from "./world.ts";
 
@@ -33,6 +34,7 @@ export function SkillsWindow() {
   const open = useStore(skillsOpen);
   const me = useStore(meStore);
   const drag = useWindowDrag("skills", defaultPos);
+  useDialogFocus(drag.ref, open);
 
   if (!open || !me) return null;
   const xp = xpProgress(me.level, me.xp);
@@ -49,7 +51,7 @@ export function SkillsWindow() {
       <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Habilidades</span>
-        <button class="win-close" onClick={() => skillsOpen.set(false)} data-tip="Fechar" data-tip-sub="K ou Esc">×</button>
+        <button class="win-close" onClick={() => skillsOpen.set(false)} data-tip="Fechar" data-tip-sub="K ou Esc" aria-label="Fechar">×</button>
       </div>
       <div class="win-body">
         <dl class="kv">

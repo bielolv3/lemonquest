@@ -19,6 +19,7 @@ html[data-contrast="high"] ::-webkit-scrollbar-thumb { background-color: rgba(25
   * { scrollbar-width: thin; scrollbar-color: rgba(232, 230, 217, 0.2) transparent; }
 }
 #game { position: fixed; inset: 0; }
+#game:focus { outline: none; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
 
@@ -45,6 +46,15 @@ html[data-contrast="high"] ::-webkit-scrollbar-thumb { background-color: rgba(25
   border: 1px solid #2c3242; border-radius: 4px; padding: 8px 10px; outline: none;
 }
 .field input:focus, .chat-input:focus { border-color: #d9a441; }
+/* Senha: olho de "mostrar senha" dentro do campo e aviso de Caps Lock (UX-21). */
+.pw-wrap { position: relative; display: flex; }
+.pw-wrap input { flex: 1; min-width: 0; padding-right: 38px; }
+.pw-eye {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; padding: 0; cursor: pointer;
+  background: transparent; border: 0; border-radius: 4px; font-size: 16px; line-height: 1; color: #a9adbb; opacity: 0.8;
+}
+.pw-eye:hover, .pw-eye[aria-pressed="true"] { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+.pw-caps { font-size: 12px; color: #f0cf8b; }
 /* Foco por teclado (Tab) sempre visível; clique de mouse não mostra (focus-visible). */
 #ui :where(button, a, select, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
   outline: 2px solid #d9a441; outline-offset: 2px;
@@ -205,6 +215,8 @@ html[data-contrast="high"] ::-webkit-scrollbar-thumb { background-color: rgba(25
 }
 .top-stack > * { pointer-events: auto; }
 .top-stack:empty { display: none; }
+/* Convites (grupo/troca) são os únicos itens da pilha que respondem ao clique: ficam por cima dos avisos que somem. */
+.top-stack > .party-invites, .top-stack > .trade-invite { position: relative; z-index: 1; }
 .toasts { display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none !important; }
 .toasts:empty, .feed-ticker:empty { display: none; }
 .toast { padding: 6px 14px; font-size: 14px; animation: toast-life 3s ease-out forwards; }

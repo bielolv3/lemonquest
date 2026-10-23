@@ -3,6 +3,7 @@
 import { MONSTERS, itemDef } from "@lemonquest/shared";
 import { useState } from "preact/hooks";
 import { createStore, useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { achievementsStore, requestAchievements } from "../achievements/achievements.ts";
 import { bindOverlay } from "../overlays.ts";
@@ -31,6 +32,7 @@ function BestiaryDialog() {
   const rows = bestiaryRows(DEFS, ach?.bestiary);
   const [sel, setSel] = useState<string>("");
   const drag = useWindowDrag("bestiary");
+  useDialogFocus(drag.ref);
   const row = rows.find((r) => r.id === sel) ?? rows.find((r) => r.known) ?? rows[0];
   const def = row ? MONSTERS[row.id] : undefined;
   return (

@@ -12,10 +12,19 @@ const HIDDEN_LAYERS = new Set(["collision"]);
 
 const tilesetTexKey = (name: string) => `tileset:${name}`;
 
+let resolveWorldMapJson: (data: TiledMap) => void = () => {};
+/**
+ * O JSON do mapa que o Phaser baixou (1,5 MB), para quem mais precisar dele (minimapa) sem um segundo pedido.
+ * Resolvida pelo loader em `preloadWorldMap`; quem consome deve ter um fallback (`fetch` próprio) caso ninguém
+ * a resolva — por exemplo, se a cena nunca subir.
+ */
+export const worldMapJson: Promise<TiledMap> = new Promise((resolve) => { resolveWorldMapJson = resolve; });
+
 /** Agenda o JSON do mapa e, quando ele chegar, as imagens dos tilesets. */
 export function preloadWorldMap(scene: Phaser.Scene) {
   const mapUrl = new URL(MAP_URL, location.href);
   scene.load.once(`filecomplete-tilemapJSON-${MAP_KEY}`, (_key: string, _type: string, data: TiledMap) => {
+    resolveWorldMapJson(data);
     for (const ts of data.tilesets ?? []) {
       if (!ts.image || !ts.name) {
         console.warn(`[map] tileset sem imagem embutida (firstgid ${ts.firstgid}); use tilesets embutidos no Tiled.`);

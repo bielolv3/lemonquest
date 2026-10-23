@@ -56,6 +56,18 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["F1"], label: "Esta ajuda (ou ?)" },
     ],
   },
+  {
+    // Funções que não tinham pista nenhuma na tela (UX-18).
+    title: "Painéis",
+    rows: [
+      { keys: ["Arrastar"], label: "Cabeçalho do painel: reordenar a barra" },
+      { keys: ["📌"], label: "Fixar: visível com a barra recolhida" },
+      { keys: ["Arrastar"], label: "Borda de baixo (Batalha/Mochila): altura" },
+      { keys: ["Roda"], label: "No minimapa: zoom" },
+      { keys: ["Clique"], label: "Relógio do minimapa: efeitos de luz" },
+      { keys: ["Clique dir."], label: "Em você: roupa · pegar · sair do grupo" },
+    ],
+  },
 ];
 
 export function HelpPopover() {

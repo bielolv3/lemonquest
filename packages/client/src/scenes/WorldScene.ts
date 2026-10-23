@@ -2,14 +2,14 @@
 import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  C2S, DROP_RANGE, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
+  C2S, DROP_RANGE, EMOTES, MONSTERS, S2C, TILE_SIZE, NPC_RANGE,
   eliteName, monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type LookGroundMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, SPEECH_COLOR_PARTY, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
-import { allCreatureSheets, creatureColor, creatureVisual, levelDifficulty, sheetTrim } from "../game/creatures.ts";
+import { allCreatureSheets, creatureColor, creatureVisual, ELITE_GLYPH, levelDifficulty, sheetTrim } from "../game/creatures.ts";
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
@@ -491,8 +491,9 @@ export class WorldScene extends Phaser.Scene {
     const v = creatureVisual(m.defId);
     const elite = !!m.elite;
     const name = elite ? eliteName(v.name) : v.name;
+    // Elite: "★" antes do nome (a cor fica com a dificuldade — ver creatureColor).
     const actor = new Actor(
-      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + name, false, m.x, m.y, m.dir,
+      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + (elite ? `${ELITE_GLYPH} ` : "") + name, false, m.x, m.y, m.dir,
       { scale: v.scale, fontSize: v.boss ? 12 : 10, nameColor: creatureColor(v.level, this.myLevel, v.boss, elite), trim: sheetTrim(this, v.look.sheet) },
     );
     actor.setHp(m.hp, m.maxHp, true);
@@ -1120,6 +1121,7 @@ export class WorldScene extends Phaser.Scene {
       list.push({
         id, name: i.name, hpPct: pct, kind: "monster", distance: d,
         color: creatureColor(i.level, this.myLevel, i.boss, i.elite), difficulty: levelDifficulty(i.level, this.myLevel, i.boss),
+        elite: i.elite, pack: !!MONSTERS[i.defId]?.pack,
       });
       sig += `${id}:${pct}:${d};`;
     }

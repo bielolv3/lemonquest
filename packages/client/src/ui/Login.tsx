@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import {
   GAME_NAME, MAX_CHARACTERS_PER_ACCOUNT, MAX_NAME_LEN,
   type AuthError, type AuthFail, type CharacterSummary, type SkillId, type Vocation,
@@ -66,6 +66,45 @@ const sameName = (a: string, b: string) => a.normalize("NFC").trim().toLowerCase
 
 /** Teclas digitadas na tela de login não vão para o jogo. */
 const stop = (e: KeyboardEvent) => e.stopPropagation();
+
+/**
+ * Campo de senha com "mostrar senha" (👁) e aviso de Caps Lock (UX-21): o navegador não avisa, e na LAN do escritório
+ * a senha errada por Caps Lock era a dúvida mais comum. O Caps Lock vem de getModifierState, lido a cada tecla.
+ */
+function PasswordField({ label, value, autocomplete, onInput, onKeyDown }: {
+  label: string; value: string; autocomplete: string; onInput: (v: string) => void; onKeyDown: (e: KeyboardEvent) => void;
+}) {
+  const [show, setShow] = useState(false);
+  const [caps, setCaps] = useState(false);
+  const labelId = useId();
+  const watchCaps = (e: KeyboardEvent) => setCaps(typeof e.getModifierState === "function" && e.getModifierState("CapsLock"));
+  // Não é um <label> envolvendo tudo: o botão 👁 entraria no nome acessível do campo ("Senha Mostrar senha"), o que
+  // confunde leitor de tela e os testes que procuram o rótulo exato. O rótulo vai por aria-labelledby.
+  return (
+    <div class="field">
+      <span id={labelId}>{label}</span>
+      <span class="pw-wrap">
+        <input
+          // A tipagem do Preact não aceita a união dinâmica text|password (discrimina por `type`); o cast só acalma o tsc.
+          type={(show ? "text" : "password") as "password"}
+          aria-labelledby={labelId}
+          value={value}
+          autocomplete={autocomplete}
+          onInput={(e) => onInput((e.target as HTMLInputElement).value)}
+          onKeyDown={(e) => { watchCaps(e); onKeyDown(e); }}
+          onKeyUp={watchCaps}
+          onBlur={() => setCaps(false)}
+        />
+        <button
+          type="button" class="pw-eye" tabIndex={-1}
+          onClick={() => setShow((s) => !s)}
+          aria-label={show ? "Esconder senha" : "Mostrar senha"} aria-pressed={show} title={show ? "Esconder senha" : "Mostrar senha"}
+        >{show ? "🙈" : "👁"}</button>
+      </span>
+      {caps && <span class="pw-caps" role="status">Caps Lock ligado</span>}
+    </div>
+  );
+}
 
 export function Login() {
   const [step, setStep] = useState<Step>(() => (session.accountSession ? "loading" : "account"));
@@ -248,27 +287,9 @@ export function Login() {
             onKeyDown={onFieldKey(submitAccount)}
           />
         </label>
-        <label class="field">
-          Senha
-          <input
-            type="password"
-            value={password}
-            autocomplete={creating ? "new-password" : "current-password"}
-            onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
-            onKeyDown={onFieldKey(submitAccount)}
-          />
-        </label>
+        <PasswordField label="Senha" value={password} autocomplete={creating ? "new-password" : "current-password"} onInput={setPassword} onKeyDown={onFieldKey(submitAccount)} />
         {creating && (
-          <label class="field">
-            Confirmar senha
-            <input
-              type="password"
-              value={confirm}
-              autocomplete="new-password"
-              onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
-              onKeyDown={onFieldKey(submitAccount)}
-            />
-          </label>
+          <PasswordField label="Confirmar senha" value={confirm} autocomplete="new-password" onInput={setConfirm} onKeyDown={onFieldKey(submitAccount)} />
         )}
         <button class="btn" disabled={busy} onClick={submitAccount}>
           {busy ? (creating ? "Criando..." : "Entrando...") : creating ? "Criar conta" : "Entrar"}
@@ -316,26 +337,8 @@ export function Login() {
             onKeyDown={onFieldKey(submitReset)}
           />
         </label>
-        <label class="field">
-          Nova senha
-          <input
-            type="password"
-            value={password}
-            autocomplete="new-password"
-            onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
-            onKeyDown={onFieldKey(submitReset)}
-          />
-        </label>
-        <label class="field">
-          Confirmar nova senha
-          <input
-            type="password"
-            value={confirm}
-            autocomplete="new-password"
-            onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
-            onKeyDown={onFieldKey(submitReset)}
-          />
-        </label>
+        <PasswordField label="Nova senha" value={password} autocomplete="new-password" onInput={setPassword} onKeyDown={onFieldKey(submitReset)} />
+        <PasswordField label="Confirmar nova senha" value={confirm} autocomplete="new-password" onInput={setConfirm} onKeyDown={onFieldKey(submitReset)} />
         <button class="btn" disabled={busy} onClick={submitReset}>{busy ? "Salvando..." : "Trocar senha e entrar"}</button>
         <button class="btn ghost" disabled={busy} onClick={backToLogin}>Voltar</button>
         <p class="hint">Senha de no mínimo {MIN_NEW_PASSWORD} caracteres.</p>
@@ -509,16 +512,7 @@ export function Login() {
                 onKeyDown={onFieldKey(confirmDelete)}
               />
             </label>
-            <label class="field">
-              Senha da conta
-              <input
-                type="password"
-                value={delPass}
-                autocomplete="current-password"
-                onInput={(e) => setDelPass((e.target as HTMLInputElement).value)}
-                onKeyDown={onFieldKey(confirmDelete)}
-              />
-            </label>
+            <PasswordField label="Senha da conta" value={delPass} autocomplete="current-password" onInput={setDelPass} onKeyDown={onFieldKey(confirmDelete)} />
             {delError && <div class="error" role="alert">{delError}</div>}
             <div class="login-dialog-actions">
               <button class="btn ghost" disabled={busy} onClick={closeDelete}>Cancelar</button>

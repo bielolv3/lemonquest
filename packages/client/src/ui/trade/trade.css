@@ -1,5 +1,6 @@
 /* Troca entre jogadores. */
-.trade-invite { position: fixed; top: 112px; left: 50%; transform: translateX(-50%); z-index: 31; display: flex; align-items: center; gap: 12px; padding: 8px 12px; font-size: 14px; border-color: rgba(255, 212, 71, 0.6); }
+/* Dentro da .top-stack (styles.css), abaixo dos avisos e do convite de grupo. */
+.trade-invite { display: flex; align-items: center; gap: 12px; padding: 8px 12px; font-size: 14px; border-color: rgba(255, 212, 71, 0.6); }
 .trade-invite b { color: #ffe066; }
 .trade-invite-btns { display: flex; gap: 6px; }
 .trade-window { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 32; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: rgba(16, 19, 28, 0.97); }

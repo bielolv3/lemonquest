@@ -3,6 +3,8 @@ import { CASINO_TICKET_PRICE, DEPOT_SIZE, IMBUEMENT_EFFECTS, IMBUEMENTS, itemDef
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { sectionsStore } from "../hud/Section.tsx";
 import { persistedBool, useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { meStore } from "../hud/world.ts";
 import { sidebarOpen } from "../hud/uiState.ts";
 import { npcBuys } from "../items/actions.ts";
@@ -22,13 +24,15 @@ const TYPE_MS = 25;
 export function NpcWindow() {
   const st = useStore(npcStore);
   const inv = useStore(inventoryStore);
+  const drag = useWindowDrag("npc");
+  useDialogFocus(drag.ref, !!st);
   if (!st) return null;
   const m = st.msg;
   const tabs = npcTabs(m);
   return (
-    <div class="hud-card hud-window npc-window" role="dialog" aria-label={m.name}>
-      <div class="win-title npc-title">
-        <span class="win-grip" />
+    <div ref={drag.ref} class={`hud-card hud-window npc-window${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label={m.name}>
+      <div class="win-title npc-title" onPointerDown={drag.onTitleDown}>
+        <span class="win-grip" aria-hidden="true" />
         <span>{m.name}</span>
         <GoldLabel gold={inv?.gold ?? 0} unit={false} class="npc-gold" />
         <button class="win-close" onClick={closeNpc} data-tip="Fechar" data-tip-sub="Esc" aria-label="Fechar">×</button>

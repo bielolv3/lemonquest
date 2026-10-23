@@ -1,6 +1,8 @@
 // Janela "Desafios da semana": 3 metas com barra de progresso, resgate e o bônus por cumprir todas.
 import { itemDef, timeLeftText, type ChallengeReward } from "@lemonquest/shared";
+import { useRef } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { bindOverlay } from "../overlays.ts";
 import { challengeAction, challengesOpen, challengesStore } from "./challenges.ts";
 import "../party/party.css";
@@ -21,10 +23,12 @@ export function rewardLine(r: ChallengeReward): string {
 export function ChallengesWindow() {
   const open = useStore(challengesOpen);
   const data = useStore(challengesStore);
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef, open);
   if (!open) return null;
   const allClaimed = !!data && data.goals.every((g) => g.claimed);
   return (
-    <div class="challenges-window panel" role="dialog" aria-label="Desafios da semana">
+    <div ref={winRef} class="challenges-window panel" role="dialog" aria-label="Desafios da semana">
       <div class="ch-head">
         <b>Desafios da semana</b>
         <button class="ch-x" onClick={() => challengesOpen.set(false)} aria-label="Fechar">×</button>

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { CALL_HELP_ID } from "./monsterAbilities.ts";
-import { ELITE, ELITE_CHANCE, HELP_RADIUS, MONSTERS, canBeElite, eliteName, monsterAbilitySpell, monsterDamageMult } from "./monsters.ts";
+import { ELITE, ELITE_CHANCE, HELP_RADIUS, MONSTERS, canBeElite, eliteName, monsterAbilitySpell, monsterDamageMult, summonScaled } from "./monsters.ts";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const world = JSON.parse(readFileSync(root + "assets/maps/world.json", "utf8"));
@@ -74,6 +74,22 @@ describe("ciclo 8: dano por level, respawn, elites e bandos", () => {
     expect(monsterDamageMult(MONSTERS.summoned_wolf!)).toBe(1);
     expect(monsterDamageMult(MONSTERS.training_dummy!)).toBe(1);
     expect([19, 20, 39, 40, 69, 70, 99, 100].map((level) => monsterDamageMult({ level, xp: 1 }))).toEqual([1, 1.4, 1.4, 1.5, 1.5, 1.6, 1.6, 1.7]);
+  });
+
+  it("Lobo Espiritual escala com o level do druida: lv 20 = catálogo; lv 46 = vida 570 e dano ×1,75 (GD-05)", () => {
+    const wolf = MONSTERS.summoned_wolf!;
+    expect(wolf).toMatchObject({ level: 20, hp: 180, damage: [14, 26] });
+    expect(summonScaled(wolf, 20)).toBe(wolf);   // no level base devolve o próprio catálogo (sem cópia)
+    expect(summonScaled(wolf, 5)).toBe(wolf);    // abaixo do base nada muda
+    const lv46 = summonScaled(wolf, 46);
+    expect(lv46.hp).toBe(570);                    // 180 + 15 × 26
+    expect(lv46.damage).toEqual([25, 46]);        // [14, 26] × 1,75 arredondado
+    expect(summonScaled(wolf, 33).hp).toBe(375);  // linear no meio do caminho
+    expect(wolf.hp).toBe(180);                    // o catálogo não é alterado
+    // Um monstro lv 1 escalado pelo nível do invocador: ganhos lineares, inteiros
+    const d = summonScaled(MONSTERS.rat!, 27);
+    expect(d.hp).toBe(MONSTERS.rat!.hp + 15 * 26);
+    expect(d.damage.every(Number.isInteger)).toBe(true);
   });
 
   it("habilidades seguem ≤ 2× o dano máximo do ataque básico depois da escala", () => {

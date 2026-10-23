@@ -1,7 +1,8 @@
 // Janela de roupas estilo Tibia: prévia animada grande, grade de roupas, 2 addons, OK/Cancelar.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { OUTFIT_LIST, OUTFIT_TONES, OUTFIT_TONE_PRICE, resolveOutfit, toneColor, unlockRequirement, type Facing } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { meStore } from "../hud/world.ts";
 import { OutfitCanvas } from "./OutfitCanvas.tsx";
 import { PixelIcon } from "../hud/icons.tsx";
@@ -30,6 +31,8 @@ export function OutfitWindow() {
 }
 
 function OutfitDialog() {
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef);
   const me = useStore(meStore);
   const current = resolveOutfit(me?.outfit, me?.vocation ?? "knight");
   const [sel, setSel] = useState(current.id);
@@ -81,11 +84,11 @@ function OutfitDialog() {
 
   return (
     <div class="outfit-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) closeOutfit(); }}>
-      <div class="hud-card hud-window outfit-win" role="dialog" aria-label="Roupas">
+      <div ref={winRef} class="hud-card hud-window outfit-win" role="dialog" aria-label="Roupas">
         {/* Modal centralizada com fundo escurecido: não arrasta, então não tem grip (outfit.css já tira o cursor de mão). */}
         <div class="win-title">
           <span>Roupas</span>
-          <button class="win-close" onClick={closeOutfit} data-tip="Fechar" data-tip-sub="O ou Esc">×</button>
+          <button class="win-close" onClick={closeOutfit} data-tip="Fechar" data-tip-sub="O ou Esc" aria-label="Fechar">×</button>
         </div>
         <div class="outfit-body">
           <div class="outfit-stage">

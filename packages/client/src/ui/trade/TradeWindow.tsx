@@ -2,6 +2,7 @@
 import { itemDef, type ItemInstance, type TradeSideView } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { inventoryStore } from "../items/inventory.ts";
 import { ItemIcon } from "../items/ItemIcon.tsx";
 import { bindOverlay } from "../overlays.ts";
@@ -75,30 +76,36 @@ function useConfirmLock(theirs: string | null): boolean {
   return locked && theirs !== null;
 }
 
+/** Convite de troca recebido: vive na .top-stack (App.tsx), abaixo dos avisos, como o convite de grupo. */
+export function TradeInvite() {
+  const st = useStore(tradeStore);
+  if (st.phase !== "invite") return null;
+  return (
+    <div class="trade-invite panel" role="alertdialog" aria-label={`Convite de troca de ${st.from}`}>
+      <span class="trade-invite-text"><b>{st.from}</b> quer trocar itens com você.</span>
+      <span class="trade-invite-btns">
+        <button class="party-btn primary" onClick={acceptTrade}>Aceitar</button>
+        <button class="party-btn" onClick={declineTrade}>Recusar</button>
+      </span>
+    </div>
+  );
+}
+
 export function TradeWindow() {
   const st = useStore(tradeStore);
   const inv = useStore(inventoryStore);
   const open = st.phase === "open";
   const locked = useConfirmLock(open ? offerKey(st.theirs) : null);
-  if (st.phase === "closed") return null;
-  if (st.phase === "invite") {
-    return (
-      <div class="trade-invite panel" role="alertdialog" aria-label={`Convite de troca de ${st.from}`}>
-        <span class="trade-invite-text"><b>{st.from}</b> quer trocar itens com você.</span>
-        <span class="trade-invite-btns">
-          <button class="party-btn primary" onClick={acceptTrade}>Aceitar</button>
-          <button class="party-btn" onClick={declineTrade}>Recusar</button>
-        </span>
-      </div>
-    );
-  }
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef, open);
+  if (!open) return null;
   const offered = new Set(st.mine.items.map((i) => i.uid));
   const mineConfirmed = st.mine.confirmed;
   const status = mineConfirmed
     ? (st.theirs.confirmed ? "Trocando…" : `Aguardando ${st.partner} confirmar…`)
     : (st.theirs.confirmed ? `${st.partner} já confirmou.` : "Os dois precisam confirmar.");
   return (
-    <div class="trade-window panel" role="dialog" aria-label={`Troca com ${st.partner}`}>
+    <div ref={winRef} class="trade-window panel" role="dialog" aria-label={`Troca com ${st.partner}`}>
       <div class="trade-title">
         <b>Troca com {st.partner}</b>
         <button class="trade-x" onClick={cancelTrade} aria-label="Cancelar a troca" data-tip="Cancelar a troca">×</button>

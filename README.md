@@ -40,7 +40,14 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Mapa | `M` |
 | Janelas | `I` equipamento/mochila · `K` habilidades · `O` roupas · `L` missões · `J` conquistas · `R` ranking · `B` bestiário |
 | Volume / mudo | botão ♪ na barra de botões à direita |
+| Painéis da barra lateral | arraste o cabeçalho para reordenar; 📌 fixa o painel (fica visível com a barra recolhida); a borda de baixo de Batalha/Mochila muda a altura (duplo clique: padrão) |
+| Minimapa | roda do mouse: zoom; clique no relógio: efeitos de luz (dia/noite) |
+| Botão direito em você | trocar roupa · pegar item do chão · sair do grupo |
 | Ajuda com todos os atalhos | `F1` ou `?` |
+
+Na lista de batalha e no "olhar": `★` antes do nome é criatura **elite** (a cor do nome continua dizendo a dificuldade
+para o seu level), `!` é perigosa e `⚑` chama o bando quando atacada; o "olhar" também diz a família do bando e se a
+criatura foge com pouca vida.
 
 **Quests do mundo (estilo Tibia):** baús de quest dão o prêmio uma vez por personagem; quando há vários baús juntos,
 você escolhe um e os outros ficam vazios. Portas com fechadura pedem level ou uma missão concluída (quem não pode bate e
@@ -166,12 +173,19 @@ O CI roda isto contra o bundle e contra a imagem Docker.
 
 ```bash
 npm ci
-npm run build        # gera packages/client/dist (assets curados, ~25 MB)
+npm run build        # gera packages/client/dist (assets curados, ~17 MB) e o bundle do servidor
 npm run start:fast   # inicia o servidor em produção (serve o cliente na mesma porta)
 npm start            # build + start
 ```
 
 Em produção o servidor serve tudo na porta 2567 (`PORT` para mudar).
+
+O build copia só o que o jogo usa (`tools/build-public.mjs`): do áudio do pack entram apenas os 45 sons referenciados
+em `sfx.ts` (o build falha se um som citado não existir), e os previews do mapa (`assets/maps/preview*.png`,
+`assets/maps/review/`) ficam fora do git e do build — o `tools/mapgen` os regenera. O `build:server` também gera
+`.gz` (zlib, nível 9) de JS/CSS/HTML e do `world.json` em `packages/client/dist`; o servidor entrega o `.gz` quando o
+navegador aceita gzip (`Content-Encoding: gzip`, 1,5 MB → ~70 KB no mapa), sem nenhuma dependência extra. Para conferir:
+`curl -H "Accept-Encoding: gzip" -I http://127.0.0.1:2567/maps/world.json`.
 
 **Guia completo para Windows (serviço, firewall, backups, atualização):** [deploy/windows/README-DEPLOY.md](deploy/windows/README-DEPLOY.md)
 
