@@ -29,11 +29,14 @@ function setup() {
 }
 
 describe("party: regras puras", () => {
-  it("bônus de +20% por membro extra, dividido igualmente", () => {
+  it("bônus de +35% por membro extra (+20% com 3 vocações diferentes), dividido igualmente", () => {
     expect(partyShareEach(100, 1)).toBe(100);
-    expect(partyShareEach(100, 2)).toBe(60);   // 100 × 1,2 / 2
-    expect(partyShareEach(100, 3)).toBe(47);   // 100 × 1,4 / 3 = 46,7
-    expect(partyShareEach(100, 6)).toBe(33);   // 100 × 2,0 / 6
+    expect(partyShareEach(100, 2)).toBe(68);   // 100 × 1,35 / 2 = 67,5
+    expect(partyShareEach(100, 3)).toBe(57);   // 100 × 1,7 / 3 = 56,7
+    expect(partyShareEach(100, 6)).toBe(46);   // 100 × 2,75 / 6 = 45,8
+    expect(partyShareEach(100, 3, 2)).toBe(57); // 2 vocações: sem o extra
+    expect(partyShareEach(100, 3, 3)).toBe(63); // 100 × 1,9 / 3 = 63,3
+    expect(partyShareEach(100, 1, 4)).toBe(100); // sozinho não há bônus nenhum
     expect(partyShareEach(1, 4)).toBe(1);
     expect(partyShareEach(0, 3)).toBe(0);
   });
@@ -214,13 +217,13 @@ describe("party: XP compartilhada", () => {
     w.party.markActive("far");
     // a deu todo o dano; b ativo e perto; c perto mas inativo; far ativo mas longe.
     const out = w.party.shareXp(new Map([["a", 100]]), 10, 10);
-    expect(Object.fromEntries(out)).toEqual({ a: 60, b: 60 });
+    expect(Object.fromEntries(out)).toEqual({ a: 68, b: 68 }); // 100 × 1,35 / 2
     // Atividade expira.
     w.tick(PARTY_ACTIVE_MS + 1);
     expect(Object.fromEntries(w.party.shareXp(new Map([["a", 100]]), 10, 10))).toEqual({ a: 100 });
     // Quem deu dano conta como participante; partes dos membros são somadas antes da divisão.
     const both = w.party.shareXp(new Map([["a", 70], ["c", 30], ["x", 5]]), 10, 10);
-    expect(Object.fromEntries(both)).toEqual({ a: 60, c: 60, x: 5 });
+    expect(Object.fromEntries(both)).toEqual({ a: 68, c: 68, x: 5 });
   });
 
   it("regra de level: diferença grande desliga a divisão (cada um fica com a sua)", () => {
@@ -258,7 +261,7 @@ describe("party: XP compartilhada", () => {
     w.combat.onAttack(k, { targetId: m.s.id });
     w.run(PLAYER_ATTACK_MS * 8);
     expect(w.mm.size).toBe(0);
-    expect(k.xp).toBe(60);
-    expect(d.xp).toBe(60);
+    expect(k.xp).toBe(68);
+    expect(d.xp).toBe(68);
   });
 });

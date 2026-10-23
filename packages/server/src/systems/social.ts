@@ -25,6 +25,10 @@ export interface SocialHost {
   zoneAt?(x: number, y: number): string | null;
   /** Personagem ainda no mundo, mas sem ninguém no controle (saiu ou caiu e espera a reconexão). Ausente = nunca. */
   away?(id: string): boolean;
+  /** Tile em zona de proteção (quem está na PZ pode ter a zona mostrada a todos no /quem). Ausente = ninguém. */
+  inPz?(x: number, y: number): boolean;
+  /** Os dois estão no mesmo grupo. Ausente = nunca. */
+  sameParty?(a: string, b: string): boolean;
   now?(): number;
 }
 
@@ -140,9 +144,13 @@ export class SocialSystem {
   private who(p: PlayerState) {
     const all = [...this.o.players()].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
     this.notice(p.id, `Online (${all.length}): veja a lista no chat. ✓ grupo = divide XP com você.`, "info", true);
+    const friends = (this.o.record(p.id)?.data.friends ?? []).map(nameKey);
     for (const q of all) {
       const parts = [q.name, `lv ${q.level}`, VOCATION_LABEL[q.vocation] ?? q.vocation];
-      if (this.o.zoneAt) parts.push(this.o.zoneAt(q.x, q.y) ?? "fora das zonas");
+      // A zona só de você, dos seus amigos, do seu grupo e de quem está em zona de proteção: a zona de todo mundo
+      // virava um radar de vítimas para o PvP (decisão do dono, ciclo 9).
+      const showZone = q.id === p.id || friends.includes(nameKey(q.name)) || !!this.o.sameParty?.(p.id, q.id) || !!this.o.inPz?.(q.x, q.y);
+      if (this.o.zoneAt && showZone) parts.push(this.o.zoneAt(q.x, q.y) ?? "fora das zonas");
       const tag = q.id === p.id ? " (você)" : (this.o.away?.(q.id) ? " (ausente)" : "") + (partyLevelsOk([p.level, q.level]) ? " ✓ grupo" : "");
       this.o.send(p.id, S2C.Chat, { from: "", text: parts.join(" · ") + tag, channel: "system", ts: this.now() } satisfies ChatMessage);
     }

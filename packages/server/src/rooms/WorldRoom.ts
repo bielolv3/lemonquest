@@ -507,6 +507,8 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       muted: (pl) => muteRemaining(this.records.get(pl.id)),
       zoneAt: (x, y) => zoneAt(socialZones, x, y),
       away: (id) => this.lingering.has(id),
+      inPz: (x, y) => this.monsters.inPz(x, y),
+      sameParty: (a, b) => this.party.sameParty(a, b),
     });
     const command = (p: PlayerState, text: string) => help(p, text) || this.social.command(p, text) || this.party.command(p, text) || handleAdminCommand(p, text, {
       send, broadcast,

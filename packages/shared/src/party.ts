@@ -8,8 +8,14 @@ export const PARTY_INVITE_MS = 60_000;
 export const PARTY_SHARE_RANGE = 12;
 /** Membro "ativo" = atacou um monstro ou curou alguém do grupo nesse intervalo. */
 export const PARTY_ACTIVE_MS = 60_000;
-/** Bônus por membro extra que divide a XP (+20% cada). */
-export const PARTY_SHARE_BONUS = 0.2;
+/**
+ * Bônus por membro extra que divide a XP (+35% cada). Era +20%: quatro pessoas ganhavam 40% de um abate solo cada e
+ * um grupo em spawn comum perdia XP por cabeça num jogo que empurra para grupo (bandos, Coliseu) — ciclo 9, GD-13.
+ */
+export const PARTY_SHARE_BONUS = 0.35;
+/** Bônus extra quando há pelo menos 3 vocações diferentes entre os que dividem (como no Tibia). */
+export const PARTY_VOCATION_BONUS = 0.2;
+export const PARTY_VOCATION_BONUS_MIN = 3;
 
 /** Regra de level (Tibia): o menor level precisa ser ≥ 2/3 do maior. */
 export function partyLevelsOk(levels: readonly number[]): boolean {
@@ -21,11 +27,15 @@ export function partyLevelsOk(levels: readonly number[]): boolean {
 /** Menor level aceito no grupo dado o maior (2/3, arredondado para cima). */
 export const partyMinLevel = (maxLevel: number): number => Math.ceil((maxLevel * 2) / 3);
 
-/** XP de cada um quando `n` membros dividem `total`: total × (1 + 0,2 × (n−1)) ÷ n (mín. 1). */
-export function partyShareEach(total: number, n: number): number {
+/**
+ * XP de cada um quando `n` membros dividem `total`: total × (1 + 0,35 × (n−1) [+ 0,2 com ≥ 3 vocações diferentes]) ÷ n
+ * (mín. 1). `vocations` = quantas vocações distintas há entre os que dividem (0 = não considerar).
+ */
+export function partyShareEach(total: number, n: number, vocations = 0): number {
   if (total <= 0) return 0;
   if (n <= 1) return total;
-  return Math.max(1, Math.round((total * (1 + PARTY_SHARE_BONUS * (n - 1))) / n));
+  const bonus = 1 + PARTY_SHARE_BONUS * (n - 1) + (vocations >= PARTY_VOCATION_BONUS_MIN ? PARTY_VOCATION_BONUS : 0);
+  return Math.max(1, Math.round((total * bonus) / n));
 }
 
 /** Motivo de a XP compartilhada estar inativa. */

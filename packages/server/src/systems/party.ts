@@ -108,7 +108,8 @@ export class PartySystem {
         const v = shares.get(id);
         if (v) { total += v; out.delete(id); }
       }
-      const each = partyShareEach(total, eligible.length);
+      const vocations = new Set(eligible.map((id) => this.o.getPlayer(id)?.vocation)).size;
+      const each = partyShareEach(total, eligible.length, vocations);
       for (const id of eligible) out.set(id, each);
     }
     return out;

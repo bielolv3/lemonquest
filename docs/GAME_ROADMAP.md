@@ -53,10 +53,13 @@ entra nesta tabela conforme for feito.
 | F1-7 | Autosave em transação + `synchronous = NORMAL`; tom de tingimento e bônus de login gravados na hora (#56) | ✅ | medir o autosave no próximo ciclo (antes: 13 ms/10 jogadores) |
 | F1-8 | Testes: `ratelimit`, `ai`, `bounties`, consistência de `quests`/`spellFamilies`/`outfitTones`, fuzz com 34 tipos | ⏳ | |
 | F1-9 | Bugs pequenos: dreno não cura no boneco ✅, `limited` na loja ✅, cassino exige espaço na mochila ✅, `MESSAGE_LIMITS` para 8 tipos (#48) ✅, referências a `shared/data` removidas ✅ | ✅ | `combat.test.ts` (boneco) |
-| F2-1 | Poções de mana 120/350/900 (#53) | ⏳ | |
-| F2-2 | Curva de skills sem o ×1,15 (#57) | ⏳ | |
-| F2-3 | Fim de jogo solo (#52) — só com telemetria | ⏳ | |
-| F2-4..9 | Vocações, grupo/bandos, PvP 2/3, calibrações, conteúdo 90–120, loot de grupo | ⏳ | |
+| F2-1 | Poções de mana 120/350/900 (#53) | ⛔ bloqueado | **Precisa de ação do dono**: a regra `Read(./data/**)` do `.claude/settings.json` (criada neste ciclo) casa também com `packages/shared/src/data/**` e impede o Claude de editar `items.ts`, `monsters.ts`, `events.ts`, `spells.ts`, `quests.ts`, `achievements.ts`; e o Claude não pode alterar as próprias permissões. Troque as três linhas `Read(./data/**)`, `Read(./docker-data/**)`, `Read(./docker-data-dev/**)` por caminhos absolutos (`Read(//C:/Users/leocs/Desktop/lemonquest/data/**)` etc.) ou remova-as; a edição em si são 3 números em `items.ts` (comentário pronto no histórico desta sessão) |
+| F2-2 | Curva de skills (#57): armas/escudo com `rate` puro, magia com `rate × 1,1` | ✅ | `training.test.ts` recalibrado: melee 60 ≈ 19 h de golpes, 80 ≈ 131 h, distance 70 ≈ 51 h, ML 40 ≈ 1,2 M de mana (≈ 30 h); tentativas acumuladas preservadas. Conquistas de skill 70/80 passam a ser possíveis a longo prazo |
+| F2-3 | Fim de jogo solo (#52) — só com telemetria | ⏳ | esperar 1–2 semanas de `/status` "Progressão medida" |
+| F2-5 | Grupo: `PARTY_SHARE_BONUS` 0,2 → 0,35 e +0,2 com ≥ 3 vocações diferentes (GD-13) | ✅ | `party.test.ts` (4 em spawn comum: 46 % → 46 %… ver tabela: 2 = 68, 3 = 57, 3 vocações = 63, 6 = 46) |
+| F2-6 | PvP: regra dos 2/3 para iniciar ataque (revide e caveira livres); `/quem` mostra a zona só de você, amigos, grupo e quem está na PZ (GD-19) | ✅ | `pvp.test.ts` (novo caso), `social.test.ts` (novo caso) |
+| F2-7 | Bênção 200 → 50 × level (GD-09) | ✅ | `combatFormulas.test.ts`, `m4.test.ts` |
+| F2-4, F2-5 (bandos no olhar, lobos), F2-7 (eventos no almoço, título do ranking, tarântula/demônio), F2-8, F2-9 | Dependem de `shared/src/data/*` (ver F2-1) ou de arte/decisão | ⛔ bloqueado / ⏳ | `events.ts`, `weekly.ts`, `monsters.ts`, `spells.ts`, `quests.ts` estão sob a mesma regra de permissão |
 | F3-* | Cliente, servidor (só se a medição pedir), repo/deploy, acessibilidade, testes, arquitetura | ⏳ | |
 
 ## Ciclo 7 (2026-10-22) — auditoria em equipe dos 47 commits desde `7d8bc4b`

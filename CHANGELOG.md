@@ -26,6 +26,26 @@ dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisõ
 - Limpeza: `tools/gen-placeholder-map.mjs` apagado (sem referências; sobrescreveria o mapa), 11 branches locais já
   mescladas apagadas.
 
+**Fase 1 — correções (servidor)**
+- Habilidade de monstro que mata não deixa condição: ninguém renasce no templo envenenado/queimando (#54); morte por
+  dano contínuo anuncia "veneno"/"queimadura" em vez do id interno.
+- XP das recompensas diárias segue o estágio de XP do level (#51): no lv 100 uma diária vale 12 % do que valia.
+- Evento semanal reenviado na reconexão; sair em combate cancela a troca aberta em vez de prender o parceiro (#55).
+- Autosave numa transação só, `PRAGMA synchronous = NORMAL`; tom de tingimento e bônus de login gravados na hora (#56).
+- Dreno de vida/mana não cura ao bater no boneco de treino; a loja avisa "1/semana" nos itens de tier 6–7; o cassino
+  pede um espaço na mochila antes de cobrar a ficha; limite de taxa próprio para compra/uso/poção/largar/pegar/
+  descartar/mover no chão/postura (#48).
+
+**Fase 2 — balanço (decisões do dono em 2026-10-22)**
+- **Grupo compensa**: +35 % de XP por membro extra (era +20 %) e +20 % com três ou mais vocações diferentes.
+- **PvP**: só se inicia ataque contra quem está na sua faixa de level (regra dos 2/3, a mesma do grupo); revide e
+  caveira continuam livres em qualquer level. `/quem` mostra a zona só de você, dos seus amigos, do seu grupo e de quem
+  está em zona de proteção.
+- **Skills**: armas e escudo sobem com a taxa pura (melee 60 ≈ 19 h de golpes, 80 ≈ 130 h; antes 8 000 h); magic level
+  com ×1,1 por nível (ML 40 ≈ 30 h de magias; antes 150 h). O treino offline de 12 h rende 17–23 níveis em skill baixa.
+- **Bênção** custa 50 × level (era 200): no lv 50, 2 500 de ouro para não perder XP na próxima morte.
+- Pendente de permissão (ver ROADMAP F2-1): poções de mana com 2–3× mais mana.
+
 ## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
 
 **Caves** (`tools/mapgen/generate.mjs`, bloco `caveSpawns` no fim do pipeline: 0 tiles alterados, objetos antigos

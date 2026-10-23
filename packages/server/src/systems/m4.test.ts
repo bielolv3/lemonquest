@@ -160,17 +160,17 @@ describe("npcs", () => {
     p.level = 10;
     t.npcs.onInteract(p, { npcId: "priest" });
     const open = t.out.find((o) => o.type === S2C.NpcOpen)!.msg;
-    expect(open.blessing).toEqual({ price: 2000, active: false });
+    expect(open.blessing).toEqual({ price: 500, active: false }); // 50 × level (ciclo 9)
     t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
     expect(t.out.at(-1)!.msg.text).toBe("Ouro insuficiente.");
-    t.w.inv.addGold(p, 2000);
+    t.w.inv.addGold(p, 500);
     t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
     expect(t.w.inv.gold("p1")).toBe(0);
     expect(p.blessed).toBe(true);
-    t.w.inv.addGold(p, 2000);
+    t.w.inv.addGold(p, 500);
     t.npcs.onTrade(p, { npcId: "priest", action: "blessing" });
     expect(t.out.at(-1)!.msg.text).toBe("Você já está com uma bênção ativa.");
-    expect(t.w.inv.gold("p1")).toBe(2000); // não cobrou de novo
+    expect(t.w.inv.gold("p1")).toBe(500); // não cobrou de novo
   });
 
   it("cassino: cobra a ficha e dá cada faixa de prêmio conforme o sorteio (nada/ouro/material/grande)", () => {

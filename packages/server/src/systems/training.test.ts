@@ -227,8 +227,9 @@ describe("treino offline: fórmula", () => {
       expect(h1, `${voc} ${skill}`).toBeGreaterThanOrEqual(3);
       expect(h1, `${voc} ${skill}`).toBeLessThanOrEqual(5);
     }
-    expect(gained("melee", "knight", 8, 720)).toBe(13);
-    expect(gained("magic", "druid", 20, 720)).toBe(14);
+    // Curva do ciclo 9 (#57): armas/escudo com rate puro, magia com rate × 1,1.
+    expect(gained("melee", "knight", 8, 720)).toBe(23);
+    expect(gained("magic", "druid", 20, 720)).toBe(17);
   });
 
   it("minutos entre dois instantes: clamp [0, 720]", () => {
