@@ -2,12 +2,18 @@
 import { itemDef, type ItemInstance, type TradeSideView } from "@lemonquest/shared";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { inventoryStore } from "../items/inventory.ts";
 import { ItemIcon } from "../items/ItemIcon.tsx";
-import { escCancelsTrade } from "./escape.ts";
+import { bindOverlay } from "../overlays.ts";
 import { acceptTrade, cancelTrade, confirmTrade, declineTrade, flushGold, goldDraftStore, offerItem, tradeStore, typeGold, unofferItem } from "./trade.ts";
 import "../party/party.css";
 import "./trade.css";
+
+// Esc cancela a troca de qualquer lugar (não só com o foco na janela) — pela pilha de sobreposições: o que abriu por cima
+// dela (menu, arrasto, ajuda...) fecha primeiro. Vindo de um campo de texto fora dela (chat), o Esc é do campo; vindo do
+// campo de ouro da própria janela (".trade-window"), cancela. Mudanças de oferta não sobem a troca na pilha.
+bindOverlay("trade", tradeStore, (s) => s.phase === "open", cancelTrade, ".trade-window");
 
 const nameOf = (i: ItemInstance) => itemDef(i.defId)?.name ?? i.defId;
 
@@ -70,47 +76,41 @@ function useConfirmLock(theirs: string | null): boolean {
   return locked && theirs !== null;
 }
 
+/** Convite de troca recebido: vive na .top-stack (App.tsx), abaixo dos avisos, como o convite de grupo. */
+export function TradeInvite() {
+  const st = useStore(tradeStore);
+  if (st.phase !== "invite") return null;
+  return (
+    <div class="trade-invite panel" role="alertdialog" aria-label={`Convite de troca de ${st.from}`}>
+      <span class="trade-invite-text"><b>{st.from}</b> quer trocar itens com você.</span>
+      <span class="trade-invite-btns">
+        <button class="party-btn primary" onClick={acceptTrade}>Aceitar</button>
+        <button class="party-btn" onClick={declineTrade}>Recusar</button>
+      </span>
+    </div>
+  );
+}
+
 export function TradeWindow() {
   const st = useStore(tradeStore);
   const inv = useStore(inventoryStore);
   const open = st.phase === "open";
   const locked = useConfirmLock(open ? offerKey(st.theirs) : null);
-  // Esc cancela a troca de qualquer lugar (não só com o foco na janela), exceto com algo por cima dela (menu, arrasto,
-  // ajuda...) ou vindo de um campo de texto fora dela (chat): esses ficam com o Esc (ver escape.ts).
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || !escCancelsTrade(e.target)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      cancelTrade();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open]);
-  if (st.phase === "closed") return null;
-  if (st.phase === "invite") {
-    return (
-      <div class="trade-invite panel" role="alertdialog" aria-label={`Convite de troca de ${st.from}`}>
-        <span class="trade-invite-text"><b>{st.from}</b> quer trocar itens com você.</span>
-        <span class="trade-invite-btns">
-          <button class="party-btn primary" onClick={acceptTrade}>Aceitar</button>
-          <button class="party-btn" onClick={declineTrade}>Recusar</button>
-        </span>
-      </div>
-    );
-  }
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef, open);
+  if (!open) return null;
   const offered = new Set(st.mine.items.map((i) => i.uid));
   const mineConfirmed = st.mine.confirmed;
   const status = mineConfirmed
     ? (st.theirs.confirmed ? "Trocando…" : `Aguardando ${st.partner} confirmar…`)
     : (st.theirs.confirmed ? `${st.partner} já confirmou.` : "Os dois precisam confirmar.");
   return (
-    <div class="trade-window panel" role="dialog" aria-label={`Troca com ${st.partner}`}>
+    <div ref={winRef} class="trade-window panel" role="dialog" aria-label={`Troca com ${st.partner}`}>
       <div class="trade-title">
         <b>Troca com {st.partner}</b>
         <button class="trade-x" onClick={cancelTrade} aria-label="Cancelar a troca" data-tip="Cancelar a troca">×</button>
       </div>
+      <div class="trade-body">
       <div class="trade-cols">
         <Offer side={st.mine} editable title="Sua oferta" />
         <Offer side={st.theirs} editable={false} title={`Oferta de ${st.partner}`} />
@@ -136,6 +136,7 @@ export function TradeWindow() {
           {mineConfirmed ? "Desfazer confirmação" : "Confirmar troca"}
         </button>
         <button class="party-btn" onClick={cancelTrade}>Cancelar</button>
+      </div>
       </div>
     </div>
   );

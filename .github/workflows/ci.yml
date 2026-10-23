@@ -25,10 +25,16 @@ jobs:
       - run: npm run typecheck
       - run: npx vitest run
       - run: npm run build
-      - name: Bundle do servidor existe e sobe
+      - name: Bundle do servidor existe, sobe e passa na fumaça
         run: |
           test -s packages/server/dist/server.mjs
           test -s packages/server/dist/admin.mjs
+          mkdir -p /tmp/lq-ci/backups
+          PORT=3050 NODE_ENV=production LEMONQUEST_DB=/tmp/lq-ci/lemonquest.db LEMONQUEST_BACKUP_DIR=/tmp/lq-ci/backups \
+            NODE_OPTIONS=--disable-warning=ExperimentalWarning node packages/server/dist/server.mjs > /tmp/lq-ci/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3050/health && break; sleep 1; done
+          node tools/smoke.mjs http://127.0.0.1:3050 --drop || { cat /tmp/lq-ci/server.log; exit 1; }
+          kill %1 || true
 
   docker:
     name: Docker build (sem push)
@@ -45,16 +51,23 @@ jobs:
           tags: lemonquest:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Container sobe e responde /health
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Container sobe, responde /health e passa na fumaça
         run: |
           docker run -d --name lq -p 2567:2567 lemonquest:ci
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:2567/health && exit 0; sleep 2; done
-          docker logs lq; exit 1
+          ok=0; for i in $(seq 1 30); do curl -fsS http://127.0.0.1:2567/health && { ok=1; break; }; sleep 2; done
+          [ "$ok" = 1 ] || { docker logs lq; exit 1; }
+          node tools/smoke.mjs http://127.0.0.1:2567 --drop || { docker logs lq; exit 1; }
 
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # O último run do ciclo 8 levou 32 min (sem cache dos navegadores): folga para não virar vermelho por tempo.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,7 +75,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Cache dos navegadores do Playwright
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        if: steps.pw-cache.outputs.cache-hit == 'true'
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

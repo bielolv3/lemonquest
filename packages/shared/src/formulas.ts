@@ -237,7 +237,8 @@ export function deathPenalty(level: number, xp: number): number {
 }
 
 /** Bênção no templo: preço em ouro escalado pelo level. Consumida na próxima morte, zera o deathPenalty. */
-export const BLESSING_GOLD_PER_LEVEL = 200;
+// 200 → 50 por level (ciclo 9, GD-09): a 200 a bênção custava 25–40 min de renda para proteger 6–8 min de XP e ninguém comprava.
+export const BLESSING_GOLD_PER_LEVEL = 50;
 export function blessingPrice(level: number): number {
   return Math.max(1, level) * BLESSING_GOLD_PER_LEVEL;
 }

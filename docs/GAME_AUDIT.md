@@ -9,12 +9,13 @@ Atualizado em 2026-10-22 (base `35c8efb`) com o delta de 185 commits desde o cic
 
 MMORPG 2D no navegador inspirado em Tibia, para ~10 colegas na rede do escritório. Monorepo TypeScript:
 `shared` (regras, fórmulas, dados), `server` (Node 24 + Colyseus 0.18 + SQLite, tick de 50 ms, servidor autoritativo),
-`client` (Vite + Phaser 3 para o mundo, Preact para o HUD). ~44 mil linhas, 672 testes unitários + 21 specs E2E.
+`client` (Vite + Phaser 3 para o mundo, Preact para o HUD). ~49 mil linhas nos 3 pacotes (contagem do ciclo 9), 774
+testes unitários + 21 specs E2E (46 testes).
 
 **Loop principal:** escolher alvo → ataque automático + magias da vocação → loot com raridade e bônus → vender/comprar
 no NPC → missões, recompensas diárias, Coliseu em grupo (agora até a onda 60) → subir level/skills → novas áreas
 (floresta, pântano, ruínas, cavernas, Terras Selvagens, Costa Esmeralda). 4 vocações (cavaleiro, paladino, feiticeiro,
-druida), 41 magias (16 de fim de jogo), monstros com habilidades próprias (golpe, área, onda, cura, invocação),
+druida), 39 magias em 9 famílias (16 de fim de jogo), monstros com habilidades próprias (golpe, área, onda, cura, invocação),
 grupos com XP compartilhada, PvP estilo Tibia (caveiras, bloqueio de PZ), quests com baús e portas de quest, conquistas
 que liberam roupas/addons/títulos, ranking semanal, bestiário, pesca, trocas entre jogadores, treino offline.
 
@@ -183,7 +184,34 @@ isolados de missão, checagens da alavanca da Aniquilação, validação server-
 
 ### Não confirmado
 
-- **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline.
+- **H** — Reconexão automática do SDK pode deixar "fantasmas" de entidades removidas enquanto offline. **Refutada no
+  ciclo 9** pela leitura do SDK: `@colyseus/sdk` 0.18.5 reconcilia o estado no rejoin (`decodeResync`), e os
+  `onRemove` disparam para o que sumiu durante a queda.
+
+### Ciclo 9 — auditoria completa do repositório (2026-10-22)
+
+Sete agentes (arquitetura, gameplay, bugs, performance, UX, testes, docs/Claude) com baseline executada. Evidência
+completa em [docs/audit/2026-10-22/](audit/2026-10-22/REPOSITORY_AUDIT.md) (ids `ARQ/BUG/PERF/UX/TST/GD`); aqui só a
+numeração `#N` dos achados que entram no roadmap. Status em [GAME_ROADMAP.md](GAME_ROADMAP.md#ciclo-9).
+
+| # | Grav. | Achado | Origem |
+|---|---|---|---|
+| 50 | **P0** | CI vermelho em `main`: helper E2E `teleport()`/`settled()` considerava o personagem assentado antes de a câmera se mover (clique fora da tela em `fishing.spec`); mesma corrida por trás de `look`/`spells`/`quests` | TST-01/02/03 |
+| 51 | P1 | XP das recompensas diárias ignora os estágios de XP (`bounties.ts` → `combat.gainXp` sem `applyXpStage`) | GD-01 |
+| 52 | P1 | Solo inviável no lv 85+ após o ciclo 8 (modelo; medir com a telemetria antes de mexer) | GD-02 |
+| 53 | P1 | Mana insustentável para magos: sustentar a rotação custa 3–4× a renda; as quatro vocações jogam de auto-ataque | GD-03 |
+| 54 | P2 | Condição de habilidade de monstro aplicada depois de o golpe matar: renasce envenenado e o DoT tica na PZ | BUG-01 |
+| 55 | P2 | Listas manuais do `WorldRoom`; `onReconnect` não reenvia o evento semanal; sair em combate não cancela a troca | ARQ-01, BUG-05/06 |
+| 56 | P2 | Autosave fora de transação e sem `synchronous` (1 fsync por jogador); tom de tingimento e bônus de login gravados em tempos diferentes do ouro | PERF-09, BUG-04 |
+| 57 | P1 | Curva de skills ×1,265 por nível fecha em ~45: 6 conquistas inalcançáveis, treino offline inútil | GD-04 |
+| 58 | P3 | `@colyseus/schema` avisa "buffer overflow" a cada login (estado inicial > 16 KB) | OBS-01 |
+| 59 | P2 | `dist` com 15 MB de áudio para 1,1 MB usado; `preview.png` de 7,9 MB commitado 8× (pack de 112 MB) | ARQ-07 |
+| 60 | P2 | Esc fecha a janela errada (11 listeners na ordem de registro; diário/bestiário/roupas fora da cadeia do HUD); janelas sem foco/z-index | UX-03/04 |
+| 61 | P2 | F5 capturado como "modo ofensivo"; venda por duplo clique e largada por arrasto sem confirmação | UX-01/02 |
+| 62 | P2 | Contraste abaixo de AA em texto pequeno; "texto grande" estoura 768p; mochila fora da tela em 1366×768 | UX-05/06/08 |
+| 63 | P2 | Novidades/`/ajuda`/dicas desatualizados (sinks, "1–8", "30 ondas") | UX-07 |
+| 64 | P2 | Lacunas de teste: `ratelimit`, `ai`, `conditions`, `bounties`, `index.ts`; dados sem consistência (`quests`, `spellFamilies`); fuzz com 23/34 tipos; migrações só em base nova | TST-06/08/09/10 |
+| 65 | P2 | `loadtest.mjs` nunca exercitou as caves; sem critério de falha; nenhuma ferramenta no CI | PERF-22, TST-07 |
 
 ## 4. O que está sólido (não mexer sem motivo)
 

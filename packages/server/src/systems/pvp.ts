@@ -2,7 +2,7 @@
 // Ataque é "justo" se a vítima tem caveira ou atacou o agressor nos últimos PVP_AGGRESSION_MS; senão o agressor ganha
 // caveira branca. Matar de forma injusta conta para a caveira vermelha (RED_SKULL_KILLS em 24 h, salvo no personagem).
 import {
-  PVP_AGGRESSION_MS, PZ_LOCK_MS, RED_SKULL_KILLS, recentKills, S2C,
+  PVP_AGGRESSION_MS, PZ_LOCK_MS, RED_SKULL_KILLS, partyLevelsOk, recentKills, S2C,
   type NoticeMsg, type Skull,
 } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
@@ -73,6 +73,9 @@ export class PvpSystem {
     if (this.o.inPz(a.x, a.y) || this.o.inPz(b.x, b.y)) return "Você não pode atacar em zona de proteção.";
     if (this.o.inArena?.(a.id) || this.o.inArena?.(b.id)) return "Não há luta entre jogadores no Coliseu.";
     if (this.o.sameParty?.(a.id, b.id)) return "Você não pode atacar alguém do seu grupo.";
+    // Regra dos 2/3 (a mesma do grupo e do /quem) para INICIAR um ataque: o lv 40 não caça o lv 5 na floresta no primeiro
+    // dia dele. Revide (ele atacou você há pouco) e caveira continuam livres em qualquer level (decisão do dono, ciclo 9).
+    if (!this.justified(a, b) && !partyLevelsOk([a.level, b.level])) return "Fora da sua faixa de level (regra dos 2/3): só com caveira ou se ele atacar você.";
     return null;
   }
 

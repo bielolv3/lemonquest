@@ -16,6 +16,10 @@ export interface BattleEntry {
   color?: string;
   /** Criatura: dificuldade em texto (a cor do nome sozinha não serve para quem não distingue cores). */
   difficulty?: string;
+  /** Criatura elite ("★" antes do nome; a cor continua a da dificuldade). */
+  elite?: boolean;
+  /** Criatura que chama o bando quando atacada (MonsterDef.pack): glifo ao lado do nome. */
+  pack?: boolean;
 }
 
 /** Posição genérica de algo no mapa, para quem publica entradas a partir do estado. */

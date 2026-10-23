@@ -29,6 +29,8 @@ interface TileVisual {
   topId: string;
   popAt: number;   // ms (relógio local) do pop-in; -1 = sem animação
   t: number;
+  /** Último estado de visibilidade aplicado (evita 5 setVisible por item por quadro). */
+  shown?: boolean;
 }
 
 export class GroundItems {
@@ -207,9 +209,12 @@ export class GroundItems {
     for (const v of this.visuals.values()) {
       const far = !!me && Math.max(Math.abs(v.x - me.tx), Math.abs(v.y - me.ty)) > CULL_TILES;
       const show = !far;
-      v.spr?.setVisible(show); v.glow?.setVisible(show); v.sparkle?.setVisible(show);
-      for (const u of v.under) u.setVisible(show);
-      v.count?.setVisible(show);
+      if (v.shown !== show) {
+        v.spr?.setVisible(show); v.glow?.setVisible(show); v.sparkle?.setVisible(show);
+        for (const u of v.under) u.setVisible(show);
+        v.count?.setVisible(show);
+        v.shown = show;
+      }
       if (!show) continue;
       v.t += dt;
       const cx = (v.x + 0.5) * TILE_SIZE, cy = (v.y + 0.5) * TILE_SIZE;

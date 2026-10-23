@@ -8,6 +8,7 @@ import { rarityColor } from "./items/itemInfo.ts";
 import { partyStore } from "./party/party.ts";
 import { subscribeHudInsets } from "./hud/layout.ts";
 import { inTab, pushLine, pushNotice, type Line, type Tab } from "./chatLines.ts";
+import { addedLines, decideScroll, isAtBottom, unseenText } from "./chatScroll.ts";
 import { onToast } from "./toasts.ts";
 
 const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -56,6 +57,10 @@ export function Chat() {
   collapsedRef.current = collapsed;
   const root = useRef<HTMLDivElement>(null);
   const lift = useLiftOverDock(root);
+  // Rolagem: quem subiu para ler o histórico não é puxado ao fim; vê "↓ N novas" e clica para descer.
+  const atBottom = useRef(true);
+  const prevLines = useRef<Line[]>([]);
+  const [unseen, setUnseen] = useState(0);
 
   useEffect(() => session.onRoom((room) => {
     room.onMessage(S2C.Chat, (m: ChatMessage) => {
@@ -86,9 +91,26 @@ export function Chat() {
   // Saiu do grupo: volta para Geral.
   useEffect(() => { if (!party && tab === "party") setTab("global"); }, [party, tab]);
 
-  useEffect(() => {
+  const jumpToEnd = () => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
+    atBottom.current = true;
+    setUnseen(0);
+  };
+  useEffect(() => {
+    const added = addedLines(prevLines.current, lines, (m) => inTab(m, tab));
+    prevLines.current = lines;
+    // Recolhido: a lista tem altura 0 e "no fim" não faz sentido; ao abrir, mostra o mais novo (como antes).
+    const d = decideScroll(atBottom.current || collapsed, unseen, added);
+    if (d.scroll) jumpToEnd(); else setUnseen(d.unseen);
   }, [lines, collapsed]);
+  // Trocou de aba: começa pelo fim dela.
+  useEffect(() => { jumpToEnd(); }, [tab]);
+  const onLogScroll = () => {
+    const el = log.current;
+    if (!el) return;
+    atBottom.current = isAtBottom(el.scrollTop, el.clientHeight, el.scrollHeight);
+    if (atBottom.current) setUnseen(0);
+  };
 
   // Enter (fora de campos de texto) abre o chat. O input já existe no DOM (só fica recolhido), então o
   // foco é síncrono: as teclas digitadas logo depois do Enter já caem no campo e nada se perde.
@@ -194,7 +216,7 @@ export function Chat() {
           <span class={`chat-caret${collapsed ? " up" : ""}`} aria-hidden="true" />
         </button>
       </div>
-      <div class="chat-log" ref={log}>
+      <div class="chat-log" ref={log} onScroll={onLogScroll}>
         {!lines.some((m) => inTab(m, tab)) && (
           <div class="chat-empty">{tab === "party" ? "Nenhuma mensagem do grupo ainda." : "Nenhuma mensagem ainda. Diga oi!"}</div>
         )}
@@ -215,6 +237,9 @@ export function Chat() {
           </div>
         ))}
       </div>
+      {unseen > 0 && !collapsed && (
+        <button class="chat-new" onClick={jumpToEnd} aria-label={`${unseen} mensagens novas; ir para o fim`}>{unseenText(unseen)}</button>
+      )}
       <div class="chat-input-wrap">
         <input
           ref={input}

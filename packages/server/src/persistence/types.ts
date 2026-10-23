@@ -62,6 +62,8 @@ export interface CharacterData {
   };
   /** Roupas/addons/títulos liberados: "outfit:x", "addon:x:1|2", "title:x". */
   unlocks?: string[];
+  /** Telemetria de progressão (systems/telemetry.ts): tempo jogado, mortes e ouro por level. */
+  play?: { ms: number; byLevel: Record<string, { ms: number; deaths: number; goldIn: number; goldOut: number }> };
   /** Linha de base da semana (ranking e missões semanais): contadores no começo da semana ISO `id`. */
   week?: { id: string; xp: number; kills: number; fish: number; bosses: number };
   /** Desafios da semana: semana ISO, level no começo dela (meta de XP), desafios resgatados e bônus. */

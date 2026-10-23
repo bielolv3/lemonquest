@@ -481,7 +481,7 @@ function rotation(f: Fighter, k: number, arm: number) {
     manaPs += x.mana * rate;
     if (x.area) aoe += x.d * rate; else st += x.d * rate;
   }
-  const potsMana = Math.max(0, manaPs - f.regen) / 400; // poções de mana por segundo
+  const potsMana = Math.max(0, manaPs - f.regen) / 900; // poções de mana (grande, 900 — ciclo 9) por segundo
   const scale = potsMana > 1 ? 1 / potsMana : 1;
   const fury = f.v === "knight" && f.L >= 50 ? 1 + 0.25 / 3 : 1; // Fúria: +25% por 10 s a cada 30 s
   return { st: st * scale * fury, aoe: aoe * scale * fury, heal: (450 * (1 - Math.min(1, potsMana))) / 2 };
@@ -537,18 +537,20 @@ describe("coliseu: balanço (modelo com o poder real do jogador)", () => {
     expect(fell(arenaRun(["sorcerer"], 120))).toBeLessThanOrEqual(30);
   });
 
-  it("grupo de 4 no level justo da onda X cai perto de X (no justo da 45: entre 40 e 45)", () => {
-    // Modelo (justo da 40/45/50/55/60): 37, 44, 48, 54, 58.
+  it("grupo de 4 no level justo da onda X cai perto de X (no justo da 45: entre 40 e 48)", () => {
+    // Modelo (justo da 40/45/50/55/60): 37, 44, 48, 54, 58 com poção de mana de 400; com a de 900 (ciclo 9) os
+    // magos sustentam a rotação e o grupo passa 1–3 ondas além do justo.
     for (const x of [40, 45, 50, 55, 60]) {
       const w = fell(arenaRun(GROUP, arenaWave(x)!.level));
       expect(w, `justo da ${x}`).toBeGreaterThanOrEqual(x - 5);
-      expect(w, `justo da ${x}`).toBeLessThanOrEqual(x);
+      expect(w, `justo da ${x}`).toBeLessThanOrEqual(x + 3);
     }
     expect(fell(arenaRun(GROUP, arenaWave(45)!.level))).toBeGreaterThanOrEqual(40);
   });
 
-  it("completar as 60 pede grupo acima do level justo (110): lv 120 completa, o justo não", () => {
-    expect(arenaRun(GROUP, 110)).toBeGreaterThan(0);
+  it("completar as 60 pede grupo de level alto: lv 100 não completa, lv 120 completa", () => {
+    // Com a poção de mana de 900 o grupo no level justo da 60 (110) já completa no modelo; a barreira fica no lv 100.
+    expect(arenaRun(GROUP, 100)).toBeGreaterThan(0);
     expect(arenaRun(GROUP, 120)).toBe(0);
   });
 

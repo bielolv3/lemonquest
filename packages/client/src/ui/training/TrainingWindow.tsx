@@ -1,13 +1,17 @@
 // "Treinamento offline": escolha da skill ao clicar numa estátua, e o resumo ao voltar do treino.
-import { isTyping } from "../focus.ts";
-import { useEffect } from "preact/hooks";
 import type { SkillId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { meStore, type PlayerSnap } from "../hud/world.ts";
+import { bindOverlay } from "../overlays.ts";
 import {
   SKILL_NAMES, SKILL_ORDER, closeTraining, resultText, startTraining, trainingOpenStore, trainingResultStore,
 } from "./training.ts";
 import "./training.css";
+
+// Esc pela pilha de sobreposições: fecha só esta janela (não tira o alvo).
+bindOverlay("training", trainingOpenStore, (m) => m != null, closeTraining);
 
 function levelOf(me: PlayerSnap | null | undefined, s: SkillId): { level: number; pct: number } {
   if (!me) return { level: 0, pct: 0 };
@@ -23,20 +27,14 @@ export function TrainingWindow() {
   const open = useStore(trainingOpenStore);
   const result = useStore(trainingResultStore);
   const me = useStore(meStore);
-
-  useEffect(() => {
-    if (!open) return;
-    // Em captura e parando aí: o Esc fecha só esta janela (não tira o alvo).
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); closeTraining(); } };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open]);
+  const drag = useWindowDrag("training");
+  useDialogFocus(drag.ref, !!open);
 
   return (
     <>
       {open && (
-        <div class="hud-card hud-window train-window" role="dialog" aria-label="Treinamento offline">
-          <div class="win-title">
+        <div ref={drag.ref} class={`hud-card hud-window train-window${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Treinamento offline">
+          <div class="win-title" onPointerDown={drag.onTitleDown}>
             <span class="win-grip" />
             <span>Treinamento offline</span>
             <button class="win-close" onClick={closeTraining} data-tip="Fechar" data-tip-sub="Esc" aria-label="Fechar">×</button>

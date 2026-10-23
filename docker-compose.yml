@@ -18,7 +18,7 @@ services:
     environment:
       PORT: "2567"
       TZ: "America/Sao_Paulo"        # horário dos backups (lemonquest-AAAAMMDD-HH.db) e dos logs
-      # Administradores (personagens): /kick /mute /anuncio /online /resetsenha /tp — funcionam em produção.
+      # Administradores (personagens): /kick /mute /unmute /anuncio /online /resetsenha /tp /status /evento /desbloquear — funcionam em produção.
       LEMONQUEST_ADMINS: "V1R4 L4T4 C4R4M3L0, Leonardo"
       # Contas (login, não personagem) que podem CRIAR um personagem com nome de admin. Sem isto o nome fica reservado:
       # ninguém o cria (um personagem admin que já existe continua funcionando normalmente).

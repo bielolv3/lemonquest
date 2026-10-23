@@ -1,4 +1,4 @@
-// DONO: agente "movimento". Contrato público usado por WorldRoom — não mudar as assinaturas.
+// Movimento dos jogadores (passos, caminhos, teleporte). Contrato público usado por WorldRoom — não mudar as assinaturas.
 import {
   DIR_DELTA, TICK_MS, Dir, canStepTerrain, dirFromDelta, isNearSpawn, isValidDir, stepDuration,
   type CollisionGrid, type GroundSpeedGrid, type MoveMsg, type TurnMsg, type WalkToMsg,

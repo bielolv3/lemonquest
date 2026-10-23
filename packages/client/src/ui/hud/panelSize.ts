@@ -34,6 +34,20 @@ export const defaultSizes = (h = viewportH()): Sizes => ({
   backpack: SIZE_SPEC.backpack.def,
 });
 
+export type SectionId = "status" | "equipment" | "battle" | "backpack" | "party";
+
+/**
+ * Seções abertas por padrão (preferência salva vale mais). Em 1366×768 os cards somam mais que a coluna: o Equipamento
+ * começa dobrado e a Mochila aberta — ela é o painel mais usado e antes nascia dobrada, fora da vista do novato.
+ */
+export const defaultSections = (h = viewportH()): Record<SectionId, boolean> => ({
+  status: true,
+  equipment: h > SHORT_SCREEN_PX,
+  battle: true,
+  backpack: true,
+  party: true,
+});
+
 /** Linhas válidas (inteiro entre min e max); valor inválido volta ao padrão. */
 export function clampRows(id: SizableId, rows: unknown): number {
   const s = SIZE_SPEC[id];

@@ -1,5 +1,97 @@
 # Changelog
 
+## [Não lançado] — 2026-10-22 · ciclo 9: auditoria completa, CI verde de novo e telemetria de progressão
+
+Auditoria de 7 agentes com baseline executada: relatórios em `docs/audit/2026-10-22/` (repositório, gameplay, limpeza
+dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisões do dono e status em
+`docs/GAME_ROADMAP.md` (Ciclo 9); achados `#50–#65` em `docs/GAME_AUDIT.md`.
+
+**Fase 0 — estabilização**
+- **CI verde** (#50): o helper E2E `teleport()` agora espera o ator no tile (não só o estado do servidor) e `settled()`
+  exige a câmera centrada no jogador (`PixelCamera.isCenteredOn`). Era a corrida que derrubava `fishing.spec` no CI
+  (clique fora da tela) e deixava `look`, `spells` e `quests` instáveis. `look.spec` fecha o cartão com Esc e usa um
+  tile sem item; `quests.spec` repete o Esc do diário; `spells.spec` evita mirar ratos.
+- CI: cache dos navegadores do Playwright, `timeout-minutes: 45` no E2E, `tools/smoke.mjs` contra o bundle (job de
+  testes) e contra o container (job Docker).
+- **Telemetria de progressão** (`systems/telemetry.ts`): tempo jogado, mortes e ouro ganho/gasto por level ficam em
+  `CharacterData.play`; o `/status` ganhou uma linha "Progressão medida" por faixa de level (h/level, mortes/h, ouro/h)
+  e a duração do autosave (também no log `[tick]`). É o dado para recalibrar o ciclo 8 com jogo real.
+- `Encoder.BUFFER_SIZE` do `@colyseus/schema` em 64 KB: some o aviso "buffer overflow" a cada login (#58).
+- `tools/loadtest.mjs`: nomes fixos (`--print-admins` para o `E2E_ADMINS`), `--tp x,y`, `--level N`, `--auto`
+  (ataque automático), `--max-p95`/`--max-tick` com saída 1 e leitura do `/status` no fim.
+- Docs: `CLAUDE.md` na raiz e `.claude/settings.json` versionados; README com os 10 comandos de admin, teclas de janela
+  e `npm run smoke`; ROADMAP reorganizado (ciclo 9 no topo, ciclos 1–6 no histórico) e contradições corrigidas
+  (`proposta/todas`, cassino, propostas já decididas); TEST_PLAN com o ciclo 9; AUDIT com números reais (39 magias,
+  ~49 mil linhas, 774 testes) e a hipótese dos "fantasmas" refutada.
+- Limpeza: `tools/gen-placeholder-map.mjs` apagado (sem referências; sobrescreveria o mapa), 11 branches locais já
+  mescladas apagadas.
+
+**Fase 1 — correções (servidor)**
+- Habilidade de monstro que mata não deixa condição: ninguém renasce no templo envenenado/queimando (#54); morte por
+  dano contínuo anuncia "veneno"/"queimadura" em vez do id interno.
+- XP das recompensas diárias segue o estágio de XP do level (#51): no lv 100 uma diária vale 12 % do que valia.
+- Evento semanal reenviado na reconexão; sair em combate cancela a troca aberta em vez de prender o parceiro (#55).
+- Autosave numa transação só, `PRAGMA synchronous = NORMAL`; tom de tingimento e bônus de login gravados na hora (#56).
+- Dreno de vida/mana não cura ao bater no boneco de treino; a loja avisa "1/semana" nos itens de tier 6–7; o cassino
+  pede um espaço na mochila antes de cobrar a ficha; limite de taxa próprio para compra/uso/poção/largar/pegar/
+  descartar/mover no chão/postura (#48).
+
+**Fase 1 — cliente (UX)**
+- **Esc fecha sempre a janela de cima**: uma pilha única de janelas/menus (`ui/overlays.ts`) substitui 11 listeners
+  independentes; clicar numa janela a traz para frente; Conquistas e Ranking não nascem mais uma sobre a outra; Diário,
+  Bestiário, Treino, Novidades, Desafios, Conquistas e Ranking agora arrastam pela barra de título (a janela de Roupas é
+  modal e perdeu o grip).
+- **F5 volta a ser do navegador**: posturas de combate em **F2 / F3 / F4** (F1, README, dicas e o aviso da troca
+  atualizados; um atalho de magia salvo nessas teclas é descartado com aviso). Botão direito sobre o HUD não abre mais o
+  menu do navegador.
+- **Sem venda ou largada por engano**: duplo clique/botão direito na mochila com a aba Vender aberta não vende mais (só o
+  botão da loja); largar um item raro, épico ou lendário arrastando para o chão pede confirmação (Enter confirma, Esc cancela).
+- **Chat** não puxa para o fim enquanto você lê o histórico: aparece a pílula "↓ N novas".
+- **Legibilidade**: textos secundários com contraste ≥ 4,5:1 (e mais fortes no alto contraste); nenhuma fonte abaixo de
+  10 px; "Texto maior" também amplia a barra de ações e as poções rápidas; o zoom das janelas vale só para o corpo
+  rolável (em 1366×768 o botão × continua na tela); em telas de até 820 px o Equipamento nasce dobrado e a Mochila aberta.
+- **Textos**: Novidades "Para onde vai o ouro" (bênção, encantamento, tingimento, cassino, encomenda); `/ajuda` e dicas do
+  carregamento falam em teclas 1–0 e 60 ondas.
+- Testes novos: `ratelimit`, `ai` (fuga, bando, grito, visão), `bounties`, `spellFamilies`, `outfitTones`, `overlays`,
+  `dropConfirm`, `chatScroll`; `tools/fuzz.mjs` cobre os 34 tipos de mensagem.
+
+**Fase 2 — balanço (decisões do dono em 2026-10-22)**
+- **Grupo compensa**: +35 % de XP por membro extra (era +20 %) e +20 % com três ou mais vocações diferentes.
+- **PvP**: só se inicia ataque contra quem está na sua faixa de level (regra dos 2/3, a mesma do grupo); revide e
+  caveira continuam livres em qualquer level. `/quem` mostra a zona só de você, dos seus amigos, do seu grupo e de quem
+  está em zona de proteção.
+- **Skills**: armas e escudo sobem com a taxa pura (melee 60 ≈ 19 h de golpes, 80 ≈ 130 h; antes 8 000 h); magic level
+  com ×1,1 por nível (ML 40 ≈ 30 h de magias; antes 150 h). O treino offline de 12 h rende 17–23 níveis em skill baixa.
+- **Bênção** custa 50 × level (era 200): no lv 50, 2 500 de ouro para não perder XP na próxima morte.
+- **Poções de mana** recuperam 120 / 350 / 900 (eram 50 / 150 / 400) pelo mesmo preço: feiticeiro e druida passam a
+  sustentar a rotação de magias gastando ouro em vez de desistir dela.
+- **Caçada de Terça**: XP em dobro na terça das 13h às 14h (logo depois do Rei Goblin), para quem joga no escritório; a
+  Noite de Caçada de sexta continua.
+- Tarântula e demônio: a habilidade (Picada Venenosa, Paralisia) deixa de bater menos que o golpe básico.
+- **Campeão da Semana**: na virada da semana, quem liderou cada categoria semanal do ranking (XP, abates, peixes,
+  chefes) ganha o título rotativo "Campeão da Semana" até a próxima segunda (o feed anuncia os campeões).
+- **Loot de grupo com prioridade**: o que cai de um abate em grupo fica reservado ao grupo por 15 segundos (depois
+  qualquer um pega, como antes); quando um membro pega um item raro ou melhor, o chat do grupo avisa.
+- **Lobo Espiritual** do druida cresce com o level (vida e dano); **arcos e bestas** do tier 2 em diante batem 15 % mais.
+
+**Bandos, elite e acessibilidade**
+- O olhar (Shift+clique) diz quando o monstro chama o bando e quando foge com pouca vida; a lista de batalha marca ⚑
+  quem chama o bando. Elite ganha ★ antes do nome, e o nome volta a ter a cor da dificuldade.
+- Botões do trilho e × das janelas com nome para leitor de tela; o foco vai para a janela ao abrir e volta ao jogo ao
+  fechar; slots da barra mostram » (fora de alcance) e ∅ (sem alvo) além da cor; convites de grupo e de troca entram na
+  pilha do topo (não ficam atrás da barra do Coliseu); login com "mostrar senha" e aviso de Caps Lock; a tela de morte
+  lembra da bênção; títulos de painel não cortam mais; a ajuda F1 ganhou a seção "Painéis"; Coliseu e NPC arrastam.
+
+**Testes**
+- E2E novos: morte com perda de XP e bênção, viagem de carroça, comandos de admin (`/status`, `/mute`, `/kick`) e os
+  sinks (encantamento, tingimento, cassino); teste de migração do banco a partir de uma base v3; comando
+  `/fechar-ciclo` para o Claude Code com o procedimento de fechamento de ciclo.
+
+**Fase 3 — build e carregamento**
+- Deploy menor (25 → 17 MB): só os sons usados vão para o build; previews do mapa deixam de ser versionados.
+- Primeiro acesso mais leve: `world.json` é baixado uma vez (o minimapa reaproveita o do jogo) e o servidor entrega
+  HTML, JS, CSS e o mapa em gzip (mapa de 1,5 MB → 72 KB) sem dependência nova.
+
 ## [Não lançado] — 2026-10-22 · ciclo 8: caves cheias, monstros mais fortes e Coliseu de verdade
 
 **Caves** (`tools/mapgen/generate.mjs`, bloco `caveSpawns` no fim do pipeline: 0 tiles alterados, objetos antigos

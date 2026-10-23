@@ -155,9 +155,11 @@ const potion = (id: string, name: string, icon: ItemIcon, value: number, level: 
 potion("health_potion", "Poção de Vida", img("Potion/LifePot.png"), 40, 1, { heal: 60 }, "Recupera 60 de vida.");
 potion("health_potion_medium", "Poção de Vida Média", img("Potion/Medipack.png"), 120, 15, { heal: 180 }, "Recupera 180 de vida.");
 potion("health_potion_large", "Poção de Vida Grande", img("Potion/Heart.png"), 300, 30, { heal: 450 }, "Recupera 450 de vida.");
-potion("mana_potion", "Poção de Mana", img("Potion/WaterPot.png"), 45, 1, { mana: 50 }, "Recupera 50 de mana.");
-potion("mana_potion_medium", "Poção de Mana Média", img("Potion/WaterPot.png", 0x9a9aff), 130, 15, { mana: 150 }, "Recupera 150 de mana.");
-potion("mana_potion_large", "Poção de Mana Grande", img("Potion/MilkPot.png", 0xb070ff), 320, 30, { mana: 400 }, "Recupera 400 de mana.");
+// Mana 2–3× maior pelo mesmo preço (ciclo 9, #53): com 50/150/400 sustentar a rotação de magias de um mago custava 3–4× a
+// renda de ouro da caça e as quatro vocações acabavam jogando de ataque básico. Continua sendo o maior sink de ouro dos magos.
+potion("mana_potion", "Poção de Mana", img("Potion/WaterPot.png"), 45, 1, { mana: 120 }, "Recupera 120 de mana.");
+potion("mana_potion_medium", "Poção de Mana Média", img("Potion/WaterPot.png", 0x9a9aff), 130, 15, { mana: 350 }, "Recupera 350 de mana.");
+potion("mana_potion_large", "Poção de Mana Grande", img("Potion/MilkPot.png", 0xb070ff), 320, 30, { mana: 900 }, "Recupera 900 de mana.");
 
 /** Comida: estado "alimentado" (regen a cada FOOD_TICK_MS). Sem cura instantânea; recarga própria de 1 s. */
 export const FOOD_TICK_MS = 2000;
@@ -298,15 +300,23 @@ add({ id: "stonecutter_axe", name: "Machado Cortapedras", kind: "weapon", slot: 
   description: "Prêmio da Aniquilação. Corta pedra como se fosse manteiga. Duas mãos." });
 
 // Paladino (arcos, alcance 6, físico, duas mãos).
+// Ciclo 9 (GD-05): o paladino era a vocação mais fraca do modelo; os arcos do tier 2 em diante ganham +15 % de ataque
+// (arredondado para cima) sobre a tabela original, mantendo tiers e preços. A tabela base fica legível; o fator nunca
+// passa o machado do mesmo tier (19→22, 32→37, 46→53, 62→72, 80→92, 100→115; corsário 66→76). O arco inicial (tier 1)
+// fica em 9: a Flecha Perfurante do level 1 é calibrada para valer 1,5–3× o auto-ataque inicial (spells.test.ts), e a
+// fraqueza do paladino aparece no meio/fim do jogo, não no level 1.
+export const BOW_ATTACK_MULT = 1.15;
 const BOW = { range: 6, twoHanded: true } as const;
-weapon("short_bow", "Arco Curto", "bow", "paladin", img(W + "Bow/Sprite.png"), 1, 9, 70, "Arco de madeira para iniciantes.", BOW);
-weapon("hunting_bow", "Arco de Caça", "bow", "paladin", img(W + "Bow2/Sprite.png"), 2, 19, 700, "Silencioso e preciso.", BOW);
-weapon("long_bow", "Arco Longo", "bow", "paladin", img(W + "Bow/Sprite.png", 0xd0b070), 3, 32, 3000, "Alcança longe com força.", { ...BOW, stats: { distance: 1 } });
-weapon("composite_bow", "Arco Composto", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xb0c0d8), 4, 46, 11000, "Chifre, madeira e tendão.", { ...BOW, stats: { distance: 2 } });
-weapon("elven_bow", "Arco Élfico", "bow", "paladin", img(W + "Bow2/Sprite.png", 0x70f0e0), 5, 62, 38000, "Canta quando a corda é solta.", { ...BOW, stats: { distance: 3, crit: 2 } });
-weapon("royal_crossbow", "Besta Real", "bow", "paladin", img(W + "Bow/Sprite.png", 0xf0c060), 6, 80, 90000, "Dourada e precisa, feita para a guarda do rei.", { ...BOW, stats: { distance: 3, crit: 3 } });
-weapon("celestial_bow", "Arco Celestial", "bow", "paladin", img(W + "Bow2/Sprite.png", 0xc8e8ff), 7, 100, 190000, "Dizem que a corda é um raio de luar.", { ...BOW, stats: { distance: 4, crit: 3 } });
-weapon("corsair_bow", "Arco do Corsário", "bow", "paladin", img(W + "Bow/Sprite.png", 0xffb060), 5, 66, 42000, "Madeira de mastro e corda de âncora. Só sai de um baú.", { ...BOW, stats: { distance: 3, crit: 3 } });
+const bow = (id: string, name: string, icon: ItemIcon, tier: number, baseAttack: number, value: number, description: string, stats?: Stats): void =>
+  weapon(id, name, "bow", "paladin", icon, tier, tier === 1 ? baseAttack : Math.ceil(baseAttack * BOW_ATTACK_MULT), value, description, stats ? { ...BOW, stats } : BOW);
+bow("short_bow", "Arco Curto", img(W + "Bow/Sprite.png"), 1, 9, 70, "Arco de madeira para iniciantes.");
+bow("hunting_bow", "Arco de Caça", img(W + "Bow2/Sprite.png"), 2, 19, 700, "Silencioso e preciso.");
+bow("long_bow", "Arco Longo", img(W + "Bow/Sprite.png", 0xd0b070), 3, 32, 3000, "Alcança longe com força.", { distance: 1 });
+bow("composite_bow", "Arco Composto", img(W + "Bow2/Sprite.png", 0xb0c0d8), 4, 46, 11000, "Chifre, madeira e tendão.", { distance: 2 });
+bow("elven_bow", "Arco Élfico", img(W + "Bow2/Sprite.png", 0x70f0e0), 5, 62, 38000, "Canta quando a corda é solta.", { distance: 3, crit: 2 });
+bow("royal_crossbow", "Besta Real", img(W + "Bow/Sprite.png", 0xf0c060), 6, 80, 90000, "Dourada e precisa, feita para a guarda do rei.", { distance: 3, crit: 3 });
+bow("celestial_bow", "Arco Celestial", img(W + "Bow2/Sprite.png", 0xc8e8ff), 7, 100, 190000, "Dizem que a corda é um raio de luar.", { distance: 4, crit: 3 });
+bow("corsair_bow", "Arco do Corsário", img(W + "Bow/Sprite.png", 0xffb060), 5, 66, 42000, "Madeira de mastro e corda de âncora. Só sai de um baú.", { distance: 3, crit: 3 });
 
 // Feiticeiro (varinhas, alcance 4, energia/fogo).
 const WAND = { range: 4 } as const;

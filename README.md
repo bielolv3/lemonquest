@@ -36,10 +36,18 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Viajar Vila ↔ Posto da Fronteira ↔ Porto Esperança | fale com o cocheiro (portão leste da Vila / sul do Posto) ou com a Capitã Marina (barco, no Porto) |
 | Abrir baú de quest / puxar alavanca | clique no baú ou na alavanca (o personagem anda até o lado) |
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
-| Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
+| Modo de luta | `F2` ofensivo, `F3` equilibrado, `F4` defensivo (`F5` continua sendo o "atualizar" do navegador) |
 | Mapa | `M` |
+| Janelas | `I` equipamento/mochila · `K` habilidades · `O` roupas · `L` missões · `J` conquistas · `R` ranking · `B` bestiário |
 | Volume / mudo | botão ♪ na barra de botões à direita |
+| Painéis da barra lateral | arraste o cabeçalho para reordenar; 📌 fixa o painel (fica visível com a barra recolhida); a borda de baixo de Batalha/Mochila muda a altura (duplo clique: padrão) |
+| Minimapa | roda do mouse: zoom; clique no relógio: efeitos de luz (dia/noite) |
+| Botão direito em você | trocar roupa · pegar item do chão · sair do grupo |
 | Ajuda com todos os atalhos | `F1` ou `?` |
+
+Na lista de batalha e no "olhar": `★` antes do nome é criatura **elite** (a cor do nome continua dizendo a dificuldade
+para o seu level), `!` é perigosa e `⚑` chama o bando quando atacada; o "olhar" também diz a família do bando e se a
+criatura foge com pouca vida.
 
 **Quests do mundo (estilo Tibia):** baús de quest dão o prêmio uma vez por personagem; quando há vários baús juntos,
 você escolhe um e os outros ficam vazios. Portas com fechadura pedem level ou uma missão concluída (quem não pode bate e
@@ -69,6 +77,9 @@ As respostas aparecem só para o admin (aviso + linha no chat). Toda ação fica
 | `/anuncio <texto>` | Faixa grande no centro da tela de todos + linha no chat. |
 | `/tp <nome>` | Leva você para perto do jogador. |
 | `/resetsenha <conta>` | Gera um **código de recuperação** (8 caracteres, vale 24 h, uso único) — só você vê. Passe para o dono da conta, que usa em "Esqueci minha senha" na tela de login. |
+| `/status` | Fotografia do servidor: online, monstros, tick, memória, autosave e a progressão medida (horas por level, mortes e ouro por faixa). |
+| `/evento <nome> [minutos]` · `/evento parar` | Liga um evento semanal fora do horário (sem argumentos lista os eventos e o estado). |
+| `/desbloquear <nome> <roupa\|addon\|título>` | Libera uma roupa, addon ou título para um personagem (ex.: `pirata`, `pirata_chapeu`, `title:persistente`). |
 
 Nomes com espaço funcionam (`/kick Ana Maria spam`). Sem nenhum admin online, o dono do servidor gera o código pelo terminal:
 
@@ -145,18 +156,36 @@ do inicial e nenhum uid se repete (sai com código 1 se acontecer).
 
 Diagnóstico técnico/gameplay em [docs/GAME_AUDIT.md](docs/GAME_AUDIT.md), prioridades e status em
 [docs/GAME_ROADMAP.md](docs/GAME_ROADMAP.md), estratégia e resultados de testes em [docs/TEST_PLAN.md](docs/TEST_PLAN.md),
-mudanças em [CHANGELOG.md](CHANGELOG.md).
+mudanças em [CHANGELOG.md](CHANGELOG.md). Auditorias completas ficam como snapshot datado em `docs/audit/<data>/`
+(a de 2026-10-22 tem o plano de evolução e a baseline de validação). Guia para sessões do Claude Code: [CLAUDE.md](CLAUDE.md).
+
+### Fumaça contra um servidor no ar
+
+```bash
+npm run smoke -- http://127.0.0.1:2567 [--drop | --expect-ground] [--user nome]
+```
+
+Cria (ou reaproveita) conta e personagem, entra no mundo pelo SDK e confere a sincronização do estado; `--drop` larga um
+item no chão e espera vê-lo; `--expect-ground` falha se não houver item no chão (usado depois de reiniciar o servidor).
+O CI roda isto contra o bundle e contra a imagem Docker.
 
 ## Produção (servidor do escritório)
 
 ```bash
 npm ci
-npm run build        # gera packages/client/dist (só os assets usados, ~20 MB)
+npm run build        # gera packages/client/dist (assets curados, ~17 MB) e o bundle do servidor
 npm run start:fast   # inicia o servidor em produção (serve o cliente na mesma porta)
 npm start            # build + start
 ```
 
 Em produção o servidor serve tudo na porta 2567 (`PORT` para mudar).
+
+O build copia só o que o jogo usa (`tools/build-public.mjs`): do áudio do pack entram apenas os 45 sons referenciados
+em `sfx.ts` (o build falha se um som citado não existir), e os previews do mapa (`assets/maps/preview*.png`,
+`assets/maps/review/`) ficam fora do git e do build — o `tools/mapgen` os regenera. O `build:server` também gera
+`.gz` (zlib, nível 9) de JS/CSS/HTML e do `world.json` em `packages/client/dist`; o servidor entrega o `.gz` quando o
+navegador aceita gzip (`Content-Encoding: gzip`, 1,5 MB → ~70 KB no mapa), sem nenhuma dependência extra. Para conferir:
+`curl -H "Accept-Encoding: gzip" -I http://127.0.0.1:2567/maps/world.json`.
 
 **Guia completo para Windows (serviço, firewall, backups, atualização):** [deploy/windows/README-DEPLOY.md](deploy/windows/README-DEPLOY.md)
 

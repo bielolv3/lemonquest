@@ -107,6 +107,7 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana, range }
       onAnimationEnd={(e) => (e.currentTarget as HTMLElement).classList.remove("flash", "shake")}
       data-tip={action ? action.label : "Atalho vazio"}
       data-tip-sub={action ? `${sub} · tecla ${key}${rangeTip ? ` · ${rangeTip}` : ""}` : "Configure no painel de atalhos (H)"}
+      aria-label={action ? `${action.label}${rangeTip ? ` (${rangeTip.toLowerCase()})` : ""}` : "Atalho vazio"}
       data-tip-words={action?.words}
       data-tip-desc={action?.desc ? (locked ? `${action.desc} (Requer level ${action.level})` : action.desc) : undefined}
     >
@@ -115,6 +116,9 @@ function ActionSlot({ index, action, cd, now, flash, shake, level, mana, range }
       {action?.icon && <img src={action.icon} alt="" draggable={false} />}
       {action && !action.icon && <span class="action-abbr">{action.label.slice(0, 2)}</span>}
       {cost != null && !locked && <span class="action-mana">{cost}</span>}
+      {/* Alcance só por cor não serve para quem não distingue cores: glifo no canto de baixo (o tooltip já diz em texto). */}
+      {range === "out" && <span class="action-state" aria-hidden="true">»</span>}
+      {range === "none" && <span class="action-state" aria-hidden="true">∅</span>}
       {locked && (
         <span class="action-lock">
           <svg width="9" height="10" viewBox="0 0 9 10" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 4V3a2.5 2.5 0 0 1 5 0v1h1v6H1V4zm1 0h3V3a1.5 1.5 0 0 0-3 0z" fill="currentColor" fill-rule="evenodd" /></svg>

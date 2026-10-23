@@ -47,13 +47,15 @@ export function BattleRows({ entries }: { entries: BattleEntry[] }) {
               onClick={() => toggleTarget({ id: e.id, kind: e.kind })}
               onContextMenu={(ev) => menu(ev as MouseEvent, e)}
               data-tip={e.name}
-              data-tip-sub={`${e.kind === "player" ? `Jogador${fol ? " (seguindo)" : ""} · botão direito: atacar/seguir` : `Criatura${e.difficulty ? ` ${e.difficulty}` : ""}`} · ${e.distance} sqm · ${e.hpPct}% HP`}
+              data-tip-sub={`${e.kind === "player" ? `Jogador${fol ? " (seguindo)" : ""} · botão direito: atacar/seguir` : `Criatura${e.elite ? " elite" : ""}${e.difficulty ? ` ${e.difficulty}` : ""}${e.pack ? " · chama o bando" : ""}`} · ${e.distance} sqm · ${e.hpPct}% HP`}
             >
               <span class="battle-mark" aria-hidden="true" />
               <span class="battle-main">
                 <span class="battle-name">
                   {(e.difficulty === "perigosa" || e.difficulty === "chefe") && <span class="battle-danger" aria-label={e.difficulty}>! </span>}
+                  {e.elite && <span class="battle-elite" role="img" aria-label="elite">★ </span>}
                   {e.name}
+                  {e.pack && <span class="battle-pack" role="img" title="Chama o bando" aria-label="chama o bando"> ⚑</span>}
                 </span>
                 <span class="battle-hp">
                   <span style={{ width: `${e.hpPct}%`, background: hpColor(e.hpPct) }} />

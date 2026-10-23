@@ -2,8 +2,14 @@
 import { useEffect, useState } from "preact/hooks";
 import { timeLeftText, type RankingCategoryId } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
+import { bindOverlay } from "../overlays.ts";
 import { fmtNum, loadRanking, rankingOpen, rankingStore } from "./achievements.ts";
 import "./achievements.css";
+
+// Esc pela pilha de sobreposições (registrado no instante em que abre: a última janela aberta fecha primeiro).
+bindOverlay("ranking", rankingOpen, (v) => v, () => rankingOpen.set(false));
 
 const PAGE_URL = import.meta.env.DEV ? "/ranking.html" : "/ranking";
 
@@ -19,13 +25,15 @@ function RankingDialog() {
   useEffect(() => { void loadRanking(); }, []);
   const c = data?.categories.find((x) => x.id === cat);
   const showLv = cat !== "level"; // no ranking de level a coluna "Lv" repetiria o valor
+  const drag = useWindowDrag("ranking");
+  useDialogFocus(drag.ref);
 
   return (
-    <div class="hud-card hud-window rank-win" role="dialog" aria-label="Ranking">
-      <div class="win-title">
+    <div ref={drag.ref} class={`hud-card hud-window rank-win${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Ranking">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Ranking</span>
-        <button class="win-close" onClick={() => rankingOpen.set(false)} data-tip="Fechar" data-tip-sub="R ou Esc">×</button>
+        <button class="win-close" onClick={() => rankingOpen.set(false)} data-tip="Fechar" data-tip-sub="R ou Esc" aria-label="Fechar">×</button>
       </div>
       <div class="rank-tabs" role="tablist">
         {(data?.categories ?? []).map((x) => (

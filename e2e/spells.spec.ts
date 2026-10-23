@@ -16,11 +16,14 @@ async function castWorks(page: Page, words: string, spellId: string, needsTarget
     if (needsTarget) {
       // As magias de área anteriores limpam os ratos de perto, e um rato longe pode estar embaixo do HUD (o clique não
       // pega): vai para o lado do monstro mais próximo e então mira.
+      // Prefere quem não é rato: o rato foge a 15% de vida e some do alcance entre a mira e a magia.
       const pos = (await me(page))!;
-      const t = (await monsters(page)).sort((a, b) => Math.max(Math.abs(a.x - pos.x), Math.abs(a.y - pos.y)) - Math.max(Math.abs(b.x - pos.x), Math.abs(b.y - pos.y)))[0];
+      const all = (await monsters(page)).sort((a, b) => Math.max(Math.abs(a.x - pos.x), Math.abs(a.y - pos.y)) - Math.max(Math.abs(b.x - pos.x), Math.abs(b.y - pos.y)));
+      const notRat = all.filter((x) => x.defId !== "rat");
+      const t = (notRat.length ? notRat : all)[0];
       const near = t && (await walkableNear(page, t.x, t.y, 2)).find((w) => w.x !== t.x || w.y !== t.y);
       if (near) await teleport(page, near.x, near.y);
-      await targetNearest(page);
+      await targetNearest(page, notRat.length ? (d) => d !== "rat" : undefined);
     }
     await say(page, words);
     const ok = await page.evaluate((id) => new Promise<boolean>((res) => {

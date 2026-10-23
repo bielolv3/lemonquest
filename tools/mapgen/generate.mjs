@@ -847,6 +847,7 @@ for (const [m, count, radius, level, x, y] of caveSpawns) {
 fs.mkdirSync(MAPS_DIR, { recursive: true });
 fs.writeFileSync(path.join(MAPS_DIR, 'world.json'), JSON.stringify(world.toTiled()));
 { const cp = LEMON.set.croppedPng(); const out = new PNG({ width: cp.width, height: cp.height }); out.data = Buffer.from(cp.data); const dir = path.join(MAPS_DIR, '../tiles'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'lemon-terrain.png'), PNG.sync.write(out)); }
+// Os previews ficam só no disco (assets/maps/preview*.png está no .gitignore): são regenerados aqui a cada rodada.
 const a = renderPreview(world, path.join(MAPS_DIR, 'preview.png'));
 const b = renderPreview(world, path.join(MAPS_DIR, 'preview-small.png'), { scale: 4 });
 if (process.argv.includes('--debug')) {

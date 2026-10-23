@@ -1,13 +1,18 @@
 // Bestiário (tecla B): monstros que você já derrotou, com vida, XP, dano e o que podem soltar. Os que ainda não foram
 // derrotados aparecem como "???" (o level fica visível para dar uma ideia de onde procurar).
 import { MONSTERS, itemDef } from "@lemonquest/shared";
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { createStore, useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { achievementsStore, requestAchievements } from "../achievements/achievements.ts";
+import { bindOverlay } from "../overlays.ts";
 import { bestiaryRows, chanceText, damageLabel, progressText } from "./bestiaryLogic.ts";
 import "./bestiary.css";
 
 export const bestiaryOpen = createStore(false);
+// Esc pela pilha de sobreposições (registrado no instante em que abre: a última janela aberta fecha primeiro).
+bindOverlay("bestiary", bestiaryOpen, (v) => v, () => bestiaryOpen.set(false));
 export function toggleBestiary(): void {
   const open = !bestiaryOpen.get();
   bestiaryOpen.set(open);
@@ -26,16 +31,13 @@ function BestiaryDialog() {
   const ach = useStore(achievementsStore);
   const rows = bestiaryRows(DEFS, ach?.bestiary);
   const [sel, setSel] = useState<string>("");
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); bestiaryOpen.set(false); } };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+  const drag = useWindowDrag("bestiary");
+  useDialogFocus(drag.ref);
   const row = rows.find((r) => r.id === sel) ?? rows.find((r) => r.known) ?? rows[0];
   const def = row ? MONSTERS[row.id] : undefined;
   return (
-    <div class="hud-card hud-window bestiary-win" role="dialog" aria-label="Bestiário">
-      <div class="win-title">
+    <div ref={drag.ref} class={`hud-card hud-window bestiary-win${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Bestiário">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Bestiário <span class="be-progress">{progressText(rows)}</span></span>
         <button class="win-close" onClick={() => bestiaryOpen.set(false)} data-tip="Fechar" data-tip-sub="B ou Esc" aria-label="Fechar">×</button>

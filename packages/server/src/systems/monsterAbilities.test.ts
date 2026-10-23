@@ -86,6 +86,18 @@ describe("habilidades de monstros", () => {
     expect(w.applied).toEqual([{ id: "a", cond: "slow", value: 40 }]);
   });
 
+  it("golpe letal com condição: o morto renasce sem a condição", () => {
+    const bolt: MonsterAbility = {
+      id: "bolt", name: "Raio", shape: "target", range: 4, cooldownMs: 8000,
+      damage: { min: 10, max: 10, kind: "ice" }, condition: { id: "slow", durationMs: 3000, value: 40 }, fx: "ice",
+    };
+    const w = setup([bolt], { attackRange: 4 });
+    const p = w.add(player("a", 13, 10, { hp: 5, maxHp: 500 }));
+    w.run(4500);
+    expect(p.hp).toBe(500); // morreu e renasceu com a vida cheia
+    expect(w.applied).toEqual([]);
+  });
+
   it("cura só abaixo da fração de vida", () => {
     const heal: MonsterAbility = { id: "heal", name: "Cura", shape: "self", cooldownMs: 4000, heal: { pct: 0.2, belowHpPct: 0.5 }, fx: "heal" };
     const w = setup([heal]);

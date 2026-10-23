@@ -59,6 +59,9 @@ export class PixelCamera {
     this.apply();
   }
 
+  /** O centro suavizado já chegou ao ponto (x,y) do mundo (follow convergiu). Usado pela sonda E2E. */
+  isCenteredOn(x: number, y: number) { return Math.abs(this.cx - x) < 0.5 && Math.abs(this.cy - y) < 0.5; }
+
   /** Mundo → tela (px CSS do canvas). Válido depois de follow/jumpTo neste frame. */
   toScreenX(wx: number) { return (wx - this.cam.scrollX - this.cam.width / 2) * this.zoom + this.cam.width / 2; }
   toScreenY(wy: number) { return (wy - this.cam.scrollY - this.cam.height / 2) * this.zoom + this.cam.height / 2; }

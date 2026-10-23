@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { GEAR_SHAPES, GEAR_TIERS, HEALTH_POTION_CD_MS, MANA_POTION_CD_MS, MATERIAL_ICONS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
+import { BOW_ATTACK_MULT, GEAR_SHAPES, GEAR_TIERS, HEALTH_POTION_CD_MS, MANA_POTION_CD_MS, MATERIAL_ICONS, ITEMS, gearFrame, isEquipable, type ItemDef } from "./items.ts";
 import { MONSTERS } from "./monsters.ts";
 import { playerDamageRange } from "../formulas.ts";
 import { VOCATIONS, type Vocation } from "../types.ts";
@@ -64,6 +64,15 @@ describe("ITEMS", () => {
     for (const d of weapons.filter((w) => w.weaponType === "bow")) { expect(d.range).toBe(6); expect(d.damageKind).toBe("physical"); }
     for (const d of weapons.filter((w) => w.weaponType === "wand" || w.weaponType === "rod")) expect(d.range).toBe(4);
     for (const d of weapons.filter((w) => w.weaponType === "sword" || w.weaponType === "axe" || w.weaponType === "club")) expect(d.range).toBe(1);
+  });
+
+  it("arcos do paladino: +15 % de ataque do tier 2 em diante (GD-05), sem passar a melhor arma do cavaleiro no mesmo level", () => {
+    expect(BOW_ATTACK_MULT).toBe(1.15);
+    // Tabela original 9/19/32/46/62/80/100 (corsário 66), arredondada para cima; o arco inicial fica em 9 (ver items.ts).
+    const expected = { short_bow: 9, hunting_bow: 22, long_bow: 37, composite_bow: 53, elven_bow: 72, royal_crossbow: 92, celestial_bow: 115, corsair_bow: 76 };
+    for (const [id, attack] of Object.entries(expected)) expect(ITEMS[id]!.stats!.attack, id).toBe(attack);
+    const knightBest = (level: number) => Math.max(...weapons.filter((w) => w.vocations![0] === "knight" && w.level === level).map((w) => w.stats!.attack!));
+    for (const b of weapons.filter((w) => w.weaponType === "bow")) expect(b.stats!.attack!, b.id).toBeLessThan(knightBest(b.level!));
   });
 
   it("empilháveis têm maxStack sensato; poções têm uso", () => {

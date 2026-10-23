@@ -1,15 +1,15 @@
-// DONO: agente "movimento" (base) + agente "combate" (criaturas, alvo, FX).
+// Cena do mundo: ponte Colyseus → Phaser (jogadores, criaturas, chão), ponteiro/teclado, alvo e efeitos.
 import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
-  C2S, DROP_RANGE, EMOTES, S2C, TILE_SIZE, NPC_RANGE,
+  C2S, DROP_RANGE, EMOTES, MONSTERS, S2C, TILE_SIZE, NPC_RANGE,
   eliteName, monsterAbilitySpell, spellDef, spellsFor, type AttackMsg, type LookGroundMsg, type MonsterTelegraphMsg, type CombatEvent, type ChatMessage, type CombatMsg, type EmoteMsg, type FishCastMsg, type ConditionsMsg, type SkillUpMsg, type SpellCastMsg, type SpellDef, type CreatureDiedMsg, type DiedMsg, type Dir, type LevelUpMsg,
   type GroundItemView, type MonsterView, type LootMsg, type MoveMsg, type NpcOpenMsg, type NpcSayMsg, type PlayerView, type TurnMsg, type WalkToMsg, type XpGainMsg,
 } from "@lemonquest/shared";
 import { session } from "../session.ts";
 import { Actor, createCharacterAnims, SPEECH_COLOR_PARTY, type ActorDeps } from "../game/actor.ts";
 import { CombatFx, KIND_COLOR } from "../game/combatFx.ts";
-import { allCreatureSheets, creatureColor, creatureVisual, levelDifficulty, sheetTrim } from "../game/creatures.ts";
+import { allCreatureSheets, creatureColor, creatureVisual, ELITE_GLYPH, levelDifficulty, sheetTrim } from "../game/creatures.ts";
 import { Butterflies } from "../game/ambient.ts";
 import { FXTEST, startFxTest } from "../game/fxtest.ts";
 import { LootFx } from "../game/lootFx.ts";
@@ -491,8 +491,9 @@ export class WorldScene extends Phaser.Scene {
     const v = creatureVisual(m.defId);
     const elite = !!m.elite;
     const name = elite ? eliteName(v.name) : v.name;
+    // Elite: "★" antes do nome (a cor fica com a dificuldade — ver creatureColor).
     const actor = new Actor(
-      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + name, false, m.x, m.y, m.dir,
+      this.actorDeps(), v.look, (v.boss ? "☠ " : "") + (elite ? `${ELITE_GLYPH} ` : "") + name, false, m.x, m.y, m.dir,
       { scale: v.scale, fontSize: v.boss ? 12 : 10, nameColor: creatureColor(v.level, this.myLevel, v.boss, elite), trim: sheetTrim(this, v.look.sheet) },
     );
     actor.setHp(m.hp, m.maxHp, true);
@@ -977,11 +978,18 @@ export class WorldScene extends Phaser.Scene {
         const a = this.actors.get(this.myId), k = this.known.get(this.myId);
         return a && k ? { x: k.x, y: k.y, tileX: a.tileX, tileY: a.tileY, moving: a.isMoving } : null;
       },
-      /** Câmera parada há alguns frames e jogador parado: coordenadas de tela confiáveis. */
       /** Snapshot completo do jogador local (level, hp, outfit, skills…). */
       meState: () => selectMe(playersStore.get()),
       inventory: () => inventoryStore.get(),
-      settled: () => stableFrames >= 3 && !this.actors.get(this.myId)?.isMoving,
+      /**
+       * Jogador parado, câmera parada há alguns frames E centrada nele: coordenadas de tela confiáveis. Sem a última
+       * condição, logo após um /tp o estado já mudou, o ator ainda não saltou (40 ms) e a câmera ainda nem começou a
+       * seguir: `stableFrames` continua alto e o clique cairia fora da tela (foi o que derrubou o CI no ciclo 8).
+       */
+      settled: () => {
+        const a = this.actors.get(this.myId);
+        return !!a && stableFrames >= 3 && !a.isMoving && this.pcam.isCenteredOn(a.rx + TILE_SIZE / 2, a.ry + TILE_SIZE / 2);
+      },
       players: () => [...this.known].map(([id, k]) => ({ id, x: k.x, y: k.y })),
       monsters: () => [...this.creatureKnown].filter(([id]) => !this.dying.has(id))
         .map(([id, k]) => ({ id, x: k.x, y: k.y, ...this.creatureInfo.get(id) })),
@@ -1113,6 +1121,7 @@ export class WorldScene extends Phaser.Scene {
       list.push({
         id, name: i.name, hpPct: pct, kind: "monster", distance: d,
         color: creatureColor(i.level, this.myLevel, i.boss, i.elite), difficulty: levelDifficulty(i.level, this.myLevel, i.boss),
+        elite: i.elite, pack: !!MONSTERS[i.defId]?.pack,
       });
       sig += `${id}:${pct}:${d};`;
     }

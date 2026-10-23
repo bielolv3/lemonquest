@@ -73,9 +73,9 @@ describe("combat formulas", () => {
   });
 
   it("blessing price scales linearly with level", () => {
-    expect(blessingPrice(1)).toBe(200);
-    expect(blessingPrice(80)).toBe(16000);
-    expect(blessingPrice(0)).toBe(200); // nunca menos que o level 1
+    expect(blessingPrice(1)).toBe(50);
+    expect(blessingPrice(80)).toBe(4000);
+    expect(blessingPrice(0)).toBe(50); // nunca menos que o level 1
   });
 
   it("levelForXp inverts xpForLevel (multi-level jumps)", () => {

@@ -145,7 +145,7 @@ export class TradeSystem {
     if (!s) return;
     // Cliente sem versão no confirm (página aberta antes de uma atualização): não tem como confirmar; pede para recarregar.
     if (confirmed && typeof rev !== "number") {
-      this.notice(p.id, "Atualize a página (F5) para concluir a troca.", "warn");
+      this.notice(p.id, "Atualize a página (F5 ou Ctrl+R) para concluir a troca.", "warn");
       return;
     }
     // Confirmar uma versão que não é a atual (o outro mudou a oferta enquanto o clique vinha): ignora e reenvia o estado.

@@ -223,7 +223,7 @@ describe("trade: versão das ofertas (confirm só vale para o que o jogador viu)
   it("confirm sem versão (aba aberta antes da atualização) pede para recarregar, sem o aviso de oferta mudada", () => {
     const before = s.states("a").length;
     s.trade.onMessage(s.a, { action: "confirm", confirmed: true });
-    expect(s.notices("a").at(-1)).toBe("Atualize a página (F5) para concluir a troca.");
+    expect(s.notices("a").at(-1)).toBe("Atualize a página (F5 ou Ctrl+R) para concluir a troca.");
     expect(s.states("a").length).toBe(before); // nada a reenviar: não entra em ciclo
     s.trade.onMessage(s.a, { action: "confirm", confirmed: true, rev: 99 });
     expect(s.notices("a").at(-1)).toContain("mudou");

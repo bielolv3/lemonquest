@@ -32,6 +32,8 @@ export interface AchievementDef {
 
 /** Títulos que as conquistas concedem (id → texto exibido ao lado do nome). */
 export const TITLES: Record<string, string> = {
+  /** Rotativo: líder de uma categoria semanal do ranking, só até a próxima segunda (server/systems/weeklyChampion.ts). */
+  campeao_semana: "Campeão da Semana",
   persistente: "o Persistente",
   matador_lich: "Matador de Lich",
   regicida: "Regicida",

@@ -3,6 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
+import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RANKING_CACHE_S } from "@lemonquest/shared";
 import { rankingJson } from "./persistence/ranking.ts";
@@ -13,6 +14,7 @@ import { checkpoint, closeDb, initDb } from "./persistence/db.ts";
 import { backupCopyDir, backupDir, startBackups } from "./persistence/backup.ts";
 import { devAdmins, devCommandsEnabled } from "./systems/devcommands.ts";
 import { e2eMode } from "./e2e.ts";
+import { gzipStatic } from "./gzipStatic.ts";
 
 const PORT = Number(process.env.PORT ?? 2567);
 const PROD = process.env.NODE_ENV === "production";
@@ -99,8 +101,12 @@ app.get("/health", (_req, res) => { res.json({ ok: true }); });
 
 // Em produção (e no modo E2E) o próprio servidor entrega o cliente buildado (uma porta só no escritório).
 if (SERVE_CLIENT) {
+  // Pré-comprimidos (.gz do `npm run build`, ver tools/build-server.mjs): JS/CSS/HTML e o world.json (1,5 MB → ~250 KB).
+  // O .gz do mapa fica em dist/maps, mas o original que vale é o de assets/maps (abaixo): se for mais novo, ganha.
+  const mapsDir = path.join(root, "assets/maps");
+  app.use(gzipStatic(dist, (c) => (c.gz.startsWith("maps/") ? path.join(mapsDir, c.gz.slice("maps/".length, -3)) : path.join(dist, c.gz.slice(0, -3)))));
   // O mapa vem de assets/maps (o MESMO arquivo que o servidor carrega) — cliente e servidor nunca dessincronizam.
-  app.use("/maps", express.static(path.join(root, "assets/maps"), { fallthrough: false }));
+  app.use("/maps", express.static(mapsDir, { fallthrough: false }));
   app.get("/ranking", (_req, res) => { res.sendFile(path.join(dist, "ranking.html")); });
   // /assets/* tem hash do conteúdo no nome (Vite): pode ficar 1 ano no cache sem nem revalidar. O resto (index.html,
   // sprites do pacote) continua revalidando por ETag — um deploy novo chega no próximo F5.
@@ -112,6 +118,9 @@ if (SERVE_CLIENT) {
 }
 
 // --- Colyseus ---------------------------------------------------------------------------------------------------------
+// Estado inicial de uma entrada (580+ monstros + chão + jogadores) passa dos 16 KB do buffer padrão do schema: sem
+// isto a biblioteca realoca, recodifica e avisa "buffer overflow" a cada login (visto no ciclo 9).
+Encoder.BUFFER_SIZE = 64 * 1024;
 const httpServer = http.createServer(app);
 const gameServer = new Server({ transport: new WebSocketTransport({ server: httpServer }), gracefullyShutdown: false });
 gameServer.define("world", WorldRoom);

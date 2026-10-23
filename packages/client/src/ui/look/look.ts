@@ -5,6 +5,7 @@ import { S2C, type LookItemMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { createStore } from "../hud/store.ts";
 import { itemTipStore } from "../items/tipStore.ts";
+import { bindOverlay } from "../overlays.ts";
 
 export interface LookCard {
   title: string;
@@ -59,20 +60,18 @@ session.onRoom((room) => {
   });
 });
 
-// Fecha no próximo clique (fora do próprio cartão) ou no Esc. Em captura: antes de o clique virar outra ação.
+// O Esc fecha pela pilha de sobreposições (o cartão e o balão de item preso entram como a última coisa aberta: o Esc
+// fecha só eles, sem tirar o alvo). clearLook zera os dois stores, então as duas entradas saem juntas.
+bindOverlay("look", lookStore, (c) => c != null, clearLook);
+bindOverlay("look-item", itemTipStore, (t) => !!t?.pinned, clearLook);
+
+// Fecha no próximo clique (fora do próprio cartão). Em captura: antes de o clique virar outra ação.
 try {
   window.addEventListener("pointerdown", (e) => {
     if (!lookStore.get() && !itemTipStore.get()?.pinned) return;
     if ((e.target as HTMLElement | null)?.closest?.(".look-card")) return;
     // O clique que ABRIU o olhar (segundo botão) chega aqui depois de mostrado: ignora o mesmo instante.
     if (performance.now() - openedAt < 120) return;
-    clearLook();
-  }, true);
-  // O Esc que fecha o olhar para aí (senão a cadeia do HUD também tiraria o alvo).
-  window.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || !(lookStore.get() || itemTipStore.get()?.pinned)) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
     clearLook();
   }, true);
 } catch { /* sem window */ }

@@ -111,7 +111,7 @@ export class NpcSystem {
     const msg: NpcOpenMsg = { npcId: d.id, name: d.name, greeting: d.greeting };
     if (d.shop) {
       const sells = d.shop.sells
-        .map((e) => ({ itemId: e.itemId, price: e.price ?? this.o.inventory.defs(e.itemId)?.value ?? -1 }))
+        .map((e) => ({ itemId: e.itemId, price: e.price ?? this.o.inventory.defs(e.itemId)?.value ?? -1, ...(e.limited ? { limited: true } : {}) }))
         .filter((e) => e.price >= 0);
       msg.shop = { sells, sellRatio: NPC_BUY_RATIO };
       if (d.shop.buys) msg.shop.buys = [...d.shop.buys];
@@ -204,6 +204,8 @@ export class NpcSystem {
    */
   private buyCasino(p: PlayerState, d: NpcDef): void {
     if (!d.casino) return;
+    // Um dos prêmios é um material: sem espaço na mochila ele sumiria com o aviso de "ganhou". Confere antes de cobrar.
+    if (this.o.inventory.roomFor(p.id, CASINO_MATERIAL_POOL[0]!) < 1) return this.notice(p, "Abra um espaço na mochila antes de comprar a ficha.", "warn");
     if (!this.o.inventory.spendGold(p, CASINO_TICKET_PRICE)) return this.notice(p, "Ouro insuficiente.", "warn");
     const r = this.rng();
     if (r < 0.45) {

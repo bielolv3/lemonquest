@@ -76,11 +76,17 @@ export async function enterGame(page: Page, vocation: Vocation = "knight"): Prom
   return p;
 }
 
-/** Fala no chat (Enter abre, Enter envia). */
+/**
+ * Fala no chat (Enter abre, Enter envia). Um Enter só às vezes se perde logo depois de uma janela fechar (a de roupas
+ * trata o Enter em captura até desmontar): repete até o campo receber o foco, como os cliques do mundo.
+ */
 export async function say(page: Page, text: string): Promise<void> {
   const input = page.locator(".chat-input");
-  await page.keyboard.press("Enter");
-  await expect(input).toBeFocused();
+  await expect.poll(async () => {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    return input.evaluate((el) => el === document.activeElement);
+  }, { timeout: 10_000, intervals: [300], message: "Enter abre o chat" }).toBe(true);
   await input.fill(text);
   await input.press("Enter");
   await expect(input).not.toBeFocused();
@@ -98,14 +104,19 @@ export async function setLevel(page: Page, level: number): Promise<void> {
   await expect.poll(async () => (await meState(page))?.level, { timeout: 10_000 }).toBe(level);
 }
 
-/** /tp x y e espera chegar (e a câmera parar). */
+/**
+ * /tp x y e espera chegar de verdade: o estado do servidor (x,y) E o ator na tela (tileX,tileY — o salto visual é
+ * aplicado ~40 ms depois do estado) e então a câmera centrada nele. Só com o estado, `tileToClient` usava a câmera
+ * ainda no lugar antigo e o clique caía fora da janela.
+ */
 export async function teleport(page: Page, x: number, y: number): Promise<void> {
   await say(page, `/tp ${x} ${y}`);
-  await expect.poll(async () => { const m = await me(page); return m ? `${m.x},${m.y}` : ""; }, { timeout: 10_000 }).toBe(`${x},${y}`);
+  await expect.poll(async () => { const m = await me(page); return m ? `${m.x},${m.y}|${m.tileX},${m.tileY}` : ""; }, { timeout: 10_000 })
+    .toBe(`${x},${y}|${x},${y}`);
   await waitSettled(page);
 }
 
-/** Jogador e câmera parados: coordenadas de tela confiáveis. */
+/** Jogador parado e câmera parada e centrada nele: coordenadas de tela confiáveis. */
 export async function waitSettled(page: Page): Promise<void> {
   await page.waitForFunction(() => (window as any).__lq.settled(), null, { timeout: 15_000 });
 }
@@ -202,4 +213,59 @@ export async function targetNearest(page: Page, filter?: (defId: string) => bool
 export async function snap(page: Page, name: string): Promise<void> {
   if (process.env.E2E_SNAPS !== "1") return;
   await page.screenshot({ path: `test-results/snaps/${name}.png` });
+}
+
+/** Quantos `defId` há na mochila. */
+export const countOf = async (page: Page, defId: string): Promise<number> =>
+  ((await inventory(page))?.backpack ?? []).reduce((n, b) => n + (b?.defId === defId ? b.count : 0), 0);
+
+/**
+ * Vai até o NPC (teleporte para um tile livre ao lado) e clica nele até a janela abrir. `name` = título da janela
+ * (NpcDef.name). O NPC anda um pouco: cada tentativa relê o tile.
+ */
+export async function openNpc(page: Page, npcId: string, name: string) {
+  const tile = () => page.evaluate((id) => (window as any).__lq.npcTile(id) as { x: number; y: number } | null, npcId);
+  const t = (await tile())!;
+  if (!t) throw new Error(`NPC sem tile: ${npcId}`);
+  const spot = (await walkableNear(page, t.x, t.y + 2, 1)).find((s) => !(s.x === t.x && s.y === t.y))!;
+  await teleport(page, spot.x, spot.y);
+  const win = page.getByRole("dialog", { name });
+  await expect.poll(async () => {
+    if (await win.isVisible()) return true;
+    const c = (await tile()) ?? t;
+    await clickTile(page, c.x, c.y, { fy: 0.6 });
+    await page.waitForTimeout(800);
+    return win.isVisible();
+  }, { timeout: 20_000, intervals: [300], message: `janela "${name}"` }).toBe(true);
+  return win;
+}
+
+/**
+ * Grava o texto de cada toast no instante em que aparece (MutationObserver): um toast dura 3 s e, com a máquina
+ * ocupada, a asserção chegava depois. Chame antes da ação; depois use `seenToast`.
+ */
+export async function recordToasts(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as any;
+    if (w.__toastsSeen) return;
+    w.__toastsSeen = [] as string[];
+    const scan = () => {
+      for (const el of document.querySelectorAll(".toast")) {
+        const text = el.textContent ?? "";
+        if (!w.__toastsSeen.includes(text)) w.__toastsSeen.push(text);
+      }
+    };
+    new MutationObserver(scan).observe(document.body, { subtree: true, childList: true, characterData: true });
+    scan();
+  });
+}
+
+/** Primeiro toast gravado que contém `text` (espera até aparecer). */
+export async function seenToast(page: Page, text: string, timeout = 15_000): Promise<string> {
+  let hit = "";
+  await expect.poll(async () => {
+    hit = (await page.evaluate((t) => ((window as any).__toastsSeen as string[] | undefined)?.find((s) => s.includes(t)) ?? "", text)) as string;
+    return hit;
+  }, { timeout, message: `toast com "${text}"` }).not.toBe("");
+  return hit;
 }

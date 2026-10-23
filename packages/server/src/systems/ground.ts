@@ -1,12 +1,13 @@
 // Itens no chão (estilo Tibia): largar da mochila/equipamento num tile (≤ 3 tiles, linha livre) ou no próprio,
 // mover de um tile para outro (arrastar no mundo), pegar de volta (alcance 1), sumir com o tempo (10/20 min) e receber
-// loot (o que não coube na mochila e o loot de grupo). O que está no chão é de qualquer um: não há reserva de dono. Estado sincronizado: state.groundItems (sem bônus); a instância completa
-// fica aqui. Persistência (`store`, opcional): grava a lista inteira (com debounce) quando algo muda e no desligamento;
+// loot (o que não coube na mochila e o loot de grupo). O que está no chão é de qualquer um, com uma exceção curta: o loot
+// de um abate em grupo fica reservado ao grupo por PARTY_LOOT_PRIORITY_MS (`owner` = id do grupo); depois vira sem dono
+// como o resto. Estado sincronizado: state.groundItems (sem bônus); a instância completa fica aqui. Persistência (`store`, opcional): grava a lista inteira (com debounce) quando algo muda e no desligamento;
 // no boot, `restore()` recarrega descartando o que já expirou (o relógio do decay é o de parede: o tempo com o
 // servidor desligado também conta).
 import {
   DROP_RANGE, RARITY_LABEL, S2C, lineOfSight,
-  type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type LookGroundMsg, type LookItemMsg, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
+  type ChatMessage, type DiscardItemMsg, type DropFrom, type DropItemMsg, type ItemInstance, type LookGroundMsg, type LookItemMsg, type MoveGroundItemMsg, type NoticeMsg, type PickupItemMsg,
   type Rarity,
 } from "@lemonquest/shared";
 import { GroundItemState, type PlayerState } from "../state.ts";
@@ -29,8 +30,13 @@ export const DECAY_MS: Record<Rarity, number> = {
 export const GROUND_RATE = 10;
 const SWEEP_MS = 1000;
 const LOG_RARITIES: Rarity[] = ["epic", "legendary"];
-/** Com o chão lotado, estes só saem depois de todos os comuns/incomuns. */
+/** Com o chão lotado, estes só saem depois de todos os comuns/incomuns; são também os que ganham linha no chat do grupo. */
 const PROTECTED_RARITIES: Rarity[] = ["rare", "epic", "legendary"];
+/**
+ * Loot de abate em grupo (GD-21): por este tempo só membros do grupo pegam/movem o item; depois fica sem dono como o
+ * resto do chão (fidelidade ao Tibia). Curto de propósito: é só para o grupo não perder o raro para quem passa correndo.
+ */
+export const PARTY_LOOT_PRIORITY_MS = 15_000;
 
 export const GROUND_MSG = {
   tileFull: "Não cabe mais nada aqui.",
@@ -38,6 +44,11 @@ export const GROUND_MSG = {
   throwFar: "Você não alcança esse lugar daqui.",
   full: "Mochila cheia.",
 } as const;
+/** Aviso a quem é de fora do grupo e tenta pegar/mover loot ainda reservado. */
+export const partyLootMsg = (secs: number): string => `Esse item é do grupo por mais ${secs} s.`;
+
+/** Reserva do loot de grupo: `owner` = id do grupo; só membros pegam/movem até `ownerUntil`. */
+export interface GroundReserve { owner: string; ownerUntil: number }
 
 export interface GroundEntry {
   state: GroundItemState;
@@ -45,10 +56,13 @@ export interface GroundEntry {
   expiresAt: number;
   /** Quando a parte mais antiga da pilha caiu: o prazo nunca passa de createdAt + MAX_LIFE_MULT × DECAY_MS. */
   createdAt: number;
+  /** Grupo que abateu (loot de grupo). Depois de `ownerUntil` fica só como procedência (linha no chat ao pegar raro+). */
+  owner?: string;
+  ownerUntil?: number;
 }
 
-/** Prazo (e "nascimento") de um item que muda de tile: viaja com ele. */
-export interface GroundStamp { expiresAt: number; createdAt: number }
+/** Prazo (e "nascimento") de um item que muda de tile: viaja com ele, assim como a reserva do grupo. */
+export interface GroundStamp { expiresAt: number; createdAt: number; owner?: string; ownerUntil?: number }
 
 /** Juntar pilhas estende o prazo até, no máximo, este múltiplo do tempo normal contado de quando a mais antiga caiu. */
 export const MAX_LIFE_MULT = 2;
@@ -60,7 +74,11 @@ export interface GroundCollection {
   get(k: string): GroundItemState | undefined;
 }
 
-export interface GroundRecord { x: number; y: number; item: ItemInstance; expiresAt: number; createdAt?: number | null }
+export interface GroundRecord {
+  x: number; y: number; item: ItemInstance; expiresAt: number; createdAt?: number | null;
+  /** Reserva do grupo (colunas `owner`/`owner_until`); null/ausente = sem dono. */
+  owner?: string | null; ownerUntil?: number | null;
+}
 /** Armazenamento dos itens do chão (o jogo usa o SQLite; os testes, um array). */
 export interface GroundStore {
   load(): GroundRecord[];
@@ -83,6 +101,11 @@ export interface GroundOptions {
   /** Conquistas: o jogador largou / pegou um item. */
   onDropped?: (p: PlayerState) => void;
   onPickedUp?: (p: PlayerState) => void;
+  /**
+   * Ids dos membros do grupo de `p` (incluindo ele): recebem a linha no chat do grupo quando um membro pega um raro+
+   * que veio de abate em grupo. Ausente = sem a linha (a reserva em si usa `p.partyId`, que o PartySystem mantém).
+   */
+  partyMembers?: (p: PlayerState) => string[];
 }
 
 export const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -139,6 +162,7 @@ export class GroundSystem {
     const e = this.entries.get(msg.groundId);
     if (!e) return; // já pegaram / sumiu: silencioso
     if (cheb(p.x, p.y, e.state.x, e.state.y) > PICKUP_RANGE) return;
+    if (!this.mayTake(p, e)) return;
     const to = msg.to && typeof msg.to === "object" ? msg.to : undefined;
     const n = e.item.count;
     const left = this.o.inventory.placePickup(p, e.item, to);
@@ -154,6 +178,24 @@ export class GroundSystem {
     }
     this.o.onPickedUp?.(p);
     if (LOG_RARITIES.includes(e.item.rarity)) this.log(`[ground] ${p.name} pegou ${e.item.defId} (${e.item.rarity}) em ${e.state.x},${e.state.y}`);
+    // Raro+ do loot do grupo pego por um membro: o grupo fica sabendo quem levou (GD-21), mesmo depois da reserva.
+    if (e.owner && p.partyId === e.owner && PROTECTED_RARITIES.includes(e.item.rarity)) {
+      const name = this.o.inventory.defs(e.item.defId)?.name ?? e.item.defId;
+      const chat: ChatMessage = { from: "", text: `${p.name} pegou ${name} (${RARITY_LABEL[e.item.rarity]})`, channel: "party", ts: this.now() };
+      for (const id of this.o.partyMembers?.(p) ?? []) this.o.send(id, S2C.Chat, chat);
+    }
+  }
+
+  /**
+   * Loot reservado ao grupo: quem é de fora não pega nem move até `ownerUntil` (aviso com os segundos que faltam).
+   * Membro é quem está no grupo AGORA (`p.partyId`): quem saiu do grupo perde a prioridade junto.
+   */
+  private mayTake(p: PlayerState, e: GroundEntry): boolean {
+    const until = e.ownerUntil ?? 0;
+    const now = this.now();
+    if (!e.owner || until <= now || p.partyId === e.owner) return true;
+    this.warn(p, partyLootMsg(Math.max(1, Math.ceil((until - now) / 1000))));
+    return false;
   }
 
   // --- API ----------------------------------------------------------------------------
@@ -163,6 +205,8 @@ export class GroundSystem {
    * cheio/inválido). `stamp` = prazo e "nascimento" do item que chega (padrão: caiu agora, prazo agora + DECAY_MS).
    * Ao empilhar, a pilha fica com o prazo MAIS TARDE dos dois (o que acabou de cair não some junto com uma pilha velha),
    * limitado a MAX_LIFE_MULT × DECAY_MS desde a parte mais antiga: juntar/mover pilhas nunca deixa nada eterno.
+   * Só empilha com o mesmo dono (ou ambos sem reserva): o ouro do grupo não entra numa pilha livre nem o contrário;
+   * pilhas do mesmo grupo somam e a reserva fica com o prazo mais tarde.
    */
   place(item: ItemInstance, x: number, y: number, stamp?: GroundStamp): string | undefined {
     if (!this.o.canHold(x, y) || item.count < 1) return undefined;
@@ -173,15 +217,19 @@ export class GroundSystem {
     const decay = DECAY_MS[item.rarity] ?? DECAY_MS.common;
     const until = stamp?.expiresAt ?? now + decay;
     const created = stamp?.createdAt ?? now;
+    // Reserva ainda válida do que chega (a procedência expirada viaja junto, mas não pesa no empilhamento).
+    const reserve = stamp?.owner && (stamp.ownerUntil ?? 0) > now ? stamp.owner : undefined;
     // Empilha no topo se for o mesmo item empilhável.
     const topId = ids[ids.length - 1];
     const top = topId ? this.entries.get(topId) : undefined;
     if (top && d.stackable
-      && top.item.defId === item.defId && top.item.rarity === item.rarity && top.item.count + item.count <= maxStackOf(d)) {
+      && top.item.defId === item.defId && top.item.rarity === item.rarity && top.item.count + item.count <= maxStackOf(d)
+      && this.reservedFor(top, now) === reserve) {
       top.item.count += item.count;
       top.state.count = top.item.count;
       top.createdAt = Math.min(top.createdAt, created);
       top.expiresAt = Math.min(Math.max(top.expiresAt, until), top.createdAt + MAX_LIFE_MULT * decay);
+      if (reserve) top.ownerUntil = Math.max(top.ownerUntil ?? 0, stamp!.ownerUntil!);
       this.dirty = true;
       return top.state.id;
     }
@@ -199,6 +247,7 @@ export class GroundSystem {
     s.x = x;
     s.y = y;
     const e: GroundEntry = { state: s, item, expiresAt: until, createdAt: created };
+    if (stamp?.owner) { e.owner = stamp.owner; e.ownerUntil = stamp.ownerUntil; }
     this.entries.set(s.id, e);
     const k = tileKey(x, y);
     const list = this.tiles.get(k);
@@ -213,16 +262,27 @@ export class GroundSystem {
     return !!this.placeNear(item, p.x, p.y);
   }
 
-  /** Coloca em (x,y) ou no tile livre mais perto (até 2 de distância). Retorna o id (undefined = não coube). */
-  placeNear(item: ItemInstance, x: number, y: number): string | undefined {
+  /**
+   * Coloca em (x,y) ou no tile livre mais perto (até 2 de distância). Retorna o id (undefined = não coube).
+   * `reserve`: loot de grupo, reservado ao grupo até `ownerUntil`.
+   */
+  placeNear(item: ItemInstance, x: number, y: number, reserve?: GroundReserve): string | undefined {
+    const now = this.now();
+    const decay = DECAY_MS[item.rarity] ?? DECAY_MS.common;
+    const stamp: GroundStamp | undefined = reserve ? { expiresAt: now + decay, createdAt: now, ...reserve } : undefined;
     for (let r = 0; r <= 2; r++) {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const id = this.place(item, x + dx, y + dy);
+        const id = this.place(item, x + dx, y + dy, stamp);
         if (id) return id;
       }
     }
     return undefined;
+  }
+
+  /** Grupo com reserva ainda válida sobre a pilha (undefined = livre). */
+  private reservedFor(e: GroundEntry, now: number): string | undefined {
+    return e.owner && (e.ownerUntil ?? 0) > now ? e.owner : undefined;
   }
 
   /** C2S.LookGround: manda a instância completa (com bônus) de um item do chão à vista (até LOOK_RANGE tiles). */
@@ -248,6 +308,7 @@ export class GroundSystem {
     const { x: sx, y: sy } = e.state;
     if (cheb(p.x, p.y, sx, sy) > DROP_RANGE || !lineClear(p.x, p.y, sx, sy, this.o.seeThrough)) return this.warn(p, GROUND_MSG.itemFar);
     if (msg.x === sx && msg.y === sy) return;
+    if (!this.mayTake(p, e)) return;
     if (cheb(p.x, p.y, msg.x, msg.y) > DROP_RANGE || !lineClear(p.x, p.y, msg.x, msg.y, this.o.seeThrough)) return this.warn(p, GROUND_MSG.throwFar);
     if (!this.o.canHold(msg.x, msg.y)) return;
     const n = Math.min(msg.count ?? e.item.count, e.item.count);
@@ -255,6 +316,7 @@ export class GroundSystem {
     const whole = n >= e.item.count;
     const moving: ItemInstance = whole ? e.item : { ...e.item, uid: newUid(), count: n, bonuses: e.item.bonuses.map((b) => ({ ...b })) };
     const stamp: GroundStamp = { expiresAt: e.expiresAt, createdAt: e.createdAt };
+    if (e.owner) { stamp.owner = e.owner; stamp.ownerUntil = e.ownerUntil; }
     if (whole) this.remove(e.state.id);
     const id = this.place(moving, msg.x, msg.y, stamp);
     if (!id) {
@@ -298,6 +360,7 @@ export class GroundSystem {
     try {
       store.save([...this.entries.values()].map((e) => ({
         x: e.state.x, y: e.state.y, item: e.item, expiresAt: e.expiresAt, createdAt: e.createdAt,
+        owner: e.owner ?? null, ownerUntil: e.ownerUntil ?? null,
       })));
     } catch (err) {
       this.dirty = true; // tenta de novo na próxima varredura
@@ -328,6 +391,11 @@ export class GroundSystem {
       // Registro de antes do createdAt: estima pelo prazo (caiu DECAY_MS antes de vencer).
       const createdAt = typeof r.createdAt === "number" ? r.createdAt : r.expiresAt - (DECAY_MS[r.item.rarity] ?? DECAY_MS.common);
       const e: GroundEntry = { state: s, item: r.item, expiresAt: r.expiresAt, createdAt };
+      // Reserva do grupo só volta se ainda vale: grupos vivem em memória e os ids recomeçam a cada boot, então uma
+      // procedência antiga poderia bater com um grupo novo e gerar linha de chat errada.
+      if (typeof r.owner === "string" && r.owner && typeof r.ownerUntil === "number" && r.ownerUntil > now) {
+        e.owner = r.owner; e.ownerUntil = r.ownerUntil;
+      }
       this.entries.set(s.id, e);
       const k = tileKey(r.x, r.y);
       const list = this.tiles.get(k);

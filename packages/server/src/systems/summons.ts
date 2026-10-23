@@ -1,7 +1,7 @@
 // Invocações: monstros aliados com dono (MonsterState.ownerId = sessionId). Seguem o dono (até 3 tiles),
 // atacam o alvo do dono ou quem ataca o dono/a invocação, não dão XP, somem ao expirar ou quando o dono
 // sai/morre/se afasta mais de SUMMON_LEASH tiles. 1 conjuração ativa por jogador (reconjurar substitui).
-import { DIR_DELTA, Dir, dirFromDelta, mitigate, monsterDef, rollInt, type MonsterDef } from "@lemonquest/shared";
+import { DIR_DELTA, Dir, dirFromDelta, mitigate, monsterDef, rollInt, summonScaled, type MonsterDef } from "@lemonquest/shared";
 import type { PlayerState } from "../state.ts";
 import { THINK_MS, computePath, followPath, greedyStep } from "./ai.ts";
 import type { CombatSystem } from "./combat.ts";
@@ -57,8 +57,10 @@ export class SummonSystem {
 
   /** Invoca (substitui as invocações anteriores do jogador). Retorna quantas nasceram. */
   summon(p: PlayerState, spec: { monsterId: string; count: number; durationMs: number }, now: number): number {
-    const def = this.def(spec.monsterId);
-    if (!def) return 0;
+    const base = this.def(spec.monsterId);
+    if (!base) return 0;
+    // Vida e dano escalam com o level do invocador (GD-05); o catálogo fica no level base da criatura.
+    const def = summonScaled(base, p.level);
     this.despawnOwner(p.id);
     const tiles = this.freeTilesAround(p.x, p.y, Math.max(1, spec.count));
     const set = new Set<string>();

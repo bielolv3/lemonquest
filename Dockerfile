@@ -43,7 +43,9 @@ ENV NODE_ENV=production \
 # Usuário sem privilégios (mesmo uid/gid 1000 do `node` das imagens oficiais).
 RUN addgroup -g 1000 node && adduser -u 1000 -G node -s /bin/sh -D node
 
-# O mapa (o servidor e o cliente leem o MESMO arquivo), o cliente compilado e o servidor empacotado.
+# O mapa (o servidor e o cliente leem o MESMO arquivo), o cliente compilado (com os .gz do build:server — o servidor
+# só os usa se forem mais novos que o original, e aqui são: o world.json vem do contexto, os .gz da etapa de build)
+# e o servidor empacotado.
 COPY assets/maps/world.json assets/maps/world.json
 COPY --from=build /app/packages/client/dist packages/client/dist
 COPY --from=build /app/packages/server/dist/server.mjs /app/packages/server/dist/admin.mjs packages/server/dist/

@@ -1,7 +1,8 @@
 // Janela de roupas estilo Tibia: prévia animada grande, grade de roupas, 2 addons, OK/Cancelar.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { OUTFIT_LIST, OUTFIT_TONES, OUTFIT_TONE_PRICE, resolveOutfit, toneColor, unlockRequirement, type Facing } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useDialogFocus } from "../hud/useDialogFocus.ts";
 import { meStore } from "../hud/world.ts";
 import { OutfitCanvas } from "./OutfitCanvas.tsx";
 import { PixelIcon } from "../hud/icons.tsx";
@@ -9,7 +10,12 @@ import { achievementsStore, outfitUnlockedFor } from "../achievements/achievemen
 import "../achievements/achievements.css";
 import { buyOutfitTone, closeOutfit, outfitOpen, outfitTonesStore, sendOutfit } from "./outfit.ts";
 import { inventoryStore } from "../items/inventory.ts";
+import { bindOverlay } from "../overlays.ts";
 import "./outfit.css";
+
+// Esc pela pilha de sobreposições, registrado no instante em que o store abre (o menu de contexto que abriu a janela já
+// saiu da pilha: openOutfit o fecha antes).
+bindOverlay("outfit", outfitOpen, (v) => v, closeOutfit);
 
 const FACINGS: Facing[] = ["down", "left", "up", "right"];
 const FACING_LABEL: Record<Facing, string> = { down: "frente", left: "esquerda", up: "costas", right: "direita" };
@@ -25,6 +31,8 @@ export function OutfitWindow() {
 }
 
 function OutfitDialog() {
+  const winRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(winRef);
   const me = useStore(meStore);
   const current = resolveOutfit(me?.outfit, me?.vocation ?? "knight");
   const [sel, setSel] = useState(current.id);
@@ -60,11 +68,10 @@ function OutfitDialog() {
   const rotate = (d: number) => { setAuto(false); setFace((f) => (f + d + 4) % 4); };
   const ok = () => { if (!outfitOk) return; sendOutfit(outfit.id, effAddons, tone); closeOutfit(); };
 
-  // Esc fecha; Enter confirma; setas giram (sem roubar teclas do jogo quando fechada).
+  // Enter confirma; setas giram (sem roubar teclas do jogo quando fechada). O Esc fecha pela pilha (acima).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeOutfit(); }
-      else if (e.key === "Enter") { e.preventDefault(); e.stopImmediatePropagation(); ok(); }
+      if (e.key === "Enter") { e.preventDefault(); e.stopImmediatePropagation(); ok(); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); e.stopImmediatePropagation(); rotate(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); e.stopImmediatePropagation(); rotate(1); }
     };
@@ -77,11 +84,11 @@ function OutfitDialog() {
 
   return (
     <div class="outfit-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) closeOutfit(); }}>
-      <div class="hud-card hud-window outfit-win" role="dialog" aria-label="Roupas">
+      <div ref={winRef} class="hud-card hud-window outfit-win" role="dialog" aria-label="Roupas">
+        {/* Modal centralizada com fundo escurecido: não arrasta, então não tem grip (outfit.css já tira o cursor de mão). */}
         <div class="win-title">
-          <span class="win-grip" aria-hidden="true" />
           <span>Roupas</span>
-          <button class="win-close" onClick={closeOutfit} data-tip="Fechar" data-tip-sub="O ou Esc">×</button>
+          <button class="win-close" onClick={closeOutfit} data-tip="Fechar" data-tip-sub="O ou Esc" aria-label="Fechar">×</button>
         </div>
         <div class="outfit-body">
           <div class="outfit-stage">

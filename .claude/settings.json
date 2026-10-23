@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm test)",
+      "Bash(npx vitest run:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run newbie)",
+      "Bash(npm run smoke:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git blame:*)"
+    ],
+    "deny": [
+      "Read(//C:/Users/leocs/Desktop/lemonquest/data/**)",
+      "Read(//C:/Users/leocs/Desktop/lemonquest/docker-data/**)",
+      "Read(//C:/Users/leocs/Desktop/lemonquest/docker-data-dev/**)",
+      "Bash(rm -rf data:*)",
+      "Bash(rm -rf docker-data:*)",
+      "Bash(docker compose down:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  }
+}

@@ -133,8 +133,10 @@ export interface InventoryOptions {
   onStatsChanged?: (p: PlayerState) => void;
   /** Baú (use.chest): o item já foi consumido; sorteia e entrega a recompensa (systems/quests.ts). */
   openChest?: (p: PlayerState, defId: string) => void;
-  /** Ouro recebido (conquistas). */
+  /** Ouro recebido (conquistas, telemetria). */
   onGold?: (p: PlayerState, n: number) => void;
+  /** Ouro gasto com sucesso (telemetria). */
+  onSpend?: (p: PlayerState, n: number) => void;
 }
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);
@@ -305,6 +307,7 @@ export class InventorySystem {
     if (!inv || n < 0 || inv.gold < n) return false;
     inv.gold -= n;
     this.dirty.add(p.id);
+    if (n > 0) this.o.onSpend?.(p, n);
     return true;
   }
 

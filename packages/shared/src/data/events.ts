@@ -23,6 +23,9 @@ const LUNCH = { hour: 12, minute: 15, durationMin: 45 } as const;
 export const WEEKLY_EVENTS: readonly GameEventDef[] = [
   { id: "mare_de_tesouros", name: "Maré de Tesouros", desc: "Chance de loot +50%", xpMult: 1, lootMult: 1.5, day: 3, hour: 12, durationMin: 60 },
   { id: "noite_de_cacada", name: "Noite de Caçada", desc: "XP em dobro", xpMult: 2, lootMult: 1, day: 5, hour: 19, durationMin: 60 },
+  // Evento de XP em horário de escritório (ciclo 9, GD-14): terça às 13h, logo depois do Rei Goblin (12h15–13h) — o
+  // agendador devolve um evento só, então as janelas não podem se sobrepor.
+  { id: "cacada_de_terca", name: "Caçada de Terça", desc: "XP em dobro", xpMult: 2, lootMult: 1, day: 2, hour: 13, durationMin: 60 },
   { id: "tarde_de_sabado", name: "Tarde de Sábado", desc: "XP ×1,5 e loot +25%", xpMult: 1.5, lootMult: 1.25, day: 6, hour: 14, durationMin: 120 },
   // Chefes no almoço (seg, ter, qui, sex; a quarta é da Maré de Tesouros), do mais fácil ao mais difícil na semana.
   { id: "despertar_do_lich", name: "Despertar do Lich", desc: "O Lich do Pântano acordou! Loot +50%", xpMult: 1, lootMult: 1.5, day: 1, ...LUNCH, boss: "swamp_lich" },

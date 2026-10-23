@@ -68,6 +68,27 @@ describe("PvP", () => {
     void c;
   });
 
+  it("regra dos 2/3: fora da faixa de level só ataca quem tem caveira ou quem atacou primeiro", () => {
+    const s = setup();
+    const a = s.mk("a", 10, 10), b = s.mk("b", 11, 10);
+    a.level = 40; b.level = 5;
+    s.w.combat.onAttack(a, { targetId: "b" });
+    expect(a.targetId).toBe("");
+    expect(s.notices("a").at(-1)).toMatch(/2\/3/);
+    // O lv 5 também não inicia contra o lv 40.
+    s.w.combat.onAttack(b, { targetId: "a" });
+    expect(b.targetId).toBe("");
+    // Dentro da faixa (30 ≥ 2/3 de 40) pode.
+    b.level = 30;
+    s.w.combat.onAttack(a, { targetId: "b" });
+    expect(a.targetId).toBe("b");
+    s.tick(3000);
+    // Agora `a` atacou `b`: mesmo que `b` volte a estar fora da faixa, o revide é justo.
+    b.level = 5; b.targetId = ""; a.targetId = "";
+    s.w.combat.onAttack(b, { targetId: "a" });
+    expect(b.targetId).toBe("a");
+  });
+
   it("sem os ganchos de PvP ninguém ataca jogadores", () => {
     const s = setup();
     s.w.combat.hooks = {};
@@ -96,12 +117,13 @@ describe("PvP", () => {
     const s = setup();
     const a = s.mk("a", 10, 10, { level: 30, xp: xpForLevel(30) + 9000, maxHp: 5000, hp: 5000 });
     for (let i = 0; i < RED_SKULL_KILLS; i++) {
-      const v = s.mk(`v${i}`, 11, 10, { hp: 1, maxHp: 400 });
+      // Vítimas de lv 20 (≥ 2/3 de 30): dentro da faixa em que o ataque pode ser iniciado.
+      const v = s.mk(`v${i}`, 11, 10, { level: 20, xp: xpForLevel(20) + 500, hp: 1, maxHp: 400 });
       const xp0 = v.xp;
       s.w.combat.onAttack(a, { targetId: v.id });
       s.tick(2500);
       expect(s.dying).toContain(v.id);
-      expect(xp0 - v.xp).toBe(deathPenalty(10, xp0));
+      expect(xp0 - v.xp).toBe(deathPenalty(20, xp0));
       s.w.players.delete(v.id);
       s.pvp.removePlayer(v.id);
     }
@@ -121,7 +143,7 @@ describe("PvP", () => {
 
   it("caveira branca e bloqueio de PZ somem quando o jogador morre", () => {
     const s = setup();
-    const a = s.mk("a", 10, 10, { hp: 1 }), b = s.mk("b", 11, 10, { level: 30, maxHp: 5000, hp: 5000 });
+    const a = s.mk("a", 10, 10, { hp: 1 }), b = s.mk("b", 11, 10, { level: 15, maxHp: 5000, hp: 5000 }); // 10 ≥ 2/3 de 15
     s.w.combat.onAttack(a, { targetId: "b" });
     s.tick(2500);
     expect(a.skull).toBe("white");

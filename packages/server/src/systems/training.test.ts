@@ -70,9 +70,9 @@ describe("boneco de treino (servidor)", () => {
     expect(p.targetId).toBe(w.dummy.s.id); // o alvo continua
   });
 
-  it("dano enorme também não o derruba", () => {
+  it("dano enorme também não o derruba (e o dano é só mostrado: retorno 0, para o dreno não curar)", () => {
     const w = setup();
-    expect(w.combat.damageMonster(w.dummy, "x", 5_000_000, "physical", w.now())).toBe(5_000_000);
+    expect(w.combat.damageMonster(w.dummy, "x", 5_000_000, "physical", w.now())).toBe(0);
     expect(w.dummy.s.hp).toBe(1_000_000);
     expect(w.mm.size).toBe(1);
   });
@@ -227,8 +227,9 @@ describe("treino offline: fórmula", () => {
       expect(h1, `${voc} ${skill}`).toBeGreaterThanOrEqual(3);
       expect(h1, `${voc} ${skill}`).toBeLessThanOrEqual(5);
     }
-    expect(gained("melee", "knight", 8, 720)).toBe(13);
-    expect(gained("magic", "druid", 20, 720)).toBe(14);
+    // Curva do ciclo 9 (#57): armas/escudo com rate puro, magia com rate × 1,1.
+    expect(gained("melee", "knight", 8, 720)).toBe(23);
+    expect(gained("magic", "druid", 20, 720)).toBe(17);
   });
 
   it("minutos entre dois instantes: clamp [0, 720]", () => {

@@ -129,7 +129,7 @@ const MIGRATIONS: Migration[] = [
      y INTEGER NOT NULL,
      item TEXT NOT NULL,               -- ItemInstance em JSON
      expires_at INTEGER NOT NULL,      -- epoch ms
-     owner TEXT,                       -- sem uso (o chão não tem dono); fica por compatibilidade. Era: nome (minúsculo) com prioridade...
+     owner TEXT,                       -- loot de grupo (ciclo 9): id do grupo com prioridade de 15 s para pegar/mover; null = sem dono...
      owner_until INTEGER               -- ...até este epoch ms
    );`,
   // v6: sessões de conta sobrevivem a reinícios. Só o hash SHA-256 do token vai para o disco (o token fica com o cliente).
@@ -182,6 +182,9 @@ export function initDb(file?: string): DatabaseSync {
   if (target !== ":memory:") fs.mkdirSync(path.dirname(target), { recursive: true });
   const d = new DatabaseSync(target);
   d.exec("PRAGMA journal_mode = WAL");
+  // Com WAL, NORMAL continua durável a queda do processo (só uma queda de energia perde os últimos commits) e evita um
+  // fsync por commit — o autosave gravava N jogadores com N fsyncs (#56).
+  d.exec("PRAGMA synchronous = NORMAL");
   d.exec("PRAGMA foreign_keys = ON");
   // Outro processo (CLI de admin) pode estar escrevendo: espera até 3 s pelo lock em vez de falhar na hora.
   d.exec("PRAGMA busy_timeout = 3000");

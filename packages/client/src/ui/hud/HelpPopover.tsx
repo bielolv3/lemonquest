@@ -1,7 +1,11 @@
 // Cola de atalhos de teclado.
 import { useEffect, useRef } from "preact/hooks";
+import { bindOverlay } from "../overlays.ts";
 import { helpOpen } from "./uiState.ts";
 import { newsOpen } from "../news/news.ts";
+
+// Esc pela pilha de sobreposições: a ajuda fecha como qualquer janela, na ordem em que foi aberta.
+bindOverlay("help", helpOpen, (v) => v, () => helpOpen.set(false));
 
 const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
   {
@@ -19,7 +23,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["1", "–", "0"], label: "Magias da barra (teclas configuráveis em H)" },
       { keys: ["H"], label: "Atalhos de magia (escolher a tecla de cada magia)" },
       { keys: ["Q", "E"], label: "Poção de vida / mana" },
-      { keys: ["F5", "F6", "F7"], label: "Modo de luta" },
+      { keys: ["F2", "F3", "F4"], label: "Modo de luta (ofensivo · equilibrado · defensivo)" },
       { keys: ["F8"], label: "Seguir o alvo" },
       { keys: ["F9"], label: "Ataque automático" },
       { keys: ["Clique dir."], label: "Jogador: atacar (PvP) · seguir · trocar itens" },
@@ -50,6 +54,18 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["R"], label: "Ranking" },
       { keys: ["B"], label: "Bestiário" },
       { keys: ["F1"], label: "Esta ajuda (ou ?)" },
+    ],
+  },
+  {
+    // Funções que não tinham pista nenhuma na tela (UX-18).
+    title: "Painéis",
+    rows: [
+      { keys: ["Arrastar"], label: "Cabeçalho do painel: reordenar a barra" },
+      { keys: ["📌"], label: "Fixar: visível com a barra recolhida" },
+      { keys: ["Arrastar"], label: "Borda de baixo (Batalha/Mochila): altura" },
+      { keys: ["Roda"], label: "No minimapa: zoom" },
+      { keys: ["Clique"], label: "Relógio do minimapa: efeitos de luz" },
+      { keys: ["Clique dir."], label: "Em você: roupa · pegar · sair do grupo" },
     ],
   },
 ];
