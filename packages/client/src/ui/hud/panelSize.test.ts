@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampRows, defaultSizes, normalizeSizes, rowsFromDrag, rowsToPx, SIZE_SPEC } from "./panelSize.ts";
+import { clampRows, defaultSections, defaultSizes, normalizeSizes, rowsFromDrag, rowsToPx, SIZE_SPEC } from "./panelSize.ts";
 
 describe("panelSize", () => {
   it("padrões: batalha 5 linhas, mochila 3 linhas", () => {
@@ -9,6 +9,11 @@ describe("panelSize", () => {
   it("tela baixa (≤ 820 px): batalha começa com 3 linhas para a mochila caber", () => {
     expect(defaultSizes(720)).toEqual({ battle: 3, backpack: 3 });
     expect(defaultSizes(900)).toEqual({ battle: 5, backpack: 3 });
+  });
+
+  it("tela baixa (<= 820 px): Equipamento dobrado e Mochila aberta; tela alta: tudo aberto", () => {
+    expect(defaultSections(768)).toMatchObject({ equipment: false, backpack: true, status: true, battle: true, party: true });
+    expect(defaultSections(900)).toEqual({ status: true, equipment: true, battle: true, backpack: true, party: true });
   });
 
   it("clampRows limita a min/max, arredonda e trata inválidos", () => {

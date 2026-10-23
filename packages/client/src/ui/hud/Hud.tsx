@@ -3,7 +3,7 @@ import { useEffect } from "preact/hooks";
 import { isTyping } from "../focus.ts";
 import { ActionBar } from "./ActionBar.tsx";
 import { activateSlot } from "./actionbar.ts";
-import { effectiveHotkeys, hotkeyIndex, hotkeysOpen, keyFromEvent, toggleHotkeys } from "../hotkeys/hotkeys.ts";
+import { effectiveHotkeys, hotkeyIndex, keyFromEvent, toggleHotkeys } from "../hotkeys/hotkeys.ts";
 import { HotkeysWindow } from "../hotkeys/HotkeysWindow.tsx";
 import type { Vocation } from "@lemonquest/shared";
 import { startCastBar } from "./castbar.ts";
@@ -17,7 +17,8 @@ import { meStore } from "./world.ts";
 import { Tooltip } from "./Tooltip.tsx";
 import "../items/bind.ts";
 import { DragLayer } from "../items/DragLayer.tsx";
-import { closeTopOverlay, useItemKeys } from "../items/keys.ts";
+import { useItemKeys } from "../items/keys.ts";
+import { closeTopOverlay } from "../overlays.ts";
 import { dialogStore } from "../items/dialogs.ts";
 import { ItemTooltip } from "../items/ItemTooltip.tsx";
 import { LootToasts } from "../items/LootToasts.tsx";
@@ -37,7 +38,7 @@ import { QuestLog } from "../quests/QuestLog.tsx";
 import { toggleQuestLog } from "../quests/quests.ts";
 import { AchievementsWindow } from "../achievements/AchievementsWindow.tsx";
 import { RankingWindow } from "../achievements/RankingWindow.tsx";
-import { achievementsOpen, rankingOpen, toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
+import { toggleAchievements, toggleRanking } from "../achievements/achievements.ts";
 import "./world.ts";
 import "./hud.css";
 
@@ -103,14 +104,10 @@ function useHudKeys() {
       if (e.code === "KeyB") { e.preventDefault(); toggleBestiary(); return; }
       if (e.key === "?" || e.code === "F1") { e.preventDefault(); soundOpen.set(false); toggle(helpOpen); return; }
       if (e.key === "Escape") {
+        // Janelas, cartões e menus fecham pela pilha (overlays.ts: a última aberta primeiro; normalmente o listener
+        // em captura de lá já tratou este Esc). Só com tudo fechado o Esc para de seguir e, depois, limpa o alvo.
         if (closeTopOverlay()) return;
-        // Fecha o que estiver aberto, um por vez; por último limpa o alvo.
-        if (hotkeysOpen.get()) hotkeysOpen.set(false);
-        else if (achievementsOpen.get()) achievementsOpen.set(false);
-        else if (rankingOpen.get()) rankingOpen.set(false);
-        else if (helpOpen.get()) helpOpen.set(false);
-        else if (skillsOpen.get()) skillsOpen.set(false);
-        else if (meStore.get()?.followId) followPlayer(null);
+        if (meStore.get()?.followId) followPlayer(null);
         else if (getTarget()) clearTarget();
       }
     };

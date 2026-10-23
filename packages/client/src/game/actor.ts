@@ -563,7 +563,10 @@ export class Actor {
     const px = snap(this.rx) + TILE_SIZE / 2;
     const py = snap(this.ry) + TILE_SIZE;
     this.root.setPosition(px, py);
-    this.root.setDepth(10 + this.ry + TILE_SIZE);
+    // O setter de depth do Phaser SEMPRE agenda uma reordenação da display list (~1 000 objetos com 580 atores),
+    // mesmo com o valor igual: só escreve quando mudou (PERF-14, ciclo 9).
+    const depth = 10 + this.ry + TILE_SIZE;
+    if (this.root.depth !== depth) this.root.setDepth(depth);
     this.sprite.setPosition(Math.round(this.kbx), Math.round(this.kby) + this.baseY);
     if (this.overlays.length) {
       const f = this.sprite.frame.name;

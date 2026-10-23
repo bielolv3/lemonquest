@@ -1,14 +1,17 @@
-// Janela de habilidades (tecla K): arrastável pela barra de título, posição lembrada.
+// Janela de habilidades (tecla K): arrastável pela barra de título (useWindowDrag), posição lembrada.
 import { Dir, stepDuration, type SkillId } from "@lemonquest/shared";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { bindOverlay } from "../overlays.ts";
 import { StatBar } from "./StatBar.tsx";
 import { fmt, xpProgress } from "./StatusPanel.tsx";
-import { persistedJson, useStore } from "./store.ts";
+import { useStore } from "./store.ts";
 import { skillsOpen } from "./uiState.ts";
+import { clampWindowPos, useWindowDrag } from "./useWindowDrag.ts";
 import { meStore, type PlayerSnap } from "./world.ts";
 
 const W = 248;
-const posStore = persistedJson<{ x: number; y: number }>("skillsPos", { x: -1, y: -1 });
+
+// Esc pela pilha de sobreposições (registrado no instante em que abre: a última janela aberta fecha primeiro).
+bindOverlay("skills", skillsOpen, (v) => v, () => skillsOpen.set(false));
 
 export interface SkillValue { level: number; pct: number }
 export const SKILL_LABELS: Record<SkillId, string> = { melee: "Corpo a corpo", distance: "Distância", magic: "Magic Level", shield: "Escudo" };
@@ -23,48 +26,13 @@ function skillValues(me: PlayerSnap): Record<SkillId, SkillValue> {
   };
 }
 
-function clampPos(x: number, y: number) {
-  return {
-    x: Math.max(4, Math.min(window.innerWidth - W - 4, x)),
-    y: Math.max(4, Math.min(window.innerHeight - 60, y)),
-  };
-}
+/** Posição inicial: à esquerda da barra lateral (chave "skillsPos", a mesma de antes do hook). */
+const defaultPos = () => clampWindowPos(window.innerWidth - 228 - 34 - W - 16, 72, W);
 
 export function SkillsWindow() {
   const open = useStore(skillsOpen);
   const me = useStore(meStore);
-  const stored = useStore(posStore);
-  const [drag, setDrag] = useState(false);
-  const win = useRef<HTMLDivElement>(null);
-
-  const pos = stored.x < 0 ? clampPos(window.innerWidth - 228 - 34 - W - 16, 72) : clampPos(stored.x, stored.y);
-
-  // Arrastar pela barra de título (pointer capture: funciona mesmo saindo da janela).
-  const onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    e.preventDefault();
-    const sx = e.clientX - pos.x, sy = e.clientY - pos.y;
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    setDrag(true);
-    const move = (ev: PointerEvent) => posStore.set(clampPos(ev.clientX - sx, ev.clientY - sy));
-    const up = () => {
-      setDrag(false);
-      target.removeEventListener("pointermove", move);
-      target.removeEventListener("pointerup", up);
-      target.removeEventListener("pointercancel", up);
-    };
-    target.addEventListener("pointermove", move);
-    target.addEventListener("pointerup", up);
-    target.addEventListener("pointercancel", up);
-  };
-
-  // Mantém na tela ao redimensionar.
-  useEffect(() => {
-    const onResize = () => { if (posStore.get().x >= 0) posStore.set((p) => clampPos(p.x, p.y)); };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+  const drag = useWindowDrag("skills", defaultPos);
 
   if (!open || !me) return null;
   const xp = xpProgress(me.level, me.xp);
@@ -72,13 +40,13 @@ export function SkillsWindow() {
 
   return (
     <div
-      ref={win}
-      class={`hud-card hud-window skills-win${drag ? " dragging" : ""}`}
-      style={{ left: `${pos.x}px`, top: `${pos.y}px`, width: `${W}px` }}
+      ref={drag.ref}
+      class={`hud-card hud-window skills-win${drag.dragging ? " dragging" : ""}`}
+      style={{ ...drag.style, width: `${W}px` }}
       role="dialog"
       aria-label="Habilidades"
     >
-      <div class="win-title" onPointerDown={onDown}>
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Habilidades</span>
         <button class="win-close" onClick={() => skillsOpen.set(false)} data-tip="Fechar" data-tip-sub="K ou Esc">×</button>

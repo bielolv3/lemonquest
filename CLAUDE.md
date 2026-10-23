@@ -45,8 +45,9 @@ Servidor isolado para teste manual ou smoke (não toca em `data/`):
   Use o servidor E2E (porta própria, banco temporário). Nunca commite `*.db*`.
 - E2E pesa na CPU: 1 worker; não rode junto com unitários ou build. Antes de culpar o código por falha E2E, veja no
   log do servidor a linha `[tick] … máx` (CPU saturada = ticks de centenas de ms = falha falsa).
-- E2E instáveis conhecidos e a causa provável (corrida no helper `teleport()`/`settled()`): ver
-  `docs/audit/2026-10-22/VALIDATION_BASELINE.md` e `docs/GAME_ROADMAP.md`.
+- Falha E2E nova? O helper `teleport()` só devolve com o ator no tile e a câmera centrada nele (`settled()`); specs
+  que clicam uma vez só devem usar `expect.poll` com reclique. Histórico em `docs/TEST_PLAN.md` (ciclo 9).
+- O chão não tem dono e dura 10 min: testes que largam itens devem escolher um tile sem item (`ground()`).
 - `WorldScene.ts` (~1.460 linhas) e `WorldRoom.ts` (~1.200) são grandes de propósito; não refatore sem pedido.
 - Greps por nome acham cópias em `packages/*/dist/` e `packages/client/.public/` (gerados): ignore.
 

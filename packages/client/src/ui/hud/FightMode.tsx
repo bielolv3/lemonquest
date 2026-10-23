@@ -8,9 +8,10 @@ import { createStore, useStore } from "./store.ts";
 import { meStore } from "./world.ts";
 
 export const STANCES: { id: FightStance; label: string; tip: string; key: string }[] = [
-  { id: "offensive", label: "Ofensivo", tip: "+20% dano causado, +15% dano recebido", key: "F5" },
-  { id: "balanced", label: "Equilibrado", tip: "Dano causado e recebido normais", key: "F6" },
-  { id: "defensive", label: "Defensivo", tip: "−20% dano causado, −25% dano recebido", key: "F7" },
+  // F2–F4 (F5 é o "atualizar a página" do navegador: o jogo não captura).
+  { id: "offensive", label: "Ofensivo", tip: "+20% dano causado, +15% dano recebido", key: "F2" },
+  { id: "balanced", label: "Equilibrado", tip: "Dano causado e recebido normais", key: "F3" },
+  { id: "defensive", label: "Defensivo", tip: "−20% dano causado, −25% dano recebido", key: "F4" },
 ];
 
 /** Valor otimista enquanto o servidor não confirma (limpo quando o estado chega ou após 1,2 s). */

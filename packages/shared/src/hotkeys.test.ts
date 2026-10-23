@@ -5,11 +5,18 @@ import {
 } from "./index.ts";
 
 describe("atalhos de magia", () => {
-  it("teclas: aceita números, letras livres, F2–F4/F10, símbolos e Shift; recusa as do jogo e lixo", () => {
-    for (const k of ["Digit1", "Digit0", "KeyF", "KeyZ", "F2", "F10", "Minus", "Shift+Digit3", "Shift+KeyF", "Space"]) expect(isHotkeyKey(k), k).toBe(true);
-    for (const k of ["F11", "F12", "KeyQ", "Shift+KeyQ", "KeyW", "ArrowUp", "Numpad7", "Enter", "Escape", "F1", "F5", "F9", "KeyH", "KeyM", "Ctrl+Digit1", "Shift+Shift+Digit1", "", 3, null]) {
+  it("teclas: aceita números, letras livres, F10, símbolos e Shift; recusa as do jogo, as do navegador e lixo", () => {
+    for (const k of ["Digit1", "Digit0", "KeyF", "KeyZ", "F10", "Minus", "Shift+Digit3", "Shift+KeyF", "Space"]) expect(isHotkeyKey(k), k).toBe(true);
+    for (const k of ["F11", "F12", "KeyQ", "Shift+KeyQ", "KeyW", "ArrowUp", "Numpad7", "Enter", "Escape", "F1", "F2", "F3", "F4", "Shift+F2", "F5", "F6", "F7", "F9", "KeyH", "KeyM", "Ctrl+Digit1", "Shift+Shift+Digit1", "", 3, null]) {
       expect(isHotkeyKey(k), String(k)).toBe(false);
     }
+    // Posturas em F2–F4 (antes F5–F7, que roubavam o "atualizar" do navegador): reservadas com o motivo; F5 fica livre
+    // para o navegador e, por não estar entre as teclas de atalho, também não vira atalho.
+    expect(reservedFor("F2")).toBe("Modo ofensivo");
+    expect(reservedFor("F4")).toBe("Modo defensivo");
+    expect(reservedFor("F5")).toBeNull();
+    // Atalho salvo em F2–F4 quando ainda eram livres: sai na limpeza (o painel avisa "usada por" ao tentar de novo).
+    expect(sanitizeHotkeys([{ key: "F2", spellId: "fireball" }, { key: "Digit1", spellId: "energy_wave" }], "sorcerer")).toEqual([{ key: "Digit1", spellId: "energy_wave" }]);
     expect(reservedFor("KeyQ")).toBe("Poção de vida");
     expect(reservedFor("Shift+KeyE")).toBe("Poção de mana");
     expect(reservedFor("Numpad3")).toMatch(/Andar/);

@@ -1,11 +1,13 @@
 // Janela "Desafios da semana": 3 metas com barra de progresso, resgate e o bônus por cumprir todas.
-import { isTyping } from "../focus.ts";
 import { itemDef, timeLeftText, type ChallengeReward } from "@lemonquest/shared";
-import { useEffect } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { bindOverlay } from "../overlays.ts";
 import { challengeAction, challengesOpen, challengesStore } from "./challenges.ts";
 import "../party/party.css";
 import "./challenges.css";
+
+// Esc pela pilha de sobreposições: fecha só esta janela (aberta por cima do diário, sai antes dele; não tira o alvo).
+bindOverlay("challenges", challengesOpen, (v) => v, () => challengesOpen.set(false));
 
 /** "+400 de ouro · 10× Poção de Vida" */
 export function rewardLine(r: ChallengeReward): string {
@@ -19,13 +21,6 @@ export function rewardLine(r: ChallengeReward): string {
 export function ChallengesWindow() {
   const open = useStore(challengesOpen);
   const data = useStore(challengesStore);
-  useEffect(() => {
-    if (!open) return;
-    // Em captura e parando aí: o Esc fecha só esta janela (não tira o alvo nem fecha o diário embaixo).
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); challengesOpen.set(false); } };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open]);
   if (!open) return null;
   const allClaimed = !!data && data.goals.every((g) => g.claimed);
   return (
@@ -34,6 +29,7 @@ export function ChallengesWindow() {
         <b>Desafios da semana</b>
         <button class="ch-x" onClick={() => challengesOpen.set(false)} aria-label="Fechar">×</button>
       </div>
+      <div class="ch-body">
       {!data && <div class="ch-empty">Carregando…</div>}
       {data && (
         <>
@@ -68,6 +64,7 @@ export function ChallengesWindow() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// Fantasma do item sendo arrastado + diálogo de quantidade.
+// Fantasma do item sendo arrastado + diálogos (quantidade, confirmação).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
 import { bindGhost, dragStore } from "./dnd.ts";
@@ -45,12 +45,37 @@ function ItemDialogs() {
   if (!d) return null;
   return (
     <div class="item-dialog-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) closeDialog(); }}>
-      <CountDialog d={d} />
+      {d.kind === "confirm" ? <ConfirmDialog d={d} /> : <CountDialog d={d} />}
     </div>
   );
 }
 
-function CountDialog({ d }: { d: NonNullable<ReturnType<typeof dialogStore.get>> }) {
+type DialogOf<K extends NonNullable<ReturnType<typeof dialogStore.get>>["kind"]> =
+  Extract<NonNullable<ReturnType<typeof dialogStore.get>>, { kind: K }>;
+
+/** Sim/não. Enter confirma, Esc cancela (o foco nasce no botão de confirmar). */
+function ConfirmDialog({ d }: { d: DialogOf<"confirm"> }) {
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => { btn.current?.focus(); }, []);
+  const onKeyDown = (e: KeyboardEvent) => {
+    e.stopPropagation();
+    // preventDefault: o Enter num botão focado também dispara o click dele, e o onConfirm rodaria duas vezes.
+    if (e.key === "Enter") { e.preventDefault(); d.onConfirm(); }
+    else if (e.key === "Escape") closeDialog();
+  };
+  return (
+    <div class="hud-card item-dialog" role="alertdialog" aria-label={d.title} onKeyDown={onKeyDown}>
+      <div class="dlg-title">{d.title}</div>
+      <div class="dlg-text">{d.text}</div>
+      <div class="dlg-actions">
+        <button class="dlg-btn" onClick={closeDialog}>Cancelar</button>
+        <button class="dlg-btn danger" ref={btn} onClick={d.onConfirm}>{d.verb}</button>
+      </div>
+    </div>
+  );
+}
+
+function CountDialog({ d }: { d: DialogOf<"count"> }) {
   const [n, setN] = useState(d.initial);
   const clamp = (v: number) => Math.max(1, Math.min(d.max, Math.round(v) || 1));
   const input = useRef<HTMLInputElement>(null);

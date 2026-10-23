@@ -25,7 +25,7 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const HOTKEY_CODES: ReadonlySet<string> = new Set([
   ...Array.from({ length: 10 }, (_, i) => `Digit${i}`),
   ...[...LETTERS].map((c) => `Key${c}`),
-  "F2", "F3", "F4", "F10", // F11 (tela cheia) e F12 (ferramentas do navegador) ficam de fora
+  "F10", // F2–F4 são as posturas; F5 (atualizar), F6/F7 (barra de endereço, navegação), F11 (tela cheia) e F12 (ferramentas) são do navegador
   "Minus", "Equal", "Backquote", "BracketLeft", "BracketRight", "Semicolon", "Quote", "Comma", "Period", "Slash",
   "Backslash", "IntlBackslash", "IntlRo", "Space",
 ]);
@@ -38,7 +38,7 @@ export const RESERVED_KEYS: Readonly<Record<string, string>> = {
   KeyW: "Andar", KeyA: "Andar", KeyS: "Andar", KeyD: "Andar",
   ArrowUp: "Andar", ArrowDown: "Andar", ArrowLeft: "Andar", ArrowRight: "Andar",
   Enter: "Chat", NumpadEnter: "Chat", Escape: "Fechar janelas / limpar alvo", Tab: "Navegação",
-  F1: "Ajuda", F5: "Modo ofensivo", F6: "Modo equilibrado", F7: "Modo defensivo", F8: "Seguir o alvo", F9: "Ataque automático",
+  F1: "Ajuda", F2: "Modo ofensivo", F3: "Modo equilibrado", F4: "Modo defensivo", F8: "Seguir o alvo", F9: "Ataque automático",
   KeyQ: "Poção de vida", KeyE: "Poção de mana", KeyI: "Equipamento e mochila", KeyK: "Habilidades", KeyO: "Roupas",
   KeyL: "Diário de missões", KeyJ: "Conquistas", KeyR: "Ranking", KeyB: "Bestiário", KeyM: "Mapa", KeyH: "Atalhos",
 };

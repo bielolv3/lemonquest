@@ -40,11 +40,16 @@ room.onMessage("*", () => {});
 const GAP_MS = 25;
 
 if (MODE === "proto") {
-  const TYPES = ["move", "walkTo", "turn", "chat", "attack", "cast", "moveItem", "useItem", "quickPotion", "discardItem", "dropItem",
-    "pickupItem", "npcInteract", "npcTrade", "fightMode", "trainOpen", "trainOffline", "arena", "setOutfit", "quest", "setTitle",
-    "achievementsRequest", "party"];
+  // Todos os valores de C2S (shared/messages.ts). Para conferir que a lista continua completa:
+  //   npx tsx -e "import {C2S} from './packages/shared/src/messages.ts'; console.log(Object.values(C2S).join(','))"
+  const TYPES = ["move", "walkTo", "turn", "chat", "attack", "cast", "setHotkeys", "moveItem", "useItem", "quickPotion", "discardItem",
+    "dropItem", "pickupItem", "moveGroundItem", "lookGround", "npcInteract", "npcTrade", "travel", "fightMode", "follow", "trainOpen",
+    "trainOffline", "arena", "setOutfit", "buyOutfitTone", "quest", "materialRequest", "setTitle", "achievementsRequest", "party", "trade",
+    "challenge", "fish", "useQuestObject"];
   const KEYS = ["dir", "seq", "x", "y", "text", "channel", "id", "targetId", "spellId", "from", "to", "count", "index", "slot", "kind",
-    "npcId", "itemId", "action", "tab", "stance", "chase", "skill", "op", "name", "questId", "title", "outfit", "addons", "groundId"];
+    "npcId", "itemId", "action", "tab", "stance", "chase", "auto", "skill", "op", "name", "questId", "title", "outfit", "addons", "tone",
+    "groundId", "toneId", "questObjectId", "rev", "offer", "gold", "items", "key", "list", "hotkeys", "lobbyId", "withParty", "fromId",
+    "statueId", "destination", "on", "uid", "where", "requestId", "challengeId", "tx", "ty"];
   const weird = () => pick([null, undefined, 0, -1, 1e308, -1e308, NaN, Infinity, 3.7, "", "x".repeat(300), "__proto__", "constructor",
     true, false, [], [1, 2, 3], {}, { where: "backpack", index: -5 }, { where: "equip", slot: "head" }, { where: "depot", index: 9999 },
     "rat", "fireball", "knight", 2 ** 31, -0]);

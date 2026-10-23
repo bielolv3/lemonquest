@@ -12,9 +12,16 @@ logs
 *.db-wal
 *.db-shm
 
-# Saídas de build (são geradas dentro da imagem)
+# Saídas de build (são geradas dentro da imagem) e de testes
 packages/client/dist
 packages/client/.public
+playwright-report
+test-results
+tools/mapgen/_v
+# O build dentro da imagem (tools/build-public.mjs) já pula músicas e ambiente: ~50 MB a menos de contexto
+assets/ninja/Audio/Musics
+assets/ninja/Audio/Sounds/Ambient
+assets/maps/review
 
 # Peso morto para o runtime (previews, pack antigo, catálogo)
 assets/_download

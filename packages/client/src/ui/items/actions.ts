@@ -1,6 +1,8 @@
-// Ação "padrão" de um item (clique direito / duplo clique): usar, equipar, desequipar, vender, guardar.
+// Ação "padrão" de um item (clique direito / duplo clique): usar, equipar, desequipar, guardar.
+// Vender NÃO entra aqui: com a aba Vender aberta, um duplo clique na mochila vendia o item na hora (sem volta) —
+// a venda só acontece pelo botão da linha da loja (NpcWindow).
 import { DEPOT_SIZE, type ItemDef, type ItemInstance, type ItemLocation, type NpcOpenMsg } from "@lemonquest/shared";
-import { npcStore, sellItem } from "../npc/npc.ts";
+import { npcStore } from "../npc/npc.ts";
 import { pushToast } from "../toasts.ts";
 import {
   defOf, depotStore, equipFromBackpack, firstEmptyBackpack, moveItem, unequipToBackpack, useBackpackItem,
@@ -25,7 +27,6 @@ export function activateItem(loc: ItemLocation, inst: ItemInstance): void {
   if (!def) return;
   if (loc.where === "backpack") {
     const npc = npcStore.get();
-    if (npc?.tab === "sell" && npcBuys(def, npc.msg)) { sellItem(npc.msg.npcId, loc.index, 1); return; }
     if (def.use?.chest) { useBackpackItem(loc.index); return; } // baú: abre (sem recarga de poção)
     if (def.use?.food) { useBackpackItem(loc.index); return; } // comida: recarga própria (servidor), não trava as poções
     if (def.use) {

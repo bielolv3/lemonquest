@@ -437,9 +437,6 @@ export type PlayResponse = { ok: true; token: string; name: string; vocation: Vo
 export interface ResetPasswordRequest { account: string; code: string; password: string }
 /** POST /api/characters/delete — exclui um personagem da conta (exige a senha; recusa se online/treinando). */
 export interface DeleteCharacterRequest { session: string; name: string; password: string }
-/** @deprecated mantido só para compatibilidade de tipos antigos. */
-export type LoginResponse = AccountSession;
-
 /** Códigos de fechamento próprios (o Colyseus reserva 4000–4010). */
 export const CLOSE_REPLACED = 4100;   // a conta entrou em outro lugar
 export const CLOSE_TRAINING = 4101;   // saiu para treinar offline

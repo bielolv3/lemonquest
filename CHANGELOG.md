@@ -36,6 +36,25 @@ dos arquivos do Claude, roadmap de evolução, baseline de validação). Decisõ
   pede um espaço na mochila antes de cobrar a ficha; limite de taxa próprio para compra/uso/poção/largar/pegar/
   descartar/mover no chão/postura (#48).
 
+**Fase 1 — cliente (UX)**
+- **Esc fecha sempre a janela de cima**: uma pilha única de janelas/menus (`ui/overlays.ts`) substitui 11 listeners
+  independentes; clicar numa janela a traz para frente; Conquistas e Ranking não nascem mais uma sobre a outra; Diário,
+  Bestiário, Treino, Novidades, Desafios, Conquistas e Ranking agora arrastam pela barra de título (a janela de Roupas é
+  modal e perdeu o grip).
+- **F5 volta a ser do navegador**: posturas de combate em **F2 / F3 / F4** (F1, README, dicas e o aviso da troca
+  atualizados; um atalho de magia salvo nessas teclas é descartado com aviso). Botão direito sobre o HUD não abre mais o
+  menu do navegador.
+- **Sem venda ou largada por engano**: duplo clique/botão direito na mochila com a aba Vender aberta não vende mais (só o
+  botão da loja); largar um item raro, épico ou lendário arrastando para o chão pede confirmação (Enter confirma, Esc cancela).
+- **Chat** não puxa para o fim enquanto você lê o histórico: aparece a pílula "↓ N novas".
+- **Legibilidade**: textos secundários com contraste ≥ 4,5:1 (e mais fortes no alto contraste); nenhuma fonte abaixo de
+  10 px; "Texto maior" também amplia a barra de ações e as poções rápidas; o zoom das janelas vale só para o corpo
+  rolável (em 1366×768 o botão × continua na tela); em telas de até 820 px o Equipamento nasce dobrado e a Mochila aberta.
+- **Textos**: Novidades "Para onde vai o ouro" (bênção, encantamento, tingimento, cassino, encomenda); `/ajuda` e dicas do
+  carregamento falam em teclas 1–0 e 60 ondas.
+- Testes novos: `ratelimit`, `ai` (fuga, bando, grito, visão), `bounties`, `spellFamilies`, `outfitTones`, `overlays`,
+  `dropConfirm`, `chatScroll`; `tools/fuzz.mjs` cobre os 34 tipos de mensagem.
+
 **Fase 2 — balanço (decisões do dono em 2026-10-22)**
 - **Grupo compensa**: +35 % de XP por membro extra (era +20 %) e +20 % com três ou mais vocações diferentes.
 - **PvP**: só se inicia ataque contra quem está na sua faixa de level (regra dos 2/3, a mesma do grupo); revide e

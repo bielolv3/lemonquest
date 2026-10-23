@@ -36,7 +36,7 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Viajar Vila ↔ Posto da Fronteira ↔ Porto Esperança | fale com o cocheiro (portão leste da Vila / sul do Posto) ou com a Capitã Marina (barco, no Porto) |
 | Abrir baú de quest / puxar alavanca | clique no baú ou na alavanca (o personagem anda até o lado) |
 | Chat | `Enter` · comandos do chat (grupo etc.): `/ajuda` |
-| Modo de luta | `F5` ofensivo, `F6` equilibrado, `F7` defensivo |
+| Modo de luta | `F2` ofensivo, `F3` equilibrado, `F4` defensivo (`F5` continua sendo o "atualizar" do navegador) |
 | Mapa | `M` |
 | Janelas | `I` equipamento/mochila · `K` habilidades · `O` roupas · `L` missões · `J` conquistas · `R` ranking · `B` bestiário |
 | Volume / mudo | botão ♪ na barra de botões à direita |

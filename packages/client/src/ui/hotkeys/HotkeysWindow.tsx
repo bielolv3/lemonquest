@@ -2,26 +2,27 @@
 // próxima tecla apertada (Esc cancela); as teclas do próprio jogo são recusadas com o motivo. Salva no personagem.
 import { HOTKEY_MAX, defaultHotkeys, familiesFor, familyLevel, spellsFor, type Hotkey, type Vocation } from "@lemonquest/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { persistedJson, useStore } from "../hud/store.ts";
+import { useStore } from "../hud/store.ts";
+import { clampWindowPos, useWindowDrag } from "../hud/useWindowDrag.ts";
 import { meStore } from "../hud/world.ts";
+import { bindOverlay, pushOverlay } from "../overlays.ts";
 import { addRow, assignKey, isModifierCode, removeRow, setRowSpell } from "./edit.ts";
 import { effectiveHotkeys, hotkeyLabel, hotkeysOpen, hotkeysStore, keyFromEvent, layoutStore, setHotkeys } from "./hotkeys.ts";
 import "./hotkeys.css";
 
 const W = 360;
-const posStore = persistedJson<{ x: number; y: number }>("hotkeysPos", { x: -1, y: -1 });
+/** Posição inicial: centro, um pouco à esquerda (chave "hotkeysPos", a mesma de antes do hook). */
+const defaultPos = () => clampWindowPos((window.innerWidth - W) / 2 - 110, 90, W);
 
-const clampPos = (x: number, y: number) => ({
-  x: Math.max(4, Math.min(window.innerWidth - W - 4, x)),
-  y: Math.max(4, Math.min(window.innerHeight - 80, y)),
-});
+// Esc pela pilha de sobreposições (registrado no instante em que abre: a última janela aberta fecha primeiro).
+bindOverlay("hotkeys", hotkeysOpen, (v) => v, () => hotkeysOpen.set(false));
 
 export function HotkeysWindow() {
   const open = useStore(hotkeysOpen);
   const me = useStore(meStore);
   useStore(hotkeysStore);
   useStore(layoutStore);
-  const stored = useStore(posStore);
+  const drag = useWindowDrag("hotkeys", defaultPos);
   const [capturing, setCapturing] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const msgTimer = useRef(0);
@@ -38,13 +39,15 @@ export function HotkeysWindow() {
 
   // Captura da tecla: antes de qualquer outro atalho do jogo (fase de captura + stopImmediatePropagation). Layout effect:
   // fica ativo antes de o "Pressione uma tecla…" aparecer (senão uma tecla apertada logo depois ia para o jogo).
+  // O Esc cancela a captura pela pilha de sobreposições (entrada transitória no topo): o listener único de Esc, registrado
+  // antes deste, trata o Esc primeiro — e assim ele cancela a captura em vez de fechar a janela.
   useLayoutEffect(() => {
     if (capturing === null || !open || !voc) return;
+    const offCapture = pushOverlay("hotkeys-capture", () => { setCapturing(null); say(undefined); });
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
       if (e.repeat || isModifierCode(e.code)) return;
-      if (e.code === "Escape") { setCapturing(null); say(undefined); return; }
       const key = keyFromEvent(e);
       if (!key) { say("Ctrl e Alt não podem: o navegador usa essas combinações.", true); return; }
       const r = assignKey(effectiveHotkeys(voc), capturing, key, hotkeyLabel);
@@ -61,6 +64,7 @@ export function HotkeysWindow() {
     window.addEventListener("pointerdown", cancel, true);
     window.addEventListener("focusin", cancel, true);
     return () => {
+      offCapture();
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("pointerdown", cancel, true);
       window.removeEventListener("focusin", cancel, true);
@@ -70,26 +74,12 @@ export function HotkeysWindow() {
   useEffect(() => { if (!open || !voc) { setCapturing(null); setMsg(null); } }, [open, voc]);
 
   if (!open || !me || !voc) return null;
-  const pos = stored.x < 0 ? clampPos((window.innerWidth - W) / 2 - 110, 90) : clampPos(stored.x, stored.y);
   const spells = spellsFor(voc);
   const families = familiesFor(voc);
 
-  const onDragTitle = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    e.preventDefault();
-    const sx = e.clientX - pos.x, sy = e.clientY - pos.y;
-    const t = e.currentTarget as HTMLElement;
-    t.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => posStore.set(clampPos(ev.clientX - sx, ev.clientY - sy));
-    const up = () => { t.removeEventListener("pointermove", move); t.removeEventListener("pointerup", up); t.removeEventListener("pointercancel", up); };
-    t.addEventListener("pointermove", move);
-    t.addEventListener("pointerup", up);
-    t.addEventListener("pointercancel", up);
-  };
-
   return (
-    <div class="hud-card hud-window hotkeys-win" style={{ left: `${pos.x}px`, top: `${pos.y}px`, width: `${W}px` }} role="dialog" aria-label="Atalhos de magia">
-      <div class="win-title" onPointerDown={onDragTitle}>
+    <div ref={drag.ref} class={`hud-card hud-window hotkeys-win${drag.dragging ? " dragging" : ""}`} style={{ ...drag.style, width: `${W}px` }} role="dialog" aria-label="Atalhos de magia">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Atalhos de magia</span>
         <button class="win-close" onClick={() => hotkeysOpen.set(false)} data-tip="Fechar" data-tip-sub="H ou Esc">×</button>

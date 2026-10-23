@@ -1,11 +1,17 @@
 // Diário de missões (tecla L / trilho): ativas e concluídas, com descrição, passos e recompensas.
 import { MAX_TRACKED_QUESTS, QUEST_LIST, npcDef, questDef, questReady, unlockText } from "@lemonquest/shared";
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { useStore } from "../hud/store.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
 import { inventoryStore } from "../items/inventory.ts";
-import { challengesOpen, toggleChallenges } from "../challenges/challenges.ts";
+import { toggleChallenges } from "../challenges/challenges.ts";
+import { bindOverlay } from "../overlays.ts";
 import { inventoryCounter, questAction, questLogOpen, questStore, rewardText, stepLines } from "./quests.ts";
 import "./quests.css";
+
+// Esc pela pilha de sobreposições, registrado no instante em que o store abre (não num useEffect, que deixava um frame
+// sem listener e um Esc rápido limpava o alvo). Os Desafios, abertos por cima, saem primeiro por terem entrado depois.
+bindOverlay("quest-log", questLogOpen, (v) => v, () => questLogOpen.set(false));
 
 export function QuestLog() {
   const open = useStore(questLogOpen);
@@ -21,22 +27,15 @@ function QuestLogDialog() {
   const done = QUEST_LIST.filter((d) => st?.done.includes(d.id));
   const [sel, setSel] = useState<string>(active[0]?.def.id ?? done[0]?.id ?? "");
   const [confirmAbandon, setConfirmAbandon] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !challengesOpen.get()) { e.preventDefault(); e.stopImmediatePropagation(); questLogOpen.set(false); } // a janela de desafios (por cima) fecha primeiro
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+  const drag = useWindowDrag("questLog");
 
   const def = questDef(sel);
   const act = st?.active.find((a) => a.id === sel);
   const isDone = !!st?.done.includes(sel);
   const tracked = !!st?.tracked.includes(sel);
   return (
-    <div class="hud-card hud-window quest-log" role="dialog" aria-label="Diário de missões">
-      <div class="win-title">
+    <div ref={drag.ref} class={`hud-card hud-window quest-log${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Diário de missões">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" />
         <span>Diário de missões</span>
         <button class="quest-btn ql-weekly" onClick={toggleChallenges} data-tip="Desafios da semana" data-tip-sub="Metas que zeram na segunda-feira">Desafios semanais</button>

@@ -9,8 +9,9 @@
   --hud-line-soft: #222736;
   --hud-line-hi: #3d4560;
   --hud-text: #e8e6d9;
-  --hud-muted: #8a8fa0;
-  --hud-faint: #5d6272;
+  /* Texto secundário: ≥ 4,5:1 (AA) sobre o painel escuro; os tons antigos davam 4,0:1 e 3,0:1 e sumiam sobre a grama. */
+  --hud-muted: #9ba0b0;
+  --hud-faint: #7d8396;
   --hud-gold: #d9a441;
   --hud-red: #d9534f;
   --hud-blue: #4a7dd9;
@@ -252,9 +253,9 @@
   width: 42px; height: 42px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   border-radius: 4px; border: 1px dashed var(--hud-line-soft);
 }
-.equip-stat-k { font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--hud-faint); }
+.equip-stat-k { font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--hud-faint); }
 .equip-stat-v { font-size: 12px; color: #c4c6cf; font-variant-numeric: tabular-nums; }
-.equip-stat-v small { font-size: 9px; color: var(--hud-faint); }
+.equip-stat-v small { font-size: 10px; color: var(--hud-faint); }
 
 /* ---------- Batalha ---------- */
 .battle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -344,7 +345,7 @@
   text-shadow: 0 1px 0 #000; z-index: 2;
 }
 .action-abbr { font-size: 14px; font-weight: 600; color: var(--hud-text); }
-.action-mana { position: absolute; right: 3px; bottom: 1px; font-size: 9px; color: #8fb0f0; text-shadow: 0 1px 0 #000; z-index: 2; }
+.action-mana { position: absolute; right: 3px; bottom: 1px; font-size: 10px; color: #8fb0f0; text-shadow: 0 1px 0 #000; z-index: 2; }
 .action-cd {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: conic-gradient(rgba(5, 6, 10, 0.74) var(--cd), rgba(5, 6, 10, 0.18) 0);
@@ -367,13 +368,13 @@
 .action-slot.out-range img { filter: saturate(0.6) brightness(0.8); }
 .action-slot.no-target img { filter: saturate(0.55) brightness(0.7); }
 /* Família (tecla inteligente): losango no canto de cima. */
-.action-family { position: absolute; right: 3px; top: 0; font-size: 9px; line-height: 12px; color: var(--hud-gold); text-shadow: 0 1px 0 #000; z-index: 2; }
+.action-family { position: absolute; right: 3px; top: 0; font-size: 10px; line-height: 12px; color: var(--hud-gold); text-shadow: 0 1px 0 #000; z-index: 2; }
 .action-slot.locked { cursor: not-allowed; }
 .action-slot.locked img { filter: grayscale(1) brightness(0.55); }
 .action-slot.locked::after { content: ""; position: absolute; inset: 0; z-index: 1; background: rgba(5, 6, 10, 0.35); pointer-events: none; }
 .action-lock {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 2px;
-  height: 13px; font-size: 9px; color: #d8d3c0; background: rgba(5, 6, 10, 0.8); text-shadow: 0 1px 0 #000;
+  height: 13px; font-size: 10px; color: #d8d3c0; background: rgba(5, 6, 10, 0.8); text-shadow: 0 1px 0 #000;
 }
 .action-slot.shake { animation: slot-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 .action-slot.shake::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: rgba(217, 83, 79, 0.35); animation: slot-glow 360ms ease-out forwards; }
@@ -398,7 +399,7 @@
   box-shadow: 0 0 10px color-mix(in srgb, var(--cond) 20%, transparent);
   animation: hud-pop 160ms var(--hud-ease);
 }
-.cond-time { position: absolute; right: 1px; bottom: -3px; font-size: 9px; color: #fff; text-shadow: 0 1px 0 #000, 0 0 2px #000; }
+.cond-time { position: absolute; right: 1px; bottom: -3px; font-size: 10px; color: #fff; text-shadow: 0 1px 0 #000, 0 0 2px #000; }
 
 /* ---------- Vinheta de HP baixo ---------- */
 .vignette {

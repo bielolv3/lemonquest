@@ -12,6 +12,18 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-22f",
+    date: "22 de outubro (noite)",
+    title: "Para onde vai o ouro",
+    items: [
+      "Bênção: Liora (Vila), Irmão Tadeu (Posto da Fronteira) ou Irmã Celeste (Porto) zeram a perda de XP da sua próxima morte.",
+      "Encantamento: Dona Marta põe 1 efeito ativo no seu equipamento por 5 mil de ouro e 5 materiais.",
+      "Tingimento de roupa: na janela de roupas (O), 8 tons por conta, 8 mil cada.",
+      "Cassino: Hanna, no Posto da Fronteira, vende a ficha por 1 mil. Sorte é sorte.",
+      "Encomenda semanal: a aba \"Encomenda\" do Quadro de Recompensas paga pelos materiais pedidos na semana.",
+    ],
+  },
+  {
     id: "2026-10-22e",
     date: "22 de outubro (noite)",
     title: "Caves cheias e monstros mais fortes",

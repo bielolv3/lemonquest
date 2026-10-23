@@ -4,20 +4,13 @@ import type { ComponentChildren } from "preact";
 import { useRef } from "preact/hooks";
 import { itemTipStore } from "../items/tipStore.ts";
 import { PixelIcon } from "./icons.tsx";
-import { panelSizesStore, resetPanelRows, rowsFromDrag, rowsToPx, setPanelRows, type SizableId } from "./panelSize.ts";
+import { defaultSections, panelSizesStore, resetPanelRows, rowsFromDrag, rowsToPx, setPanelRows, type SectionId, type SizableId } from "./panelSize.ts";
 import { panelPinsStore, togglePin, type PanelId } from "./panels.ts";
 import { persistedJson, useStore } from "./store.ts";
 
-export type SectionId = "status" | "equipment" | "battle" | "backpack" | "party";
+export type { SectionId } from "./panelSize.ts";
 
-const smallScreen = typeof window !== "undefined" && window.innerHeight < 860;
-export const sectionsStore = persistedJson<Record<SectionId, boolean>>("sections", {
-  status: true,
-  equipment: true,
-  battle: true,
-  backpack: !smallScreen,
-  party: true,
-});
+export const sectionsStore = persistedJson<Record<SectionId, boolean>>("sections", defaultSections());
 
 export const PIN_TIP = "Fixar (fica visível com a barra recolhida)";
 

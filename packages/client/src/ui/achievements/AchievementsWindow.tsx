@@ -2,8 +2,13 @@
 import { useState } from "preact/hooks";
 import { ACHIEVEMENTS, TITLES, TOTAL_ACHIEVEMENT_POINTS, unlockText, type AchievementDef } from "@lemonquest/shared";
 import { useStore } from "../hud/store.ts";
+import { useWindowDrag } from "../hud/useWindowDrag.ts";
+import { bindOverlay } from "../overlays.ts";
 import { achievementsOpen, achievementsStore, fmtNum, fmtProgress, sendTitle, titleText } from "./achievements.ts";
 import "./achievements.css";
+
+// Esc pela pilha de sobreposições (registrado no instante em que abre: a última janela aberta fecha primeiro).
+bindOverlay("achievements", achievementsOpen, (v) => v, () => achievementsOpen.set(false));
 
 type Filter = "all" | "done" | "locked";
 const FILTERS: { id: Filter; label: string }[] = [
@@ -26,10 +31,11 @@ function AchievementsDialog() {
   const doneCount = ACHIEVEMENTS.filter((a) => done[a.id]).length;
   const titles = (st?.unlocks ?? []).filter((u) => u.startsWith("title:")).map((u) => u.slice(6)).filter((t) => t in TITLES);
   const list = ACHIEVEMENTS.filter((a) => (filter === "all" ? true : filter === "done" ? !!done[a.id] : !done[a.id]));
+  const drag = useWindowDrag("achievements");
 
   return (
-    <div class="hud-card hud-window ach-win" role="dialog" aria-label="Conquistas">
-      <div class="win-title">
+    <div ref={drag.ref} class={`hud-card hud-window ach-win${drag.dragging ? " dragging" : ""}`} style={drag.style} role="dialog" aria-label="Conquistas">
+      <div class="win-title" onPointerDown={drag.onTitleDown}>
         <span class="win-grip" aria-hidden="true" />
         <span>Conquistas</span>
         <button class="win-close" onClick={() => achievementsOpen.set(false)} data-tip="Fechar" data-tip-sub="J ou Esc">×</button>

@@ -111,6 +111,7 @@ Baseline antes de qualquer mudança (base `22a00c7`) e depois da Fase 0. Detalhe
 | E2E instáveis `fishing`+`look`+`spells`+`quests` `--repeat-each=3` | — | 25/27: os 4 alvos passaram 3/3; o novo caso "olhar item do chão" falhou 2/3 por item de rodadas anteriores no mesmo tile |
 | `look.spec.ts` `--repeat-each=5` após tile livre + chord repetido | — | **15/15** |
 | CI do GitHub em `main` | **vermelho** nos 2 últimos runs (job E2E: `fishing.spec` 2/2 tentativas, clique em `y=-1662`) | corrigido no helper (#50); valida no próximo push |
+| **Integração final** (Fases 0, 1, 2 parcial e 3 parcial; 2026-10-22 21:10–21:35) | — | typecheck ok · **837/837 unitários** (+1 skip documentado) · build ok · **E2E 45/46 em 9,7 min** (`retries: 0`): a única falha foi "olhar em você" com um rato passando pelo tile no instante do Shift+clique; o passo ganhou repetição e `look.spec.ts` passou 9/9 em `--repeat-each=3` |
 
 Causa raiz dos E2E instáveis (confirmada no trace do CI e no código): o helper `teleport()` esperava só o estado do
 servidor, e `settled()` dizia "parado" antes de a câmera sair do lugar (o ator salta 40 ms depois do estado e a câmera

@@ -40,12 +40,18 @@ test("olhar: dois botões numa criatura (sem mirar nela) e Shift+clique em você
   await page.keyboard.press("Escape");
   await expect(card).toHaveCount(0);
   await waitSettled(page);
-  const m = (await me(page))!;
-  const mc = await tileToClient(page, m.tileX, m.tileY, 0.6);
-  await page.keyboard.down("Shift");
-  await page.mouse.click(mc.x, mc.y);
-  await page.keyboard.up("Shift");
-  await expect(card).toContainText("(você)");
+  // Um rato pode passar pelo tile no instante do clique (o cartão abre "Rato"): repete até ser você.
+  await expect.poll(async () => {
+    const m = (await me(page))!;
+    const mc = await tileToClient(page, m.tileX, m.tileY, 0.6);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(mc.x, mc.y);
+    await page.keyboard.up("Shift");
+    await page.waitForTimeout(250);
+    const text = (await card.textContent().catch(() => "")) ?? "";
+    if (!text.includes("(você)")) await page.keyboard.press("Escape");
+    return text;
+  }, { timeout: 15_000, intervals: [400] }).toContain("(você)");
   await expect(card).toContainText("Level 1 · Cavaleiro");
 });
 

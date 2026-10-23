@@ -333,6 +333,9 @@ describe("/ajuda", () => {
     const player = helpLines("Bia", PROD), admin = helpLines("Leo", PROD);
     expect(player.join(" ")).toContain("/convidar");
     expect(player.join(" ")).toContain("F1");
+    // A barra tem 10 teclas (1–0) desde o ciclo 8; o texto antigo "1–8" não pode voltar.
+    expect(player.join(" ")).toContain("1–0");
+    expect(player.join(" ")).not.toContain("1–8");
     expect(player.join(" ")).not.toContain("/kick");
     for (const c of ADMIN_COMMANDS) expect(admin.join(" ")).toContain(c);
   });

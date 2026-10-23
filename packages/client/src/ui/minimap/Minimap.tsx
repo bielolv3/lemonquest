@@ -1,9 +1,10 @@
 // Minimapa com fog of war, mapa-múndi em tela cheia (tecla M) e banner de zona.
 import { isPartyMember } from "../party/party.ts";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { C2S, type WalkToMsg } from "@lemonquest/shared";
 import { session } from "../../session.ts";
 import { isTyping } from "../focus.ts";
+import { pushOverlay } from "../overlays.ts";
 import { minimapStore as store } from "./store.ts";
 import { clockLabel, phaseAt, ambientForZone, darknessOf, PHASE_LABEL } from "@lemonquest/shared";
 import { worldClock } from "../../game/daynight.ts";
@@ -176,18 +177,18 @@ export function Minimap() {
 
 export function WorldMapOverlay() {
   const [open, setOpen] = useState(false);
-  const openRef = useRef(open);
-  openRef.current = open;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Mapa aberto: entra na pilha de sobreposições (o Esc fecha só o mapa, não tira o alvo). Layout effect: registrado
+  // no mesmo commit em que o mapa aparece, sem frame descoberto.
+  useLayoutEffect(() => {
+    if (!open) return;
+    return pushOverlay("world-map", () => setOpen(false));
+  }, [open]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // Mapa aberto: o Esc fecha só o mapa (em captura e parando aí; não tira o alvo).
-      if (e.key === "Escape") {
-        if (openRef.current && !isTyping()) { e.preventDefault(); e.stopImmediatePropagation(); setOpen(false); }
-        return;
-      }
       // Tecla física (code), como os atalhos de magia: em outros layouts o "m" cai noutra tecla, que pode ser um atalho.
       if (e.code === "KeyM" && !isTyping()) { e.preventDefault(); setOpen((o) => !o); }
     };

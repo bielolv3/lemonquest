@@ -1,4 +1,4 @@
-// DONO: agente "movimento" (base) + agente "combate" (criaturas, alvo, FX).
+// Cena do mundo: ponte Colyseus → Phaser (jogadores, criaturas, chão), ponteiro/teclado, alvo e efeitos.
 import Phaser from "phaser";
 import { Callbacks, type Room } from "@colyseus/sdk";
 import {
