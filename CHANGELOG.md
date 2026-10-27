@@ -1,5 +1,22 @@
 # Changelog
 
+## [Não lançado] — 2026-10-27 · divisão automática do loot no grupo e janela de NPC mais larga
+
+Pedido do dono: dividir o loot do grupo automaticamente, ouro incluído; só o raro, épico ou lendário continua caindo no
+chão, para o grupo decidir quem leva.
+- **Loot de grupo**: ouro e itens comuns/incomuns de um abate em grupo não caem mais no chão: o ouro é dividido em
+  partes iguais entre quem participou (o resto da divisão fica com quem matou) e cada item vai para a mochila do próximo
+  participante do rodízio do grupo (`loot.ts` `nextSharer`), na ordem de entrada no grupo. Participante = a mesma regra
+  da XP compartilhada (vivo, a até 12 tiles, bateu no monstro ou atacou/curou nos últimos 60 s; `party.lootSharers`),
+  sem a regra de level. Quem está sem espaço é pulado; sem ninguém com espaço (ou sem participante), cai no chão
+  reservado ao grupo por 15 s, como antes. Cada um vê o seu cartão de loot "(divisão do grupo)". O raro+
+  (`PARTY_GROUND_RARITIES`) continua caindo no chão reservado ao grupo por 15 s (GD-21), com a linha no chat do grupo
+  quando um membro pega.
+- **Janela de NPC** 372 → 440 px (limitada ao espaço livre ao lado da barra lateral): com 4–5 abas os rótulos quebravam
+  dentro do botão e nome, preço e "Comprar" caíam em duas linhas. Abas nunca partem o rótulo (vão para a linha de baixo
+  se não couberem), nome do NPC com reticências em vez de empurrar o ouro e o fechar, grade do encantamento com a coluna
+  do nome em 92 px.
+
 ## [Não lançado] — 2026-10-26 · portais desenhados e animados
 
 Pedido do dono: "os portais não têm nenhum desenho ou animação, fica só com o nome". Até aqui o portal era só a luz roxa

@@ -1,5 +1,7 @@
 // Loot (M4): ao matar um monstro rola a tabela (chances independentes), o ouro e a raridade/bônus dos
 // equipáveis; entrega ao jogador online que mais causou dano. S2C.Loot para ele; S2C.Feed para drops épicos/lendários e chefes.
+// Em grupo, ouro e itens comuns/incomuns são divididos na hora entre quem participou (ouro em partes iguais, itens em
+// rodízio, direto na mochila); o raro+ cai no chão reservado ao grupo por 15 s, para o grupo decidir quem leva.
 import {
   ELITE, RARITIES, RARITY_LABEL, S2C, eliteName, isEquipable, rollInt,
   type FeedMsg, type ItemDef, type ItemInstance, type LootMsg, type MonsterDef, type NoticeMsg, type Rarity, type StatId,
@@ -121,14 +123,27 @@ export interface LootOptions {
    * Ausente/undefined = sozinho (direto na mochila).
    */
   partyIdOf?: (p: PlayerState, m: Monster) => string | undefined;
+  /**
+   * Divisão do loot do abate em grupo: quem participou (vivo, perto, bateu neste monstro ou atacou/curou há pouco), na
+   * ordem do grupo. Ausente/vazio = tudo cai no chão para o grupo.
+   */
+  lootSharers?: (p: PlayerState, m: Monster) => PlayerState[];
 }
 
-
+/**
+ * Raridades que NÃO entram na divisão automática do grupo (decisão do dono): caem no chão reservado ao grupo, para o
+ * grupo decidir quem leva. As demais são divididas na hora.
+ */
+export const PARTY_GROUND_RARITIES: Rarity[] = ["rare", "epic", "legendary"];
+/** Último a receber item por grupo: só os grupos mais recentes ficam na memória (id de grupo nunca se repete). */
+const SPLIT_MEMORY = 256;
 
 export const FEED_RARITIES: Rarity[] = ["epic", "legendary"];
 
 export class LootSystem {
   private readonly rng: () => number;
+  /** Grupo → id de quem recebeu o último item na divisão (o próximo da ordem do grupo recebe o seguinte). */
+  private readonly lastSplit = new Map<string, string>();
 
   constructor(private readonly o: LootOptions) {
     this.rng = o.rng ?? Math.random;
@@ -197,13 +212,49 @@ export class LootSystem {
   }
 
   /**
-   * Em grupo, o loot (itens e ouro) cai no chão onde o monstro morreu, reservado ao grupo por PARTY_LOOT_PRIORITY_MS
-   * (GD-21: quem passa correndo não leva o raro do grupo); depois fica sem dono como o resto do chão.
-   * O que não couber no chão vai para a mochila de quem matou.
+   * Em grupo, o loot é dividido na hora entre quem participou (`lootSharers`, na ordem do grupo): o ouro em partes
+   * iguais (o resto da divisão fica com quem matou) e cada item comum/incomum para o próximo do rodízio do grupo (quem
+   * está sem espaço é pulado); cada um recebe o seu cartão de loot. O raro+ (PARTY_GROUND_RARITIES) não entra no rodízio,
+   * por decisão do dono: cai no chão onde o monstro morreu, reservado ao grupo por PARTY_LOOT_PRIORITY_MS (GD-21: quem
+   * passa correndo não leva o raro do grupo), para o grupo decidir quem leva; o mesmo vale para o item que ninguém tem
+   * espaço para receber e, sem participante, para o loot inteiro. O que não couber no chão vai para a mochila de quem
+   * matou.
    */
   private dropForParty(p: PlayerState, m: Monster, items: ItemInstance[], gold: number, partyId: string): void {
     const { x, y } = m.s;
-    const all = gold > 0 ? [...items, makeItem(GOLD_ID, gold)] : items;
+    const monsterName = m.elite ? eliteName(m.def.name) : m.def.name;
+    const sharers = this.o.lootSharers?.(p, m) ?? [];
+    const toGround: ItemInstance[] = [];
+    const parts = new Map<string, LootMsg>();
+    const partOf = (to: PlayerState): LootMsg => {
+      let msg = parts.get(to.id);
+      if (!msg) { msg = { x, y, monsterName, items: [], gold: 0, partySplit: true }; parts.set(to.id, msg); }
+      return msg;
+    };
+    for (const it of items) {
+      const to = PARTY_GROUND_RARITIES.includes(it.rarity) ? undefined : this.nextSharer(partyId, sharers, it);
+      if (!to) { toGround.push(it); continue; }
+      this.o.inventory.addItem(to, it);
+      partOf(to).items.push(it);
+    }
+    let goldToGround = 0;
+    if (gold > 0 && sharers.length) {
+      const each = Math.floor(gold / sharers.length);
+      const restTo = sharers.find((s) => s.id === p.id) ?? sharers[0]!;
+      for (const s of sharers) {
+        const share = each + (s === restTo ? gold - each * sharers.length : 0);
+        if (share <= 0) continue;
+        this.o.inventory.addGold(s, share);
+        partOf(s).gold = share;
+      }
+    } else {
+      goldToGround = gold;
+    }
+    for (const s of sharers) {
+      const msg = parts.get(s.id);
+      if (msg) this.o.send(s.id, S2C.Loot, msg);
+    }
+    const all = goldToGround > 0 ? [...toGround, makeItem(GOLD_ID, goldToGround)] : toGround;
     const onGround: ItemInstance[] = [];
     let groundGold = 0;
     const reserve: GroundReserve = { owner: partyId, ownerUntil: (this.o.now ?? Date.now)() + PARTY_LOOT_PRIORITY_MS };
@@ -221,8 +272,26 @@ export class LootSystem {
       if (d && FEED_RARITIES.includes(it.rarity)) this.feed(`🔥 ${p.name} dropou ${d.name} (${RARITY_LABEL[it.rarity]})`, "drop", it.rarity);
     }
     if (onGround.length || groundGold > 0) {
-      this.o.send(p.id, S2C.Loot, { x, y, monsterName: m.elite ? eliteName(m.def.name) : m.def.name, items: onGround, gold: groundGold, onGround: true } satisfies LootMsg);
+      this.o.send(p.id, S2C.Loot, { x, y, monsterName, items: onGround, gold: groundGold, onGround: true } satisfies LootMsg);
     }
+  }
+
+  /**
+   * Próximo do rodízio do grupo que tem espaço para `item`: começa em quem vem depois do último que recebeu (na ordem
+   * do grupo) e dá a volta; undefined = ninguém participou ou ninguém tem espaço (o item cai no chão para o grupo).
+   */
+  private nextSharer(partyId: string, sharers: readonly PlayerState[], item: ItemInstance): PlayerState | undefined {
+    if (!sharers.length) return undefined;
+    const start = sharers.findIndex((s) => s.id === this.lastSplit.get(partyId)) + 1; // -1 + 1 = 0: começa do primeiro
+    for (let i = 0; i < sharers.length; i++) {
+      const to = sharers[(start + i) % sharers.length]!;
+      if (this.o.inventory.roomFor(to.id, item.defId) < item.count) continue;
+      this.lastSplit.delete(partyId);
+      this.lastSplit.set(partyId, to.id);
+      if (this.lastSplit.size > SPLIT_MEMORY) this.lastSplit.delete(this.lastSplit.keys().next().value!);
+      return to;
+    }
+    return undefined;
   }
 
   feed(text: string, kind: FeedMsg["kind"], rarity?: Rarity): void {
