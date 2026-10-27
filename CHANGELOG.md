@@ -1,5 +1,19 @@
 # Changelog
 
+## [Não lançado] — 2026-10-27 · Espaço mira/troca o bicho mais próximo
+
+Pedido: "queria que o espaço escolhesse o bicho pra atacar ou trocasse ele". `Espaço` agora mira o bicho mais próximo
+(lista de Batalha, por distância); apertar de novo troca pro próximo da lista, voltando ao início depois do último.
+Mira só criatura (jogador continua só por clique/menu, para não flagar PvP sem querer). A tecla sai de livre para
+atalho de magia (como Q/E/I já eram): quem já tinha uma magia em Espaço perde o atalho na limpeza normal
+(`sanitizeHotkeys`), igual qualquer outra tecla que passa a ser reservada.
+- **Cliente**: `nextBattleTarget` (`ui/hud/battle.ts`) cicla pelas criaturas da lista de Batalha; `useItemKeys`
+  (`ui/items/keys.ts`) chama no keydown do Espaço, com `preventDefault` (senão rola a página). `Space` entra em
+  `RESERVED_KEYS` (`shared/hotkeys.ts`), com o motivo "Mirar/trocar alvo" no aviso de tecla usada.
+- Numpad para andar já existia (`game/input.ts`); não precisou de nada novo.
+- Testes: `battle.test.ts` (lista vazia, só jogador, mais próximo, ciclo, alvo que saiu de alcance), `hotkeys.test.ts`
+  (Espaço reservado e limpo de atalhos salvos antigos); E2E `target.spec.ts` (mira e cicla de verdade no jogo).
+
 ## [Não lançado] — 2026-10-27 · monstro voltando ao spawn toma dano e cura aos poucos
 
 Pedido do dono: "quando eu luro o bicho para longe, ele volta para o lugar dele, porém não toma dano enquanto está
