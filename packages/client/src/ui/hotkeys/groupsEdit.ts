@@ -1,7 +1,7 @@
-// Edição dos grupos de magia (painel "Grupos de magia"; puro, sem DOM: testável). As regras de validade são as do
-// servidor (shared/data/spellFamilies.ts: sanitizeSpellGroups); aqui só as operações do painel.
+// Edição dos grupos de magia (editor da janela "Magias"; puro, sem DOM: testável). As regras de validade são as do
+// servidor (shared/data/spellFamilies.ts: sanitizeSpellGroups); aqui só as operações do editor.
 import {
-  GROUP_MAX, GROUP_SPELLS_MAX, HOTKEY_MAX, cleanGroupName, nextFreeKey, nextGroupId,
+  GROUP_MAX, GROUP_SPELLS_MAX, HOTKEY_MAX, cleanGroupName, nextFreeKey, nextGroupId, spellDef,
   type Hotkey, type SpellFamily, type SpellGroup,
 } from "@lemonquest/shared";
 
@@ -62,13 +62,26 @@ export function moveSpell(groups: readonly SpellGroup[], id: string, from: numbe
   return out;
 }
 
+/** "Mais forte primeiro": level decrescente; em empate, mana base decrescente; empate total mantém a ordem atual. */
+export function sortStrongest(groups: readonly SpellGroup[], id: string): SpellGroup[] {
+  return copy(groups).map((g) => {
+    if (g.id !== id) return g;
+    const rank = (sid: string): [number, number] => { const d = spellDef(sid); return d ? [d.level, d.mana] : [0, 0]; };
+    const spells = g.spells
+      .map((s, i) => ({ s, i, r: rank(s) }))
+      .sort((a, b) => b.r[0] - a.r[0] || b.r[1] - a.r[1] || a.i - b.i)
+      .map((x) => x.s);
+    return { ...g, spells };
+  });
+}
+
 /** Põe o grupo numa tecla livre da barra (já está = só avisa a tecla). */
 export function placeGroup(list: readonly Hotkey[], id: string, label: (k: string) => string): { list: Hotkey[]; message: string; error?: boolean } {
   const out = list.map((h) => ({ ...h }));
   const own = out.find((h) => h.spellId === id);
   if (own) return { list: out, message: `Já está na tecla ${label(own.key)}.` };
   const key = out.length < HOTKEY_MAX ? nextFreeKey(out.map((h) => h.key)) : null;
-  if (!key) return { list: out, error: true, message: `A barra está cheia (${HOTKEY_MAX}). Tire um atalho nos Atalhos (H).` };
+  if (!key) return { list: out, error: true, message: `A barra está cheia (${HOTKEY_MAX}): tire um atalho.` };
   out.push({ key, spellId: id });
   return { list: out, message: `Na barra, tecla ${label(key)}.` };
 }

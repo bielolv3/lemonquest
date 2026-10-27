@@ -65,6 +65,21 @@ export function addRow(list: readonly Hotkey[], vocation: Vocation): EditResult 
   return { list: out };
 }
 
+/**
+ * Slot "+" da janela Magias: `spellId` (magia, família ou grupo) na próxima tecla livre. Já na barra = erro dizendo a
+ * tecla (o tile mostra onde está); barra cheia = erro.
+ */
+export function addSlot(list: readonly Hotkey[], spellId: string, label: (k: string) => string): EditResult {
+  const out = list.map((h) => ({ ...h }));
+  const own = out.find((h) => h.spellId === spellId);
+  if (own) return { list: out, error: true, message: `Já está na tecla ${label(own.key)}.` };
+  if (out.length >= HOTKEY_MAX) return { list: out, error: true, message: `A barra está cheia (${HOTKEY_MAX}): tire um atalho.` };
+  const key = nextFreeKey(out.map((h) => h.key));
+  if (!key) return { list: out, error: true, message: "Não sobrou tecla livre." };
+  out.push({ key, spellId });
+  return { list: out, message: `Na tecla ${label(key)}.` };
+}
+
 /** Tecla do evento no formato dos atalhos ("Shift+KeyF"); null com Ctrl/Alt/Meta (não são atalhos). */
 export function keyFromEvent(e: Pick<KeyboardEvent, "code" | "shiftKey" | "ctrlKey" | "altKey" | "metaKey">): string | null {
   if (e.ctrlKey || e.altKey || e.metaKey || !e.code) return null;
@@ -105,7 +120,7 @@ export function placeUnlocked(
     const grp = groups.find((g) => g.spells.includes(s.id) && out.some((h) => h.spellId === g.id));
     if (grp) { notes.push(`Nova magia: ${s.name}, já na tecla ${label(out.find((h) => h.spellId === grp.id)!.key)} (${grp.name}).`); continue; }
     const key = out.length < HOTKEY_MAX ? nextFreeKey(out.map((h) => h.key)) : null;
-    if (!key) { notes.push(`Nova magia: ${s.name}. A barra está cheia: abra os atalhos (H) para pôr numa tecla.`); continue; }
+    if (!key) { notes.push(`Nova magia: ${s.name}. A barra está cheia: abra a janela Magias (H) para pôr numa tecla.`); continue; }
     const useFam = fam && !fam.spells.some((id) => out.some((h) => h.spellId === id));
     out.push({ key, spellId: useFam ? fam.id : s.id });
     notes.push(useFam ? `Nova magia: ${s.name} na tecla ${label(key)} (${fam.name}).` : `Nova magia: ${s.name} na tecla ${label(key)}.`);
