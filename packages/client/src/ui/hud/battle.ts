@@ -68,11 +68,12 @@ export function buildBattleList(players: ReadonlyMap<string, PlayerSnap>, myId: 
 
 /**
  * Próximo alvo ao apertar Espaço: a criatura mais próxima; se já há uma mirada (e ainda está na lista), a próxima
- * dela em diante por distância, voltando ao início depois da última. Ignora jogadores (Espaço mira só bichos).
+ * dela em diante por distância, voltando ao início depois da última. Ignora jogadores (Espaço mira só bichos). Sem
+ * bicho por perto, devolve o alvo atual (um jogador clicado continua selecionado; antes era apagado).
  */
 export function nextBattleTarget(entries: readonly BattleEntry[], current: Target | null): Target | null {
   const foes = entries.filter((e) => e.kind === "monster");
-  if (foes.length === 0) return null;
+  if (foes.length === 0) return current;
   const i = current ? foes.findIndex((e) => e.id === current.id) : -1;
   return { id: foes[(i + 1) % foes.length]!.id, kind: "monster" };
 }

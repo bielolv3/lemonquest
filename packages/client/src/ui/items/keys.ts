@@ -3,7 +3,7 @@
 // pela pilha de overlays.ts.)
 import { arenaResultStore, arenaWindowOpen, closeArenaWindow } from "../arena/arena.ts";
 import { useEffect } from "preact/hooks";
-import { isTyping } from "../focus.ts";
+import { focusedByKeyboard, isTyping } from "../focus.ts";
 import { session } from "../../session.ts";
 import { battleSourcesStore, buildBattleList, nextBattleTarget, BATTLE_RANGE } from "../hud/battle.ts";
 import { setFightMode, STANCES, toggleAuto, toggleChase } from "../hud/FightMode.tsx";
@@ -31,7 +31,7 @@ export function toggleInventorySections(): void {
   });
 }
 
-/** Espaço: mira o bicho mais próximo; de novo, troca pro próximo da lista de Batalha (cíclico). */
+/** Espaço: mira o bicho mais próximo; de novo, troca pro próximo da lista de Batalha (cíclico). Sem bicho, não mexe. */
 function cycleTarget(): void {
   const list = buildBattleList(playersStore.get(), session.myId, battleSourcesStore.get(), BATTLE_RANGE);
   setTarget(nextBattleTarget(list, targetStore.get()));
@@ -51,7 +51,15 @@ export function useItemKeys(): void {
       }
       if (e.code === "F8") { e.preventDefault(); if (!e.repeat) toggleChase(); return; }
       if (e.code === "F9") { e.preventDefault(); if (!e.repeat) toggleAuto(); return; }
-      if (e.code === "Space") { e.preventDefault(); if (!e.repeat) cycleTarget(); return; }
+      if (e.code === "Space") {
+        // Botão do HUD focado pelo teclado (Tab): o Espaço continua apertando o botão — o preventDefault aqui cancelaria
+        // a ativação (medido no Chromium). Foco deixado por clique do mouse não conta: quem clicou num botão e voltou ao
+        // jogo quer mirar, não apertar o botão de novo.
+        if (focusedByKeyboard()) return;
+        e.preventDefault();
+        if (!e.repeat) cycleTarget();
+        return;
+      }
       if (e.repeat) return;
       if (e.code === "KeyQ") quickPotion("hp");
       else if (e.code === "KeyE") quickPotion("mana");

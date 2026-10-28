@@ -5,9 +5,12 @@ const entry = (id: string, kind: BattleEntry["kind"], distance: number): BattleE
   ({ id, name: id, hpPct: 100, kind, distance });
 
 describe("próximo alvo ao apertar Espaço", () => {
-  it("sem bicho na lista: nenhum alvo", () => {
+  it("sem bicho na lista: nenhum alvo novo — e o alvo atual (um jogador clicado) fica como está", () => {
     expect(nextBattleTarget([], null)).toBeNull();
     expect(nextBattleTarget([entry("p1", "player", 1)], null)).toBeNull(); // só jogador por perto
+    const player = { id: "p1", kind: "player" as const };
+    expect(nextBattleTarget([entry("p1", "player", 1)], player)).toBe(player); // Espaço não desfaz a mira no jogador
+    expect(nextBattleTarget([], { id: "rat1", kind: "monster" })).toEqual({ id: "rat1", kind: "monster" }); // bicho saiu de alcance: nada muda
   });
 
   it("sem alvo ainda: o bicho mais próximo (lista já vem ordenada por distância)", () => {
