@@ -12,6 +12,15 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
+    id: "2026-10-28c",
+    date: "28 de outubro",
+    title: "Chat acompanha as mensagens",
+    items: [
+      "O chat volta a descer sozinho quando chegam mensagens novas (parava quando chegavam várias de uma vez).",
+      "Subiu para ler o histórico? Ele espera enquanto o mouse estiver sobre o chat; tirou o mouse, volta ao fim.",
+    ],
+  },
+  {
     id: "2026-10-28b",
     date: "28 de outubro",
     title: "Uma fada em Pedra Clara",
