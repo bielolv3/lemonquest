@@ -12,7 +12,8 @@ Monorepo com npm workspaces:
 Abra o endereço do servidor no navegador (ex.: `http://192.168.0.10:2567`). Na primeira vez, "Criar conta" (nome da
 conta e senha de no mínimo 6 caracteres); depois crie até 5 personagens na conta (nome e vocação) e escolha com qual
 jogar.
-Esqueceu a senha? Peça um código a um admin e use "Esqueci minha senha". Para excluir um personagem: "Excluir" no cartão
+O login fica salvo no navegador (30 dias sem uso): nas próximas vezes a tela já abre na lista de personagens; num computador
+compartilhado, use "Sair da conta". Esqueceu a senha? Peça um código a um admin e use "Esqueci minha senha". Para excluir um personagem: "Excluir" no cartão
 dele, na lista de personagens (pede o nome e a senha da conta; não funciona com ele online ou treinando offline).
 
 | Ação | Controle |
@@ -46,6 +47,7 @@ dele, na lista de personagens (pede o nome e a senha da conta; não funciona com
 | Janelas | `I` equipamento/mochila · `K` habilidades · `O` roupas (com ♂/♀: o sexo escolhido na criação pode ser trocado aqui) · `L` missões · `J` conquistas · `R` ranking · `B` bestiário |
 | Volume / mudo | botão ♪ na barra de botões à direita |
 | Painéis da barra lateral | arraste o cabeçalho para reordenar; 📌 fixa o painel (fica visível com a barra recolhida); a borda de baixo de Batalha/Mochila muda a altura (duplo clique: padrão) |
+| Mochila | se organiza sozinha (pilhas iguais juntam; itens por tipo) — não dá para arrastar dentro dela; solte um item do depot ou do chão em qualquer quadrado que ele entra na pilha igual ou no primeiro vazio; espaços por vocação: cavaleiro 30 → 60, paladino 26 → 52, feiticeiro/druida 24 → 48 (+1 a cada 4 levels) |
 | Minimapa | roda do mouse: zoom; clique no relógio: efeitos de luz (dia/noite) |
 | Botão direito em você | trocar roupa · pegar item do chão · sair do grupo · trocar personagem (volta à lista de personagens da conta) |
 | Ajuda com todos os atalhos | `F1` ou `?` |
@@ -98,7 +100,13 @@ Sem nenhum admin online, o dono do servidor gera o código pelo terminal:
 npm run admin -- reset-password <conta>          # na pasta do projeto (usa LEMONQUEST_DB ou data/lemonquest.db)
 npm run admin -- deleted                         # lista personagens excluídos (arquivo deleted_characters)
 npm run admin -- telemetria                      # progressão por faixa e por vocação (XP/h, abates/h, dano/h, % resistido, mortes/h), skills reais e causas de morte
+npm run admin -- create-account <conta>          # conta nova sem senha + código de recuperação (24 h): a pessoa escolhe a senha em "Esqueci minha senha"
+npm run admin -- create-character <conta> "<nome>" <vocação> [m|f]   # personagem com o kit inicial na conta; vocações: knight, paladin, sorcerer, druid e a oculta fairy (Fada)
 ```
+
+A **Fada** (`fairy`) é uma vocação oculta: a tela de criação não a oferece e a wiki não a descreve; só nasce pelo
+`create-character` (ex.: `npm run admin -- create-account gabi` e depois `npm run admin -- create-character gabi "Fada Gabi" fairy f`).
+Ela tem magias próprias (palavras `plim …`), a roupa "Fada" com asas e varinha (só ela veste) e brilhinho permanente.
 
 Docker: veja [deploy/docker/README.md](deploy/docker/README.md#9-administração).
 

@@ -12,12 +12,64 @@ export interface NewsEntry {
 
 export const NEWS: readonly NewsEntry[] = [
   {
-    id: "2026-10-27i",
+    id: "2026-10-28d",
     date: "28 de outubro",
     title: "Espaço mira o bicho",
     items: [
       "Aperte Espaço para mirar o bicho mais próximo; aperte de novo para trocar pro próximo da lista de Batalha.",
       "Só mira criatura (jogador continua só por clique ou pelo menu do botão direito).",
+    ],
+  },
+  {
+    id: "2026-10-28c",
+    date: "28 de outubro",
+    title: "Chat acompanha as mensagens",
+    items: [
+      "O chat volta a descer sozinho quando chegam mensagens novas (parava quando chegavam várias de uma vez).",
+      "Subiu para ler o histórico? Ele espera enquanto o mouse estiver sobre o chat; tirou o mouse, volta ao fim.",
+    ],
+  },
+  {
+    id: "2026-10-28b",
+    date: "28 de outubro",
+    title: "Uma fada em Pedra Clara",
+    items: [
+      "Dizem que uma fada ruiva, de vestido rosa, anda deixando brilhinho pelo caminho e falando uma língua esquisita (\"plim…\"). Se cruzar com ela, acene — e não tente pegar a varinha.",
+    ],
+  },
+  {
+    id: "2026-10-28a",
+    date: "28 de outubro",
+    title: "Cliques no topo da tela",
+    items: [
+      "O \"+\" das missões e a seta que recolhe a barra lateral voltaram a responder ao clique mesmo com um aviso ou o selo do próximo evento no topo da tela.",
+    ],
+  },
+  {
+    id: "2026-10-27k",
+    date: "28 de outubro",
+    title: "Entra direto e painel Online novo",
+    items: [
+      "O login fica salvo no navegador: ao abrir o jogo você já cai na lista de personagens. Em computador compartilhado, use \"Sair da conta\".",
+      "Painel Online em blocos — seu grupo, amigos e o resto —, com o rosto da vocação e botões novos: estrela (amigo), + (convidar) e balão (sussurrar).",
+    ],
+  },
+  {
+    id: "2026-10-27j",
+    date: "28 de outubro",
+    title: "Wiki com a cara do jogo",
+    items: [
+      "A wiki (F1 → Wiki do jogo) agora tem o visual do Lemon Quest: a fonte do jogo, painéis do HUD e o mapa do mundo ao fundo. O conteúdo é o mesmo.",
+    ],
+  },
+  {
+    id: "2026-10-27i",
+    date: "28 de outubro",
+    title: "Mochila maior e que se organiza sozinha",
+    items: [
+      "A mochila se organiza sozinha: pilhas iguais juntam e os itens ficam por tipo (equipamento, poções, comida, materiais…). Não dá mais para arrastar dentro dela.",
+      "Solte o item em qualquer quadrado da mochila (do depot ou do chão) que ele entra na pilha igual ou no primeiro espaço vazio.",
+      "Mais espaço, por vocação: cavaleiro 30 (até 60), paladino 26 (até 52), feiticeiro e druida 24 (até 48); +1 a cada 4 levels. Era 20 até 40 para todos.",
     ],
   },
   {

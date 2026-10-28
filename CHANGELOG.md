@@ -1,18 +1,172 @@
 # Changelog
 
-## [Não lançado] — 2026-10-27 · Espaço mira/troca o bicho mais próximo
+## [Não lançado] — 2026-10-28 · Espaço mira/troca o bicho mais próximo (PR #38, aberta em 27/10)
 
 Pedido: "queria que o espaço escolhesse o bicho pra atacar ou trocasse ele". `Espaço` agora mira o bicho mais próximo
 (lista de Batalha, por distância); apertar de novo troca pro próximo da lista, voltando ao início depois do último.
 Mira só criatura (jogador continua só por clique/menu, para não flagar PvP sem querer). A tecla sai de livre para
 atalho de magia (como Q/E/I já eram): quem já tinha uma magia em Espaço perde o atalho na limpeza normal
-(`sanitizeHotkeys`), igual qualquer outra tecla que passa a ser reservada.
+(`sanitizeHotkeys`), igual qualquer outra tecla que passa a ser reservada (em produção, nenhum dos 18 personagens usava).
 - **Cliente**: `nextBattleTarget` (`ui/hud/battle.ts`) cicla pelas criaturas da lista de Batalha; `useItemKeys`
   (`ui/items/keys.ts`) chama no keydown do Espaço, com `preventDefault` (senão rola a página). `Space` entra em
   `RESERVED_KEYS` (`shared/hotkeys.ts`), com o motivo "Mirar/trocar alvo" no aviso de tecla usada.
 - Numpad para andar já existia (`game/input.ts`); não precisou de nada novo.
 - Testes: `battle.test.ts` (lista vazia, só jogador, mais próximo, ciclo, alvo que saiu de alcance), `hotkeys.test.ts`
   (Espaço reservado e limpo de atalhos salvos antigos); E2E `target.spec.ts` (mira e cicla de verdade no jogo).
+- **Revisão (2026-10-28)**: sem bicho por perto, o Espaço não desfaz mais o alvo atual (um jogador clicado continuava
+  selecionado antes só por acaso: `nextBattleTarget` devolvia `null` e o alvo era apagado); com o foco num botão do
+  HUD chegado pelo teclado (Tab), o Espaço continua apertando o botão em vez de mirar — medido no Chromium: o
+  `preventDefault` no keydown cancela a ativação do botão, então sem essa guarda a navegação por teclado perdia o
+  Espaço. Foco deixado por clique do mouse não conta (o jogador clicou num botão e quer voltar a mirar).
+
+## [Não lançado] — 2026-10-28 · o chat volta a acompanhar as mensagens novas
+
+- **Causa** (dono: "quero que o scroll do chat desça automaticamente"): a rolagem "grudada no fim" quebrava sozinha em
+  rajadas (login, loot do grupo, várias pessoas falando): o navegador só dispara o evento de scroll da nossa descida no
+  quadro seguinte, e nesse meio tempo a linha seguinte já tinha crescido a lista — o código media "uma linha do fim",
+  concluía que o leitor tinha subido e parava de acompanhar, com a pílula "↓ N novas" sem ninguém ter mexido.
+  Reproduzido no harness `?uitest`: 12 linhas em rajada → parado em "↓ 6 novas"; uma a uma (400 ms) nunca falhava.
+- **Correção**: `scrolledAtBottom` (`chatScroll.ts`): um evento de scroll só conta como gesto do leitor quando o
+  `scrollTop` mudou em relação ao que a nossa rolagem deixou (`stuckTop`); na mesma posição, vale o estado anterior.
+- **Regra nova**: subir no histórico segura a posição **só enquanto o mouse está sobre o chat** (lendo); tirou o mouse
+  com mensagens novas esperando, o chat volta ao fim; com o mouse fora, toda mensagem nova desce. A pílula continua
+  clicável.
+- **Verificação**: `chatScroll.test.ts` (rajada, leitor que sobe e que volta, mouse fora); sonda Playwright no harness
+  com 13 cenários (rajadas de 12 e de 6 com o mouse fora, subir 60 px lendo e receber 3, sair com o mouse, subir e sair
+  sem novas, recolhido → aberto, texto grande 1,3, mouse parado sobre o chat, digitando): todos no fim, exceto os dois em
+  que o leitor está lendo com o mouse em cima — como esperado.
+
+## [Não lançado] — 2026-10-28 · Fada Gabi: vocação oculta "Fada", roupa exclusiva e CLI para criar personagem
+
+- **Vocação oculta `fairy` (Fada)** (dono: "um personagem chamado Fada Gabi, criado direto, com uma classe nova
+  bloqueada ou oculta — fofa, ruiva, tom de rosa e com brilhinho; skills fofas"): a quinta vocação. A tela de criação
+  não a oferece (`PLAYABLE_VOCATIONS`), a API recusa (`invalid_request`), a wiki não a descreve (nem as magias, nem a
+  família, nem a criatura que só ela invoca) e a janela de roupas das outras vocações nem lista a roupa dela. Só nasce
+  pelo CLI de admin. Nas regras é um druida de outro elemento: vida e mana por level iguais, skills e magic level como os
+  magos, mochila de mago, e **o equipamento e as poções do druida** — toda conferência de "item da minha vocação"
+  (equipar, usar, Q/E, loja, Baú de Recompensa, balão do item, modelo de balanço, wiki) passa por `vocationFits`
+  (`GEAR_VOCATION`: `fairy → druid`), então os itens não precisam citar a vocação oculta; livro no lugar do escudo e
+  refino do livro por `isMage`. O ataque básico dela é sagrado.
+- **14 magias próprias, na "língua das fadas"** (`plim`, `plim beijo`, `plim bolha`, `plim zum`, `plim festa`,
+  `plim espuma`, `plim naninha`, `plim borboleta`, `plim glitter`, `plim algodao`, `plim arco iris`, `plim purpurina`,
+  `plim boa noite`, `plim torcida`): Pó de Pirlimpimpim, Beijinho Curativo, Bolha de Sabão, Asinhas Ligeiras, Chuva de
+  Confete, Banho de Espuma, Cantiga de Ninar, Amiguinha Borboleta (invoca a Borboleta Encantada, a Butterfly cor-de-rosa
+  com os números do Lobo Espiritual), Explosão de Glitter, Sopro de Algodão-Doce, Raio Arco-Íris, Tempestade de
+  Purpurina, Beijo de Boa Noite e Torcida da Fada (lv 100: o grupo causa 15% a mais de dano por 8 s). Treze **espelham
+  as do druida número a número** (level, mana, recarga, alvo, fórmula, condição; gelo/terra viram sagrado/energia e o
+  veneno vira choque) — `spells.test.ts` confere o espelho magia a magia. No modelo de balanço
+  (`vocationBalance.test.ts`) ela rende 1,07 / 1,22 / 0,95× o druida nos lv 30/60/100 (só o elemento contra cada pacote:
+  Bonelord fraco a sagrado, demônios resistentes) e 0,85 / 0,93 / 1,07× o feiticeiro — nunca a mais forte com folga,
+  nunca abaixo do piso de 0,65. Duas famílias ("Brilho no alvo", "Brilho em volta"); barra recomendada de 11 teclas.
+- **Visual**: chave de efeito nova `sparkle` (projétil rosa aditivo com rastro, estourinho com estrela branca, confete
+  rosa tile a tile, ícone de estrela de quatro pontas na janela Magias e na barra) e **brilhinho permanente** em volta
+  do boneco (`CharacterLook.glitter`: faíscas rosa/branco que nascem no corpo, sobem e piscam, dentro do contêiner do
+  ator — seguem o passo e somem com ele; com qualquer roupa).
+- **Roupa "Fada", só dela** (dono: "ela terá um addon só para ela, com os adjetivos que eu falei"): base gerada da Woman
+  do pack (loiro → ruivo cobre, bem mais vermelho que a pele; vestido azul → rosa; laço claro) com retrato, addon 1
+  "Asas de fada" (atrás do corpo de frente, por cima de costas, uma só de lado; batem com o passo; brilhinho que pisca)
+  e addon 2 "Varinha de estrela" (varinha branca com laço rosa e estrela dourada; a faísca alterna com o passo).
+  `unlock: "vocation:fairy"` nos três bits: `isUnlockedIn` libera só para a vocação dona — nem conquista nem
+  `/desbloquear` abrem para outra — e para ela tudo já vem liberado (`achievements.test.ts` dispensa a conquista dessa
+  roupa). O gerador (`tools/addons/generate.mjs`) ganhou `asBase` em `FEMALE_BASES` (sheet única para os dois sexos,
+  gravada em `sheet`/`faceset`); os 42 overlays antigos saíram byte a byte iguais (determinístico).
+- **CLI de admin** (`npm run admin`, `admin.mjs` no Docker): `create-account <conta>` cria a conta sem senha e imprime o
+  código de recuperação de 24 h (a pessoa escolhe a senha em "Esqueci minha senha"); `create-character <conta> "<nome>"
+  <vocação> [m|f]` cria o personagem com o kit inicial (nome conferido como na tela, limite de 5 por conta, aceita a
+  vocação oculta). README e `deploy/docker/README.md`.
+- **Novidades**: um aviso misterioso ("uma fada ruiva anda deixando brilhinho…"), sem dizer como ter.
+- **Verificação**: `npm run typecheck`; `npx vitest run` (testes novos: espelho das magias, balanço da Fada, roupa
+  trancada por vocação no shared e no servidor, criação recusada pela API, CLI de conta e de personagem, atalhos
+  padrão); fumaça no servidor E2E isolado (conta pela API, personagem pelo CLI contra o banco temporário, entrada no
+  mundo com vocação `fairy`, roupa `fada`, 150/50 no lv 1 e 324/920 no lv 30 como o druida, magias pelo chat, capturas
+  do boneco, da janela de roupas e da janela Magias). O build do cliente gera a wiki e falha com link quebrado: foi
+  assim que a página "Cura e poções" apareceu citando o Beijinho — corrigido com o filtro da vocação oculta, e a wiki
+  gerada não cita "Fada", "plim" nem "Borboleta Encantada".
+
+## [Não lançado] — 2026-10-28 · a pilha do topo engolia cliques (missões e chevron)
+
+- **Causa do "não consigo abrir as missões nem a seta do mapa"** (dono: "a notificação no topo tem a largura que tampa
+  as setas do HUD e o botão + das missões"): a pilha do centro do topo (`.top-stack`: selo do evento, avisos, Feed,
+  convites) é um contêiner invisível que vai da borda esquerda até a barra lateral. Ela declara `pointer-events: none`,
+  mas a regra `#ui > * { pointer-events: auto }` tem especificidade de ID e vencia — a faixa inteira engolia o clique
+  no que fica embaixo: o "+"/"−" do rastreador de missões (canto superior esquerdo) e o chevron que abre/recolhe a
+  barra lateral (topo do trilho). Só com o selo "Próximo evento" a faixa cobria a metade de cima dos dois botões
+  (clicar mais embaixo funcionava — daí o "tem hora"); com um aviso ou uma linha do Feed cobria os dois inteiros.
+- **Correção**: `:where(#ui > *) { pointer-events: auto }` (especificidade zero): a classe do próprio filho decide.
+  Vale também para `.loot-stack` (os avisos de loot acima da barra de ações bloqueavam o clique no mundo),
+  `.quest-done`, `.level-banner`, `.conn-banner`, `.arena-count`, `.item-tooltip` e `.drag-ghost`, que declaravam
+  `none` sem efeito. Os filhos da pilha que respondem ao clique (selo, convites, barras do Coliseu e da invasão)
+  continuam clicáveis (`.top-stack > * { auto }`).
+- **Verificação**: sonda Playwright no harness `?uitest` — antes, `elementFromPoint` no centro do chevron e no ponto
+  do "+" devolvia `.top-stack` e o clique real no chevron não recolhia a barra; depois devolve `.rail-chevron` / o
+  canvas do jogo e o clique recolhe. Guarda em `e2e/agenda.spec.ts` (com o selo na pilha, o chevron recebe o clique).
+
+## [Não lançado] — 2026-10-27 · mão de arrastar só nas bolinhas e guarda contra foco preso
+
+- **Cursor** (dono: "mãozinha nas bolinhas para arrastar o HUD, em vez de pointer em tudo"): o cabeçalho das seções da
+  barra lateral e a alça do minimapa passam a cursor normal; só as bolinhas (`.drag-grip`, com um `::after` que amplia
+  a pegada) mostram a mão de arrastar (`grab`; `grabbing` durante o arraste, como antes). Clicar no cabeçalho continua
+  dobrando a seção e arrastar por ele continua reordenando.
+- **Guarda em `isTyping()`** (relato do dono: "tem hora o jogo buga e não consigo abrir e fechar as missões nem a seta
+  do mapa"): todas as teclas do HUD (L, M, H, K…) e o botão do mapa (que dispara a tecla M) são ignorados enquanto um
+  campo de texto tem o foco. Se o campo focado não está mais na tela (escondido ou fora do DOM), o foco é solto e a
+  tecla passa — hipótese mais provável do travamento; causa exata ainda em investigação (ROADMAP LO-5).
+
+## [Não lançado] — 2026-10-27 · login salvo no navegador, olho em pixel art e painel Online reorganizado
+
+Pedidos do dono: "organizar melhor a lista de onlines e melhorar os botões", "tirar o botão de olho da senha ou deixar
+um pixel art", "salvar o login no navegador: a pessoa entra direto e só escolhe o personagem".
+- **Login salvo**: a sessão da conta vai para o `localStorage` (era `sessionStorage`, só na aba) e o servidor a vence
+  após **30 dias sem uso** (`SESSION_IDLE_MS`, era 30 min; renovada a cada uso, sobrevive a reinício porque o hash já
+  ficava no banco). Abrir o jogo cai direto na lista de personagens; "Sair da conta" apaga (dica na tela de login e
+  no README para computador compartilhado). `auth.test.ts` ajustado.
+- **Olho da senha** em pixel art: bitmaps `eye`/`eye_closed` em `icons.tsx` no lugar dos emojis 👁/🙈.
+- **Painel Online** (`OnlinePanel.tsx`, `onlineLogic.groupOnline`, `online.css`): três blocos com título em caixa
+  alta e contagem — Seu grupo, Amigos, No mundo (um bloco só fica sem título) — e "Amigos fora do jogo" tracejado;
+  cada linha com o rosto da vocação (faceset do pack), nome na cor da vocação em cima e "lv · zona · ausente"
+  embaixo; botões quadrados de 22 px com a moldura do HUD e ícones em pixel art (estrela cheia/vazia `star`/
+  `star_outline`, `plus`, `bubble`), verde no convite e dourado no amigo ao passar o mouse. Seletores do E2E
+  (`data-online`, `.online-sub`, rótulos dos botões) mantidos. O harness `?uitest` ganhou uma lista Online de exemplo.
+
+## [Não lançado] — 2026-10-27 · wiki com a cara do jogo
+
+Pedido do dono: "deixe a wiki com uma carinha mais do Lemon Quest". Só `tools/wiki/wiki.css`, o `layout()` de
+`html.mts` e 4 linhas do `wiki.js`; nenhuma página mudou de conteúdo.
+- **A página é uma janela do HUD**: Pixelify Sans (a fonte do jogo, do Google Fonts como no cliente), o conteúdo num
+  painel escuro quase opaco com a borda e o brilho interno das molduras do HUD, e a trilha ("Criaturas › Dragão")
+  colada em cima como faixa de título. O fundo é a cor sólida do HUD com grain (ruído SVG inline, sem imagem) — a
+  primeira versão punha o `mapa.png` pixelado ao fundo e o dono preferiu a cor sólida. Barra de cima como a `.win-title` (título dourado em caixa alta com o limão do
+  favicon, selo "WIKI", menu em abas de 11 px espaçadas, campo de busca como o do login).
+- **Cabeçalhos de seção** como os painéis laterais (`.hud-section-head`): caixa alta, espaçamento de 1,5 px e o
+  triângulo ▸ dourado; a infobox virou o painel "Personagem" (cabeçalho com ▾, retrato num poço, linhas separadas).
+  Tabelas em poço escuro como a lista de Batalha, com cabeçalho em caixa alta e, nas colunas numéricas, alinhado à
+  direita (o `wiki.js` marca `th.n` pela 1ª linha). Selos, sumário e passos de missão com a moldura dos `count-chip`.
+- Dourado só onde o jogo usa (títulos, números grandes, links; hover em amarelo-limão), entrada da janela com o
+  `hud-pop` de 180 ms (desligado em `prefers-reduced-motion`). Capturas conferidas: início, criatura, item, NPC,
+  missão, mapa e mecânica.
+
+## [Não lançado] — 2026-10-27 · mochila que se organiza sozinha e maior por vocação
+
+Pedido do dono: "organizar a mochila sozinho, aumentar a capacidade de cada vocação e poder puxar o item para
+qualquer quadrado da bag, que ele entra no lugar que tiver vazio". Decisões: organização sempre automática (sem
+interruptor) e capacidade por vocação como no Tibia (cavaleiro carrega mais).
+- **Mochila automática** (`InventorySystem.organizeBackpack`, em cada `flush`): junta as pilhas iguais e ordena com a
+  mesma regra do "Organizar" do depot (equipamento na ordem do corpo → poções → comida → materiais → chaves/missão).
+  Só no flush: dentro de um tick os índices que o cliente mandou continuam valendo. Arrastar dentro da mochila deixa
+  de fazer qualquer coisa (o cliente nem marca os quadrados como alvo válido e explica "A mochila se organiza
+  sozinha"); dividir pilha dentro dela não existe mais (seria juntada de volta).
+- **Qualquer quadrado serve**: do depot (`moveContainer` → `spill`) e do chão (`placePickup`) o item entra na pilha
+  igual com espaço ou no primeiro vazio, seja onde for solto; "Mochila cheia" só se nada coube. Do equipamento
+  continua a troca com um item equipável no quadrado (senão o primeiro vazio).
+- **Capacidade por vocação** (`BACKPACK_BY_VOCATION`, `backpackCapacity(level, vocation)`, `BACKPACK_LEVELS_PER_SLOT`
+  4): cavaleiro 30 → 60 (lv 121), paladino 26 → 52 (lv 105), feiticeiro e druida 24 → 48 (lv 97); era 20 → 40 igual
+  para todos. Saves antigos crescem sozinhos ao entrar (`fitBackpack`). A grade da mochila passou a 5 por linha
+  (38 px; `panelSize` com linha de 42 px) para 60 espaços não ficarem compridos. Wiki (Experiência e levels → Mochila)
+  com a tabela por vocação.
+- Testes: `inventory.test.ts` (fórmula por vocação, organização no flush, depot → mochila em qualquer quadrado,
+  mochila cheia, divisão/troca só no depot), `ground.test.ts` (pegar do chão ignora o quadrado pedido),
+  `panelSize.test.ts`; os que enchem a mochila usam `backpackCapacity(p.level, p.vocation)`. E2E `panels.spec.ts`
+  (arrastar dentro da mochila não move) e `ground.spec.ts` (item do chão entra onde a ordenação mandar).
 
 ## [Não lançado] — 2026-10-27 · monstro voltando ao spawn toma dano e cura aos poucos
 

@@ -13,6 +13,51 @@ Ordem: 14 correções ✅ → 15 balanço das vocações e morte no 60+ ✅ → 
 covis, refino, Coliseu 61–70) ✅ → 17 descoberta e interface (+ bocas de caverna) ✅ → 18 invasões da Vila e Mural de
 Excursões ✅ → 19 Siderúrgica ✅ → 20 Montadora ✅. Para depois (dono): Murphy, guilda, mercado, casas.
 
+## Chat (2026-10-28)
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| CH-1 | Dono: "quero que o scroll do chat desça automaticamente". Causa: em rajadas o evento de scroll da nossa descida chegava depois da linha seguinte e era lido como "o leitor subiu" (`isAtBottom` com a lista já maior) — o chat parava em "↓ N novas" sozinho. `scrolledAtBottom` compara com a posição que deixamos; e subir no histórico só segura enquanto o mouse está sobre o chat | ✅ (2026-10-28) | `chatScroll.test.ts`; sonda no harness `?uitest` com 13 cenários (rajadas, leitor lendo, mouse fora, recolhido, texto grande, digitando) |
+
+## Fada Gabi — vocação oculta (2026-10-28)
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| FG-1 | Dono: "personagem Fada Gabi, criado direto, classe nova bloqueada ou oculta". Vocação `fairy` (Fada): fora da criação (`PLAYABLE_VOCATIONS`), da API e da wiki; druida de outro elemento (vida/mana, skills, mochila, equipamento e poções do druida por `vocationFits`/`GEAR_VOCATION`) | ✅ (2026-10-28) | `auth.test.ts` (API recusa), `items.test.ts` (cobertura por `vocationFits`), `vocationBalance.test.ts` (0,85–1,07× o feiticeiro; piso 0,65 mantido), wiki gerada sem "Fada"/"plim" |
+| FG-2 | Dono: "skills fofas, algo bem divertido". 14 magias `plim …` espelhando as do druida número a número (sagrado/energia; choque no lugar de veneno) + Torcida da Fada no lv 100; famílias "Brilho no alvo"/"Brilho em volta"; efeito `sparkle` rosa | ✅ (2026-10-28) | `spells.test.ts` (espelho magia a magia, 59 magias), `spellFamilies.test.ts`, `hotkeys.test.ts` (11 teclas); fumaça no servidor E2E (magias pelo chat) |
+| FG-3 | Dono: "fofa, ruiva, tom de rosa e com brilhinho; um addon só para ela". Roupa "Fada" (Woman ruiva de vestido rosa, gerada) com Asas de fada e Varinha de estrela, trancada por vocação (`unlock: "vocation:fairy"`, invisível às outras na janela de roupas); brilhinho permanente no boneco (`CharacterLook.glitter`) | ✅ (2026-10-28) | `outfits.test.ts`, `outfit.test.ts` (só a Fada veste, nem com `/desbloquear`), `achievements.test.ts`; `preview_sexo.png`/capturas |
+| FG-4 | CLI: `create-account` (conta sem senha + código de recuperação) e `create-character` (kit inicial; aceita a vocação oculta) | ✅ (2026-10-28) | `admincli.test.ts`; README e `deploy/docker/README.md` |
+| FG-5 | Criar a Fada Gabi em produção: não há conta "gabi" ainda (12 contas, nenhuma dela). Depois do deploy: `create-account <conta da Gabi>` + `create-character <conta> "Fada Gabi" fairy f` no container, e passar o código de recuperação a ela — ou criar na conta que o dono indicar | 🧭 | — |
+| FG-6 | Olhar a Fada numa sessão real (brilhinho e efeitos `sparkle` em vários PCs; custo do emissor por boneco é 1 partícula a cada 150 ms) e ajustar a arte se o dono quiser (cor do cabelo, tamanho das asas) | ⏳ | — |
+
+## Login e painel Online (2026-10-27)
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| LO-1 | Dono: "salvar o login no navegador, entra direto e só escolhe o personagem". Sessão da conta no `localStorage` + `SESSION_IDLE_MS` 30 dias; "Sair da conta" apaga | ✅ (2026-10-27) | `auth.test.ts` (expiração, reinício) |
+| LO-2 | Dono: "tirar o olho da senha ou pôr um pixel art". Olho aberto/fechado em `PixelIcon` | ✅ (2026-10-27) | captura da tela de login |
+| LO-3 | Dono: "organizar melhor a lista de onlines e melhorar os botões". Blocos Seu grupo/Amigos/No mundo, rosto da vocação, botões de 22 px com ícones em pixel art | ✅ (2026-10-27) | `onlineLogic.test.ts` (blocos); E2E `mural.spec.ts` (seletores mantidos); captura no harness |
+| LO-4 | Sessão de 30 dias num PC compartilhado do escritório: se virar problema, "Sair da conta" automático ao fechar a aba ou aviso no login | 🧭 | — |
+| LO-5 | Relato do dono: "tem hora o jogo buga e não consigo abrir e fechar as missões nem a seta do mapa". Causa (dono, 2026-10-28: "a notificação no topo tampa as setas e o +"): a pilha do topo (`.top-stack`: selo do evento, avisos, Feed) é invisível e larga como a área de jogo, e `#ui > * { pointer-events: auto }` (especificidade de ID) vencia o `pointer-events: none` dela — engolia o clique no "+" do rastreador e no chevron do trilho. Corrigido com `:where(#ui > *)`; o mesmo valia para `.loot-stack`, `.quest-done`, `.level-banner`. A guarda em `isTyping()` (foco preso em campo escondido) fica | ✅ (2026-10-28) | sonda Playwright no harness `?uitest` (antes: `elementFromPoint` → `.top-stack`, clique engolido; depois: `.rail-chevron`, clique recolhe) + guarda em `e2e/agenda.spec.ts` |
+| LO-6 | Dono: "mãozinha nas bolinhas para arrastar o HUD, em vez de pointer em tudo": cabeçalhos com cursor normal, só o `.drag-grip` com `grab` | ✅ (2026-10-27) | visual |
+
+## Wiki do jogo (2026-10-27)
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| WK-1 | Wiki gerada dos dados (`npm run wiki`, servida em `/wiki/`, link no F1) — PR #35 | ✅ (2026-10-27) | build falha com link quebrado; 735 páginas conferidas por amostra |
+| WK-2 | Dono: "uma carinha mais do Lemon Quest". Visual do HUD: Pixelify Sans, painel-janela sobre fundo de cor sólida com grain (o dono dispensou o mapa ao fundo), cabeçalhos de seção com ▸, infobox como o painel Personagem, tabelas em poço | ✅ (2026-10-27) | capturas (início, criatura, item, NPC, missão, mapa, mecânica) |
+| WK-3 | Números do servidor copiados na wiki (Baú de Recompensa, pesca, cassino): mover para o `shared` para nunca divergirem | ⏳ | — |
+
+## Mochila automática e capacidade por vocação (2026-10-27)
+
+| # | Item | Status | Validação |
+|---|---|---|---|
+| MO-1 | Dono: "organizar a mochila sozinho". Decisão: sempre automático, sem interruptor — a cada flush o servidor junta pilhas iguais e ordena como o Organizar do depot; arrastar dentro da mochila não faz nada (cliente explica) | ✅ (2026-10-27) | `inventory.test.ts` (organiza no flush); E2E `panels.spec.ts` |
+| MO-2 | "Puxar o item para qualquer quadrado e ele entra no lugar vazio": depot e chão → pilha igual ou primeiro vazio, seja onde for solto; equipamento mantém a troca com item equipável | ✅ (2026-10-27) | `inventory.test.ts`, `ground.test.ts`; E2E `ground.spec.ts` |
+| MO-3 | "Aumentar a capacidade de cada vocação". Decisão: como no Tibia — cavaleiro 30 → 60, paladino 26 → 52, magos 24 → 48, +1 a cada 4 levels (era 20 → 40 igual para todos); grade de 5 por linha | ✅ (2026-10-27) | `inventory.test.ts` (fórmula), `panelSize.test.ts`; wiki com tabela |
+| MO-4 | Acompanhar se alguém sente falta de arrumar a mochila na mão (o depot continua manual, com Organizar); se pedirem, um interruptor "Organizar sozinha" por personagem | 🧭 | — |
+
 ## Personagens masculinos e femininos (2026-10-27)
 
 | # | Item | Status | Validação |
@@ -80,7 +125,7 @@ Especificação: [regioes/siderurgica.md](regioes/siderurgica.md).
 |---|---|---|---|
 | 18-1 | Invasão da Vila (quarta 12h15; Maré → quinta 13h) | ✅ | `invasion.test.ts` (shared e servidor), `events.test.ts` (sem sobreposição), `diff-world` 0 tiles |
 | 18-2 | Mural de Excursões | ✅ | `excursions.test.ts` (shared e servidor) |
-| 18-3 | Painel Online/Amigos | ✅ | `social.test.ts` |
+| 18-3 | Painel Online/Amigos (reorganizado em 2026-10-27: blocos, rosto da vocação e botões em pixel art — ver LO-3) | ✅ | `social.test.ts`, `onlineLogic.test.ts` |
 | 18-4 | Desafios semanais, bônus de login, conquistas, pesca, ranking, tela de morte, alerta da aba | ✅ | `challenges`, `loginBonus`, `achievements`, `fishing`, `ranking`, `attentionLogic` |
 | 14-24 | E2E `spells.spec` instável no CI | ✅ | `castWorks` com bonecos de treino, linha de visão e mira por id (CI da PR) |
 | 18-5 | Acompanhar a 1ª Invasão real (quarta 12h15): presença, ondas, prêmios | ⏳ | logs `[invasao]` |

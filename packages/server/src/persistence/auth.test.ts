@@ -106,6 +106,8 @@ describe("auth: contas", () => {
     expect(handleCreateCharacter({ session: b.session, name: "LEO", vocation: "druid" })).toEqual({ ok: false, error: "name_taken" });
     expect(handleCreateCharacter({ session: b.session, name: "Leo!", vocation: "druid" })).toEqual({ ok: false, error: "invalid_name" });
     expect(handleCreateCharacter({ session: b.session, name: "Zeca", vocation: "pirata" as any })).toEqual({ ok: false, error: "invalid_request" });
+    // A Fada é oculta: a tela de criação (e um POST à mão) não cria; só o CLI de admin (admincli.test.ts).
+    expect(handleCreateCharacter({ session: b.session, name: "Zeca", vocation: "fairy" })).toEqual({ ok: false, error: "invalid_request" });
     expect(handleCreateCharacter({ session: b.session, name: "Zeca", vocation: "druid", sex: "x" as any })).toEqual({ ok: false, error: "invalid_request" });
     expect(handleCreateCharacter({ session: "lixo", name: "Zeca", vocation: "druid" })).toEqual({ ok: false, error: "invalid_session" });
     const list = okSession(await handleLogin({ account: "contaA", password: "segredo1" }));
@@ -123,7 +125,7 @@ describe("auth: contas", () => {
       expect(handleCreateCharacter({ session: a.session, name: "Ocupado", vocation: "druid" }, { now })).toMatchObject({ error: "name_taken" });
     }
     expect(handleCreateCharacter({ session: a.session, name: "Livre", vocation: "druid" }, { now })).toMatchObject({ error: "too_many_attempts" });
-    t += 3600_001; // a sessão expirou (30 min): entra de novo
+    t += 3600_001; // passou 1 h: a cota zera (a sessão continua válida; entrar de novo abre outra)
     const a2 = okSession(await handleLogin({ account: "spam", password: "segredo1" }, { ip: "1.1.1.1", now }));
     expect(handleCreateCharacter({ session: a2.session, name: "Livre", vocation: "druid" }, { now })).toMatchObject({ ok: true });
   });
@@ -146,7 +148,8 @@ describe("auth: contas", () => {
     expect(() => consumeToken(p2.token, Date.now() + 61_000)).toThrow();
   });
 
-  it("sessão: expira após 30 min sem uso (uso renova); logout invalida", async () => {
+  it("sessão: expira após SESSION_IDLE_MS (30 dias) sem uso (uso renova); logout invalida", async () => {
+    expect(SESSION_IDLE_MS).toBe(30 * 24 * 3600_000);
     let t = 10_000_000;
     const now = () => t;
     const a = okSession(await create("conta", "segredo1", "1.1.1.1", now));
